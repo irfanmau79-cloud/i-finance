@@ -45,6 +45,11 @@ Route::middleware('auth')->group(function () {
         Route::get('/npd', [NpdController::class, 'index'])->name('npd.index');
         Route::get('/npd/bj/create', [NpdBjController::class, 'create'])->name('npd.bj.create');
         Route::post('/npd/bj', [NpdBjController::class, 'store'])->name('npd.bj.store');
+    });
+
+    // Detail & transisi status NPD: semua peran yang terlibat di alur workflow.
+    Route::middleware('role:bendahara,pptk,bpp,verifikator')->group(function () {
         Route::get('/npd/{npd}', [NpdController::class, 'show'])->name('npd.show');
+        Route::post('/npd/{npd}/transisi', [NpdController::class, 'transisi'])->name('npd.transisi');
     });
 });

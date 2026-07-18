@@ -12,10 +12,21 @@
         <div class="sumbar ok"><span>{{ session('success') }}</span></div>
     @endif
 
+    @if ($errors->any())
+        <div class="err-box" style="display:block;">
+            <strong>Gagal memproses aksi:</strong>
+            <ul style="margin:6px 0 0;padding-left:18px;">
+                @foreach ($errors->all() as $error)
+                    <li>{{ $error }}</li>
+                @endforeach
+            </ul>
+        </div>
+    @endif
+
     <div class="rev">
         <div class="grp">
             <div class="gt">Informasi Umum</div>
-            <div class="li"><span class="k">Status</span><span class="v"><span class="badge st-diterima">{{ $npd->status }}</span></span></div>
+            <div class="li"><span class="k">Status</span><span class="v"><span class="badge {{ \App\Models\Npd::STATUS_BADGE_CLASS[$npd->status] ?? 'st-diterima' }}">{{ $npd->status }}</span></span></div>
             <div class="li"><span class="k">Tanggal NPD</span><span class="v">{{ $npd->tanggal_npd->format('d-m-Y') }}</span></div>
             <div class="li"><span class="k">Bulan / Tahun</span><span class="v">{{ $npd->bulan }} / {{ $npd->tahun }}</span></div>
             <div class="li"><span class="k">KEU</span><span class="v">{{ $npd->keu }}</span></div>
@@ -45,6 +56,39 @@
         <div class="grp">
             <div class="gt">Catatan</div>
             <div class="li"><span class="v">{{ $npd->catatan }}</span></div>
+        </div>
+        @endif
+
+        @php
+            $wfClass = [
+                'ajukan_bpp' => 'wf-teruskan',
+                'teruskan' => 'wf-teruskan',
+                'verifikasi' => 'wf-verif',
+                'kembali_bpp' => 'wf-kembali',
+                'kembali_pptk' => 'wf-kembali',
+                'setuju' => 'wf-setuju',
+                'selesai' => 'wf-selesai',
+                'batal_selesai' => 'wf-kembali',
+            ];
+            $aksiButuhForm = ['verifikasi', 'kembali_bpp', 'kembali_pptk', 'batal_selesai'];
+        @endphp
+        @if (count($aksiTersedia))
+        <div class="grp">
+            <div class="gt">Aksi Workflow</div>
+            <div style="display:flex;flex-wrap:wrap;gap:6px;">
+                @foreach ($aksiTersedia as $aksi)
+                    @php $rule = \App\Models\Npd::TRANSISI[$aksi]; @endphp
+                    @if (in_array($aksi, $aksiButuhForm, true))
+                        <button type="button" class="wf-btn {{ $wfClass[$aksi] }}" data-wf-open="{{ $aksi }}">{{ $rule['label'] }}</button>
+                    @else
+                        <form method="POST" action="{{ route('npd.transisi', $npd) }}" onsubmit="return confirm('Yakin {{ $rule['label'] }}?');" style="display:inline;">
+                            @csrf
+                            <input type="hidden" name="aksi" value="{{ $aksi }}">
+                            <button type="submit" class="wf-btn {{ $wfClass[$aksi] }}">{{ $rule['label'] }}</button>
+                        </form>
+                    @endif
+                @endforeach
+            </div>
         </div>
         @endif
     </div>
@@ -95,4 +139,77 @@
         <a class="btn" href="{{ route('npd.index') }}">Kembali ke Daftar NPD</a>
     </div>
 </div>
+
+@if (count($aksiTersedia))
+<div class="mdl-ov" id="wf-mdl-ov">
+  <div class="mdl">
+    <div class="mdl-h" id="wf-mdl-title">Aksi</div>
+    <div class="mdl-b">
+      <form method="POST" action="{{ route('npd.transisi', $npd) }}" id="wf-mdl-form">
+        @csrf
+        <input type="hidden" name="aksi" id="wf-mdl-aksi" value="">
+        <div id="wf-mdl-nomor-wrap" style="display:none;">
+          <label class="fl">Nomor Urut NPD (1&ndash;999)</label>
+          <input type="number" name="nomor_urut" id="wf-mdl-nomor" min="1" max="999">
+        </div>
+        <div id="wf-mdl-catatan-wrap">
+          <label class="fl" id="wf-mdl-catatan-label">Catatan</label>
+          <textarea name="catatan" id="wf-mdl-catatan" rows="3" style="width:100%;box-sizing:border-box;"></textarea>
+        </div>
+        <div class="mdl-f" style="padding:14px 0 0;">
+          <button type="button" class="btn" onclick="wfModalClose()">Batal</button>
+          <button type="submit" class="btn prim">Kirim</button>
+        </div>
+      </form>
+    </div>
+  </div>
+</div>
+
+<script>
+(function () {
+    var WF_FORM_META = {
+        verifikasi: { title: 'Verifikasi NPD', nomor: true, catatanLabel: 'Catatan (opsional)', catatanRequired: false },
+        kembali_bpp: { title: 'Kembalikan ke BPP', nomor: false, catatanLabel: 'Catatan Revisi (wajib)', catatanRequired: true },
+        kembali_pptk: { title: 'Kembalikan ke PPTK', nomor: false, catatanLabel: 'Catatan Revisi (wajib)', catatanRequired: true },
+        batal_selesai: { title: 'Batalkan Status Selesai', nomor: false, catatanLabel: 'Alasan Pembatalan (wajib)', catatanRequired: true }
+    };
+
+    var ov = document.getElementById('wf-mdl-ov');
+    var aksiField = document.getElementById('wf-mdl-aksi');
+    var nomorWrap = document.getElementById('wf-mdl-nomor-wrap');
+    var nomorInput = document.getElementById('wf-mdl-nomor');
+    var catatanLabel = document.getElementById('wf-mdl-catatan-label');
+    var catatanInput = document.getElementById('wf-mdl-catatan');
+    var titleEl = document.getElementById('wf-mdl-title');
+
+    function wfModalOpen(aksi) {
+        var meta = WF_FORM_META[aksi];
+        if (! meta) return;
+
+        titleEl.textContent = meta.title;
+        aksiField.value = aksi;
+
+        nomorWrap.style.display = meta.nomor ? 'block' : 'none';
+        nomorInput.required = meta.nomor;
+        nomorInput.value = '';
+
+        catatanLabel.textContent = meta.catatanLabel;
+        catatanInput.required = meta.catatanRequired;
+        catatanInput.value = '';
+
+        ov.classList.add('show');
+    }
+
+    window.wfModalClose = function () {
+        ov.classList.remove('show');
+    };
+
+    document.querySelectorAll('[data-wf-open]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            wfModalOpen(btn.getAttribute('data-wf-open'));
+        });
+    });
+})();
+</script>
+@endif
 @endsection
