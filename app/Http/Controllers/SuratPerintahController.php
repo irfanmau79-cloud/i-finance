@@ -6,6 +6,7 @@ use App\Http\Requests\StoreSuratPerintahRequest;
 use App\Http\Requests\UpdateSuratPerintahRequest;
 use App\Models\SuratPerintah;
 use Illuminate\Support\Facades\Storage;
+use Mpdf\Mpdf;
 
 class SuratPerintahController extends Controller
 {
@@ -14,6 +15,32 @@ class SuratPerintahController extends Controller
         $suratPerintahs = SuratPerintah::orderBy('tanggal_sp', 'desc')->get();
 
         return view('surat-perintah.index', compact('suratPerintahs'));
+    }
+
+    public function exportPdf()
+    {
+        $suratPerintahs = SuratPerintah::orderBy('tanggal_sp', 'desc')->get();
+
+        $html = view('surat-perintah.pdf', compact('suratPerintahs'))->render();
+
+        $mpdf = new Mpdf([
+            'format' => [215, 330],
+            'orientation' => 'L',
+            'margin_left' => 7,
+            'margin_right' => 7,
+            'margin_top' => 7,
+            'margin_bottom' => 7,
+            'default_font' => 'arial',
+        ]);
+
+        $mpdf->WriteHTML($html);
+
+        $fileName = 'daftar-sp-'.now()->format('Ymd').'.pdf';
+
+        return response($mpdf->Output($fileName, \Mpdf\Output\Destination::STRING_RETURN), 200, [
+            'Content-Type' => 'application/pdf',
+            'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
+        ]);
     }
 
     public function create()

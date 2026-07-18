@@ -59,6 +59,7 @@
 
     <div class="actions">
         <a href="{{ route('surat-perintah.create') }}">Tambah SP</a>
+        <a href="{{ route('surat-perintah.export-pdf') }}">Export PDF</a>
     </div>
 
     <table>
