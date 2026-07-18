@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Model;
     'nip',
     'jabatan',
     'bidang',
+    'rekening',
     'aktif',
 ])]
 class Pegawai extends Model

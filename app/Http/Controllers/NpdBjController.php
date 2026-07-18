@@ -20,8 +20,8 @@ class NpdBjController extends Controller
             ->orderBy('sub_kegiatan')
             ->get();
 
-        $pegawai = Pegawai::where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'jabatan', 'bidang']);
-        $vendor = Vendor::where('aktif', true)->orderBy('nama')->get(['id', 'nama']);
+        $pegawai = Pegawai::where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'jabatan', 'bidang', 'rekening']);
+        $vendor = Vendor::where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'rekening']);
 
         $bulanList = [
             1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
@@ -89,6 +89,14 @@ class NpdBjController extends Controller
         if ($nominal <= 0) {
             return back()->withInput()->withErrors([
                 'penerima' => 'Total Bruto seluruh penerima harus lebih dari 0.',
+            ]);
+        }
+
+        $sisa = $masterAnggaran->sisaAnggaran();
+
+        if ($nominal > $sisa) {
+            return back()->withInput()->withErrors([
+                'penerima' => 'Total Bruto (Rp '.number_format($nominal, 2, ',', '.').') melebihi Sisa Anggaran sumber dana ini (Rp '.number_format($sisa, 2, ',', '.').').',
             ]);
         }
 

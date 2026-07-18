@@ -141,6 +141,130 @@ class NpdBjTest extends TestCase
         $showResponse->assertSee('PPh Pasal 4(2)');
     }
 
+    public function test_form_create_menampilkan_sisa_anggaran_dan_rekening_pegawai_vendor(): void
+    {
+        $pptk = User::create([
+            'username' => 'test-pptk-sisa',
+            'nama' => 'Test PPTK Sisa',
+            'role' => 'pptk',
+            'password' => 'rahasia',
+        ]);
+
+        $masterAnggaran = MasterAnggaran::create([
+            'program' => 'Program Uji',
+            'kegiatan' => 'Kegiatan Uji',
+            'sub_kegiatan' => '6.01.01.2.01 Sub Kegiatan Uji',
+            'kode_rekening' => '5.1.02.01.01.0002',
+            'uraian_rekening' => 'Belanja Makanan dan Minuman Rapat',
+            'tagging_id' => null,
+            'pagu' => 1_000_000,
+            'aktif' => true,
+        ]);
+
+        // NPD lama berstatus Draft tetap mengurangi sisa (dananya sudah dipesan).
+        Npd::create([
+            'jenis' => 'bj',
+            'master_anggaran_id' => $masterAnggaran->id,
+            'keu' => '1',
+            'bulan' => 7,
+            'tahun' => 2026,
+            'tanggal_npd' => '2026-07-18',
+            'jenis_panjar' => 'Tanpa Panjar',
+            'nominal' => 300_000,
+            'terbilang' => 'tiga ratus ribu rupiah',
+            'status' => 'Draft NPD - PPTK',
+        ]);
+
+        $pegawai = Pegawai::create([
+            'nama' => 'Ani Wijaya',
+            'nip' => '198501012000032002',
+            'jabatan' => 'Staf',
+            'bidang' => 'Sekretariat',
+            'rekening' => '112233445566',
+            'aktif' => true,
+        ]);
+
+        $vendor = Vendor::create([
+            'nama' => 'CV Sumber Rejeki',
+            'rekening' => '998877665544',
+            'aktif' => true,
+        ]);
+
+        $this->assertEquals(700_000.0, $masterAnggaran->sisaAnggaran());
+
+        $response = $this->actingAs($pptk)->get(route('npd.bj.create'));
+
+        $response->assertStatus(200);
+        $response->assertSee('Sisa Anggaran');
+
+        // Sisa (700.000), bukan pagu (1.000.000), yang dikirim ke JS untuk sumber dana ini.
+        $response->assertSee('"id":'.$masterAnggaran->id.',"program"', false);
+        $response->assertSee('"sisa":700000', false);
+
+        // Kode Rekening + uraiannya (dari kolom D yang sudah dipisah saat import) ikut dikirim ke JS.
+        $response->assertSee('"kode_rekening":"5.1.02.01.01.0002","uraian_rekening":"Belanja Makanan dan Minuman Rapat"', false);
+
+        // Rekening pegawai & vendor ikut dikirim untuk auto-isi No. Rekening.
+        $response->assertSee('"nama":"Ani Wijaya"', false);
+        $response->assertSee('"rekening":"112233445566"', false);
+        $response->assertSee('"nama":"CV Sumber Rejeki"', false);
+        $response->assertSee('"rekening":"998877665544"', false);
+    }
+
+    public function test_nominal_melebihi_sisa_anggaran_ditolak(): void
+    {
+        $pptk = User::create([
+            'username' => 'test-pptk-tolak',
+            'nama' => 'Test PPTK Tolak',
+            'role' => 'pptk',
+            'password' => 'rahasia',
+        ]);
+
+        $masterAnggaran = MasterAnggaran::create([
+            'program' => 'Program Uji',
+            'kegiatan' => 'Kegiatan Uji',
+            'sub_kegiatan' => '6.01.01.2.01 Sub Kegiatan Uji',
+            'kode_rekening' => '5.1.02.01.01.0003',
+            'tagging_id' => null,
+            'pagu' => 1_000_000,
+            'aktif' => true,
+        ]);
+
+        // Sudah terpakai 800.000, sisa hanya 200.000.
+        Npd::create([
+            'jenis' => 'bj',
+            'master_anggaran_id' => $masterAnggaran->id,
+            'keu' => '1',
+            'bulan' => 7,
+            'tahun' => 2026,
+            'tanggal_npd' => '2026-07-18',
+            'jenis_panjar' => 'Tanpa Panjar',
+            'nominal' => 800_000,
+            'terbilang' => 'delapan ratus ribu rupiah',
+            'status' => 'Selesai',
+        ]);
+
+        $payload = [
+            'master_anggaran_id' => $masterAnggaran->id,
+            'jenis_panjar' => 'Tanpa Panjar',
+            'tanggal_npd' => '2026-07-18',
+            'bulan' => 7,
+            'tahun' => 2026,
+            'penerima' => [
+                [
+                    'nama' => 'Penerima Uji',
+                    'bruto' => 500_000,
+                    'keterangan' => 'Melebihi sisa anggaran',
+                ],
+            ],
+        ];
+
+        $response = $this->actingAs($pptk)->post(route('npd.bj.store'), $payload);
+
+        $response->assertSessionHasErrors(['penerima']);
+        $this->assertSame(0, Npd::where('master_anggaran_id', $masterAnggaran->id)->where('nominal', 500_000)->count());
+    }
+
     public function test_bendahara_dan_pptk_boleh_akses_tapi_role_lain_ditolak(): void
     {
         $verifikator = User::create([

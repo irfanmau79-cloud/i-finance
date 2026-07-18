@@ -27,7 +27,7 @@
         </div>
         <div class="fg">
             <label class="fl">No. Rekening</label>
-            <input type="text" name="penerima[{{ $i }}][rekening]" value="{{ $rekeningVal }}">
+            <input type="text" data-rekening name="penerima[{{ $i }}][rekening]" value="{{ $rekeningVal }}">
         </div>
         <div class="fg">
             <label class="fl">Bruto (Rp)</label>

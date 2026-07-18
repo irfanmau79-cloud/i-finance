@@ -196,8 +196,20 @@ class ImportMaster extends Command
             $taggingName = trim((string) ($this->extractFormulaValue($row[4] ?? null) ?? ''));
             $paguRaw = $this->extractFormulaValue($row[5] ?? null);
 
-            // Sel kode rekening berisi "kode\ndeskripsi" - hanya kodenya yang disimpan.
-            $kodeRekening = trim(explode("\n", $kodeRekeningFull, 2)[0]);
+            // Sel kode rekening berisi "kode uraian" digabung dengan spasi, mis.
+            // "5.1.02.001.001.00052 Belanja Makanan dan Minuman Rapat". Kata
+            // pertama adalah kode, sisanya uraian (sama seperti GAS: uraianRek
+            // = split(' ').slice(1).join(' ')).
+            $spacePos = strpos($kodeRekeningFull, ' ');
+
+            if ($spacePos === false) {
+                $kodeRekening = $kodeRekeningFull;
+                $uraianRekening = null;
+            } else {
+                $kodeRekening = substr($kodeRekeningFull, 0, $spacePos);
+                $uraianRekening = trim(substr($kodeRekeningFull, $spacePos + 1));
+                $uraianRekening = $uraianRekening !== '' ? $uraianRekening : null;
+            }
 
             if ($subKegiatan === '' || $kodeRekening === '') {
                 $dilewati++;
@@ -244,6 +256,7 @@ class ImportMaster extends Command
                     [
                         'program' => $program,
                         'kegiatan' => $kegiatan,
+                        'uraian_rekening' => $uraianRekening,
                         'pagu' => $pagu,
                         'aktif' => true,
                     ]
@@ -313,6 +326,7 @@ class ImportMaster extends Command
             $nip = trim((string) ($row[2] ?? ''));
             $jabatan = trim((string) ($row[5] ?? ''));
             $bidang = trim((string) ($row[6] ?? ''));
+            $rekening = trim((string) ($row[8] ?? ''));
 
             if ($nama === '') {
                 $pegDilewati++;
@@ -337,6 +351,7 @@ class ImportMaster extends Command
                             'nama' => $nama,
                             'jabatan' => $jabatan,
                             'bidang' => $bidang,
+                            'rekening' => $rekening !== '' ? $rekening : null,
                             'aktif' => true,
                         ]
                     );
@@ -364,7 +379,10 @@ class ImportMaster extends Command
                 try {
                     $model = Vendor::updateOrCreate(
                         ['nama' => $nama],
-                        ['aktif' => true]
+                        [
+                            'rekening' => $rekening !== '' ? $rekening : null,
+                            'aktif' => true,
+                        ]
                     );
 
                     $seenVendorNames[] = $nama;

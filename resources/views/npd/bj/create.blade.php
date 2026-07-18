@@ -52,7 +52,8 @@
             <div class="ai"><span class="k">Sub Kegiatan</span><span class="v" id="ma-sub"></span></div>
             <div class="ai"><span class="k">Kode Rekening</span><span class="v" id="ma-kode"></span></div>
             <div class="ai"><span class="k">Tagging</span><span class="v" id="ma-tagging"></span></div>
-            <div class="ai"><span class="k">Pagu</span><span class="v" id="ma-pagu"></span></div>
+            <div class="ai"><span class="k">Pagu Anggaran</span><span class="v" id="ma-pagu"></span></div>
+            <div class="ai"><span class="k">Sisa Anggaran</span><span class="v" id="ma-sisa" style="color:var(--ok);font-weight:800;"></span></div>
             <div class="ai"><span class="k">KEU</span><span class="v" id="ma-keu"></span></div>
         </div>
 
@@ -116,9 +117,11 @@
         'kegiatan' => $m->kegiatan,
         'sub_kegiatan' => $m->sub_kegiatan,
         'kode_rekening' => $m->kode_rekening,
+        'uraian_rekening' => $m->uraian_rekening,
         'tagging_id' => $m->tagging_id,
         'tagging' => $m->tagging->nama ?? 'Tanpa Tagging',
         'pagu' => (float) $m->pagu,
+        'sisa' => $m->sisaAnggaran(),
         'keu' => $m->tentukanKeu(),
     ]);
 
@@ -127,11 +130,13 @@
         'tipe' => 'pegawai',
         'nama' => $p->nama,
         'sub' => trim($p->jabatan.' — '.$p->bidang, ' —'),
+        'rekening' => $p->rekening,
     ])->concat($vendor->map(fn ($v) => [
         'id' => $v->id,
         'tipe' => 'vendor',
         'nama' => $v->nama,
         'sub' => 'Vendor',
+        'rekening' => $v->rekening,
     ]));
 @endphp
 <script>
@@ -212,11 +217,20 @@
         hideMaDetail();
     }
 
+    function kodeLabel(m) {
+        return m.uraian_rekening ? (m.kode_rekening + ' — ' + m.uraian_rekening) : m.kode_rekening;
+    }
+
     function onSubChange() {
         MSEL.sub = maSel.sub.value;
         MSEL.kode = MSEL.tagging = '';
-        const r = uniq(masterAnggaranData.filter(m => m.program === MSEL.program && m.kegiatan === MSEL.kegiatan && m.sub_kegiatan === MSEL.sub).map(m => m.kode_rekening));
-        fillOptions(maSel.kode, r.map(v => ({ value: v, label: v })), r.length ? '— Pilih Kode Rekening —' : 'Pilih sub kegiatan dulu');
+        const rows = masterAnggaranData.filter(m => m.program === MSEL.program && m.kegiatan === MSEL.kegiatan && m.sub_kegiatan === MSEL.sub);
+        const seen = new Set();
+        const opts = [];
+        rows.forEach(m => {
+            if (! seen.has(m.kode_rekening)) { seen.add(m.kode_rekening); opts.push({ value: m.kode_rekening, label: kodeLabel(m) }); }
+        });
+        fillOptions(maSel.kode, opts, opts.length ? '— Pilih Kode Rekening —' : 'Pilih sub kegiatan dulu');
         fillOptions(maSel.tagging, [], 'Pilih kode rekening dulu');
         hideMaDetail();
     }
@@ -251,9 +265,10 @@
         document.getElementById('ma-program').textContent = m.program;
         document.getElementById('ma-kegiatan').textContent = m.kegiatan;
         document.getElementById('ma-sub').textContent = m.sub_kegiatan;
-        document.getElementById('ma-kode').textContent = m.kode_rekening;
+        document.getElementById('ma-kode').textContent = kodeLabel(m);
         document.getElementById('ma-tagging').textContent = m.tagging;
         document.getElementById('ma-pagu').textContent = formatRupiah(m.pagu);
+        document.getElementById('ma-sisa').textContent = formatRupiah(m.sisa);
         document.getElementById('ma-keu').textContent = m.keu ? ('KEU ' + m.keu) : 'Tidak dapat ditentukan';
         maDetail.style.display = 'block';
     }
@@ -331,7 +346,7 @@
             + '<input type="hidden" data-pegawai-id name="penerima[' + idx + '][pegawai_id]" value="">'
             + '<input type="hidden" data-vendor-id name="penerima[' + idx + '][vendor_id]" value="">'
             + '</div>'
-            + '<div class="fg"><label class="fl">No. Rekening</label><input type="text" name="penerima[' + idx + '][rekening]" value=""></div>'
+            + '<div class="fg"><label class="fl">No. Rekening</label><input type="text" data-rekening name="penerima[' + idx + '][rekening]" value=""></div>'
             + '<div class="fg"><label class="fl">Bruto (Rp)</label><input type="number" step="0.01" min="0" data-bruto name="penerima[' + idx + '][bruto]" value=""></div>'
             + '<div class="fg"><label class="fl">PPN (Rp)</label><input type="number" step="0.01" min="0" data-ppn name="penerima[' + idx + '][ppn]" value=""></div>'
             + '<div class="fg"><label class="fl">Biaya KU/RTGS (Rp)</label><input type="number" step="0.01" min="0" data-biaya-ku-rtgs name="penerima[' + idx + '][biaya_ku_rtgs]" value=""></div>'
@@ -396,6 +411,7 @@
         const nameDrop = row.querySelector('[data-name-drop]');
         const pegawaiIdField = row.querySelector('[data-pegawai-id]');
         const vendorIdField = row.querySelector('[data-vendor-id]');
+        const rekeningInput = row.querySelector('[data-rekening]');
         const brutoInput = row.querySelector('[data-bruto]');
         const ppnInput = row.querySelector('[data-ppn]');
         const biayaInput = row.querySelector('[data-biaya-ku-rtgs]');
@@ -421,6 +437,7 @@
                         nameInput.value = n.nama;
                         pegawaiIdField.value = n.tipe === 'pegawai' ? n.id : '';
                         vendorIdField.value = n.tipe === 'vendor' ? n.id : '';
+                        rekeningInput.value = n.rekening || '';
                         nameDrop.classList.remove('show');
                     });
                     nameDrop.appendChild(el);

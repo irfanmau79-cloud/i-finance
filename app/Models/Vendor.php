@@ -7,6 +7,7 @@ use Illuminate\Database\Eloquent\Model;
 
 #[Fillable([
     'nama',
+    'rekening',
     'aktif',
 ])]
 class Vendor extends Model
