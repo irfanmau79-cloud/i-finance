@@ -32,7 +32,7 @@
             'persetujuan' => route('npd.persetujuan'),
             'verifikasi' => route('npd.verifikasi'),
         ];
-        $href = fn ($key) => $navHref[$key] ?? '#';
+        $href = fn ($key) => $navHref[$key] ?? route('menu.placeholder', $key);
         $group = function (array $subs) use ($akses, $activeNav) {
             return [
                 'visible' => (bool) array_intersect($subs, $akses),

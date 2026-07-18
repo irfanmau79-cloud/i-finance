@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\MenuPlaceholderController;
 use App\Http\Controllers\NpdBjController;
 use App\Http\Controllers\NpdController;
 use App\Http\Controllers\SuratPerintahController;
@@ -64,4 +65,16 @@ Route::middleware('auth')->group(function () {
         Route::get('/npd/{npd}/cetak-npd', [NpdController::class, 'cetakNpd'])->name('npd.cetak-npd');
         Route::get('/npd/{npd}/cetak-lampiran', [NpdController::class, 'cetakLampiran'])->name('npd.cetak-lampiran');
     });
+
+    // Menu sidebar yang belum punya halaman sungguhan: placeholder generik,
+    // akses dijaga per-role lewat config('akses.menu') (middleware menu-akses).
+    Route::get('/menu/{key}', [MenuPlaceholderController::class, 'show'])
+        ->whereIn('key', [
+            'dashboard', 'dashpd', 'tk-monitor', 'dashspj',
+            'rincian', 'analisis', 'invspj',
+            'npd-selesai', 'persetujuan-selesai', 'verifikasi-selesai',
+            'sp-monitor', 'tk-form', 'users', 'profil',
+        ])
+        ->middleware('menu-akses')
+        ->name('menu.placeholder');
 });
