@@ -50,15 +50,34 @@ class SuratPerintahController extends Controller
 
     public function store(StoreSuratPerintahRequest $request)
     {
-        $data = $request->validated();
-
-        $data['file_url'] = $request->file('file_url')->store('sp', 'public');
-
-        SuratPerintah::create($data);
+        $this->simpanSuratPerintah($request);
 
         return redirect()
             ->route('surat-perintah.index')
             ->with('success', 'Surat Perintah berhasil disimpan.');
+    }
+
+    /** Form input publik (tanpa login) untuk role layanan. */
+    public function publicCreate()
+    {
+        return view('surat-perintah.create', ['isPublicForm' => true]);
+    }
+
+    /** Simpan dari form publik. Validasi & penyimpanan sama seperti store(). */
+    public function publicStore(StoreSuratPerintahRequest $request)
+    {
+        $this->simpanSuratPerintah($request);
+
+        return view('surat-perintah.thanks');
+    }
+
+    private function simpanSuratPerintah(StoreSuratPerintahRequest $request): SuratPerintah
+    {
+        $data = $request->validated();
+
+        $data['file_url'] = $request->file('file_url')->store('sp', 'public');
+
+        return SuratPerintah::create($data);
     }
 
     public function edit(SuratPerintah $suratPerintah)

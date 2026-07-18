@@ -83,6 +83,10 @@
         <div class="alert-success">{{ session('success') }}</div>
     @endif
 
+    @php
+        $bolehEditHapus = in_array(auth()->user()->role, ['pptk', 'bendahara'], true);
+    @endphp
+
     <div class="actions">
         <a href="{{ route('surat-perintah.create') }}">Tambah SP</a>
         <a href="{{ route('surat-perintah.export-pdf') }}">Export PDF</a>
@@ -114,14 +118,18 @@
                     <td>{{ $suratPerintah->status_sp }}</td>
                     <td>{{ $suratPerintah->status }}</td>
                     <td>
-                        <div class="row-actions">
-                            <a href="{{ route('surat-perintah.edit', $suratPerintah) }}">Edit</a>
-                            <form method="POST" action="{{ route('surat-perintah.destroy', $suratPerintah) }}" onsubmit="return confirm('Yakin ingin menghapus Surat Perintah {{ $suratPerintah->nomor_sp }}?');">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit">Hapus</button>
-                            </form>
-                        </div>
+                        @if ($bolehEditHapus)
+                            <div class="row-actions">
+                                <a href="{{ route('surat-perintah.edit', $suratPerintah) }}">Edit</a>
+                                <form method="POST" action="{{ route('surat-perintah.destroy', $suratPerintah) }}" onsubmit="return confirm('Yakin ingin menghapus Surat Perintah {{ $suratPerintah->nomor_sp }}?');">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit">Hapus</button>
+                                </form>
+                            </div>
+                        @else
+                            &mdash;
+                        @endif
                     </td>
                 </tr>
             @empty

@@ -74,14 +74,16 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('surat-perintah.store') }}" enctype="multipart/form-data">
+    <form method="POST" action="{{ route(($isPublicForm ?? false) ? 'sp.input.store' : 'surat-perintah.store') }}" enctype="multipart/form-data">
         @csrf
 
         @include('surat-perintah._form')
 
         <div class="actions">
             <button type="submit">Simpan</button>
-            <a href="{{ route('surat-perintah.index') }}">Batal</a>
+            @unless ($isPublicForm ?? false)
+                <a href="{{ route('surat-perintah.index') }}">Batal</a>
+            @endunless
         </div>
     </form>
 </body>
