@@ -1,5 +1,6 @@
 <?php
 
+use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\SuratPerintahController;
 use Illuminate\Support\Facades\Route;
@@ -30,5 +31,10 @@ Route::middleware('auth')->group(function () {
         Route::get('/surat-perintah/{suratPerintah}/edit', [SuratPerintahController::class, 'edit'])->name('surat-perintah.edit');
         Route::put('/surat-perintah/{suratPerintah}', [SuratPerintahController::class, 'update'])->name('surat-perintah.update');
         Route::delete('/surat-perintah/{suratPerintah}', [SuratPerintahController::class, 'destroy'])->name('surat-perintah.destroy');
+    });
+
+    // Hanya Bendahara dan Inspektur boleh melihat log aktivitas (audit trail).
+    Route::middleware('role:bendahara,inspektur')->group(function () {
+        Route::get('/audit-log', [AuditLogController::class, 'index'])->name('audit-log.index');
     });
 });

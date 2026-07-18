@@ -13,12 +13,12 @@
 return [
 
     'menu' => [
-        'bendahara' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'tk-monitor', 'dashspj', 'npd', 'npd-selesai', 'persetujuan', 'persetujuan-selesai', 'verifikasi', 'verifikasi-selesai', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'users', 'profil'],
+        'bendahara' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'tk-monitor', 'dashspj', 'npd', 'npd-selesai', 'persetujuan', 'persetujuan-selesai', 'verifikasi', 'verifikasi-selesai', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'audit-log', 'users', 'profil'],
         'pptk' => ['dashboard', 'rincian', 'analisis', 'invspj', 'tk-monitor', 'dashspj', 'npd', 'npd-selesai', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
         'bpp' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'tk-monitor', 'dashspj', 'persetujuan', 'persetujuan-selesai', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
         'verifikator' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'tk-monitor', 'dashspj', 'verifikasi', 'verifikasi-selesai', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
         'perencanaan' => ['dashboard', 'rincian', 'analisis', 'dashpd', 'tk-monitor', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
-        'inspektur' => ['dashboard', 'rincian', 'analisis', 'dashpd', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
+        'inspektur' => ['dashboard', 'rincian', 'analisis', 'dashpd', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'audit-log', 'profil'],
         'sekretaris' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
         'kasubbag' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
         'inspektur_pembantu' => ['dashboard', 'rincian', 'analisis', 'dashpd', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],

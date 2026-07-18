@@ -27,6 +27,7 @@
         $navHref = [
             'sp-input' => route('surat-perintah.create'),
             'sp-data' => route('surat-perintah.index'),
+            'audit-log' => route('audit-log.index'),
         ];
         $href = fn ($key) => $navHref[$key] ?? '#';
         $group = function (array $subs) use ($akses, $activeNav) {
@@ -148,6 +149,13 @@
           @if (in_array('tk-form', $akses)) <a class="sb-item sub{{ $activeNav === 'tk-form' ? ' active' : '' }}" href="{{ $href('tk-form') }}">Perubahan Data</a> @endif
         </div>
       </div>
+      @endif
+
+      @if (in_array('audit-log', $akses))
+      <a class="sb-item{{ $activeNav === 'audit-log' ? ' active' : '' }}" href="{{ $href('audit-log') }}">
+        <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+        Log Aktivitas
+      </a>
       @endif
 
       @if (in_array('users', $akses))

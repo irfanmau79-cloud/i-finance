@@ -2,6 +2,7 @@
 
 namespace App\Console\Commands;
 
+use App\Helpers\AuditLog;
 use App\Imports\MasterDataImport;
 use App\Imports\RawSheetImport;
 use App\Models\DataTambahan;
@@ -54,7 +55,26 @@ class ImportMaster extends Command
 
         $this->printSummary($results);
 
+        $this->catatAuditLog($path, $results);
+
         return self::SUCCESS;
+    }
+
+    /** Catat aktivitas import ke audit log, dilakukan sebagai user "Sistem" (dijalankan lewat CLI, bukan sesi login). */
+    private function catatAuditLog(string $path, array $results): void
+    {
+        $ringkasan = [];
+
+        foreach ($results as $label => $r) {
+            $ringkasan[] = "{$label}: insert {$r['insert']}, update {$r['update']}, dinonaktifkan {$r['dinonaktifkan']}, dilewati {$r['dilewati']}, error ".count($r['errors']);
+        }
+
+        AuditLog::catatSebagai(
+            'Sistem',
+            'sistem',
+            'Import Master',
+            "File: {$path}. ".implode(' | ', $ringkasan)
+        );
     }
 
     /**

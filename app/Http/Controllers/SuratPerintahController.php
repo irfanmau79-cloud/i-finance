@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AuditLog;
 use App\Http\Requests\StoreSuratPerintahRequest;
 use App\Http\Requests\UpdateSuratPerintahRequest;
 use App\Models\SuratPerintah;
@@ -34,6 +35,8 @@ class SuratPerintahController extends Controller
         ]);
 
         $mpdf->WriteHTML($html);
+
+        AuditLog::catat('Export PDF SP', 'Jumlah data: '.$suratPerintahs->count());
 
         $fileName = 'daftar-sp-'.now()->format('Ymd').'.pdf';
 
@@ -77,7 +80,11 @@ class SuratPerintahController extends Controller
 
         $data['file_url'] = $request->file('file_url')->store('sp', 'public');
 
-        return SuratPerintah::create($data);
+        $suratPerintah = SuratPerintah::create($data);
+
+        AuditLog::catat('Buat SP', 'Nomor SP: '.$suratPerintah->nomor_sp);
+
+        return $suratPerintah;
     }
 
     public function edit(SuratPerintah $suratPerintah)
@@ -98,6 +105,12 @@ class SuratPerintahController extends Controller
 
         $suratPerintah->update($data);
 
+        $fieldBerubah = array_keys(array_diff_key($suratPerintah->getChanges(), array_flip(['updated_at'])));
+        $keterangan = 'Nomor SP: '.$suratPerintah->nomor_sp
+            .($fieldBerubah ? ' — field diubah: '.implode(', ', $fieldBerubah) : '');
+
+        AuditLog::catat('Edit SP', $keterangan);
+
         return redirect()
             ->route('surat-perintah.index')
             ->with('success', 'Surat Perintah berhasil diperbarui.');
@@ -105,8 +118,12 @@ class SuratPerintahController extends Controller
 
     public function destroy(SuratPerintah $suratPerintah)
     {
+        $nomorSp = $suratPerintah->nomor_sp;
+
         Storage::disk('public')->delete($suratPerintah->file_url);
         $suratPerintah->delete();
+
+        AuditLog::catat('Hapus SP', 'Nomor SP: '.$nomorSp);
 
         return redirect()
             ->route('surat-perintah.index')
