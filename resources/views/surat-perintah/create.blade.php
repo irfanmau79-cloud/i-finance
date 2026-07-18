@@ -1,4 +1,4 @@
-@extends(($isPublicForm ?? false) ? 'layouts.standalone' : 'layouts.app')
+@extends((auth()->check() || \App\Helpers\GuestSession::isActive()) ? 'layouts.app' : 'layouts.standalone')
 
 @section('activeNav', 'sp-input')
 @section('title', 'Input Surat Perintah')

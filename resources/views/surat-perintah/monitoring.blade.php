@@ -1,11 +1,11 @@
-@extends(auth()->check() ? 'layouts.app' : 'layouts.standalone-wide')
+@extends((auth()->check() || \App\Helpers\GuestSession::isActive()) ? 'layouts.app' : 'layouts.standalone-wide')
 
 @section('activeNav', 'sp-monitor')
 @section('title', 'Monitoring SP')
 
 @section('content')
 @php
-    $role = auth()->user()->role ?? 'layanan';
+    $role = \App\Helpers\GuestSession::role() ?? 'layanan';
     $bolehEditPengajuan = in_array($role, ['pptk', 'bendahara'], true);
     $bolehEditPengumuman = in_array($role, ['bendahara', 'pptk', 'bpp', 'verifikator'], true);
     $statusBadgeClass = ['Diterima PPTK' => 'st-diterima'] + \App\Models\Npd::STATUS_BADGE_CLASS;
@@ -13,6 +13,10 @@
 <div class="dash-card wf-card">
     <h3>Monitoring SP</h3>
     <div class="sub">Status pengajuan SP Pengawasan.</div>
+
+    @if (session('success'))
+        <div class="sumbar ok"><span>{{ session('success') }}</span></div>
+    @endif
 
     <div class="tbl-tools">
         <input type="text" id="spm-search" placeholder="Cari Nomor SP, Unit Kerja, atau Keterangan…">

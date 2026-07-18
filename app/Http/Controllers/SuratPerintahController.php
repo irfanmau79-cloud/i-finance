@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\AuditLog;
+use App\Helpers\GuestSession;
 use App\Http\Requests\StoreSuratPerintahRequest;
 use App\Http\Requests\UpdateSuratPerintahRequest;
 use App\Models\SuratPerintah;
@@ -22,6 +23,8 @@ class SuratPerintahController extends Controller
     /** Monitoring SP: hanya orderan yang masih dipantau. Port dari getSPMonitoringAktif di gas-lama/CodeSuratPerintah.gs. */
     public function monitoring()
     {
+        GuestSession::login();
+
         $suratPerintahs = SuratPerintah::where('dipantau', true)->orderBy('tanggal_sp', 'desc')->get();
 
         return view('surat-perintah.monitoring', compact('suratPerintahs'));
@@ -98,15 +101,26 @@ class SuratPerintahController extends Controller
     /** Form input publik (tanpa login) untuk role layanan. */
     public function publicCreate()
     {
+        GuestSession::login();
+
         return view('surat-perintah.create', ['isPublicForm' => true]);
     }
 
-    /** Simpan dari form publik. Validasi & penyimpanan sama seperti store(). */
+    /**
+     * Simpan dari form publik. Validasi & penyimpanan sama seperti store().
+     * Diarahkan ke Monitoring SP (di dalam shell tamu), bukan halaman
+     * "terima kasih" berdiri sendiri — port dari switchTab('sp-monitor')
+     * di gas-lama/index.html sesudah prosesInputSP() sukses.
+     */
     public function publicStore(StoreSuratPerintahRequest $request)
     {
-        $this->simpanSuratPerintah($request);
+        GuestSession::login();
 
-        return view('surat-perintah.thanks');
+        $suratPerintah = $this->simpanSuratPerintah($request);
+
+        return redirect()
+            ->route('surat-perintah.monitoring')
+            ->with('success', "Surat Perintah {$suratPerintah->nomor_sp} berhasil dikirim dan akan segera diproses.");
     }
 
     private function simpanSuratPerintah(StoreSuratPerintahRequest $request): SuratPerintah

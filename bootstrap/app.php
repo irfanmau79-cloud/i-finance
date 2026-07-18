@@ -15,6 +15,7 @@ return Application::configure(basePath: dirname(__DIR__))
         $middleware->alias([
             'role' => \App\Http\Middleware\EnsureUserHasRole::class,
             'menu-akses' => \App\Http\Middleware\EnsureUserHasMenuAccess::class,
+            'auth.or.guest' => \App\Http\Middleware\EnsureAuthenticatedOrGuestLayanan::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

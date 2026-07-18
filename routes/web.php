@@ -15,7 +15,7 @@ Route::get('/', function () {
 
 Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login')->middleware('guest');
 Route::post('/login', [AuthController::class, 'login'])->middleware('guest');
-Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth');
+Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth.or.guest');
 
 // Publik, tanpa login — dipakai role "layanan" untuk mengisi orderan SP dari luar.
 Route::get('/sp/input', [SuratPerintahController::class, 'publicCreate'])->name('sp.input.create');
@@ -27,7 +27,7 @@ Route::post('/sp/input', [SuratPerintahController::class, 'publicStore'])->name(
 Route::get('/surat-perintah/monitoring', [SuratPerintahController::class, 'monitoring'])->name('surat-perintah.monitoring');
 Route::get('/pengumuman', [PengumumanController::class, 'show'])->name('pengumuman.show');
 
-Route::middleware('auth')->group(function () {
+Route::middleware('auth.or.guest')->group(function () {
     // Semua role yang login, kecuali "layanan" (layanan tidak login).
     Route::middleware('role:bendahara,pptk,bpp,verifikator,sekretaris,kasubbag,inspektur,inspektur_pembantu,perencanaan')->group(function () {
         Route::get('/surat-perintah', [SuratPerintahController::class, 'index'])->name('surat-perintah.index');

@@ -23,10 +23,11 @@
     </div>
     <nav class="sb-menu">
       @php
-        $akses = config('akses.menu')[auth()->user()->role] ?? [];
+        $currentRole = \App\Helpers\GuestSession::role();
+        $akses = config('akses.menu')[$currentRole] ?? [];
         $activeNav = trim($__env->yieldContent('activeNav'));
         $navHref = [
-            'sp-input' => route('surat-perintah.create'),
+            'sp-input' => $currentRole === 'layanan' ? route('sp.input.create') : route('surat-perintah.create'),
             'sp-data' => route('surat-perintah.index'),
             'sp-monitor' => route('surat-perintah.monitoring'),
             'audit-log' => route('audit-log.index'),
@@ -178,7 +179,7 @@
       @endif
     </nav>
     <div style="margin-top:auto;">
-      <div id="sb-userinfo" style="padding:8px 20px;font-size:11.5px;color:#9db8d6;border-top:1px solid rgba(255,255,255,.1);">{{ auth()->user()->nama }} &mdash; {{ config('akses.role_label')[auth()->user()->role] ?? auth()->user()->role }}</div>
+      <div id="sb-userinfo" style="padding:8px 20px;font-size:11.5px;color:#9db8d6;border-top:1px solid rgba(255,255,255,.1);">{{ auth()->user()->nama ?? 'Pengguna Layanan' }} &mdash; {{ config('akses.role_label')[$currentRole] ?? $currentRole }}</div>
       <form method="POST" action="{{ route('logout') }}">
         @csrf
         <button type="submit" class="sb-logout" style="width:100%;border:none;background:none;font:inherit;text-align:left;cursor:pointer;">

@@ -46,10 +46,13 @@ class AuthController extends Controller
 
     public function logout(Request $request)
     {
-        AuditLog::catat('Logout', 'User keluar dari sistem');
+        if (Auth::check()) {
+            AuditLog::catat('Logout', 'User keluar dari sistem');
 
-        Auth::logout();
+            Auth::logout();
+        }
 
+        // session()->invalidate() juga membersihkan sesi tamu layanan (GuestSession).
         $request->session()->invalidate();
         $request->session()->regenerateToken();
 
