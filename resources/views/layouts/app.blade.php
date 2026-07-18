@@ -199,5 +199,13 @@
   </div>
 </div>
 
+<script>
+  document.querySelectorAll('.sb-parent').forEach(function (parent) {
+    parent.addEventListener('click', function () {
+      parent.closest('.sb-group').classList.toggle('open');
+    });
+  });
+</script>
+
 </body>
 </html>
