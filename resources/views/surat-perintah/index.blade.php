@@ -1,143 +1,74 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="utf-8">
-    <title>Daftar Surat Perintah</title>
-    <style>
-        body {
-            font-family: sans-serif;
-            margin: 20px;
-        }
+@extends('layouts.app')
 
-        table {
-            border-collapse: collapse;
-            width: 100%;
-        }
+@section('activeNav', 'sp-data')
+@section('title', 'Data Surat Perintah')
 
-        th, td {
-            border: 1px solid #999;
-            padding: 6px 10px;
-            text-align: left;
-        }
-
-        th {
-            background-color: #eee;
-        }
-
-        .alert-success {
-            border: 1px solid #0a0;
-            background-color: #efe;
-            padding: 10px;
-            margin-bottom: 15px;
-        }
-
-        .actions {
-            margin-bottom: 15px;
-        }
-
-        .row-actions {
-            display: flex;
-            gap: 8px;
-        }
-
-        .row-actions form {
-            display: inline;
-            margin: 0;
-        }
-
-        .row-actions button {
-            cursor: pointer;
-        }
-
-        .user-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 15px;
-        }
-
-        .user-bar > div {
-            display: flex;
-            align-items: center;
-            gap: 10px;
-        }
-
-        .user-bar form {
-            margin: 0;
-        }
-    </style>
-</head>
-<body>
-    <div class="user-bar">
-        <h1>Daftar Surat Perintah</h1>
-        <div>
-            {{ auth()->user()->nama }} ({{ auth()->user()->role }})
-            <form method="POST" action="{{ route('logout') }}">
-                @csrf
-                <button type="submit">Logout</button>
-            </form>
-        </div>
-    </div>
+@section('content')
+<div class="dash-card wf-card">
+    <h3>Data Surat Perintah</h3>
+    <div class="sub">Daftar seluruh Surat Perintah yang telah diinput.</div>
 
     @if (session('success'))
-        <div class="alert-success">{{ session('success') }}</div>
+        <div class="sumbar ok"><span>{{ session('success') }}</span></div>
     @endif
+
+    <div class="tbl-tools">
+        <a href="{{ route('surat-perintah.create') }}" class="btn prim" style="white-space:nowrap;">+ Tambah SP</a>
+        <a href="{{ route('surat-perintah.export-pdf') }}" class="btn" style="white-space:nowrap;">Export PDF</a>
+    </div>
 
     @php
         $bolehEditHapus = in_array(auth()->user()->role, ['pptk', 'bendahara'], true);
     @endphp
 
-    <div class="actions">
-        <a href="{{ route('surat-perintah.create') }}">Tambah SP</a>
-        <a href="{{ route('surat-perintah.export-pdf') }}">Export PDF</a>
+    <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">
+        <table class="realisasi" id="spd-table">
+            <thead>
+                <tr>
+                    <th>Nomor SP</th>
+                    <th>Tanggal SP</th>
+                    <th>Unit Kerja</th>
+                    <th>Lokasi</th>
+                    <th>Nama Pengirim</th>
+                    <th>Tujuan Transfer</th>
+                    <th>Status SP</th>
+                    <th>Status</th>
+                    <th style="text-align:center;">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                @forelse ($suratPerintahs as $suratPerintah)
+                    <tr>
+                        <td>{{ $suratPerintah->nomor_sp }}</td>
+                        <td>{{ $suratPerintah->tanggal_sp->format('d-m-Y') }}</td>
+                        <td>{{ $suratPerintah->unit_kerja }}</td>
+                        <td>{{ $suratPerintah->lokasi }}</td>
+                        <td>{{ $suratPerintah->nama_pengirim }}</td>
+                        <td>{{ $suratPerintah->tujuan_transfer }}</td>
+                        <td>{{ $suratPerintah->status_sp }}</td>
+                        <td><span class="badge st-diterima">{{ $suratPerintah->status }}</span></td>
+                        <td style="text-align:center;">
+                            @if ($bolehEditHapus)
+                                <div class="aksi-wrap" style="width:auto;grid-template-columns:repeat(2,30px);">
+                                    <a class="ic-btn" title="Edit" href="{{ route('surat-perintah.edit', $suratPerintah) }}"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></a>
+                                    <form method="POST" action="{{ route('surat-perintah.destroy', $suratPerintah) }}" onsubmit="return confirm('Yakin ingin menghapus Surat Perintah {{ $suratPerintah->nomor_sp }}?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="ic-btn danger" title="Hapus"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                                    </form>
+                                </div>
+                            @else
+                                &mdash;
+                            @endif
+                        </td>
+                    </tr>
+                @empty
+                    <tr>
+                        <td colspan="9" style="text-align:center;color:var(--mut);padding:20px;">Belum ada data surat perintah.</td>
+                    </tr>
+                @endforelse
+            </tbody>
+        </table>
     </div>
-
-    <table>
-        <thead>
-            <tr>
-                <th>Nomor SP</th>
-                <th>Tanggal SP</th>
-                <th>Unit Kerja</th>
-                <th>Lokasi</th>
-                <th>Nama Pengirim</th>
-                <th>Tujuan Transfer</th>
-                <th>Status SP</th>
-                <th>Status</th>
-                <th>Aksi</th>
-            </tr>
-        </thead>
-        <tbody>
-            @forelse ($suratPerintahs as $suratPerintah)
-                <tr>
-                    <td>{{ $suratPerintah->nomor_sp }}</td>
-                    <td>{{ $suratPerintah->tanggal_sp->format('d-m-Y') }}</td>
-                    <td>{{ $suratPerintah->unit_kerja }}</td>
-                    <td>{{ $suratPerintah->lokasi }}</td>
-                    <td>{{ $suratPerintah->nama_pengirim }}</td>
-                    <td>{{ $suratPerintah->tujuan_transfer }}</td>
-                    <td>{{ $suratPerintah->status_sp }}</td>
-                    <td>{{ $suratPerintah->status }}</td>
-                    <td>
-                        @if ($bolehEditHapus)
-                            <div class="row-actions">
-                                <a href="{{ route('surat-perintah.edit', $suratPerintah) }}">Edit</a>
-                                <form method="POST" action="{{ route('surat-perintah.destroy', $suratPerintah) }}" onsubmit="return confirm('Yakin ingin menghapus Surat Perintah {{ $suratPerintah->nomor_sp }}?');">
-                                    @csrf
-                                    @method('DELETE')
-                                    <button type="submit">Hapus</button>
-                                </form>
-                            </div>
-                        @else
-                            &mdash;
-                        @endif
-                    </td>
-                </tr>
-            @empty
-                <tr>
-                    <td colspan="9">Belum ada data surat perintah.</td>
-                </tr>
-            @endforelse
-        </tbody>
-    </table>
-</body>
-</html>
+</div>
+@endsection

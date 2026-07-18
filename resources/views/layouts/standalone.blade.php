@@ -1,0 +1,14 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>@yield('title', 'i-Finance') &mdash; Inspektorat Jabar</title>
+@include('layouts.partials.styles')
+</head>
+<body>
+<div class="wrap">
+@yield('content')
+</div>
+</body>
+</html>

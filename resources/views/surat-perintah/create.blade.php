@@ -1,72 +1,17 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="utf-8">
-    <title>Tambah Surat Perintah</title>
-    <style>
-        body {
-            font-family: sans-serif;
-            margin: 20px;
-        }
+@extends(($isPublicForm ?? false) ? 'layouts.standalone' : 'layouts.app')
 
-        form {
-            max-width: 600px;
-        }
+@section('activeNav', 'sp-input')
+@section('title', 'Input Surat Perintah')
 
-        .field {
-            margin-bottom: 15px;
-        }
-
-        label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 4px;
-        }
-
-        input[type="text"],
-        input[type="date"],
-        input[type="file"],
-        select,
-        textarea {
-            width: 100%;
-            padding: 6px;
-            box-sizing: border-box;
-        }
-
-        textarea {
-            min-height: 80px;
-        }
-
-        .hint {
-            color: #555;
-            font-size: 0.9em;
-        }
-
-        .error {
-            color: #c00;
-            font-size: 0.9em;
-            margin-top: 4px;
-        }
-
-        .alert {
-            border: 1px solid #c00;
-            background-color: #fee;
-            padding: 10px;
-            margin-bottom: 15px;
-        }
-
-        .actions {
-            margin-top: 20px;
-        }
-    </style>
-</head>
-<body>
-    <h1>Tambah Surat Perintah</h1>
+@section('content')
+<div class="dash-card">
+    <h3>Input Surat Perintah</h3>
+    <div class="sub">Lengkapi data Surat Perintah lalu unggah file PDF-nya.</div>
 
     @if ($errors->any())
-        <div class="alert">
+        <div class="err-box" style="display:block;">
             <strong>Terjadi kesalahan:</strong>
-            <ul>
+            <ul style="margin:6px 0 0;padding-left:18px;">
                 @foreach ($errors->all() as $error)
                     <li>{{ $error }}</li>
                 @endforeach
@@ -79,12 +24,12 @@
 
         @include('surat-perintah._form')
 
-        <div class="actions">
-            <button type="submit">Simpan</button>
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
             @unless ($isPublicForm ?? false)
-                <a href="{{ route('surat-perintah.index') }}">Batal</a>
+                <a class="btn" href="{{ route('surat-perintah.index') }}">Batal</a>
             @endunless
+            <button type="submit" class="btn prim">Kirim Data</button>
         </div>
     </form>
-</body>
-</html>
+</div>
+@endsection

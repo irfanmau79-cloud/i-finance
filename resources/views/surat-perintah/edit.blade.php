@@ -1,72 +1,17 @@
-<!DOCTYPE html>
-<html lang="id">
-<head>
-    <meta charset="utf-8">
-    <title>Edit Surat Perintah</title>
-    <style>
-        body {
-            font-family: sans-serif;
-            margin: 20px;
-        }
+@extends('layouts.app')
 
-        form {
-            max-width: 600px;
-        }
+@section('activeNav', 'sp-data')
+@section('title', 'Edit Surat Perintah')
 
-        .field {
-            margin-bottom: 15px;
-        }
-
-        label {
-            display: block;
-            font-weight: bold;
-            margin-bottom: 4px;
-        }
-
-        input[type="text"],
-        input[type="date"],
-        input[type="file"],
-        select,
-        textarea {
-            width: 100%;
-            padding: 6px;
-            box-sizing: border-box;
-        }
-
-        textarea {
-            min-height: 80px;
-        }
-
-        .hint {
-            color: #555;
-            font-size: 0.9em;
-        }
-
-        .error {
-            color: #c00;
-            font-size: 0.9em;
-            margin-top: 4px;
-        }
-
-        .alert {
-            border: 1px solid #c00;
-            background-color: #fee;
-            padding: 10px;
-            margin-bottom: 15px;
-        }
-
-        .actions {
-            margin-top: 20px;
-        }
-    </style>
-</head>
-<body>
-    <h1>Edit Surat Perintah</h1>
+@section('content')
+<div class="dash-card">
+    <h3>Edit Surat Perintah</h3>
+    <div class="sub">Perbarui data Surat Perintah {{ $suratPerintah->nomor_sp }}.</div>
 
     @if ($errors->any())
-        <div class="alert">
+        <div class="err-box" style="display:block;">
             <strong>Terjadi kesalahan:</strong>
-            <ul>
+            <ul style="margin:6px 0 0;padding-left:18px;">
                 @foreach ($errors->all() as $error)
                     <li>{{ $error }}</li>
                 @endforeach
@@ -80,10 +25,10 @@
 
         @include('surat-perintah._form', ['suratPerintah' => $suratPerintah])
 
-        <div class="actions">
-            <button type="submit">Update</button>
-            <a href="{{ route('surat-perintah.index') }}">Batal</a>
+        <div style="display:flex;justify-content:flex-end;gap:10px;margin-top:16px;">
+            <a class="btn" href="{{ route('surat-perintah.index') }}">Batal</a>
+            <button type="submit" class="btn prim">Update</button>
         </div>
     </form>
-</body>
-</html>
+</div>
+@endsection
