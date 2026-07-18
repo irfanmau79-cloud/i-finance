@@ -30,6 +30,23 @@ class Npd extends Model
 {
     protected $table = 'npd';
 
+    public const JENIS_LABEL = [
+        'bj' => 'Barang/Jasa',
+        'pd' => 'Perjalanan Dinas',
+        'tr' => 'Transport',
+        'ns' => 'Narasumber',
+        'kd' => 'Kegiatan Dalam',
+    ];
+
+    public const STATUS_LIST = [
+        'Draft NPD - PPTK',
+        'Draft NPD - BPP',
+        'Verifikasi - Verifikator',
+        'Dikembalikan',
+        'NPD Disetujui - BPP',
+        'Selesai',
+    ];
+
     protected function casts(): array
     {
         return [

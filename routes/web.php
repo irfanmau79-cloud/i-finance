@@ -2,6 +2,8 @@
 
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\NpdBjController;
+use App\Http\Controllers\NpdController;
 use App\Http\Controllers\SuratPerintahController;
 use Illuminate\Support\Facades\Route;
 
@@ -36,5 +38,13 @@ Route::middleware('auth')->group(function () {
     // Hanya Bendahara dan Inspektur boleh melihat log aktivitas (audit trail).
     Route::middleware('role:bendahara,inspektur')->group(function () {
         Route::get('/audit-log', [AuditLogController::class, 'index'])->name('audit-log.index');
+    });
+
+    // Pembuatan NPD: hanya Bendahara dan PPTK.
+    Route::middleware('role:bendahara,pptk')->group(function () {
+        Route::get('/npd', [NpdController::class, 'index'])->name('npd.index');
+        Route::get('/npd/bj/create', [NpdBjController::class, 'create'])->name('npd.bj.create');
+        Route::post('/npd/bj', [NpdBjController::class, 'store'])->name('npd.bj.store');
+        Route::get('/npd/{npd}', [NpdController::class, 'show'])->name('npd.show');
     });
 });

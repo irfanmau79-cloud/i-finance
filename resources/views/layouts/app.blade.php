@@ -28,6 +28,7 @@
             'sp-input' => route('surat-perintah.create'),
             'sp-data' => route('surat-perintah.index'),
             'audit-log' => route('audit-log.index'),
+            'npd' => route('npd.index'),
         ];
         $href = fn ($key) => $navHref[$key] ?? '#';
         $group = function (array $subs) use ($akses, $activeNav) {
