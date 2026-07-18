@@ -2,7 +2,7 @@
 <html lang="id">
 <head>
     <meta charset="utf-8">
-    <title>Tambah Surat Perintah</title>
+    <title>Edit Surat Perintah</title>
     <style>
         body {
             font-family: sans-serif;
@@ -61,7 +61,7 @@
     </style>
 </head>
 <body>
-    <h1>Tambah Surat Perintah</h1>
+    <h1>Edit Surat Perintah</h1>
 
     @if ($errors->any())
         <div class="alert">
@@ -74,13 +74,14 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('surat-perintah.store') }}" enctype="multipart/form-data">
+    <form method="POST" action="{{ route('surat-perintah.update', $suratPerintah) }}" enctype="multipart/form-data">
         @csrf
+        @method('PUT')
 
-        @include('surat-perintah._form')
+        @include('surat-perintah._form', ['suratPerintah' => $suratPerintah])
 
         <div class="actions">
-            <button type="submit">Simpan</button>
+            <button type="submit">Update</button>
             <a href="{{ route('surat-perintah.index') }}">Batal</a>
         </div>
     </form>
