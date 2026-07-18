@@ -24,16 +24,19 @@ Route::middleware('auth')->group(function () {
     // Semua role yang login, kecuali "layanan" (layanan tidak login).
     Route::middleware('role:bendahara,pptk,bpp,verifikator,sekretaris,kasubbag,inspektur,inspektur_pembantu,perencanaan')->group(function () {
         Route::get('/surat-perintah', [SuratPerintahController::class, 'index'])->name('surat-perintah.index');
+        Route::get('/surat-perintah/monitoring', [SuratPerintahController::class, 'monitoring'])->name('surat-perintah.monitoring');
         Route::get('/surat-perintah/create', [SuratPerintahController::class, 'create'])->name('surat-perintah.create');
         Route::post('/surat-perintah', [SuratPerintahController::class, 'store'])->name('surat-perintah.store');
         Route::get('/surat-perintah/export-pdf', [SuratPerintahController::class, 'exportPdf'])->name('surat-perintah.export-pdf');
     });
 
-    // Hanya PPTK dan Bendahara boleh mengubah / menghapus data SP.
+    // Hanya PPTK dan Bendahara boleh mengubah / menghapus data SP, toggle Monitoring, & ubah Pengajuan.
     Route::middleware('role:pptk,bendahara')->group(function () {
         Route::get('/surat-perintah/{suratPerintah}/edit', [SuratPerintahController::class, 'edit'])->name('surat-perintah.edit');
         Route::put('/surat-perintah/{suratPerintah}', [SuratPerintahController::class, 'update'])->name('surat-perintah.update');
         Route::delete('/surat-perintah/{suratPerintah}', [SuratPerintahController::class, 'destroy'])->name('surat-perintah.destroy');
+        Route::patch('/surat-perintah/{suratPerintah}/toggle-pantau', [SuratPerintahController::class, 'togglePantau'])->name('surat-perintah.toggle-pantau');
+        Route::patch('/surat-perintah/{suratPerintah}/pengajuan', [SuratPerintahController::class, 'updatePengajuan'])->name('surat-perintah.pengajuan');
     });
 
     // Hanya Bendahara dan Inspektur boleh melihat log aktivitas (audit trail).
@@ -73,7 +76,7 @@ Route::middleware('auth')->group(function () {
             'dashboard', 'dashpd', 'tk-monitor', 'dashspj',
             'rincian', 'analisis', 'invspj',
             'npd-selesai', 'persetujuan-selesai', 'verifikasi-selesai',
-            'sp-monitor', 'tk-form', 'users', 'profil',
+            'tk-form', 'users', 'profil',
         ])
         ->middleware('menu-akses')
         ->name('menu.placeholder');

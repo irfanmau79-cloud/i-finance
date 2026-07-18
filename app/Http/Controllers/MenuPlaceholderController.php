@@ -19,7 +19,6 @@ class MenuPlaceholderController extends Controller
         'npd-selesai' => 'NPD Selesai (Pembuatan NPD)',
         'persetujuan-selesai' => 'NPD Selesai (Persetujuan NPD)',
         'verifikasi-selesai' => 'NPD Selesai (Verifikasi NPD)',
-        'sp-monitor' => 'Monitoring SP',
         'tk-form' => 'Tunjangan Keluarga — Perubahan Data',
         'users' => 'Manajemen Users',
         'profil' => 'Profil Saya',

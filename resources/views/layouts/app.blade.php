@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="csrf-token" content="{{ csrf_token() }}">
 <title>@yield('title', 'i-Finance') &mdash; Inspektorat Jabar</title>
 @include('layouts.partials.styles')
 </head>
@@ -27,6 +28,7 @@
         $navHref = [
             'sp-input' => route('surat-perintah.create'),
             'sp-data' => route('surat-perintah.index'),
+            'sp-monitor' => route('surat-perintah.monitoring'),
             'audit-log' => route('audit-log.index'),
             'npd' => route('npd.index'),
             'persetujuan' => route('npd.persetujuan'),

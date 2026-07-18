@@ -6,6 +6,7 @@ use App\Helpers\AuditLog;
 use App\Http\Requests\StoreSuratPerintahRequest;
 use App\Http\Requests\UpdateSuratPerintahRequest;
 use App\Models\SuratPerintah;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
 use Mpdf\Mpdf;
 
@@ -16,6 +17,40 @@ class SuratPerintahController extends Controller
         $suratPerintahs = SuratPerintah::orderBy('tanggal_sp', 'desc')->get();
 
         return view('surat-perintah.index', compact('suratPerintahs'));
+    }
+
+    /** Monitoring SP: hanya orderan yang masih dipantau. Port dari getSPMonitoringAktif di gas-lama/CodeSuratPerintah.gs. */
+    public function monitoring()
+    {
+        $suratPerintahs = SuratPerintah::where('dipantau', true)->orderBy('tanggal_sp', 'desc')->get();
+
+        return view('surat-perintah.monitoring', compact('suratPerintahs'));
+    }
+
+    /** Nyalakan/matikan pemantauan SP (toggle di halaman Data SP). Port dari setPantauSP. */
+    public function togglePantau(SuratPerintah $suratPerintah)
+    {
+        $suratPerintah->update(['dipantau' => ! $suratPerintah->dipantau]);
+
+        AuditLog::catat('Toggle Monitoring SP', 'Nomor SP: '.$suratPerintah->nomor_sp.' — '.($suratPerintah->dipantau ? 'aktif' : 'nonaktif'));
+
+        return response()->json(['dipantau' => $suratPerintah->dipantau]);
+    }
+
+    /** Ubah kolom Pengajuan (checkbox multiple) dari halaman Monitoring SP. Port dari updatePengajuanSP. */
+    public function updatePengajuan(Request $request, SuratPerintah $suratPerintah)
+    {
+        $validated = $request->validate([
+            'pengajuan' => ['array'],
+            'pengajuan.*' => ['string', 'in:'.implode(',', SuratPerintah::PENGAJUAN_OPTIONS)],
+        ]);
+
+        $pengajuan = implode(', ', $validated['pengajuan'] ?? []);
+        $suratPerintah->update(['pengajuan' => $pengajuan]);
+
+        AuditLog::catat('Ubah Pengajuan SP', 'Nomor SP: '.$suratPerintah->nomor_sp.' — '.($pengajuan !== '' ? $pengajuan : '(kosong)'));
+
+        return response()->json(['pengajuan' => $pengajuan]);
     }
 
     public function exportPdf()
@@ -79,6 +114,8 @@ class SuratPerintahController extends Controller
         $data = $request->validated();
 
         $data['file_url'] = $request->file('file_url')->store('sp', 'public');
+        $data['status'] = SuratPerintah::STATUS_DITERIMA_PPTK;
+        $data['dipantau'] = true;
 
         $suratPerintah = SuratPerintah::create($data);
 
