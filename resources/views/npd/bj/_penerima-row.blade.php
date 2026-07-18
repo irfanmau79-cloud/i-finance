@@ -55,8 +55,8 @@
             <input type="text" data-netto readonly value="Rp 0" style="background:#f8fafc;font-weight:700;">
         </div>
         <div class="fg span2">
-            <label class="fl">Keterangan (opsional)</label>
-            <input type="text" name="penerima[{{ $i }}][keterangan]" value="{{ $ketVal }}">
+            <label class="fl">Keterangan</label>
+            <input type="text" required name="penerima[{{ $i }}][keterangan]" value="{{ $ketVal }}">
         </div>
     </div>
 </div>

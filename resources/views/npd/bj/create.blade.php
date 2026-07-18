@@ -23,17 +23,32 @@
         @csrf
 
         <div class="fg">
-            <label class="fl" for="ma-input">Sumber Dana</label>
-            <div class="nsearch" id="ma-search">
-                <svg class="ns-ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-                <input type="text" class="ns-inp" id="ma-input" autocomplete="off"
-                       placeholder="Cari sub kegiatan, kode rekening, atau tagging...">
-                <div class="ns-drop" id="ma-drop"></div>
-            </div>
-            <input type="hidden" name="master_anggaran_id" id="master_anggaran_id" value="{{ old('master_anggaran_id') }}">
+            <label class="fl" for="maf-program">Program</label>
+            <select id="maf-program"><option value="">Memuat data…</option></select>
         </div>
+        <div class="fg">
+            <label class="fl" for="maf-kegiatan">Kegiatan</label>
+            <select id="maf-kegiatan" disabled><option value="">Pilih program dulu</option></select>
+        </div>
+        <div class="fg">
+            <label class="fl" for="maf-sub">Sub Kegiatan</label>
+            <select id="maf-sub" disabled><option value="">Pilih kegiatan dulu</option></select>
+        </div>
+        <div class="form-grid">
+            <div class="fg">
+                <label class="fl" for="maf-kode">Kode Rekening</label>
+                <select id="maf-kode" disabled><option value="">Pilih sub kegiatan dulu</option></select>
+            </div>
+            <div class="fg">
+                <label class="fl" for="maf-tagging">Tagging</label>
+                <select id="maf-tagging" disabled><option value="">Pilih kode rekening dulu</option></select>
+            </div>
+        </div>
+        <input type="hidden" name="master_anggaran_id" id="master_anggaran_id" value="{{ old('master_anggaran_id') }}">
 
         <div class="auto" id="ma-detail" style="display:none;">
+            <div class="ai"><span class="k">Program</span><span class="v" id="ma-program"></span></div>
+            <div class="ai"><span class="k">Kegiatan</span><span class="v" id="ma-kegiatan"></span></div>
             <div class="ai"><span class="k">Sub Kegiatan</span><span class="v" id="ma-sub"></span></div>
             <div class="ai"><span class="k">Kode Rekening</span><span class="v" id="ma-kode"></span></div>
             <div class="ai"><span class="k">Tagging</span><span class="v" id="ma-tagging"></span></div>
@@ -97,9 +112,12 @@
 @php
     $masterAnggaranJs = $masterAnggaran->map(fn ($m) => [
         'id' => $m->id,
+        'program' => $m->program,
+        'kegiatan' => $m->kegiatan,
         'sub_kegiatan' => $m->sub_kegiatan,
         'kode_rekening' => $m->kode_rekening,
-        'tagging' => $m->tagging->nama ?? '-',
+        'tagging_id' => $m->tagging_id,
+        'tagging' => $m->tagging->nama ?? 'Tanpa Tagging',
         'pagu' => (float) $m->pagu,
         'keu' => $m->tentukanKeu(),
     ]);
@@ -131,45 +149,107 @@
         return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
     }
 
-    // ---- Pencarian Sumber Dana (master anggaran) ----
-    const maInput = document.getElementById('ma-input');
-    const maDrop = document.getElementById('ma-drop');
+    // ---- Sumber Dana: dropdown bertingkat (Program -> Kegiatan -> Sub Kegiatan -> Kode Rekening -> Tagging) ----
+    const NONE_TAG = '__none__';
+
+    function uniq(arr) {
+        const seen = new Set();
+        const out = [];
+        arr.forEach(v => { if (v !== '' && v != null && ! seen.has(v)) { seen.add(v); out.push(v); } });
+        return out;
+    }
+
+    function taggingValue(m) {
+        return m.tagging_id === null || m.tagging_id === undefined ? NONE_TAG : String(m.tagging_id);
+    }
+
+    const maSel = {
+        program: document.getElementById('maf-program'),
+        kegiatan: document.getElementById('maf-kegiatan'),
+        sub: document.getElementById('maf-sub'),
+        kode: document.getElementById('maf-kode'),
+        tagging: document.getElementById('maf-tagging'),
+    };
     const maIdField = document.getElementById('master_anggaran_id');
     const maDetail = document.getElementById('ma-detail');
 
-    function renderMaDrop(query) {
-        const q = query.trim().toLowerCase();
-        let items = masterAnggaranData;
-        if (q) {
-            items = items.filter(m =>
-                m.sub_kegiatan.toLowerCase().includes(q) ||
-                m.kode_rekening.toLowerCase().includes(q) ||
-                m.tagging.toLowerCase().includes(q)
-            );
-        }
-        items = items.slice(0, 50);
+    const MSEL = { program: '', kegiatan: '', sub: '', kode: '', tagging: '' };
 
-        maDrop.innerHTML = '';
-        if (! items.length) {
-            maDrop.innerHTML = '<div class="ns-empty">Tidak ada sumber dana yang cocok.</div>';
+    function fillOptions(sel, options, placeholder) {
+        sel.innerHTML = '<option value="">' + escapeHtml(placeholder) + '</option>'
+            + options.map(o => '<option value="' + escapeHtml(o.value) + '">' + escapeHtml(o.label) + '</option>').join('');
+        sel.disabled = options.length === 0;
+    }
+
+    function hideMaDetail() {
+        maIdField.value = '';
+        maDetail.style.display = 'none';
+    }
+
+    function loadPrograms() {
+        const progs = uniq(masterAnggaranData.map(m => m.program));
+        fillOptions(maSel.program, progs.map(p => ({ value: p, label: p })), '— Pilih Program —');
+    }
+
+    function onProgramChange() {
+        MSEL.program = maSel.program.value;
+        MSEL.kegiatan = MSEL.sub = MSEL.kode = MSEL.tagging = '';
+        const k = uniq(masterAnggaranData.filter(m => m.program === MSEL.program).map(m => m.kegiatan));
+        fillOptions(maSel.kegiatan, k.map(v => ({ value: v, label: v })), k.length ? '— Pilih Kegiatan —' : 'Pilih program dulu');
+        fillOptions(maSel.sub, [], 'Pilih kegiatan dulu');
+        fillOptions(maSel.kode, [], 'Pilih sub kegiatan dulu');
+        fillOptions(maSel.tagging, [], 'Pilih kode rekening dulu');
+        hideMaDetail();
+    }
+
+    function onKegiatanChange() {
+        MSEL.kegiatan = maSel.kegiatan.value;
+        MSEL.sub = MSEL.kode = MSEL.tagging = '';
+        const s = uniq(masterAnggaranData.filter(m => m.program === MSEL.program && m.kegiatan === MSEL.kegiatan).map(m => m.sub_kegiatan));
+        fillOptions(maSel.sub, s.map(v => ({ value: v, label: v })), s.length ? '— Pilih Sub Kegiatan —' : 'Pilih kegiatan dulu');
+        fillOptions(maSel.kode, [], 'Pilih sub kegiatan dulu');
+        fillOptions(maSel.tagging, [], 'Pilih kode rekening dulu');
+        hideMaDetail();
+    }
+
+    function onSubChange() {
+        MSEL.sub = maSel.sub.value;
+        MSEL.kode = MSEL.tagging = '';
+        const r = uniq(masterAnggaranData.filter(m => m.program === MSEL.program && m.kegiatan === MSEL.kegiatan && m.sub_kegiatan === MSEL.sub).map(m => m.kode_rekening));
+        fillOptions(maSel.kode, r.map(v => ({ value: v, label: v })), r.length ? '— Pilih Kode Rekening —' : 'Pilih sub kegiatan dulu');
+        fillOptions(maSel.tagging, [], 'Pilih kode rekening dulu');
+        hideMaDetail();
+    }
+
+    function onKodeChange() {
+        MSEL.kode = maSel.kode.value;
+        MSEL.tagging = '';
+        const rows = masterAnggaranData.filter(m => m.program === MSEL.program && m.kegiatan === MSEL.kegiatan && m.sub_kegiatan === MSEL.sub && m.kode_rekening === MSEL.kode);
+        const seen = new Set();
+        const opts = [];
+        rows.forEach(m => {
+            const val = taggingValue(m);
+            if (! seen.has(val)) { seen.add(val); opts.push({ value: val, label: m.tagging }); }
+        });
+        fillOptions(maSel.tagging, opts, opts.length ? '— Pilih Tagging —' : 'Pilih kode rekening dulu');
+        hideMaDetail();
+    }
+
+    function onTaggingChange() {
+        MSEL.tagging = maSel.tagging.value;
+        const row = masterAnggaranData.find(m => m.program === MSEL.program && m.kegiatan === MSEL.kegiatan && m.sub_kegiatan === MSEL.sub && m.kode_rekening === MSEL.kode && taggingValue(m) === MSEL.tagging);
+        if (row) {
+            selectMasterAnggaran(row);
         } else {
-            items.forEach(m => {
-                const el = document.createElement('div');
-                el.className = 'ns-item';
-                el.innerHTML = '<div><div>' + escapeHtml(m.kode_rekening) + ' — ' + escapeHtml(m.sub_kegiatan) + '</div>'
-                    + '<div class="sub">' + escapeHtml(m.tagging) + ' · Pagu ' + formatRupiah(m.pagu) + '</div></div>';
-                el.addEventListener('click', () => selectMasterAnggaran(m));
-                maDrop.appendChild(el);
-            });
+            hideMaDetail();
         }
-        maDrop.classList.add('show');
     }
 
     function selectMasterAnggaran(m) {
         maIdField.value = m.id;
-        maInput.value = m.kode_rekening + ' — ' + m.sub_kegiatan;
-        maDrop.classList.remove('show');
 
+        document.getElementById('ma-program').textContent = m.program;
+        document.getElementById('ma-kegiatan').textContent = m.kegiatan;
         document.getElementById('ma-sub').textContent = m.sub_kegiatan;
         document.getElementById('ma-kode').textContent = m.kode_rekening;
         document.getElementById('ma-tagging').textContent = m.tagging;
@@ -178,15 +258,29 @@
         maDetail.style.display = 'block';
     }
 
-    maInput.addEventListener('input', () => {
-        maIdField.value = '';
-        renderMaDrop(maInput.value);
-    });
-    maInput.addEventListener('focus', () => renderMaDrop(maInput.value));
+    maSel.program.addEventListener('change', onProgramChange);
+    maSel.kegiatan.addEventListener('change', onKegiatanChange);
+    maSel.sub.addEventListener('change', onSubChange);
+    maSel.kode.addEventListener('change', onKodeChange);
+    maSel.tagging.addEventListener('change', onTaggingChange);
 
+    loadPrograms();
+
+    // Pulihkan pilihan cascade jika form gagal validasi (old input).
     if (maIdField.value) {
         const found = masterAnggaranData.find(m => String(m.id) === String(maIdField.value));
-        if (found) selectMasterAnggaran(found);
+        if (found) {
+            maSel.program.value = found.program;
+            onProgramChange();
+            maSel.kegiatan.value = found.kegiatan;
+            onKegiatanChange();
+            maSel.sub.value = found.sub_kegiatan;
+            onSubChange();
+            maSel.kode.value = found.kode_rekening;
+            onKodeChange();
+            maSel.tagging.value = taggingValue(found);
+            selectMasterAnggaran(found);
+        }
     }
 
     // ---- Tanggal NPD -> default bulan & tahun ----
@@ -247,7 +341,7 @@
             + '<button type="button" class="add" style="padding:6px;font-size:11.5px;margin-top:6px;" data-pph-add>+ Tambah PPh</button>'
             + '</div>'
             + '<div class="fg"><label class="fl">Netto (otomatis)</label><input type="text" data-netto readonly value="Rp 0" style="background:#f8fafc;font-weight:700;"></div>'
-            + '<div class="fg span2"><label class="fl">Keterangan (opsional)</label><input type="text" name="penerima[' + idx + '][keterangan]" value=""></div>'
+            + '<div class="fg span2"><label class="fl">Keterangan</label><input type="text" required name="penerima[' + idx + '][keterangan]" value=""></div>'
             + '</div>'
             + '</div>';
     }
@@ -372,7 +466,6 @@
     }
 
     document.addEventListener('click', (e) => {
-        if (! e.target.closest('#ma-search')) maDrop.classList.remove('show');
         document.querySelectorAll('[data-name-drop].show').forEach(drop => {
             if (! drop.closest('[data-name-search]').contains(e.target)) drop.classList.remove('show');
         });

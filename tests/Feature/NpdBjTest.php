@@ -84,6 +84,7 @@ class NpdBjTest extends TestCase
                         ['jenis' => 'PPh Pasal 22', 'nilai' => 50_000],
                         ['jenis' => 'PPh Pasal 4(2)', 'nilai' => 12_500],
                     ],
+                    'keterangan' => 'Pengadaan barang',
                 ],
             ],
         ];
@@ -168,6 +169,46 @@ class NpdBjTest extends TestCase
         ]);
 
         $response->assertSessionHasErrors(['master_anggaran_id', 'jenis_panjar', 'penerima']);
+        $this->assertSame(0, Npd::count());
+    }
+
+    public function test_keterangan_penerima_wajib_diisi(): void
+    {
+        $pptk = User::create([
+            'username' => 'test-pptk-3',
+            'nama' => 'Test PPTK 3',
+            'role' => 'pptk',
+            'password' => 'rahasia',
+        ]);
+
+        $masterAnggaran = MasterAnggaran::create([
+            'program' => 'Program Uji',
+            'kegiatan' => 'Kegiatan Uji',
+            'sub_kegiatan' => '6.01.01.2.01 Sub Kegiatan Uji',
+            'kode_rekening' => '5.1.02.01.01.0001',
+            'tagging_id' => null,
+            'pagu' => 100_000_000,
+            'aktif' => true,
+        ]);
+
+        $payload = [
+            'master_anggaran_id' => $masterAnggaran->id,
+            'jenis_panjar' => 'Tanpa Panjar',
+            'tanggal_npd' => '2026-07-18',
+            'bulan' => 7,
+            'tahun' => 2026,
+            'penerima' => [
+                [
+                    'nama' => 'Budi Santoso',
+                    'bruto' => 1_000_000,
+                    'keterangan' => '',
+                ],
+            ],
+        ];
+
+        $response = $this->actingAs($pptk)->post(route('npd.bj.store'), $payload);
+
+        $response->assertSessionHasErrors(['penerima.0.keterangan']);
         $this->assertSame(0, Npd::count());
     }
 }

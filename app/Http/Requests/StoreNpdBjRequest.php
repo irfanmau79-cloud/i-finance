@@ -33,7 +33,7 @@ class StoreNpdBjRequest extends FormRequest
             'penerima.*.pph_list' => ['nullable', 'array'],
             'penerima.*.pph_list.*.jenis' => ['nullable', 'string', 'max:50'],
             'penerima.*.pph_list.*.nilai' => ['nullable', 'numeric', 'min:0'],
-            'penerima.*.keterangan' => ['nullable', 'string'],
+            'penerima.*.keterangan' => ['required', 'string'],
         ];
     }
 
@@ -49,6 +49,7 @@ class StoreNpdBjRequest extends FormRequest
             'penerima.*.bruto' => 'Bruto',
             'penerima.*.ppn' => 'PPN',
             'penerima.*.biaya_ku_rtgs' => 'Biaya KU/RTGS',
+            'penerima.*.keterangan' => 'Keterangan',
         ];
     }
 }
