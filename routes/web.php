@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MenuPlaceholderController;
 use App\Http\Controllers\NpdBjController;
 use App\Http\Controllers\NpdController;
+use App\Http\Controllers\PengumumanController;
 use App\Http\Controllers\SuratPerintahController;
 use Illuminate\Support\Facades\Route;
 
@@ -20,11 +21,16 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middl
 Route::get('/sp/input', [SuratPerintahController::class, 'publicCreate'])->name('sp.input.create');
 Route::post('/sp/input', [SuratPerintahController::class, 'publicStore'])->name('sp.input.store');
 
+// Publik, tanpa login — Monitoring SP juga dipakai role "layanan" untuk memantau
+// orderan SP miliknya (lihat CodeSuratPerintah.gs: "Monitoring SP = daftar orderan
+// yang diinput orang kantor"). Role yang login tetap melihatnya lewat sidebar biasa.
+Route::get('/surat-perintah/monitoring', [SuratPerintahController::class, 'monitoring'])->name('surat-perintah.monitoring');
+Route::get('/pengumuman', [PengumumanController::class, 'show'])->name('pengumuman.show');
+
 Route::middleware('auth')->group(function () {
     // Semua role yang login, kecuali "layanan" (layanan tidak login).
     Route::middleware('role:bendahara,pptk,bpp,verifikator,sekretaris,kasubbag,inspektur,inspektur_pembantu,perencanaan')->group(function () {
         Route::get('/surat-perintah', [SuratPerintahController::class, 'index'])->name('surat-perintah.index');
-        Route::get('/surat-perintah/monitoring', [SuratPerintahController::class, 'monitoring'])->name('surat-perintah.monitoring');
         Route::get('/surat-perintah/create', [SuratPerintahController::class, 'create'])->name('surat-perintah.create');
         Route::post('/surat-perintah', [SuratPerintahController::class, 'store'])->name('surat-perintah.store');
         Route::get('/surat-perintah/export-pdf', [SuratPerintahController::class, 'exportPdf'])->name('surat-perintah.export-pdf');
@@ -37,6 +43,11 @@ Route::middleware('auth')->group(function () {
         Route::delete('/surat-perintah/{suratPerintah}', [SuratPerintahController::class, 'destroy'])->name('surat-perintah.destroy');
         Route::patch('/surat-perintah/{suratPerintah}/toggle-pantau', [SuratPerintahController::class, 'togglePantau'])->name('surat-perintah.toggle-pantau');
         Route::patch('/surat-perintah/{suratPerintah}/pengajuan', [SuratPerintahController::class, 'updatePengajuan'])->name('surat-perintah.pengajuan');
+    });
+
+    // Edit Pemberitahuan dari Tim Keuangan (Monitoring SP): hanya 4 role ini.
+    Route::middleware('role:bendahara,pptk,bpp,verifikator')->group(function () {
+        Route::post('/pengumuman', [PengumumanController::class, 'store'])->name('pengumuman.store');
     });
 
     // Hanya Bendahara dan Inspektur boleh melihat log aktivitas (audit trail).

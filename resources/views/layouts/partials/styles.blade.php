@@ -132,6 +132,9 @@
   .cat-meta{font-size:11px;color:var(--mut);}
   /* Pengajuan multi-select inline */
   .peng-cell{position:relative;}
+  .peng-chips{display:flex;flex-wrap:wrap;gap:3px;min-height:20px;}
+  .peng-chip{display:inline-block;background:#dcfce7;color:#166534;border-radius:6px;padding:2px 8px;font-size:11px;font-weight:600;white-space:nowrap;}
+  .peng-chips-empty{color:var(--mut);font-size:12px;}
   .peng-trigger{border:1px solid var(--line);border-radius:7px;padding:4px 9px;font-size:11.5px;cursor:pointer;background:#f8fafc;color:var(--navy);font-weight:600;display:inline-flex;justify-content:space-between;align-items:center;gap:6px;min-width:130px;}
   .peng-trigger:hover{background:var(--navy-l);border-color:var(--navy);}
   .peng-trigger.ro{cursor:default;background:#f8fafc;}
