@@ -19,6 +19,9 @@
             <div class="li"><span class="k">Tanggal NPD</span><span class="v">{{ $npd->tanggal_npd->format('d-m-Y') }}</span></div>
             <div class="li"><span class="k">Bulan / Tahun</span><span class="v">{{ $npd->bulan }} / {{ $npd->tahun }}</span></div>
             <div class="li"><span class="k">KEU</span><span class="v">{{ $npd->keu }}</span></div>
+            @if ($npd->jenis_panjar)
+                <div class="li"><span class="k">Jenis NPD</span><span class="v">{{ $npd->jenis_panjar }}</span></div>
+            @endif
             <div class="li"><span class="k">Dibuat oleh</span><span class="v">{{ $npd->dibuatOleh->nama ?? '—' }}</span></div>
         </div>
 
@@ -54,8 +57,10 @@
                     <th>Nama</th>
                     <th>Rekening</th>
                     <th>Bruto</th>
+                    <th>PPN</th>
                     <th>PPh</th>
-                    <th>Biaya</th>
+                    <th>Biaya KU/RTGS</th>
+                    <th>Netto</th>
                     <th>Keterangan</th>
                 </tr>
             </thead>
@@ -65,13 +70,21 @@
                         <td>{{ $p->nama }}</td>
                         <td>{{ $p->rekening ?? '—' }}</td>
                         <td>Rp {{ number_format((float) $p->bruto, 2, ',', '.') }}</td>
-                        <td>Rp {{ number_format((float) $p->pph, 2, ',', '.') }}</td>
-                        <td>Rp {{ number_format((float) $p->biaya, 2, ',', '.') }}</td>
+                        <td>Rp {{ number_format((float) $p->ppn, 2, ',', '.') }}</td>
+                        <td>
+                            @forelse ($p->pphList as $pph)
+                                {{ $pph->jenis }}: Rp {{ number_format((float) $pph->nilai, 2, ',', '.') }}<br>
+                            @empty
+                                —
+                            @endforelse
+                        </td>
+                        <td>Rp {{ number_format((float) $p->biaya_ku_rtgs, 2, ',', '.') }}</td>
+                        <td>Rp {{ number_format($p->netto, 2, ',', '.') }}</td>
                         <td>{{ $p->keterangan ?? '—' }}</td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" style="text-align:center;color:var(--mut);padding:20px;">Belum ada penerima.</td>
+                        <td colspan="8" style="text-align:center;color:var(--mut);padding:20px;">Belum ada penerima.</td>
                     </tr>
                 @endforelse
             </tbody>

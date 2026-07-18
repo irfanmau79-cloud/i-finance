@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'tahun',
     'nomor_lengkap',
     'tanggal_npd',
+    'jenis_panjar',
     'nominal',
     'terbilang',
     'status',
@@ -37,6 +38,8 @@ class Npd extends Model
         'ns' => 'Narasumber',
         'kd' => 'Kegiatan Dalam',
     ];
+
+    public const JENIS_PANJAR_LIST = ['Panjar', 'Tanpa Panjar'];
 
     public const STATUS_LIST = [
         'Draft NPD - PPTK',

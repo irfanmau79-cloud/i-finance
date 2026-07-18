@@ -41,6 +41,18 @@
             <div class="ai"><span class="k">KEU</span><span class="v" id="ma-keu"></span></div>
         </div>
 
+        <div class="fg">
+            <label class="fl">Jenis NPD</label>
+            <div class="seg">
+                @foreach (\App\Models\Npd::JENIS_PANJAR_LIST as $opt)
+                    <label>
+                        <input type="radio" name="jenis_panjar" value="{{ $opt }}" @checked(old('jenis_panjar', 'Panjar') === $opt)>
+                        <span>{{ $opt }}</span>
+                    </label>
+                @endforeach
+            </div>
+        </div>
+
         <div class="form-grid">
             <div class="fg">
                 <label class="fl" for="tanggal_npd">Tanggal NPD</label>
@@ -82,30 +94,33 @@
     </form>
 </div>
 
-<script>
-(function () {
-    const masterAnggaranData = @json($masterAnggaran->map(fn ($m) => [
+@php
+    $masterAnggaranJs = $masterAnggaran->map(fn ($m) => [
         'id' => $m->id,
         'sub_kegiatan' => $m->sub_kegiatan,
         'kode_rekening' => $m->kode_rekening,
         'tagging' => $m->tagging->nama ?? '-',
         'pagu' => (float) $m->pagu,
         'keu' => $m->tentukanKeu(),
-    ]));
+    ]);
 
-    const namaData = @json(
-        $pegawai->map(fn ($p) => [
-            'id' => $p->id,
-            'tipe' => 'pegawai',
-            'nama' => $p->nama,
-            'sub' => trim($p->jabatan.' — '.$p->bidang, ' —'),
-        ])->concat($vendor->map(fn ($v) => [
-            'id' => $v->id,
-            'tipe' => 'vendor',
-            'nama' => $v->nama,
-            'sub' => 'Vendor',
-        ]))
-    );
+    $namaJs = $pegawai->map(fn ($p) => [
+        'id' => $p->id,
+        'tipe' => 'pegawai',
+        'nama' => $p->nama,
+        'sub' => trim($p->jabatan.' — '.$p->bidang, ' —'),
+    ])->concat($vendor->map(fn ($v) => [
+        'id' => $v->id,
+        'tipe' => 'vendor',
+        'nama' => $v->nama,
+        'sub' => 'Vendor',
+    ]));
+@endphp
+<script>
+(function () {
+    const masterAnggaranData = @json($masterAnggaranJs);
+
+    const namaData = @json($namaJs);
 
     function formatRupiah(n) {
         n = Number(n) || 0;
@@ -189,6 +204,24 @@
     const penList = document.getElementById('pen-list');
     let penIndex = penList.querySelectorAll('[data-pen-row]').length;
 
+    const PPH_JENIS_OPTIONS = ['PPh Pasal 21', 'PPh Pasal 22', 'PPh Pasal 23', 'PPh Pasal 4(2)'];
+    const PPH_MAX_PER_PENERIMA = 2;
+    let pphSeq = 0;
+
+    function pphOptionsHtml(selected) {
+        return '<option value="">— jenis —</option>' + PPH_JENIS_OPTIONS.map(o =>
+            '<option value="' + escapeHtml(o) + '"' + (o === selected ? ' selected' : '') + '>' + escapeHtml(o) + '</option>'
+        ).join('');
+    }
+
+    function pphRowHtml(penIdx, pphIdx) {
+        return '<div class="pph-row" data-pph-row style="display:flex;gap:8px;align-items:flex-end;margin-top:6px;">'
+            + '<div style="flex:1.3;"><select name="penerima[' + penIdx + '][pph_list][' + pphIdx + '][jenis]" data-pph-jenis>' + pphOptionsHtml('') + '</select></div>'
+            + '<div style="flex:1;"><input type="number" step="0.01" min="0" placeholder="Rp" data-pph-nilai name="penerima[' + penIdx + '][pph_list][' + pphIdx + '][nilai]" value=""></div>'
+            + '<button type="button" class="del" style="position:static;width:30px;height:34px;flex:0 0 30px;" data-pph-remove>&times;</button>'
+            + '</div>';
+    }
+
     function penRowHtml(idx) {
         return '<div class="pen" data-pen-row>'
             + '<button type="button" class="del" data-pen-remove title="Hapus penerima">&times;</button>'
@@ -206,8 +239,14 @@
             + '</div>'
             + '<div class="fg"><label class="fl">No. Rekening</label><input type="text" name="penerima[' + idx + '][rekening]" value=""></div>'
             + '<div class="fg"><label class="fl">Bruto (Rp)</label><input type="number" step="0.01" min="0" data-bruto name="penerima[' + idx + '][bruto]" value=""></div>'
-            + '<div class="fg"><label class="fl">PPh (Rp)</label><input type="number" step="0.01" min="0" data-pph name="penerima[' + idx + '][pph]" value="0"></div>'
-            + '<div class="fg"><label class="fl">Biaya (otomatis)</label><input type="text" data-biaya readonly value="Rp 0" style="background:#f8fafc;font-weight:700;"></div>'
+            + '<div class="fg"><label class="fl">PPN (Rp)</label><input type="number" step="0.01" min="0" data-ppn name="penerima[' + idx + '][ppn]" value=""></div>'
+            + '<div class="fg"><label class="fl">Biaya KU/RTGS (Rp)</label><input type="number" step="0.01" min="0" data-biaya-ku-rtgs name="penerima[' + idx + '][biaya_ku_rtgs]" value=""></div>'
+            + '<div class="fg span2">'
+            + '<label class="fl">PPh</label>'
+            + '<div data-pph-list></div>'
+            + '<button type="button" class="add" style="padding:6px;font-size:11.5px;margin-top:6px;" data-pph-add>+ Tambah PPh</button>'
+            + '</div>'
+            + '<div class="fg"><label class="fl">Netto (otomatis)</label><input type="text" data-netto readonly value="Rp 0" style="background:#f8fafc;font-weight:700;"></div>'
             + '<div class="fg span2"><label class="fl">Keterangan (opsional)</label><input type="text" name="penerima[' + idx + '][keterangan]" value=""></div>'
             + '</div>'
             + '</div>';
@@ -222,13 +261,40 @@
     }
 
     function recalcTotal() {
+        // Nominal total NPD = TOTAL BRUTO seluruh penerima (bukan netto) — persis logika GAS.
         let total = 0;
         penList.querySelectorAll('[data-pen-row]').forEach(row => {
-            const bruto = parseFloat(row.querySelector('[data-bruto]').value) || 0;
-            const pph = parseFloat(row.querySelector('[data-pph]').value) || 0;
-            total += (bruto - pph);
+            total += parseFloat(row.querySelector('[data-bruto]').value) || 0;
         });
         document.getElementById('total-nominal').textContent = formatRupiah(total);
+    }
+
+    function attachPphRowEvents(pphRow, penRow) {
+        pphRow.querySelectorAll('[data-pph-jenis],[data-pph-nilai]').forEach(el => {
+            el.addEventListener('input', () => recalcNetto(penRow));
+            el.addEventListener('change', () => recalcNetto(penRow));
+        });
+        pphRow.querySelector('[data-pph-remove]').addEventListener('click', () => {
+            pphRow.remove();
+            updatePphAddButton(penRow);
+            recalcNetto(penRow);
+        });
+    }
+
+    function updatePphAddButton(penRow) {
+        const addBtn = penRow.querySelector('[data-pph-add]');
+        const count = penRow.querySelectorAll('[data-pph-row]').length;
+        addBtn.disabled = count >= PPH_MAX_PER_PENERIMA;
+    }
+
+    function recalcNetto(penRow) {
+        const bruto = parseFloat(penRow.querySelector('[data-bruto]').value) || 0;
+        const ppn = parseFloat(penRow.querySelector('[data-ppn]').value) || 0;
+        const biaya = parseFloat(penRow.querySelector('[data-biaya-ku-rtgs]').value) || 0;
+        let totalPph = 0;
+        penRow.querySelectorAll('[data-pph-nilai]').forEach(inp => { totalPph += parseFloat(inp.value) || 0; });
+        penRow.querySelector('[data-netto]').value = formatRupiah(bruto - ppn - totalPph - biaya);
+        recalcTotal();
     }
 
     function attachRowEvents(row) {
@@ -237,9 +303,12 @@
         const pegawaiIdField = row.querySelector('[data-pegawai-id]');
         const vendorIdField = row.querySelector('[data-vendor-id]');
         const brutoInput = row.querySelector('[data-bruto]');
-        const pphInput = row.querySelector('[data-pph]');
-        const biayaInput = row.querySelector('[data-biaya]');
+        const ppnInput = row.querySelector('[data-ppn]');
+        const biayaInput = row.querySelector('[data-biaya-ku-rtgs]');
+        const pphList = row.querySelector('[data-pph-list]');
+        const pphAddBtn = row.querySelector('[data-pph-add]');
         const delBtn = row.querySelector('[data-pen-remove]');
+        const penIdx = row.querySelector('[data-name-input]').getAttribute('name').match(/penerima\[(\d+)\]/)[1];
 
         function renderNameDrop(query) {
             const q = query.trim().toLowerCase();
@@ -273,14 +342,24 @@
         });
         nameInput.addEventListener('focus', () => renderNameDrop(nameInput.value));
 
-        function recalcBiaya() {
-            const bruto = parseFloat(brutoInput.value) || 0;
-            const pph = parseFloat(pphInput.value) || 0;
-            biayaInput.value = formatRupiah(bruto - pph);
-            recalcTotal();
-        }
-        brutoInput.addEventListener('input', recalcBiaya);
-        pphInput.addEventListener('input', recalcBiaya);
+        brutoInput.addEventListener('input', () => recalcNetto(row));
+        ppnInput.addEventListener('input', () => recalcNetto(row));
+        biayaInput.addEventListener('input', () => recalcNetto(row));
+
+        pphAddBtn.addEventListener('click', () => {
+            if (pphList.querySelectorAll('[data-pph-row]').length >= PPH_MAX_PER_PENERIMA) return;
+            pphSeq++;
+            const wrapper = document.createElement('div');
+            wrapper.innerHTML = pphRowHtml(penIdx, pphSeq);
+            const pphRow = wrapper.firstElementChild;
+            pphList.appendChild(pphRow);
+            attachPphRowEvents(pphRow, row);
+            updatePphAddButton(row);
+        });
+
+        // Baris PPh yang sudah ada (mis. dari old-input setelah validasi gagal).
+        pphList.querySelectorAll('[data-pph-row]').forEach(pphRow => attachPphRowEvents(pphRow, row));
+        updatePphAddButton(row);
 
         delBtn.addEventListener('click', () => {
             if (penList.querySelectorAll('[data-pen-row]').length <= 1) return;
@@ -289,7 +368,7 @@
             recalcTotal();
         });
 
-        recalcBiaya();
+        recalcNetto(row);
     }
 
     document.addEventListener('click', (e) => {

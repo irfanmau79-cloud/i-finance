@@ -47,7 +47,16 @@ class NpdBjController extends Controller
 
         $penerima = collect($data['penerima'])->map(function (array $p) {
             $bruto = (float) $p['bruto'];
-            $pph = (float) ($p['pph'] ?? 0);
+            $ppn = (float) ($p['ppn'] ?? 0);
+            $biayaKuRtgs = (float) ($p['biaya_ku_rtgs'] ?? 0);
+
+            // Hanya baris PPh dengan nilai > 0 yang disimpan, sama seperti GAS (collectPenerima).
+            $pphList = collect($p['pph_list'] ?? [])
+                ->filter(fn (array $pp) => (float) ($pp['nilai'] ?? 0) > 0)
+                ->map(fn (array $pp) => [
+                    'jenis' => $pp['jenis'] ?: 'PPh',
+                    'nilai' => (float) $pp['nilai'],
+                ])->values();
 
             $pegawaiId = $p['pegawai_id'] ?? null;
             $vendorId = $p['vendor_id'] ?? null;
@@ -65,13 +74,23 @@ class NpdBjController extends Controller
                 'nama' => $nama,
                 'rekening' => $p['rekening'] ?? null,
                 'bruto' => $bruto,
-                'pph' => $pph,
-                'biaya' => $bruto - $pph,
+                'ppn' => $ppn,
+                'biaya_ku_rtgs' => $biayaKuRtgs,
                 'keterangan' => $p['keterangan'] ?? null,
+                'pph_list' => $pphList,
             ];
         });
 
-        $nominal = $penerima->sum('biaya');
+        // Nominal NPD = TOTAL BRUTO seluruh penerima (persis logika GAS, bukan netto).
+        // Karena nominal diturunkan langsung dari bruto (tak ada input nominal terpisah),
+        // "total bruto harus sama dengan nominal" selalu terpenuhi by construction.
+        $nominal = round((float) $penerima->sum('bruto'), 2);
+
+        if ($nominal <= 0) {
+            return back()->withInput()->withErrors([
+                'penerima' => 'Total Bruto seluruh penerima harus lebih dari 0.',
+            ]);
+        }
 
         $npd = DB::transaction(function () use ($data, $masterAnggaran, $keu, $nominal, $penerima, $request) {
             $npd = Npd::create([
@@ -81,13 +100,19 @@ class NpdBjController extends Controller
                 'bulan' => $data['bulan'],
                 'tahun' => $data['tahun'],
                 'tanggal_npd' => $data['tanggal_npd'],
+                'jenis_panjar' => $data['jenis_panjar'],
                 'nominal' => $nominal,
                 'terbilang' => Terbilang::rupiah($nominal),
                 'status' => 'Draft NPD - PPTK',
                 'dibuat_oleh' => $request->user()->id,
             ]);
 
-            $npd->penerima()->createMany($penerima->all());
+            foreach ($penerima as $p) {
+                $pphList = $p['pph_list'];
+                unset($p['pph_list']);
+
+                $npd->penerima()->create($p)->pphList()->createMany($pphList->all());
+            }
 
             return $npd;
         });

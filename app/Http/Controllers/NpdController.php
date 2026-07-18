@@ -26,7 +26,7 @@ class NpdController extends Controller
 
     public function show(Npd $npd)
     {
-        $npd->load(['masterAnggaran.tagging', 'penerima', 'dibuatOleh']);
+        $npd->load(['masterAnggaran.tagging', 'penerima.pphList', 'dibuatOleh']);
 
         return view('npd.show', compact('npd'));
     }

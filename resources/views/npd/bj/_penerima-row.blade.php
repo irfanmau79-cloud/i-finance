@@ -2,10 +2,12 @@
     $namaVal = old("penerima.$i.nama", $p['nama'] ?? '');
     $rekeningVal = old("penerima.$i.rekening", $p['rekening'] ?? '');
     $brutoVal = old("penerima.$i.bruto", $p['bruto'] ?? '');
-    $pphVal = old("penerima.$i.pph", $p['pph'] ?? 0);
+    $ppnVal = old("penerima.$i.ppn", $p['ppn'] ?? '');
+    $biayaKuRtgsVal = old("penerima.$i.biaya_ku_rtgs", $p['biaya_ku_rtgs'] ?? '');
     $ketVal = old("penerima.$i.keterangan", $p['keterangan'] ?? '');
     $pegawaiIdVal = old("penerima.$i.pegawai_id", $p['pegawai_id'] ?? '');
     $vendorIdVal = old("penerima.$i.vendor_id", $p['vendor_id'] ?? '');
+    $pphListVal = old("penerima.$i.pph_list", $p['pph_list'] ?? []);
 @endphp
 <div class="pen" data-pen-row>
     <button type="button" class="del" data-pen-remove title="Hapus penerima">&times;</button>
@@ -32,12 +34,25 @@
             <input type="number" step="0.01" min="0" data-bruto name="penerima[{{ $i }}][bruto]" value="{{ $brutoVal }}">
         </div>
         <div class="fg">
-            <label class="fl">PPh (Rp)</label>
-            <input type="number" step="0.01" min="0" data-pph name="penerima[{{ $i }}][pph]" value="{{ $pphVal }}">
+            <label class="fl">PPN (Rp)</label>
+            <input type="number" step="0.01" min="0" data-ppn name="penerima[{{ $i }}][ppn]" value="{{ $ppnVal }}">
         </div>
         <div class="fg">
-            <label class="fl">Biaya (otomatis)</label>
-            <input type="text" data-biaya readonly value="Rp 0" style="background:#f8fafc;font-weight:700;">
+            <label class="fl">Biaya KU/RTGS (Rp)</label>
+            <input type="number" step="0.01" min="0" data-biaya-ku-rtgs name="penerima[{{ $i }}][biaya_ku_rtgs]" value="{{ $biayaKuRtgsVal }}">
+        </div>
+        <div class="fg span2">
+            <label class="fl">PPh</label>
+            <div data-pph-list>
+                @foreach ($pphListVal as $j => $pp)
+                    @include('npd.bj._pph-row', ['i' => $i, 'j' => $j, 'pp' => $pp])
+                @endforeach
+            </div>
+            <button type="button" class="add" style="padding:6px;font-size:11.5px;margin-top:6px;" data-pph-add>+ Tambah PPh</button>
+        </div>
+        <div class="fg">
+            <label class="fl">Netto (otomatis)</label>
+            <input type="text" data-netto readonly value="Rp 0" style="background:#f8fafc;font-weight:700;">
         </div>
         <div class="fg span2">
             <label class="fl">Keterangan (opsional)</label>

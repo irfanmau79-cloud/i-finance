@@ -15,7 +15,13 @@ class NpdBjTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_pptk_dapat_membuat_npd_barang_jasa_dengan_tiga_penerima(): void
+    /**
+     * Logika ini harus persis sistem lama (GAS Code.gs buatNPD / _rowsLampiran):
+     * - netto per penerima = bruto - ppn - total semua pph - biaya_ku_rtgs
+     * - nominal NPD = TOTAL BRUTO seluruh penerima (bukan total netto)
+     * - PPh boleh multi-jenis per penerima.
+     */
+    public function test_pptk_dapat_membuat_npd_dengan_dua_penerima_dan_pph_multi_jenis(): void
     {
         $pptk = User::create([
             'username' => 'test-pptk',
@@ -49,6 +55,7 @@ class NpdBjTest extends TestCase
 
         $payload = [
             'master_anggaran_id' => $masterAnggaran->id,
+            'jenis_panjar' => 'Tanpa Panjar',
             'tanggal_npd' => '2026-07-18',
             'bulan' => 7,
             'tahun' => 2026,
@@ -58,7 +65,12 @@ class NpdBjTest extends TestCase
                     'nama' => 'Budi Santoso',
                     'rekening' => '1234567890',
                     'bruto' => 1_000_000,
-                    'pph' => 25_000,
+                    'ppn' => 50_000,
+                    'biaya_ku_rtgs' => 15_000,
+                    'pph_list' => [
+                        ['jenis' => 'PPh Pasal 21', 'nilai' => 25_000],
+                        ['jenis' => 'PPh Pasal 23', 'nilai' => 5_000],
+                    ],
                     'keterangan' => 'Honor kegiatan',
                 ],
                 [
@@ -66,13 +78,12 @@ class NpdBjTest extends TestCase
                     'nama' => 'CV Maju Jaya',
                     'rekening' => '0987654321',
                     'bruto' => 2_500_000,
-                    'pph' => 0,
-                ],
-                [
-                    'nama' => 'Siti Aminah (manual, tidak ada di master)',
-                    'rekening' => '5551122',
-                    'bruto' => 750_000,
-                    'pph' => 10_000,
+                    'ppn' => 0,
+                    'biaya_ku_rtgs' => 20_000,
+                    'pph_list' => [
+                        ['jenis' => 'PPh Pasal 22', 'nilai' => 50_000],
+                        ['jenis' => 'PPh Pasal 4(2)', 'nilai' => 12_500],
+                    ],
                 ],
             ],
         ];
@@ -84,26 +95,38 @@ class NpdBjTest extends TestCase
 
         $this->assertSame('bj', $npd->jenis);
         $this->assertSame('1', $npd->keu);
+        $this->assertSame('Tanpa Panjar', $npd->jenis_panjar);
         $this->assertSame('Draft NPD - PPTK', $npd->status);
         $this->assertSame($pptk->id, $npd->dibuat_oleh);
 
-        // 1_000_000 - 25_000 + 2_500_000 - 0 + 750_000 - 10_000 = 4_215_000
-        $this->assertEquals(4_215_000.0, (float) $npd->nominal);
-        $this->assertSame(Terbilang::rupiah(4_215_000), $npd->terbilang);
+        // Nominal = TOTAL BRUTO (1.000.000 + 2.500.000), bukan total netto.
+        $this->assertEquals(3_500_000.0, (float) $npd->nominal);
+        $this->assertSame(Terbilang::rupiah(3_500_000), $npd->terbilang);
 
-        $this->assertSame(3, $npd->penerima()->count());
+        // Total bruto lampiran harus sama dengan nominal (toleransi 0, di sini pas).
+        $totalBruto = $npd->penerima()->sum('bruto');
+        $this->assertEqualsWithDelta((float) $npd->nominal, (float) $totalBruto, 1.0);
 
-        $penerimaPegawai = $npd->penerima()->where('pegawai_id', $pegawai->id)->firstOrFail();
+        $this->assertSame(2, $npd->penerima()->count());
+
+        $penerimaPegawai = $npd->penerima()->with('pphList')->where('pegawai_id', $pegawai->id)->firstOrFail();
         $this->assertSame('Budi Santoso', $penerimaPegawai->nama);
-        $this->assertEquals(975_000.0, (float) $penerimaPegawai->biaya);
+        $this->assertEquals(1_000_000.0, (float) $penerimaPegawai->bruto);
+        $this->assertEquals(50_000.0, (float) $penerimaPegawai->ppn);
+        $this->assertEquals(15_000.0, (float) $penerimaPegawai->biaya_ku_rtgs);
+        $this->assertSame(2, $penerimaPegawai->pphList->count());
+        $this->assertEquals(30_000.0, $penerimaPegawai->total_pph);
+        // netto = 1.000.000 - 50.000 - 30.000 - 15.000 = 905.000
+        $this->assertEquals(905_000.0, $penerimaPegawai->netto);
 
-        $penerimaVendor = $npd->penerima()->where('vendor_id', $vendor->id)->firstOrFail();
+        $penerimaVendor = $npd->penerima()->with('pphList')->where('vendor_id', $vendor->id)->firstOrFail();
         $this->assertSame('CV Maju Jaya', $penerimaVendor->nama);
-        $this->assertEquals(2_500_000.0, (float) $penerimaVendor->biaya);
-
-        $penerimaManual = $npd->penerima()->whereNull('pegawai_id')->whereNull('vendor_id')->firstOrFail();
-        $this->assertSame('Siti Aminah (manual, tidak ada di master)', $penerimaManual->nama);
-        $this->assertEquals(740_000.0, (float) $penerimaManual->biaya);
+        $this->assertEquals(2_500_000.0, (float) $penerimaVendor->bruto);
+        $this->assertEquals(0.0, (float) $penerimaVendor->ppn);
+        $this->assertSame(2, $penerimaVendor->pphList->count());
+        $this->assertEquals(62_500.0, $penerimaVendor->total_pph);
+        // netto = 2.500.000 - 0 - 62.500 - 20.000 = 2.417.500
+        $this->assertEquals(2_417_500.0, $penerimaVendor->netto);
 
         $indexResponse = $this->actingAs($pptk)->get(route('npd.index'));
         $indexResponse->assertStatus(200);
@@ -113,7 +136,8 @@ class NpdBjTest extends TestCase
         $showResponse->assertStatus(200);
         $showResponse->assertSee('Budi Santoso');
         $showResponse->assertSee('CV Maju Jaya');
-        $showResponse->assertSee('Siti Aminah (manual, tidak ada di master)');
+        $showResponse->assertSee('PPh Pasal 21');
+        $showResponse->assertSee('PPh Pasal 4(2)');
     }
 
     public function test_bendahara_dan_pptk_boleh_akses_tapi_role_lain_ditolak(): void
@@ -128,7 +152,7 @@ class NpdBjTest extends TestCase
         $this->actingAs($verifikator)->get(route('npd.bj.create'))->assertForbidden();
     }
 
-    public function test_validasi_gagal_tanpa_master_anggaran_dan_tanpa_penerima(): void
+    public function test_validasi_gagal_tanpa_master_anggaran_jenis_panjar_dan_tanpa_penerima(): void
     {
         $pptk = User::create([
             'username' => 'test-pptk-2',
@@ -143,7 +167,7 @@ class NpdBjTest extends TestCase
             'tahun' => 2026,
         ]);
 
-        $response->assertSessionHasErrors(['master_anggaran_id', 'penerima']);
+        $response->assertSessionHasErrors(['master_anggaran_id', 'jenis_panjar', 'penerima']);
         $this->assertSame(0, Npd::count());
     }
 }
