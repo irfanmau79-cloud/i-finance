@@ -135,7 +135,9 @@
         </table>
     </div>
 
-    <div style="display:flex;justify-content:flex-end;margin-top:16px;">
+    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+        <a class="btn" href="{{ route('npd.cetak-npd', $npd) }}" target="_blank">Cetak NPD</a>
+        <a class="btn" href="{{ route('npd.cetak-lampiran', $npd) }}" target="_blank">Cetak Lampiran</a>
         <a class="btn" href="{{ route($ruteDaftar) }}">Kembali ke Daftar NPD</a>
     </div>
 </div>

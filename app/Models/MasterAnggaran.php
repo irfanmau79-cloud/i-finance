@@ -67,4 +67,19 @@ class MasterAnggaran extends Model
     {
         return (float) $this->pagu - $this->totalRealisasi();
     }
+
+    /**
+     * Sisa Anggaran SEBELUM $npd dibuat: pagu dikurangi seluruh NPD (non-batal)
+     * pada rekening ini yang tercatat lebih dulu (id lebih kecil). Dipakai di
+     * cetak NPD, kolom "Sisa Anggaran" di tabel rincian.
+     */
+    public function sisaAnggaranSebelum(Npd $npd): float
+    {
+        $terpakaiSebelum = (float) $this->npd()
+            ->where('id', '<', $npd->id)
+            ->where('status', 'not like', '%batal%')
+            ->sum('nominal');
+
+        return (float) $this->pagu - $terpakaiSebelum;
+    }
 }

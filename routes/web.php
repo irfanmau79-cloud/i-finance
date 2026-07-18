@@ -61,5 +61,7 @@ Route::middleware('auth')->group(function () {
     Route::middleware('role:bendahara,pptk,bpp,verifikator')->group(function () {
         Route::get('/npd/{npd}', [NpdController::class, 'show'])->name('npd.show');
         Route::post('/npd/{npd}/transisi', [NpdController::class, 'transisi'])->name('npd.transisi');
+        Route::get('/npd/{npd}/cetak-npd', [NpdController::class, 'cetakNpd'])->name('npd.cetak-npd');
+        Route::get('/npd/{npd}/cetak-lampiran', [NpdController::class, 'cetakLampiran'])->name('npd.cetak-lampiran');
     });
 });
