@@ -48,10 +48,36 @@
         .row-actions button {
             cursor: pointer;
         }
+
+        .user-bar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .user-bar > div {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+
+        .user-bar form {
+            margin: 0;
+        }
     </style>
 </head>
 <body>
-    <h1>Daftar Surat Perintah</h1>
+    <div class="user-bar">
+        <h1>Daftar Surat Perintah</h1>
+        <div>
+            {{ auth()->user()->nama }} ({{ auth()->user()->role }})
+            <form method="POST" action="{{ route('logout') }}">
+                @csrf
+                <button type="submit">Logout</button>
+            </form>
+        </div>
+    </div>
 
     @if (session('success'))
         <div class="alert-success">{{ session('success') }}</div>
