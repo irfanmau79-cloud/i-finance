@@ -48,18 +48,24 @@
                         <td>{{ $suratPerintah->status_sp }}</td>
                         <td><span class="badge st-diterima">{{ $suratPerintah->status }}</span></td>
                         <td style="text-align:center;">
-                            @if ($bolehEditHapus)
-                                <div class="aksi-wrap" style="width:auto;grid-template-columns:repeat(2,30px);">
+                            @php
+                                $fileTersedia = filled($suratPerintah->file_url) && \Illuminate\Support\Facades\Storage::disk('public')->exists($suratPerintah->file_url);
+                            @endphp
+                            <div class="aksi-wrap" style="width:auto;grid-template-columns:repeat({{ $bolehEditHapus ? 3 : 1 }},30px);">
+                                @if ($fileTersedia)
+                                    <a class="ic-btn" title="Lihat SP" href="{{ asset('storage/'.$suratPerintah->file_url) }}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></a>
+                                @else
+                                    <button type="button" class="ic-btn" title="File tidak tersedia" style="opacity:.5;cursor:not-allowed;" onclick="alert('File tidak tersedia.');"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                                @endif
+                                @if ($bolehEditHapus)
                                     <a class="ic-btn" title="Edit" href="{{ route('surat-perintah.edit', $suratPerintah) }}"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></a>
                                     <form method="POST" action="{{ route('surat-perintah.destroy', $suratPerintah) }}" onsubmit="return confirm('Yakin ingin menghapus Surat Perintah {{ $suratPerintah->nomor_sp }}?');">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="ic-btn danger" title="Hapus"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
                                     </form>
-                                </div>
-                            @else
-                                &mdash;
-                            @endif
+                                @endif
+                            </div>
                         </td>
                     </tr>
                 @empty

@@ -76,7 +76,18 @@
     <div class="fg span2">
         <label class="fl" for="file_url">Upload PDF SP</label>
         @if ($sp)
-            <p class="mini">File saat ini: <a href="{{ asset('storage/'.$sp->file_url) }}" target="_blank">Lihat PDF</a> &mdash; kosongkan jika tidak ingin mengganti.</p>
+            @php
+                $fileTersedia = filled($sp->file_url) && \Illuminate\Support\Facades\Storage::disk('public')->exists($sp->file_url);
+            @endphp
+            <p class="mini">
+                File saat ini:
+                @if ($fileTersedia)
+                    <a href="{{ asset('storage/'.$sp->file_url) }}" target="_blank" rel="noopener">Lihat SP</a>
+                @else
+                    <a href="#" onclick="alert('File tidak tersedia.'); return false;">Lihat SP</a>
+                @endif
+                &mdash; kosongkan jika tidak ingin mengganti.
+            </p>
         @endif
         <input type="file" id="file_url" name="file_url" accept="application/pdf">
     </div>
