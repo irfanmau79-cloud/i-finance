@@ -7,14 +7,11 @@ use Illuminate\Database\Eloquent\Model;
 
 #[Fillable([
     'nama',
-    'nip',
-    'jabatan',
-    'bidang',
     'aktif',
 ])]
-class Pegawai extends Model
+class Vendor extends Model
 {
-    protected $table = 'pegawai';
+    protected $table = 'vendor';
 
     protected function casts(): array
     {
