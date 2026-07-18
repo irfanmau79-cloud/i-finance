@@ -11,6 +11,36 @@ class NpdController extends Controller
 {
     public function index(Request $request)
     {
+        $npds = $this->daftarNpd($request);
+
+        return view('npd.index', compact('npds'));
+    }
+
+    /**
+     * Antrean Persetujuan NPD untuk BPP. Port dari getNPDuntukBPP di
+     * gas-lama/CodeRevisi.gs: seluruh NPD ditampilkan, tombol aksi di
+     * halaman detail aktif hanya untuk status di tahap BPP.
+     */
+    public function persetujuan(Request $request)
+    {
+        $npds = $this->daftarNpd($request);
+
+        return view('npd.persetujuan', compact('npds'));
+    }
+
+    /**
+     * Antrean Verifikasi NPD untuk Verifikator. Port dari
+     * getNPDuntukVerifikator di gas-lama/CodeRevisi.gs.
+     */
+    public function verifikasi(Request $request)
+    {
+        $npds = $this->daftarNpd($request);
+
+        return view('npd.verifikasi', compact('npds'));
+    }
+
+    private function daftarNpd(Request $request)
+    {
         $query = Npd::with('masterAnggaran')->orderBy('tanggal_npd', 'desc');
 
         if ($request->filled('jenis')) {
@@ -21,18 +51,23 @@ class NpdController extends Controller
             $query->where('status', $request->string('status'));
         }
 
-        $npds = $query->paginate(30)->withQueryString();
-
-        return view('npd.index', compact('npds'));
+        return $query->paginate(30)->withQueryString();
     }
 
     public function show(Request $request, Npd $npd)
     {
         $npd->load(['masterAnggaran.tagging', 'penerima.pphList', 'dibuatOleh']);
 
-        $aksiTersedia = $npd->aksiTersedia($request->user()->role);
+        $role = $request->user()->role;
+        $aksiTersedia = $npd->aksiTersedia($role);
 
-        return view('npd.show', compact('npd', 'aksiTersedia'));
+        [$ruteDaftar, $activeNav] = match ($role) {
+            'bpp' => ['npd.persetujuan', 'persetujuan'],
+            'verifikator' => ['npd.verifikasi', 'verifikasi'],
+            default => ['npd.index', 'npd'],
+        };
+
+        return view('npd.show', compact('npd', 'aksiTersedia', 'ruteDaftar', 'activeNav'));
     }
 
     /**

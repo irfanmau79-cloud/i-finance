@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('activeNav', 'npd')
+@section('activeNav', $activeNav)
 @section('title', 'Detail NPD')
 
 @section('content')
@@ -136,7 +136,7 @@
     </div>
 
     <div style="display:flex;justify-content:flex-end;margin-top:16px;">
-        <a class="btn" href="{{ route('npd.index') }}">Kembali ke Daftar NPD</a>
+        <a class="btn" href="{{ route($ruteDaftar) }}">Kembali ke Daftar NPD</a>
     </div>
 </div>
 
