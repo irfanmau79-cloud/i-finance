@@ -23,10 +23,29 @@
         th {
             background-color: #eee;
         }
+
+        .alert-success {
+            border: 1px solid #0a0;
+            background-color: #efe;
+            padding: 10px;
+            margin-bottom: 15px;
+        }
+
+        .actions {
+            margin-bottom: 15px;
+        }
     </style>
 </head>
 <body>
     <h1>Daftar Surat Perintah</h1>
+
+    @if (session('success'))
+        <div class="alert-success">{{ session('success') }}</div>
+    @endif
+
+    <div class="actions">
+        <a href="{{ route('surat-perintah.create') }}">Tambah SP</a>
+    </div>
 
     <table>
         <thead>
