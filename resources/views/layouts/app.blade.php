@@ -34,6 +34,8 @@
             'npd' => route('npd.index'),
             'persetujuan' => route('npd.persetujuan'),
             'verifikasi' => route('npd.verifikasi'),
+            'users' => route('users.index'),
+            'profil' => route('profil.show'),
         ];
         $href = fn ($key) => $navHref[$key] ?? route('menu.placeholder', $key);
         $group = function (array $subs) use ($akses, $activeNav) {

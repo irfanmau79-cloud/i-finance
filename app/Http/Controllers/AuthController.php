@@ -37,7 +37,21 @@ class AuthController extends Controller
                 ->onlyInput('username');
         }
 
+        if (! Auth::user()->aktif) {
+            AuditLog::catat('Login Gagal', 'Akun dinonaktifkan: '.$credentials['username']);
+
+            Auth::logout();
+            $request->session()->invalidate();
+            $request->session()->regenerateToken();
+
+            return back()
+                ->withErrors(['username' => 'Akun dinonaktifkan, hubungi Bendahara.'])
+                ->onlyInput('username');
+        }
+
         $request->session()->regenerate();
+
+        Auth::user()->forceFill(['last_login_at' => now()])->save();
 
         AuditLog::catat('Login', 'User berhasil masuk sistem');
 

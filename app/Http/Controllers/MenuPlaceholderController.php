@@ -20,8 +20,6 @@ class MenuPlaceholderController extends Controller
         'persetujuan-selesai' => 'NPD Selesai (Persetujuan NPD)',
         'verifikasi-selesai' => 'NPD Selesai (Verifikasi NPD)',
         'tk-form' => 'Tunjangan Keluarga — Perubahan Data',
-        'users' => 'Manajemen Users',
-        'profil' => 'Profil Saya',
     ];
 
     public function show(string $key)
