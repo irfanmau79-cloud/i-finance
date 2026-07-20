@@ -12,16 +12,16 @@
         <div class="sumbar ok"><span>{{ session('success') }}</span></div>
     @endif
 
-    @unless ($pelimpahanSudahDiset)
+    @if ($peringatanPelimpahan)
         <div class="sumbar" style="background:var(--warn-bg);color:var(--warn);">
             <span>
-                Pelimpahan belum diset untuk sub kegiatan ini &mdash; KPA/BPP/PPTK pada dokumen cetak memakai data lama (Data Tambahan) sebagai cadangan.
+                {{ $peringatanPelimpahan }} KPA/BPP/PPTK pada dokumen cetak menggunakan sumber cadangan.
                 @if (auth()->user()->role === 'bendahara')
                     <a href="{{ route('pelimpahan.index') }}" style="color:inherit;font-weight:700;">Atur di menu Pelimpahan</a>.
                 @endif
             </span>
         </div>
-    @endunless
+    @endif
 
     @if ($errors->any())
         <div class="err-box" style="display:block;">

@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Helpers\AuditLog;
 use App\Helpers\PejabatResolver;
-use App\Models\DataTambahan;
 use App\Models\Npd;
 use App\Models\NpdPenerima;
 use Illuminate\Http\Request;
@@ -73,9 +72,9 @@ class NpdController extends Controller
             default => ['npd.index', 'npd'],
         };
 
-        $pelimpahanSudahDiset = PejabatResolver::sudahDiset($npd->masterAnggaran->sub_kegiatan);
+        $peringatanPelimpahan = PejabatResolver::untukNpd($npd)['peringatan'];
 
-        return view('npd.show', compact('npd', 'aksiTersedia', 'ruteDaftar', 'activeNav', 'pelimpahanSudahDiset'));
+        return view('npd.show', compact('npd', 'aksiTersedia', 'ruteDaftar', 'activeNav', 'peringatanPelimpahan'));
     }
 
     /**
@@ -170,15 +169,13 @@ class NpdController extends Controller
     {
         $npd->load('masterAnggaran.tagging');
 
-        // No. DPA masih dari data_tambahan (di luar cakupan Pelimpahan); KPA/PPTK dari resolver terpusat.
-        $dataTambahan = DataTambahan::untukProgram($npd->masterAnggaran->program);
         $pejabat = PejabatResolver::untukNpd($npd);
 
         $html = view('npd.pdf.npd', [
             'npd' => $npd,
             'kpa' => $pejabat['kpa'],
             'pptk' => $pejabat['pptk'],
-            'noDpa' => $dataTambahan?->no_dpa ?? '',
+            'noDpa' => $pejabat['no_dpa'],
             'sisaSebelum' => $npd->masterAnggaran->sisaAnggaranSebelum($npd),
             'logoPath' => $this->logoKopPath(),
         ])->render();

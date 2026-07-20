@@ -38,6 +38,7 @@ class PejabatResolver
         $pejabatOpd = PejabatOpd::aktif();
         $pa = self::dariPegawai($pejabatOpd?->paPegawai);
         $bendaharaPengeluaran = self::dariPegawai($pejabatOpd?->bendaharaPengeluaranPegawai);
+        $dataTambahan = DataTambahan::untukProgram($program);
 
         $subKegiatanNormal = $subKegiatan !== null ? MasterAnggaran::normalisasiTeks($subKegiatan) : null;
 
@@ -47,13 +48,20 @@ class PejabatResolver
                 ->first()
             : null;
 
-        if ($pelimpahan) {
+        $pelimpahanValid = $pelimpahan
+            && $pelimpahan->kpa?->aktif
+            && $pelimpahan->kpa->kpaPegawai?->aktif
+            && $pelimpahan->kpa->bppPegawai?->aktif
+            && $pelimpahan->pptkPegawai?->aktif;
+
+        if ($pelimpahanValid) {
             return [
                 'kpa' => self::dariPegawai($pelimpahan->kpa->kpaPegawai),
                 'bpp' => self::dariPegawai($pelimpahan->kpa->bppPegawai),
                 'pptk' => self::dariPegawai($pelimpahan->pptkPegawai),
                 'pa' => $pa,
                 'bendahara_pengeluaran' => $bendaharaPengeluaran,
+                'no_dpa' => $dataTambahan?->no_dpa ?? '',
                 'peringatan' => null,
             ];
         }
@@ -61,7 +69,9 @@ class PejabatResolver
         // Belum ada pelimpahan untuk sub kegiatan ini — fallback ke data_tambahan
         // lama (by program), sama persis dengan resolvePegawai() lama, supaya
         // NPD tetap bisa dicetak alih-alih gagal.
-        $dataTambahan = DataTambahan::untukProgram($program);
+        $peringatan = $pelimpahan
+            ? 'Pelimpahan sub kegiatan belum valid atau pejabatnya tidak aktif — memakai data lama (Data Tambahan) sebagai cadangan.'
+            : 'Pelimpahan belum diset untuk sub kegiatan ini — memakai data lama (Data Tambahan) sebagai cadangan.';
 
         return [
             'kpa' => self::dariNamaBebas($dataTambahan?->kpa),
@@ -69,7 +79,8 @@ class PejabatResolver
             'pptk' => self::dariNamaBebas($dataTambahan?->pptk),
             'pa' => $pa,
             'bendahara_pengeluaran' => $bendaharaPengeluaran,
-            'peringatan' => 'Pelimpahan belum diset untuk sub kegiatan ini — memakai data lama (Data Tambahan) sebagai cadangan.',
+            'no_dpa' => $dataTambahan?->no_dpa ?? '',
+            'peringatan' => $peringatan,
         ];
     }
 
@@ -77,7 +88,12 @@ class PejabatResolver
     public static function sudahDiset(?string $subKegiatan): bool
     {
         return $subKegiatan !== null
-            && Pelimpahan::where('kode_sub_kegiatan', MasterAnggaran::normalisasiTeks($subKegiatan))->exists();
+            && Pelimpahan::where('kode_sub_kegiatan', MasterAnggaran::normalisasiTeks($subKegiatan))
+                ->whereHas('kpa', fn ($query) => $query->where('aktif', true))
+                ->whereHas('kpa.kpaPegawai', fn ($query) => $query->where('aktif', true))
+                ->whereHas('kpa.bppPegawai', fn ($query) => $query->where('aktif', true))
+                ->whereHas('pptkPegawai', fn ($query) => $query->where('aktif', true))
+                ->exists();
     }
 
     private static function dariPegawai(?Pegawai $pegawai): object

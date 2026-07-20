@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 
 /**
  * Pejabat level OPD: Pengguna Anggaran (PA) & Bendahara Pengeluaran.
@@ -38,11 +39,20 @@ class PejabatOpd extends Model
     /** Set/ubah pejabat OPD. Selalu satu baris aktif — pakai yang sudah ada kalau ada, buat baru kalau belum. */
     public static function simpan(array $data): self
     {
-        $row = self::aktif() ?? new self();
-        $row->fill($data);
-        $row->aktif = true;
-        $row->save();
+        return DB::transaction(function () use ($data) {
+            $rows = self::query()->lockForUpdate()->orderBy('id')->get();
+            $row = $rows->firstWhere('aktif', true) ?? $rows->first() ?? new self();
 
-        return $row;
+            self::query()
+                ->when($row->exists, fn ($query) => $query->whereKeyNot($row->getKey()))
+                ->where('aktif', true)
+                ->update(['aktif' => false]);
+
+            $row->fill($data);
+            $row->aktif = true;
+            $row->save();
+
+            return $row;
+        });
     }
 }

@@ -9,6 +9,9 @@ use App\Models\Pegawai;
 use App\Models\PejabatOpd;
 use App\Models\Pelimpahan;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class PelimpahanController extends Controller
 {
@@ -48,8 +51,8 @@ class PelimpahanController extends Controller
     public function updateOpd(Request $request)
     {
         $validated = $request->validate([
-            'pa_pegawai_id' => ['required', 'exists:pegawai,id'],
-            'bendahara_pengeluaran_pegawai_id' => ['required', 'exists:pegawai,id'],
+            'pa_pegawai_id' => ['required', Rule::exists('pegawai', 'id')->where('aktif', true)],
+            'bendahara_pengeluaran_pegawai_id' => ['required', Rule::exists('pegawai', 'id')->where('aktif', true)],
         ]);
 
         PejabatOpd::simpan($validated);
@@ -62,17 +65,23 @@ class PelimpahanController extends Controller
     public function storeKpa(Request $request)
     {
         $validated = $request->validate([
-            'kpa_pegawai_id' => ['required', 'exists:pegawai,id', 'different:bpp_pegawai_id'],
-            'bpp_pegawai_id' => ['required', 'exists:pegawai,id'],
+            'kpa_pegawai_id' => ['required', Rule::exists('pegawai', 'id')->where('aktif', true), 'different:bpp_pegawai_id'],
+            'bpp_pegawai_id' => ['required', Rule::exists('pegawai', 'id')->where('aktif', true)],
             'nama_jabatan' => ['nullable', 'string', 'max:150'],
         ]);
 
-        if (Kpa::sudahJadiKpaAktifLain((int) $validated['kpa_pegawai_id'])) {
-            return back()->withErrors(['kpa_pegawai_id' => 'Pegawai ini sudah jadi KPA aktif di baris lain.'])->withInput();
-        }
-
         $validated['aktif'] = true;
-        $kpa = Kpa::create($validated)->load(['kpaPegawai', 'bppPegawai']);
+        $kpa = DB::transaction(function () use ($validated) {
+            Kpa::query()->lockForUpdate()->get();
+
+            if (Kpa::sudahJadiKpaAktifLain((int) $validated['kpa_pegawai_id'])) {
+                throw ValidationException::withMessages([
+                    'kpa_pegawai_id' => 'Pegawai ini sudah jadi KPA aktif di baris lain.',
+                ]);
+            }
+
+            return Kpa::create($validated)->load(['kpaPegawai', 'bppPegawai']);
+        });
 
         AuditLog::catat('Tambah KPA', "KPA: {$kpa->kpaPegawai->nama}, BPP: {$kpa->bppPegawai->nama}");
 
@@ -82,16 +91,22 @@ class PelimpahanController extends Controller
     public function updateKpa(Request $request, Kpa $kpa)
     {
         $validated = $request->validate([
-            'kpa_pegawai_id' => ['required', 'exists:pegawai,id', 'different:bpp_pegawai_id'],
-            'bpp_pegawai_id' => ['required', 'exists:pegawai,id'],
+            'kpa_pegawai_id' => ['required', Rule::exists('pegawai', 'id')->where('aktif', true), 'different:bpp_pegawai_id'],
+            'bpp_pegawai_id' => ['required', Rule::exists('pegawai', 'id')->where('aktif', true)],
             'nama_jabatan' => ['nullable', 'string', 'max:150'],
         ]);
 
-        if (Kpa::sudahJadiKpaAktifLain((int) $validated['kpa_pegawai_id'], $kpa->id)) {
-            return back()->withErrors(['kpa_pegawai_id' => 'Pegawai ini sudah jadi KPA aktif di baris lain.'])->withInput();
-        }
+        DB::transaction(function () use ($validated, $kpa) {
+            Kpa::query()->lockForUpdate()->get();
 
-        $kpa->update($validated);
+            if (Kpa::sudahJadiKpaAktifLain((int) $validated['kpa_pegawai_id'], $kpa->id)) {
+                throw ValidationException::withMessages([
+                    'kpa_pegawai_id' => 'Pegawai ini sudah jadi KPA aktif di baris lain.',
+                ]);
+            }
+
+            $kpa->update($validated);
+        });
         $kpa->load(['kpaPegawai', 'bppPegawai']);
 
         AuditLog::catat('Ubah KPA', "KPA: {$kpa->kpaPegawai->nama}, BPP: {$kpa->bppPegawai->nama}");
@@ -101,8 +116,18 @@ class PelimpahanController extends Controller
 
     public function toggleKpaAktif(Kpa $kpa)
     {
-        $kpa->aktif = ! $kpa->aktif;
-        $kpa->save();
+        DB::transaction(function () use ($kpa) {
+            Kpa::query()->lockForUpdate()->get();
+
+            if (! $kpa->aktif && Kpa::sudahJadiKpaAktifLain($kpa->kpa_pegawai_id, $kpa->id)) {
+                throw ValidationException::withMessages([
+                    'kpa_pegawai_id' => 'Pegawai ini sudah jadi KPA aktif di baris lain.',
+                ]);
+            }
+
+            $kpa->aktif = ! $kpa->aktif;
+            $kpa->save();
+        });
         $kpa->load('kpaPegawai');
 
         AuditLog::catat($kpa->aktif ? 'Aktifkan KPA' : 'Nonaktifkan KPA', "KPA: {$kpa->kpaPegawai->nama}");
@@ -114,10 +139,10 @@ class PelimpahanController extends Controller
     public function setSubKegiatan(Request $request)
     {
         $validated = $request->validate([
-            'kpa_id' => ['required', 'exists:kpa,id'],
-            'pptk_pegawai_id' => ['required', 'exists:pegawai,id'],
+            'kpa_id' => ['required', Rule::exists('kpa', 'id')->where('aktif', true)],
+            'pptk_pegawai_id' => ['required', Rule::exists('pegawai', 'id')->where('aktif', true)],
             'kode_sub_kegiatan' => ['required', 'array', 'min:1'],
-            'kode_sub_kegiatan.*' => ['string'],
+            'kode_sub_kegiatan.*' => ['string', 'max:255'],
         ]);
 
         Pelimpahan::setBorongan($validated['kode_sub_kegiatan'], (int) $validated['kpa_id'], (int) $validated['pptk_pegawai_id']);

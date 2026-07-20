@@ -199,7 +199,9 @@
                 </thead>
                 <tbody>
                     @forelse ($subKegiatanList as $row)
-                        @php($p = $pelimpahanMap[$row->sub_kegiatan] ?? null)
+                        @php
+                            $p = $pelimpahanMap[$row->sub_kegiatan] ?? null;
+                        @endphp
                         <tr data-program="{{ $row->program }}" data-kegiatan="{{ $row->kegiatan }}" data-cari="{{ mb_strtolower($row->sub_kegiatan) }}">
                             <td><input type="checkbox" name="kode_sub_kegiatan[]" value="{{ $row->sub_kegiatan }}" class="row-check"></td>
                             <td>{{ $row->sub_kegiatan }}</td>
