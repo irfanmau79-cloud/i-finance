@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
     'jenis',
@@ -29,6 +30,8 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class Npd extends Model
 {
+    use SoftDeletes;
+
     protected $table = 'npd';
 
     public const JENIS_LABEL = [
@@ -45,18 +48,18 @@ class Npd extends Model
         'Draft NPD - PPTK',
         'Draft NPD - BPP',
         'Verifikasi - Verifikator',
-        'Dikembalikan',
         'NPD Disetujui - BPP',
         'Selesai',
+        'Dibatalkan',
     ];
 
     public const STATUS_BADGE_CLASS = [
         'Draft NPD - PPTK' => 'st-npd',
         'Draft NPD - BPP' => 'st-npd-bpp',
         'Verifikasi - Verifikator' => 'st-verifikasi',
-        'Dikembalikan' => 'st-dikembalikan',
         'NPD Disetujui - BPP' => 'st-disetujui',
         'Selesai' => 'st-selesai',
+        'Dibatalkan' => 'st-dikembalikan',
     ];
 
     /**
@@ -152,6 +155,36 @@ class Npd extends Model
         return $this->hasMany(NpdTim::class);
     }
 
+    public function historiStatus(): HasMany
+    {
+        return $this->hasMany(NpdHistoriStatus::class)->orderBy('nomor_urut');
+    }
+
+    public function dapatDieditOleh(User $user): bool
+    {
+        return $this->status === 'Draft NPD - PPTK'
+            && in_array($user->role, [User::ROLE_SUPERADMIN, User::ROLE_PPTK], true);
+    }
+
+    public function catatHistoriStatus(
+        ?User $user,
+        string $aksi,
+        ?string $statusAsal,
+        string $statusTujuan,
+        ?string $catatan = null,
+    ): NpdHistoriStatus {
+        $nomorUrut = (int) $this->historiStatus()->max('nomor_urut') + 1;
+
+        return $this->historiStatus()->create([
+            'user_id' => $user?->id,
+            'aksi' => $aksi,
+            'status_asal' => $statusAsal,
+            'status_tujuan' => $statusTujuan,
+            'catatan' => $catatan,
+            'nomor_urut' => $nomorUrut,
+        ]);
+    }
+
     /** Superadmin boleh melakukan aksi apa pun; role lain hanya sesuai daftar 'roles' aksi tsb. */
     public static function bolehAksi(string $aksi, string $role): bool
     {
@@ -180,6 +213,23 @@ class Npd extends Model
     {
         if ($this->surat_perintah_id) {
             $this->suratPerintah()->update(['status' => $this->status]);
+        }
+    }
+
+    public function lepaskanSuratPerintah(): void
+    {
+        if (! $this->surat_perintah_id) {
+            return;
+        }
+
+        $masihDipakai = self::query()
+            ->whereKeyNot($this->id)
+            ->where('surat_perintah_id', $this->surat_perintah_id)
+            ->where('status', '!=', 'Dibatalkan')
+            ->exists();
+
+        if (! $masihDipakai) {
+            $this->suratPerintah()->update(['status' => SuratPerintah::STATUS_DITERIMA_PPTK]);
         }
     }
 }

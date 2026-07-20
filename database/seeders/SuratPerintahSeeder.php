@@ -84,7 +84,7 @@ class SuratPerintahSeeder extends Seeder
                 'keterangan' => 'Melaksanakan Reviu Rencana Kerja Anggaran (RKA) Perubahan pada Dinas Kesehatan Kabupaten Bekasi',
                 'file_url' => 'sp/528-KPG0402.pdf',
                 'status_sp' => 'Revisi',
-                'status' => 'Dikembalikan',
+                'status' => 'Draft NPD - PPTK',
                 'pengajuan' => 'Uang Harian, Akomodasi, Transport',
                 'catatan' => 'Menunggu perbaikan lampiran rincian biaya dari PPTK',
                 'dipantau' => true,

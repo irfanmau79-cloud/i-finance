@@ -1,11 +1,12 @@
 @extends('layouts.app')
 
 @section('activeNav', 'npd')
-@section('title', 'Buat NPD Perjalanan Dinas')
+@php($npdEdit = $npd ?? null)
+@section('title', $npdEdit ? 'Edit NPD Perjalanan Dinas' : 'Buat NPD Perjalanan Dinas')
 
 @section('content')
 <div class="dash-card">
-    <h3>Buat NPD Perjalanan Dinas</h3>
+    <h3>{{ $npdEdit ? 'Edit' : 'Buat' }} NPD Perjalanan Dinas</h3>
     <div class="sub">Pilih sumber dana, lengkapi data SP &amp; perjalanan, lalu tambahkan anggota tim.</div>
 
     @if ($errors->any())
@@ -19,8 +20,9 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('npd.pd.store') }}" id="npd-pd-form">
+    <form method="POST" action="{{ $npdEdit ? route('npd.pd.update', $npdEdit) : route('npd.pd.store') }}" id="npd-pd-form">
         @csrf
+        @if ($npdEdit) @method('PUT') @endif
 
         <div class="fg">
             <label class="fl" for="maf-program">Program</label>
@@ -44,7 +46,7 @@
                 <select id="maf-tagging" disabled><option value="">Pilih kode rekening dulu</option></select>
             </div>
         </div>
-        <input type="hidden" name="master_anggaran_id" id="master_anggaran_id" value="{{ old('master_anggaran_id') }}">
+        <input type="hidden" name="master_anggaran_id" id="master_anggaran_id" value="{{ old('master_anggaran_id', $npdEdit?->master_anggaran_id) }}">
 
         <div class="auto" id="ma-detail" style="display:none;">
             <div class="ai"><span class="k">Program</span><span class="v" id="ma-program"></span></div>
@@ -68,40 +70,40 @@
             </select>
             <p class="mini">Kalau ditautkan, Nomor SP/Tanggal SP/Uraian/Tujuan otomatis terisi (tetap bisa diedit) dan status NPD ini akan ikut termonitor di Monitoring SP.</p>
         </div>
-        <input type="hidden" name="surat_perintah_id" id="surat_perintah_id" value="{{ old('surat_perintah_id') }}">
+        <input type="hidden" name="surat_perintah_id" id="surat_perintah_id" value="{{ old('surat_perintah_id', $npdEdit?->surat_perintah_id) }}">
 
         <div class="form-grid">
             <div class="fg">
                 <label class="fl" for="nomor_sp">Nomor SP</label>
-                <input type="text" id="nomor_sp" name="nomor_sp" value="{{ old('nomor_sp') }}" placeholder="mis. 294/KPG.03.01.01/Sekre">
+                <input type="text" id="nomor_sp" name="nomor_sp" value="{{ old('nomor_sp', $npdEdit?->detail_json['nomor_sp'] ?? null) }}" placeholder="mis. 294/KPG.03.01.01/Sekre">
             </div>
             <div class="fg">
                 <label class="fl" for="tanggal_sp">Tanggal SP</label>
-                <input type="date" id="tanggal_sp" name="tanggal_sp" value="{{ old('tanggal_sp') }}">
+                <input type="date" id="tanggal_sp" name="tanggal_sp" value="{{ old('tanggal_sp', $npdEdit?->detail_json['tanggal_sp'] ?? null) }}">
             </div>
         </div>
         <div class="fg">
             <label class="fl" for="uraian_sp">Uraian / Maksud Perjalanan</label>
-            <textarea id="uraian_sp" name="uraian_sp" placeholder="mis. Mengikuti kegiatan Rapat Persiapan ...">{{ old('uraian_sp') }}</textarea>
+            <textarea id="uraian_sp" name="uraian_sp" placeholder="mis. Mengikuti kegiatan Rapat Persiapan ...">{{ old('uraian_sp', $npdEdit?->detail_json['uraian_sp'] ?? null) }}</textarea>
         </div>
         <div class="form-grid">
             <div class="fg">
                 <label class="fl" for="berangkat_dari">Berangkat Dari</label>
-                <input type="text" id="berangkat_dari" name="berangkat_dari" value="{{ old('berangkat_dari', \App\Models\ClusterUh::ASAL_PERJALANAN) }}">
+                <input type="text" id="berangkat_dari" name="berangkat_dari" value="{{ old('berangkat_dari', $npdEdit?->detail_json['berangkat_dari'] ?? \App\Models\ClusterUh::ASAL_PERJALANAN) }}">
             </div>
             <div class="fg">
                 <label class="fl" for="tujuan">Tujuan (umum)</label>
-                <input type="text" id="tujuan" name="tujuan" value="{{ old('tujuan') }}" placeholder="mis. Jakarta">
+                <input type="text" id="tujuan" name="tujuan" value="{{ old('tujuan', $npdEdit?->detail_json['tujuan'] ?? null) }}" placeholder="mis. Jakarta">
             </div>
         </div>
         <div class="form-grid">
             <div class="fg">
                 <label class="fl" for="tanggal_berangkat">Tanggal Berangkat</label>
-                <input type="date" id="tanggal_berangkat" name="tanggal_berangkat" value="{{ old('tanggal_berangkat') }}">
+                <input type="date" id="tanggal_berangkat" name="tanggal_berangkat" value="{{ old('tanggal_berangkat', $npdEdit?->detail_json['tanggal_berangkat'] ?? null) }}">
             </div>
             <div class="fg">
                 <label class="fl" for="tanggal_pulang">Tanggal Pulang</label>
-                <input type="date" id="tanggal_pulang" name="tanggal_pulang" value="{{ old('tanggal_pulang') }}">
+                <input type="date" id="tanggal_pulang" name="tanggal_pulang" value="{{ old('tanggal_pulang', $npdEdit?->detail_json['tanggal_pulang'] ?? null) }}">
             </div>
         </div>
 
@@ -110,7 +112,7 @@
             <div class="seg">
                 @foreach (\App\Models\Npd::JENIS_PANJAR_LIST as $opt)
                     <label>
-                        <input type="radio" name="jenis_panjar" value="{{ $opt }}" @checked(old('jenis_panjar', 'Panjar') === $opt)>
+                        <input type="radio" name="jenis_panjar" value="{{ $opt }}" @checked(old('jenis_panjar', $npdEdit?->jenis_panjar ?? 'Panjar') === $opt)>
                         <span>{{ $opt }}</span>
                     </label>
                 @endforeach
@@ -119,20 +121,20 @@
         <div class="form-grid">
             <div class="fg">
                 <label class="fl" for="tanggal_npd">Tanggal NPD</label>
-                <input type="date" id="tanggal_npd" name="tanggal_npd" value="{{ old('tanggal_npd') }}">
+                <input type="date" id="tanggal_npd" name="tanggal_npd" value="{{ old('tanggal_npd', $npdEdit?->tanggal_npd?->format('Y-m-d')) }}">
             </div>
             <div class="fg">
                 <label class="fl" for="bulan">Bulan</label>
                 <select id="bulan" name="bulan">
                     <option value="">-- Pilih Bulan --</option>
                     @foreach ($bulanList as $num => $label)
-                        <option value="{{ $num }}" @selected((string) old('bulan') === (string) $num)>{{ $label }}</option>
+                        <option value="{{ $num }}" @selected((string) old('bulan', $npdEdit?->bulan) === (string) $num)>{{ $label }}</option>
                     @endforeach
                 </select>
             </div>
             <div class="fg">
                 <label class="fl" for="tahun">Tahun</label>
-                <input type="number" id="tahun" name="tahun" min="2000" max="2100" value="{{ old('tahun', now()->year) }}">
+                <input type="number" id="tahun" name="tahun" min="2000" max="2100" value="{{ old('tahun', $npdEdit?->tahun ?? now()->year) }}">
             </div>
         </div>
 
@@ -142,7 +144,7 @@
 
         <div class="fg" style="margin-top:16px;">
             <label class="fl" for="keterangan_lampiran">Keterangan Lampiran (opsional)</label>
-            <textarea id="keterangan_lampiran" name="keterangan_lampiran" placeholder="Kosongkan untuk memakai keterangan otomatis (rentang tanggal berangkat s.d pulang).">{{ old('keterangan_lampiran') }}</textarea>
+            <textarea id="keterangan_lampiran" name="keterangan_lampiran" placeholder="Kosongkan untuk memakai keterangan otomatis (rentang tanggal berangkat s.d pulang).">{{ old('keterangan_lampiran', $npdEdit?->detail_json['keterangan_lampiran'] ?? null) }}</textarea>
         </div>
 
         <div class="badge-tot" style="margin-top:16px;">
@@ -152,12 +154,12 @@
 
         <div class="nav">
             <a class="btn" href="{{ route('npd.index') }}">Batal</a>
-            <button type="submit" class="btn prim">Simpan sebagai Draft</button>
+            <button type="submit" class="btn prim">{{ $npdEdit ? 'Simpan Perubahan' : 'Simpan sebagai Draft' }}</button>
         </div>
     </form>
 </div>
 
-@php
+<?php
     $masterAnggaranJs = $masterAnggaran->map(fn ($m) => [
         'id' => $m->id,
         'program' => $m->program,
@@ -168,7 +170,7 @@
         'tagging_id' => $m->tagging_id,
         'tagging' => $m->tagging->nama ?? 'Tanpa Tagging',
         'pagu' => (float) $m->pagu,
-        'sisa' => $m->sisaTersedia(),
+        'sisa' => $m->sisaTersedia() + ($npdEdit && $npdEdit->master_anggaran_id === $m->id ? (float) $npdEdit->nominal : 0),
         'keu' => $m->tentukanKeu(),
     ]);
 
@@ -195,13 +197,38 @@
         'uraian_sp' => $sp->keterangan,
         'tujuan' => $sp->lokasi,
     ]);
-@endphp
+
+    $timTersimpan = $npdEdit?->tim->map(fn ($tim) => [
+        'pegawai_id' => $tim->pegawai_id,
+        'nama' => $tim->nama,
+        'jabatan' => $tim->jabatan,
+        'nip' => $tim->nip,
+        'rekening' => $tim->rekening,
+        'bbm_liter' => $tim->bbm_liter,
+        'bbm_tarif' => $tim->bbm_tarif,
+        'tol' => $tim->tol,
+        'tiket' => $tim->tiket,
+        'representatif' => $tim->representatif,
+        'paket' => $tim->paket->map(fn ($paket) => [
+            'cluster' => $paket->cluster,
+            'wilayah' => $paket->wilayah,
+            'lama_hari' => $paket->lama_hari,
+            'tarif_uh' => $paket->tarif_uh,
+            'malam' => $paket->malam,
+            'tarif_akom' => $paket->tarif_akom,
+        ])->all(),
+    ])->all() ?? [];
+    $timAwal = old('tim', $timTersimpan);
+    $penerimaAwal = (int) old('penerima_index', $npdEdit?->tim->search(fn ($tim) => $tim->is_penerima) ?? 0);
+?>
 <script>
 (function () {
     const masterAnggaranData = @json($masterAnggaranJs);
     const pegawaiData = @json($pegawaiJs);
     const clusterData = @json($clusterJs);
     const spData = @json($spJs);
+    const initialTim = @json($timAwal);
+    const initialPenerima = @json($penerimaAwal);
 
     function formatRupiah(n) {
         n = Number(n) || 0;
@@ -366,6 +393,7 @@
             document.getElementById('tujuan').value = sp.tujuan || '';
         }
     });
+    document.getElementById('sp-taut').value = document.getElementById('surat_perintah_id').value;
 
     // ==================== Anggota Tim ====================
     const timList = document.getElementById('tim-list');
@@ -579,25 +607,63 @@
         addPaket(timRow); // minimal 1 paket
     }
 
+    function isiPaket(paketRow, data, timRow) {
+        const cluster = paketRow.querySelector('[data-p-cluster]');
+        cluster.value = data.cluster || '';
+        cluster.dispatchEvent(new Event('change'));
+        const wilayah = paketRow.querySelector('[data-p-wilayah]');
+        if (wilayah) wilayah.value = data.wilayah || '';
+        paketRow.querySelector('[data-p-hari]').value = data.lama_hari ?? 0;
+        paketRow.querySelector('[data-p-tarifuh]').value = data.tarif_uh ?? 0;
+        paketRow.querySelector('[data-p-malam]').value = data.malam ?? 0;
+        paketRow.querySelector('[data-p-tarifak]').value = data.tarif_akom ?? 0;
+        recalcTim(timRow);
+    }
+
+    function tambahTim(data = null) {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = timRowHtml(timIndex);
+        const row = wrapper.firstElementChild;
+        timList.appendChild(row);
+        attachTimEvents(row);
+
+        if (data) {
+            row.querySelector('[data-name-input]').value = data.nama || '';
+            row.querySelector('[data-pegawai-id]').value = data.pegawai_id || '';
+            row.querySelector('[data-jabatan]').value = data.jabatan || '';
+            row.querySelector('[data-nip]').value = data.nip || '';
+            row.querySelector('[data-rekening]').value = data.rekening || '';
+            row.querySelector('[data-bbm-liter]').value = data.bbm_liter ?? 0;
+            row.querySelector('[data-bbm-tarif]').value = data.bbm_tarif ?? 0;
+            row.querySelector('[data-tol]').value = data.tol ?? 0;
+            row.querySelector('[data-tiket]').value = data.tiket ?? 0;
+            row.querySelector('[data-representatif]').value = data.representatif ?? 0;
+
+            const paket = data.paket || [];
+            paket.forEach((item, index) => {
+                if (index > 0) addPaket(row);
+                isiPaket(row.querySelectorAll('[data-paket-row]')[index], item, row);
+            });
+        }
+
+        if (timIndex === initialPenerima || (! initialTim.length && timIndex === 0)) {
+            row.querySelector('[data-penerima-radio]').checked = true;
+        }
+        timIndex++;
+        renumber();
+        recalcTim(row);
+    }
+
     document.addEventListener('click', (e) => {
         document.querySelectorAll('[data-name-drop].show').forEach(drop => {
             if (! drop.closest('[data-name-search]').contains(e.target)) drop.classList.remove('show');
         });
     });
 
-    document.getElementById('tim-add').addEventListener('click', () => {
-        const wrapper = document.createElement('div');
-        wrapper.innerHTML = timRowHtml(timIndex);
-        const row = wrapper.firstElementChild;
-        timList.appendChild(row);
-        attachTimEvents(row);
-        // Anggota pertama otomatis jadi penerima dana secara default.
-        if (timIndex === 0) row.querySelector('[data-penerima-radio]').checked = true;
-        timIndex++;
-        renumber();
-    });
+    document.getElementById('tim-add').addEventListener('click', () => tambahTim());
 
-    document.getElementById('tim-add').click(); // minimal 1 anggota
+    if (initialTim.length) initialTim.forEach(data => tambahTim(data));
+    else tambahTim();
 })();
 </script>
 @endsection

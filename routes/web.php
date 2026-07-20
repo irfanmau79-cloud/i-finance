@@ -89,8 +89,13 @@ Route::middleware('auth.or.guest')->group(function () {
     Route::middleware('role:superadmin,pptk')->group(function () {
         Route::get('/npd/bj/create', [NpdBjController::class, 'create'])->name('npd.bj.create');
         Route::post('/npd/bj', [NpdBjController::class, 'store'])->name('npd.bj.store');
+        Route::get('/npd/bj/{npd}/edit', [NpdBjController::class, 'edit'])->name('npd.bj.edit');
+        Route::put('/npd/bj/{npd}', [NpdBjController::class, 'update'])->name('npd.bj.update');
         Route::get('/npd/pd/create', [NpdPdController::class, 'create'])->name('npd.pd.create');
         Route::post('/npd/pd', [NpdPdController::class, 'store'])->name('npd.pd.store');
+        Route::get('/npd/pd/{npd}/edit', [NpdPdController::class, 'edit'])->name('npd.pd.edit');
+        Route::put('/npd/pd/{npd}', [NpdPdController::class, 'update'])->name('npd.pd.update');
+        Route::delete('/npd/{npd}', [NpdController::class, 'destroy'])->name('npd.destroy');
     });
 
     // Antrean Persetujuan NPD: BPP. Port dari getNPDuntukBPP di gas-lama/CodeRevisi.gs.

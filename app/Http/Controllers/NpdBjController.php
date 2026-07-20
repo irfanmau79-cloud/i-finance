@@ -9,6 +9,7 @@ use App\Models\MasterAnggaran;
 use App\Models\Npd;
 use App\Models\Pegawai;
 use App\Models\Vendor;
+use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
@@ -46,7 +47,144 @@ class NpdBjController extends Controller
             ]);
         }
 
-        $penerima = collect($data['penerima'])->map(function (array $p) {
+        $penerima = $this->siapkanPenerima($data['penerima']);
+
+        // Nominal NPD = TOTAL BRUTO seluruh penerima (persis logika GAS, bukan netto).
+        $nominal = round((float) $penerima->sum('bruto'), 2);
+
+        if ($nominal <= 0) {
+            return back()->withInput()->withErrors([
+                'penerima' => 'Total Bruto seluruh penerima harus lebih dari 0.',
+            ]);
+        }
+
+        $npd = DB::transaction(function () use ($data, $masterAnggaran, $keu, $nominal, $penerima, $request) {
+            $masterAnggaran = MasterAnggaran::query()->lockForUpdate()->findOrFail($masterAnggaran->id);
+            $sisa = $masterAnggaran->sisaTersedia();
+
+            if ($nominal > $sisa) {
+                throw ValidationException::withMessages([
+                    'penerima' => 'Total Bruto (Rp '.number_format($nominal, 2, ',', '.').') melebihi Sisa Tersedia sumber dana ini (Rp '.number_format($sisa, 2, ',', '.').').',
+                ]);
+            }
+
+            $npd = Npd::create([
+                'jenis' => 'bj',
+                'master_anggaran_id' => $masterAnggaran->id,
+                'keu' => $keu,
+                'bulan' => $data['bulan'],
+                'tahun' => $data['tahun'],
+                'tanggal_npd' => $data['tanggal_npd'],
+                'jenis_panjar' => $data['jenis_panjar'],
+                'nominal' => $nominal,
+                'terbilang' => Terbilang::rupiah($nominal),
+                'status' => 'Draft NPD - PPTK',
+                'dibuat_oleh' => $request->user()->id,
+            ]);
+
+            $this->simpanPenerima($npd, $penerima);
+            $npd->catatHistoriStatus($request->user(), 'buat', null, $npd->status);
+
+            return $npd;
+        });
+
+        AuditLog::catat('Buat NPD', 'Jenis: Barang/Jasa, Nominal: Rp '.number_format((float) $nominal, 2, ',', '.'));
+
+        return redirect()->route('npd.show', $npd)->with('success', 'NPD Barang/Jasa berhasil disimpan sebagai draft.');
+    }
+
+    public function edit(Request $request, Npd $npd)
+    {
+        abort_unless($npd->jenis === 'bj', 404);
+        abort_unless($npd->dapatDieditOleh($request->user()), 403);
+
+        $npd->load('penerima.pphList');
+
+        $penerimaAwal = $npd->penerima->map(fn ($p) => [
+            'pegawai_id' => $p->pegawai_id,
+            'vendor_id' => $p->vendor_id,
+            'nama' => $p->nama,
+            'rekening' => $p->rekening,
+            'bruto' => $p->bruto,
+            'ppn' => $p->ppn,
+            'biaya_ku_rtgs' => $p->biaya_ku_rtgs,
+            'keterangan' => $p->keterangan,
+            'pph_list' => $p->pphList->map(fn ($pph) => ['jenis' => $pph->jenis, 'nilai' => $pph->nilai])->all(),
+        ])->all();
+
+        return $this->form($npd, $penerimaAwal);
+    }
+
+    public function update(StoreNpdBjRequest $request, Npd $npd)
+    {
+        abort_unless($npd->jenis === 'bj', 404);
+        abort_unless($npd->dapatDieditOleh($request->user()), 403);
+
+        $data = $request->validated();
+        $penerima = $this->siapkanPenerima($data['penerima']);
+        $nominal = round((float) $penerima->sum('bruto'), 2);
+
+        if ($nominal <= 0) {
+            return back()->withInput()->withErrors(['penerima' => 'Total Bruto seluruh penerima harus lebih dari 0.']);
+        }
+
+        DB::transaction(function () use ($request, $npd, $data, $penerima, $nominal) {
+            $npd = Npd::query()->lockForUpdate()->findOrFail($npd->id);
+            abort_unless($npd->dapatDieditOleh($request->user()), 403);
+
+            $anggaran = MasterAnggaran::query()->lockForUpdate()->findOrFail($data['master_anggaran_id']);
+            $keu = $anggaran->tentukanKeu();
+            if ($keu === null) {
+                throw ValidationException::withMessages(['master_anggaran_id' => 'Sub kegiatan tidak dapat dipetakan ke KEU.']);
+            }
+
+            $tersedia = $anggaran->sisaTersedia();
+            if ($npd->master_anggaran_id === $anggaran->id) {
+                $tersedia += (float) $npd->nominal;
+            }
+            if ($nominal > $tersedia) {
+                throw ValidationException::withMessages([
+                    'penerima' => 'Total Bruto melebihi Sisa Tersedia setelah memperhitungkan nilai NPD saat ini.',
+                ]);
+            }
+
+            $npd->update([
+                'master_anggaran_id' => $anggaran->id,
+                'keu' => $keu,
+                'bulan' => $data['bulan'],
+                'tahun' => $data['tahun'],
+                'tanggal_npd' => $data['tanggal_npd'],
+                'jenis_panjar' => $data['jenis_panjar'],
+                'nominal' => $nominal,
+                'terbilang' => Terbilang::rupiah($nominal),
+            ]);
+
+            $npd->penerima()->delete();
+            $this->simpanPenerima($npd, $penerima);
+            $npd->catatHistoriStatus($request->user(), 'edit', $npd->status, $npd->status, 'Data Barang/Jasa diperbarui.');
+        });
+
+        AuditLog::catat('Edit NPD', 'Jenis: Barang/Jasa, NPD #'.$npd->id);
+
+        return redirect()->route('npd.show', $npd)->with('success', 'Draft NPD Barang/Jasa berhasil diperbarui.');
+    }
+
+    private function form(?Npd $npd = null, ?array $penerimaAwal = null)
+    {
+        $masterAnggaran = MasterAnggaran::with('tagging')->where('aktif', true)->orderBy('sub_kegiatan')->get();
+        $pegawai = Pegawai::where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'jabatan', 'bidang', 'rekening']);
+        $vendor = Vendor::where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'rekening']);
+        $bulanList = [
+            1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni',
+            7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
+        ];
+
+        return view('npd.bj.create', compact('masterAnggaran', 'pegawai', 'vendor', 'bulanList', 'npd', 'penerimaAwal'));
+    }
+
+    private function siapkanPenerima(array $data)
+    {
+        return collect($data)->map(function (array $p) {
             $bruto = (float) $p['bruto'];
             $ppn = (float) ($p['ppn'] ?? 0);
             $biayaKuRtgs = (float) ($p['biaya_ku_rtgs'] ?? 0);
@@ -81,54 +219,14 @@ class NpdBjController extends Controller
                 'pph_list' => $pphList,
             ];
         });
+    }
 
-        // Nominal NPD = TOTAL BRUTO seluruh penerima (persis logika GAS, bukan netto).
-        // Karena nominal diturunkan langsung dari bruto (tak ada input nominal terpisah),
-        // "total bruto harus sama dengan nominal" selalu terpenuhi by construction.
-        $nominal = round((float) $penerima->sum('bruto'), 2);
-
-        if ($nominal <= 0) {
-            return back()->withInput()->withErrors([
-                'penerima' => 'Total Bruto seluruh penerima harus lebih dari 0.',
-            ]);
+    private function simpanPenerima(Npd $npd, $penerima): void
+    {
+        foreach ($penerima as $p) {
+            $pphList = $p['pph_list'];
+            unset($p['pph_list']);
+            $npd->penerima()->create($p)->pphList()->createMany($pphList->all());
         }
-
-        $npd = DB::transaction(function () use ($data, $masterAnggaran, $keu, $nominal, $penerima, $request) {
-            $masterAnggaran = MasterAnggaran::query()->lockForUpdate()->findOrFail($masterAnggaran->id);
-            $sisa = $masterAnggaran->sisaTersedia();
-
-            if ($nominal > $sisa) {
-                throw ValidationException::withMessages([
-                    'penerima' => 'Total Bruto (Rp '.number_format($nominal, 2, ',', '.').') melebihi Sisa Tersedia sumber dana ini (Rp '.number_format($sisa, 2, ',', '.').').',
-                ]);
-            }
-
-            $npd = Npd::create([
-                'jenis' => 'bj',
-                'master_anggaran_id' => $masterAnggaran->id,
-                'keu' => $keu,
-                'bulan' => $data['bulan'],
-                'tahun' => $data['tahun'],
-                'tanggal_npd' => $data['tanggal_npd'],
-                'jenis_panjar' => $data['jenis_panjar'],
-                'nominal' => $nominal,
-                'terbilang' => Terbilang::rupiah($nominal),
-                'status' => 'Draft NPD - PPTK',
-                'dibuat_oleh' => $request->user()->id,
-            ]);
-
-            foreach ($penerima as $p) {
-                $pphList = $p['pph_list'];
-                unset($p['pph_list']);
-
-                $npd->penerima()->create($p)->pphList()->createMany($pphList->all());
-            }
-
-            return $npd;
-        });
-
-        AuditLog::catat('Buat NPD', 'Jenis: Barang/Jasa, Nominal: Rp '.number_format((float) $nominal, 2, ',', '.'));
-
-        return redirect()->route('npd.show', $npd)->with('success', 'NPD Barang/Jasa berhasil disimpan sebagai draft.');
     }
 }

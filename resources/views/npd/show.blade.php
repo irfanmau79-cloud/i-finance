@@ -122,7 +122,9 @@
                 </thead>
                 <tbody>
                     @forelse ($npd->tim as $t)
-                        @php($h = $t->hitung())
+                        @php
+                            $h = $t->hitung();
+                        @endphp
                         <tr>
                             <td>{{ $t->nama }}</td>
                             <td>{{ $t->jabatan ?? '—' }}</td>
@@ -186,6 +188,50 @@
                     @endforelse
                 </tbody>
             </table>
+        </div>
+    @endif
+
+    @if ($npd->historiStatus->isNotEmpty())
+        <h3 style="margin-top:22px;">Histori Status</h3>
+        <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">
+            <table class="realisasi">
+                <thead><tr><th>#</th><th>Waktu</th><th>Aksi</th><th>Perubahan Status</th><th>Pengguna</th><th>Catatan</th></tr></thead>
+                <tbody>
+                    @foreach ($npd->historiStatus as $histori)
+                        <tr>
+                            <td>{{ $histori->nomor_urut }}</td>
+                            <td>{{ $histori->created_at->format('d-m-Y H:i') }}</td>
+                            <td>{{ str($histori->aksi)->replace('_', ' ')->title() }}</td>
+                            <td>{{ $histori->status_asal ?? 'Awal' }} &rarr; {{ $histori->status_tujuan }}</td>
+                            <td>{{ $histori->user->nama ?? 'Sistem' }}</td>
+                            <td>{{ $histori->catatan ?? '—' }}</td>
+                        </tr>
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
+
+    @php
+        $bolehBatalkan = auth()->user()->isSuperadmin()
+            || (auth()->user()->role === \App\Models\User::ROLE_PPTK && $npd->status === 'Draft NPD - PPTK');
+    @endphp
+    @if ($npd->dapatDieditOleh(auth()->user()) || $bolehBatalkan)
+        <div class="grp" style="margin-top:22px;">
+            <div class="gt">Kelola Draft</div>
+            <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
+                @if ($npd->dapatDieditOleh(auth()->user()))
+                    <a class="btn" href="{{ route($npd->jenis === 'pd' ? 'npd.pd.edit' : 'npd.bj.edit', $npd) }}">Edit NPD</a>
+                @endif
+                @if ($bolehBatalkan)
+                    <form method="POST" action="{{ route('npd.destroy', $npd) }}" onsubmit="return confirm('Batalkan NPD ini? Tindakan dicatat dalam histori.');" style="display:flex;gap:6px;align-items:center;">
+                        @csrf
+                        @method('DELETE')
+                        <input type="text" name="alasan" required maxlength="500" placeholder="Alasan pembatalan" style="min-width:240px;">
+                        <button type="submit" class="btn">Batalkan NPD</button>
+                    </form>
+                @endif
+            </div>
         </div>
     @endif
 

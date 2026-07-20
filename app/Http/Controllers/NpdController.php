@@ -6,9 +6,13 @@ use App\Helpers\AuditLog;
 use App\Helpers\PejabatResolver;
 use App\Models\Npd;
 use App\Models\NpdPenerima;
+use App\Models\NpdTim;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
 
@@ -61,7 +65,7 @@ class NpdController extends Controller
 
     public function show(Request $request, Npd $npd)
     {
-        $npd->load(['masterAnggaran.tagging', 'penerima.pphList', 'tim.paket', 'dibuatOleh']);
+        $npd->load(['masterAnggaran.tagging', 'penerima.pphList', 'tim.paket', 'dibuatOleh', 'historiStatus.user']);
 
         $role = $request->user()->role;
         $aksiTersedia = $npd->aksiTersedia($role);
@@ -124,8 +128,8 @@ class NpdController extends Controller
 
             $bentrok = Npd::where('id', '!=', $npd->id)
                 ->where('keu', $npd->keu)
+                ->where('tahun', $npd->tahun)
                 ->where('nomor_urut', $nomorUrut)
-                ->where('status', 'not like', '%batal%')
                 ->first();
 
             if ($bentrok) {
@@ -142,23 +146,84 @@ class NpdController extends Controller
             default => null,
         };
 
-        DB::transaction(function () use ($npd, $rule, $catatanBaru, $nomorUrut, $aksi) {
-            if ($aksi === 'verifikasi') {
-                $npd->nomor_urut = $nomorUrut;
-                $npd->nomor_lengkap = Npd::buatNomorLengkap($nomorUrut, $npd->keu, $npd->bulan, $npd->tahun);
+        try {
+            DB::transaction(function () use ($request, $npd, $rule, $catatanBaru, $nomorUrut, $aksi) {
+                $npd = Npd::query()->lockForUpdate()->findOrFail($npd->id);
+                if ($npd->status !== $rule['from']) {
+                    throw ValidationException::withMessages(['aksi' => 'Status NPD telah berubah. Muat ulang halaman sebelum melanjutkan.']);
+                }
+
+                $statusAsal = $npd->status;
+                if ($aksi === 'verifikasi') {
+                    $bentrok = Npd::query()->lockForUpdate()
+                        ->whereKeyNot($npd->id)
+                        ->where('keu', $npd->keu)
+                        ->where('tahun', $npd->tahun)
+                        ->where('nomor_urut', $nomorUrut)
+                        ->first();
+                    if ($bentrok) {
+                        throw ValidationException::withMessages([
+                            'nomor_urut' => "Nomor {$nomorUrut} sudah dipakai pada KEU {$npd->keu} tahun {$npd->tahun}.",
+                        ]);
+                    }
+                    $npd->nomor_urut = $nomorUrut;
+                    $npd->nomor_lengkap = Npd::buatNomorLengkap($nomorUrut, $npd->keu, $npd->bulan, $npd->tahun);
+                }
+
+                $npd->status = $rule['to'];
+                $npd->catatan = $catatanBaru;
+                $npd->save();
+                $npd->catatHistoriStatus($request->user(), $aksi, $statusAsal, $rule['to'], $catatanBaru);
+                $npd->mirrorStatusKeSuratPerintah();
+            });
+        } catch (QueryException $e) {
+            if (str_contains(strtolower($e->getMessage()), 'unique') || ($e->errorInfo[0] ?? null) === '23000') {
+                return back()->withErrors(['nomor_urut' => 'Nomor NPD baru saja dipakai oleh transaksi lain. Pilih nomor lain.']);
             }
-
-            $npd->status = $rule['to'];
-            $npd->catatan = $catatanBaru;
-            $npd->save();
-
-            $npd->mirrorStatusKeSuratPerintah();
-        });
+            throw $e;
+        }
 
         $nomorForLog = $npd->nomor_lengkap ?? "NPD #{$npd->id}";
         AuditLog::catat($rule['label'], "NPD: {$nomorForLog}".($catatanBaru ? " | {$catatanBaru}" : ''));
 
         return back()->with('success', "Status NPD diperbarui: {$rule['label']}.");
+    }
+
+    public function destroy(Request $request, Npd $npd)
+    {
+        $alasan = trim((string) $request->input('alasan'));
+        if ($alasan === '') {
+            return back()->withErrors(['alasan' => 'Alasan pembatalan wajib diisi.']);
+        }
+
+        $user = $request->user();
+        $boleh = $user->isSuperadmin()
+            || ($user->role === 'pptk' && $npd->status === 'Draft NPD - PPTK');
+        abort_unless($boleh, 403);
+
+        DB::transaction(function () use ($npd, $user, $alasan) {
+            $npd = Npd::query()->lockForUpdate()->findOrFail($npd->id);
+            $boleh = $user->isSuperadmin()
+                || ($user->role === 'pptk' && $npd->status === 'Draft NPD - PPTK');
+            abort_unless($boleh && $npd->status !== 'Dibatalkan', 403);
+
+            $statusAsal = $npd->status;
+            $npd->status = 'Dibatalkan';
+            $npd->catatan = '[Dibatalkan] '.$alasan;
+            $npd->nomor_urut = null;
+            $npd->nomor_lengkap = null;
+            $npd->save();
+            $npd->catatHistoriStatus($user, 'batalkan', $statusAsal, 'Dibatalkan', $alasan);
+            $npd->lepaskanSuratPerintah();
+
+            if ($statusAsal === 'Draft NPD - PPTK') {
+                $npd->delete();
+            }
+        });
+
+        AuditLog::catat('Batalkan NPD', 'NPD #'.$npd->id.' | '.$alasan);
+
+        return redirect()->route('npd.index')->with('success', 'NPD berhasil dibatalkan dengan aman.');
     }
 
     /**
@@ -362,7 +427,7 @@ class NpdController extends Controller
     /** Format tanggal Indonesia dari string "Y-m-d" di detail_json. Port dari fmtTanggalIndo di gas-lama/Code.gs. */
     private function tanggalIndo(?string $tanggal): string
     {
-        return $tanggal ? \Illuminate\Support\Carbon::parse($tanggal)->translatedFormat('d F Y') : '';
+        return $tanggal ? Carbon::parse($tanggal)->translatedFormat('d F Y') : '';
     }
 
     /**
@@ -436,7 +501,7 @@ class NpdController extends Controller
      * kolom Representatif/Transport/Jumlah). Port 1:1 dari _rowsDaftarBayar
      * di gas-lama/CodePerjalanan.gs.
      *
-     * @param  Collection<int, \App\Models\NpdTim>  $tim
+     * @param  Collection<int, NpdTim>  $tim
      */
     private function rowsDaftarBayar(Collection $tim): array
     {
@@ -502,7 +567,7 @@ class NpdController extends Controller
      * digabung per nama (rowspan). Port 1:1 dari _rowsSPDRampung di
      * gas-lama/CodePerjalanan.gs.
      *
-     * @param  Collection<int, \App\Models\NpdTim>  $tim
+     * @param  Collection<int, NpdTim>  $tim
      */
     private function rowsSpdRampung(Collection $tim): array
     {

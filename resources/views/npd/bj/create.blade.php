@@ -1,11 +1,12 @@
 @extends('layouts.app')
 
 @section('activeNav', 'npd')
-@section('title', 'Buat NPD Barang/Jasa')
+@php($npdEdit = $npd ?? null)
+@section('title', $npdEdit ? 'Edit NPD Barang/Jasa' : 'Buat NPD Barang/Jasa')
 
 @section('content')
 <div class="dash-card">
-    <h3>Buat NPD Barang/Jasa</h3>
+    <h3>{{ $npdEdit ? 'Edit' : 'Buat' }} NPD Barang/Jasa</h3>
     <div class="sub">Pilih sumber dana, lengkapi data NPD, lalu tambahkan penerima.</div>
 
     @if ($errors->any())
@@ -19,8 +20,9 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('npd.bj.store') }}" id="npd-bj-form">
+    <form method="POST" action="{{ $npdEdit ? route('npd.bj.update', $npdEdit) : route('npd.bj.store') }}" id="npd-bj-form">
         @csrf
+        @if ($npdEdit) @method('PUT') @endif
 
         <div class="fg">
             <label class="fl" for="maf-program">Program</label>
@@ -44,7 +46,7 @@
                 <select id="maf-tagging" disabled><option value="">Pilih kode rekening dulu</option></select>
             </div>
         </div>
-        <input type="hidden" name="master_anggaran_id" id="master_anggaran_id" value="{{ old('master_anggaran_id') }}">
+        <input type="hidden" name="master_anggaran_id" id="master_anggaran_id" value="{{ old('master_anggaran_id', $npdEdit?->master_anggaran_id) }}">
 
         <div class="auto" id="ma-detail" style="display:none;">
             <div class="ai"><span class="k">Program</span><span class="v" id="ma-program"></span></div>
@@ -62,7 +64,7 @@
             <div class="seg">
                 @foreach (\App\Models\Npd::JENIS_PANJAR_LIST as $opt)
                     <label>
-                        <input type="radio" name="jenis_panjar" value="{{ $opt }}" @checked(old('jenis_panjar', 'Panjar') === $opt)>
+                        <input type="radio" name="jenis_panjar" value="{{ $opt }}" @checked(old('jenis_panjar', $npdEdit?->jenis_panjar ?? 'Panjar') === $opt)>
                         <span>{{ $opt }}</span>
                     </label>
                 @endforeach
@@ -72,26 +74,28 @@
         <div class="form-grid">
             <div class="fg">
                 <label class="fl" for="tanggal_npd">Tanggal NPD</label>
-                <input type="date" id="tanggal_npd" name="tanggal_npd" value="{{ old('tanggal_npd') }}">
+                <input type="date" id="tanggal_npd" name="tanggal_npd" value="{{ old('tanggal_npd', $npdEdit?->tanggal_npd?->format('Y-m-d')) }}">
             </div>
             <div class="fg">
                 <label class="fl" for="bulan">Bulan</label>
                 <select id="bulan" name="bulan">
                     <option value="">-- Pilih Bulan --</option>
                     @foreach ($bulanList as $num => $label)
-                        <option value="{{ $num }}" @selected((string) old('bulan') === (string) $num)>{{ $label }}</option>
+                        <option value="{{ $num }}" @selected((string) old('bulan', $npdEdit?->bulan) === (string) $num)>{{ $label }}</option>
                     @endforeach
                 </select>
             </div>
             <div class="fg">
                 <label class="fl" for="tahun">Tahun</label>
-                <input type="number" id="tahun" name="tahun" min="2000" max="2100" value="{{ old('tahun', now()->year) }}">
+                <input type="number" id="tahun" name="tahun" min="2000" max="2100" value="{{ old('tahun', $npdEdit?->tahun ?? now()->year) }}">
             </div>
         </div>
 
         <h3 style="margin-top:22px;">Daftar Penerima</h3>
         <div id="pen-list">
-            @php $oldPenerima = old('penerima', [[]]); @endphp
+            <?php
+                $oldPenerima = old('penerima', $penerimaAwal ?? [[]]);
+            ?>
             @foreach ($oldPenerima as $i => $row)
                 @include('npd.bj._penerima-row', ['i' => $i, 'p' => $row])
             @endforeach
@@ -105,12 +109,12 @@
 
         <div class="nav">
             <a class="btn" href="{{ route('npd.index') }}">Batal</a>
-            <button type="submit" class="btn prim">Simpan sebagai Draft</button>
+            <button type="submit" class="btn prim">{{ $npdEdit ? 'Simpan Perubahan' : 'Simpan sebagai Draft' }}</button>
         </div>
     </form>
 </div>
 
-@php
+<?php
     $masterAnggaranJs = $masterAnggaran->map(fn ($m) => [
         'id' => $m->id,
         'program' => $m->program,
@@ -121,7 +125,7 @@
         'tagging_id' => $m->tagging_id,
         'tagging' => $m->tagging->nama ?? 'Tanpa Tagging',
         'pagu' => (float) $m->pagu,
-        'sisa' => $m->sisaTersedia(),
+        'sisa' => $m->sisaTersedia() + ($npdEdit && $npdEdit->master_anggaran_id === $m->id ? (float) $npdEdit->nominal : 0),
         'keu' => $m->tentukanKeu(),
     ]);
 
@@ -138,7 +142,7 @@
         'sub' => 'Vendor',
         'rekening' => $v->rekening,
     ]));
-@endphp
+?>
 <script>
 (function () {
     const masterAnggaranData = @json($masterAnggaranJs);
