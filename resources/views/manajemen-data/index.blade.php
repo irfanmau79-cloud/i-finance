@@ -17,6 +17,20 @@
         </div>
         <a href="{{ route('manajemen-data.import.master-anggaran.create') }}" class="btn prim" style="white-space:nowrap;">Import Excel</a>
     </div>
+    <div class="dash-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div>
+            <h3 style="margin-bottom:0;">Import SPM UP/GU</h3>
+            <div class="sub" style="margin-bottom:0;">Tidak memerlukan mata anggaran.</div>
+        </div>
+        <a href="{{ route('manajemen-data.import.spm.create', 'spm-up-gu') }}" class="btn prim" style="white-space:nowrap;">Import Excel</a>
+    </div>
+    <div class="dash-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div>
+            <h3 style="margin-bottom:0;">Import SPM LS</h3>
+            <div class="sub" style="margin-bottom:0;">Wajib cocok ke mata anggaran aktif.</div>
+        </div>
+        <a href="{{ route('manajemen-data.import.spm.create', 'spm-ls') }}" class="btn prim" style="white-space:nowrap;">Import Excel</a>
+    </div>
     @foreach ($exports as $key => $meta)
     <div class="dash-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
         <div>

@@ -15,6 +15,7 @@ use App\Http\Controllers\PelimpahanController;
 use App\Http\Controllers\PengumumanController;
 use App\Http\Controllers\ProfilController;
 use App\Http\Controllers\SpmController;
+use App\Http\Controllers\SpmImportController;
 use App\Http\Controllers\SuratPerintahController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -175,6 +176,17 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/manajemen-data/import/master-anggaran/{import}/preview', [MasterAnggaranImportController::class, 'preview'])->name('manajemen-data.import.master-anggaran.preview');
         Route::post('/manajemen-data/import/master-anggaran/{import}/konfirmasi', [MasterAnggaranImportController::class, 'konfirmasi'])->name('manajemen-data.import.master-anggaran.konfirmasi');
         Route::delete('/manajemen-data/import/master-anggaran/{import}', [MasterAnggaranImportController::class, 'batalkan'])->name('manajemen-data.import.master-anggaran.batalkan');
+
+        // Import SPM UP/GU dan LS: upload -> staging (preview/dry-run) -> konfirmasi simpan.
+        Route::get('/manajemen-data/import/spm/{jenis}', [SpmImportController::class, 'create'])
+            ->whereIn('jenis', ['spm-up-gu', 'spm-ls'])
+            ->name('manajemen-data.import.spm.create');
+        Route::post('/manajemen-data/import/spm/{jenis}', [SpmImportController::class, 'store'])
+            ->whereIn('jenis', ['spm-up-gu', 'spm-ls'])
+            ->name('manajemen-data.import.spm.store');
+        Route::get('/manajemen-data/import/spm/{import}/preview', [SpmImportController::class, 'preview'])->name('manajemen-data.import.spm.preview');
+        Route::post('/manajemen-data/import/spm/{import}/konfirmasi', [SpmImportController::class, 'konfirmasi'])->name('manajemen-data.import.spm.konfirmasi');
+        Route::delete('/manajemen-data/import/spm/{import}', [SpmImportController::class, 'batalkan'])->name('manajemen-data.import.spm.batalkan');
     });
 
     // Menu sidebar yang belum punya halaman sungguhan: placeholder generik,
