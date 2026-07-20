@@ -93,49 +93,96 @@
         @endif
     </div>
 
-    <h3 style="margin-top:22px;">Daftar Penerima</h3>
-    <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">
-        <table class="realisasi">
-            <thead>
-                <tr>
-                    <th>Nama</th>
-                    <th>Rekening</th>
-                    <th>Bruto</th>
-                    <th>PPN</th>
-                    <th>PPh</th>
-                    <th>Biaya KU/RTGS</th>
-                    <th>Netto</th>
-                    <th>Keterangan</th>
-                </tr>
-            </thead>
-            <tbody>
-                @forelse ($npd->penerima as $p)
+    @if ($npd->jenis === 'pd')
+        <h3 style="margin-top:22px;">Anggota Tim</h3>
+        <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">
+            <table class="realisasi">
+                <thead>
                     <tr>
-                        <td>{{ $p->nama }}</td>
-                        <td>{{ $p->rekening ?? '—' }}</td>
-                        <td>Rp {{ number_format((float) $p->bruto, 2, ',', '.') }}</td>
-                        <td>Rp {{ number_format((float) $p->ppn, 2, ',', '.') }}</td>
-                        <td>
-                            @forelse ($p->pphList as $pph)
-                                {{ $pph->jenis }}: Rp {{ number_format((float) $pph->nilai, 2, ',', '.') }}<br>
-                            @empty
-                                —
-                            @endforelse
-                        </td>
-                        <td>Rp {{ number_format((float) $p->biaya_ku_rtgs, 2, ',', '.') }}</td>
-                        <td>Rp {{ number_format($p->netto, 2, ',', '.') }}</td>
-                        <td>{{ $p->keterangan ?? '—' }}</td>
+                        <th>Nama</th>
+                        <th>Jabatan</th>
+                        <th>Paket Tujuan</th>
+                        <th>UH + Akomodasi</th>
+                        <th>Transport</th>
+                        <th>Representatif</th>
+                        <th>Jumlah</th>
+                        <th>Penerima</th>
                     </tr>
-                @empty
+                </thead>
+                <tbody>
+                    @forelse ($npd->tim as $t)
+                        @php($h = $t->hitung())
+                        <tr>
+                            <td>{{ $t->nama }}</td>
+                            <td>{{ $t->jabatan ?? '—' }}</td>
+                            <td>
+                                @foreach ($t->paket as $p)
+                                    {{ $p->cluster }} &mdash; {{ $p->wilayah }} ({{ $p->lama_hari }} hari, {{ $p->malam }} malam)<br>
+                                @endforeach
+                            </td>
+                            <td>Rp {{ number_format($h['jml_harian'] + $h['jml_akom'], 2, ',', '.') }}</td>
+                            <td>Rp {{ number_format($h['jml_transport'], 2, ',', '.') }}</td>
+                            <td>Rp {{ number_format($h['representatif'], 2, ',', '.') }}</td>
+                            <td>Rp {{ number_format($h['jumlah'], 2, ',', '.') }}</td>
+                            <td>{{ $t->is_penerima ? 'Ya' : '—' }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="8" style="text-align:center;color:var(--mut);padding:20px;">Belum ada anggota tim.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    @else
+        <h3 style="margin-top:22px;">Daftar Penerima</h3>
+        <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">
+            <table class="realisasi">
+                <thead>
                     <tr>
-                        <td colspan="8" style="text-align:center;color:var(--mut);padding:20px;">Belum ada penerima.</td>
+                        <th>Nama</th>
+                        <th>Rekening</th>
+                        <th>Bruto</th>
+                        <th>PPN</th>
+                        <th>PPh</th>
+                        <th>Biaya KU/RTGS</th>
+                        <th>Netto</th>
+                        <th>Keterangan</th>
                     </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
+                </thead>
+                <tbody>
+                    @forelse ($npd->penerima as $p)
+                        <tr>
+                            <td>{{ $p->nama }}</td>
+                            <td>{{ $p->rekening ?? '—' }}</td>
+                            <td>Rp {{ number_format((float) $p->bruto, 2, ',', '.') }}</td>
+                            <td>Rp {{ number_format((float) $p->ppn, 2, ',', '.') }}</td>
+                            <td>
+                                @forelse ($p->pphList as $pph)
+                                    {{ $pph->jenis }}: Rp {{ number_format((float) $pph->nilai, 2, ',', '.') }}<br>
+                                @empty
+                                    —
+                                @endforelse
+                            </td>
+                            <td>Rp {{ number_format((float) $p->biaya_ku_rtgs, 2, ',', '.') }}</td>
+                            <td>Rp {{ number_format($p->netto, 2, ',', '.') }}</td>
+                            <td>{{ $p->keterangan ?? '—' }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="8" style="text-align:center;color:var(--mut);padding:20px;">Belum ada penerima.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    @endif
 
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+        @if ($npd->jenis === 'pd')
+            <a class="btn" href="{{ route('npd.cetak-daftar', $npd) }}" target="_blank">Cetak Daftar Pembayaran</a>
+            <a class="btn" href="{{ route('npd.cetak-spd', $npd) }}" target="_blank">Cetak SPD Rampung</a>
+        @endif
         <a class="btn" href="{{ route('npd.cetak-npd', $npd) }}" target="_blank">Cetak NPD</a>
         <a class="btn" href="{{ route('npd.cetak-lampiran', $npd) }}" target="_blank">Cetak Lampiran</a>
         <a class="btn" href="{{ route($ruteDaftar) }}">Kembali ke Daftar NPD</a>

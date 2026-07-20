@@ -147,6 +147,11 @@ class Npd extends Model
         return $this->hasMany(NpdPenerima::class);
     }
 
+    public function tim(): HasMany
+    {
+        return $this->hasMany(NpdTim::class);
+    }
+
     /** Role bendahara boleh melakukan aksi apa pun; role lain hanya sesuai daftar 'roles' aksi tsb. */
     public static function bolehAksi(string $aksi, string $role): bool
     {

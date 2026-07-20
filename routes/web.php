@@ -5,6 +5,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MenuPlaceholderController;
 use App\Http\Controllers\NpdBjController;
 use App\Http\Controllers\NpdController;
+use App\Http\Controllers\NpdPdController;
 use App\Http\Controllers\PengumumanController;
 use App\Http\Controllers\ProfilController;
 use App\Http\Controllers\SuratPerintahController;
@@ -76,6 +77,8 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/npd', [NpdController::class, 'index'])->name('npd.index');
         Route::get('/npd/bj/create', [NpdBjController::class, 'create'])->name('npd.bj.create');
         Route::post('/npd/bj', [NpdBjController::class, 'store'])->name('npd.bj.store');
+        Route::get('/npd/pd/create', [NpdPdController::class, 'create'])->name('npd.pd.create');
+        Route::post('/npd/pd', [NpdPdController::class, 'store'])->name('npd.pd.store');
     });
 
     // Antrean Persetujuan NPD: BPP. Port dari getNPDuntukBPP di gas-lama/CodeRevisi.gs.
@@ -94,6 +97,8 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::post('/npd/{npd}/transisi', [NpdController::class, 'transisi'])->name('npd.transisi');
         Route::get('/npd/{npd}/cetak-npd', [NpdController::class, 'cetakNpd'])->name('npd.cetak-npd');
         Route::get('/npd/{npd}/cetak-lampiran', [NpdController::class, 'cetakLampiran'])->name('npd.cetak-lampiran');
+        Route::get('/npd/{npd}/cetak-daftar', [NpdController::class, 'cetakDaftar'])->name('npd.cetak-daftar');
+        Route::get('/npd/{npd}/cetak-spd', [NpdController::class, 'cetakSpd'])->name('npd.cetak-spd');
     });
 
     // Menu sidebar yang belum punya halaman sungguhan: placeholder generik,
