@@ -16,6 +16,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'tagging_id',
     'pagu',
     'aktif',
+    'program_normal',
+    'kegiatan_normal',
+    'sub_kegiatan_normal',
+    'program_kunci',
+    'sub_kegiatan_kunci',
 ])]
 class MasterAnggaran extends Model
 {
@@ -27,6 +32,17 @@ class MasterAnggaran extends Model
             'pagu' => 'decimal:2',
             'aktif' => 'boolean',
         ];
+    }
+
+    protected static function booted(): void
+    {
+        static::saving(function (self $anggaran) {
+            $anggaran->program_normal = self::normalisasiTeks($anggaran->program);
+            $anggaran->kegiatan_normal = self::normalisasiTeks($anggaran->kegiatan);
+            $anggaran->sub_kegiatan_normal = self::normalisasiTeks($anggaran->sub_kegiatan);
+            $anggaran->program_kunci = self::normalisasiKunci($anggaran->program);
+            $anggaran->sub_kegiatan_kunci = self::normalisasiKunci($anggaran->sub_kegiatan);
+        });
     }
 
     public function tagging(): BelongsTo
@@ -56,6 +72,11 @@ class MasterAnggaran extends Model
     public static function normalisasiTeks(?string $s): string
     {
         return trim(preg_replace('/\s+/', ' ', (string) $s));
+    }
+
+    public static function normalisasiKunci(?string $s): string
+    {
+        return mb_strtolower(self::normalisasiTeks($s));
     }
 
     public function subKegiatanNormal(): string

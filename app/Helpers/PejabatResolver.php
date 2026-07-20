@@ -40,19 +40,27 @@ class PejabatResolver
         $bendaharaPengeluaran = self::dariPegawai($pejabatOpd?->bendaharaPengeluaranPegawai);
         $dataTambahan = DataTambahan::untukProgram($program);
 
-        $subKegiatanNormal = $subKegiatan !== null ? MasterAnggaran::normalisasiTeks($subKegiatan) : null;
+        $programKunci = MasterAnggaran::normalisasiKunci((string) $program);
+        $subKegiatanKunci = MasterAnggaran::normalisasiKunci((string) $subKegiatan);
 
-        $pelimpahan = $subKegiatanNormal
-            ? Pelimpahan::with(['kpa.kpaPegawai', 'kpa.bppPegawai', 'pptkPegawai'])
-                ->where('kode_sub_kegiatan', $subKegiatanNormal)
+        $pelimpahan = $programKunci !== '' && $subKegiatanKunci !== ''
+            ? Pelimpahan::with(['kpa.kpaPegawai', 'kpa.bppPegawai', 'pptkPegawai', 'kpaPptk'])
+                ->aktif()
+                ->where('program_kunci', $programKunci)
+                ->where('sub_kegiatan_kunci', $subKegiatanKunci)
                 ->first()
             : null;
 
         $pelimpahanValid = $pelimpahan
+            && $pejabatOpd?->paPegawai?->aktif
+            && $pejabatOpd->bendaharaPengeluaranPegawai?->aktif
             && $pelimpahan->kpa?->aktif
             && $pelimpahan->kpa->kpaPegawai?->aktif
             && $pelimpahan->kpa->bppPegawai?->aktif
-            && $pelimpahan->pptkPegawai?->aktif;
+            && $pelimpahan->pptkPegawai?->aktif
+            && $pelimpahan->kpaPptk?->aktif
+            && $pelimpahan->kpaPptk->kpa_id === $pelimpahan->kpa_id
+            && $pelimpahan->kpaPptk->pptk_pegawai_id === $pelimpahan->pptk_pegawai_id;
 
         if ($pelimpahanValid) {
             return [
@@ -63,6 +71,8 @@ class PejabatResolver
                 'bendahara_pengeluaran' => $bendaharaPengeluaran,
                 'no_dpa' => $dataTambahan?->no_dpa ?? '',
                 'peringatan' => null,
+                'fallback_digunakan' => false,
+                'sumber' => 'pelimpahan',
             ];
         }
 
@@ -81,18 +91,23 @@ class PejabatResolver
             'bendahara_pengeluaran' => $bendaharaPengeluaran,
             'no_dpa' => $dataTambahan?->no_dpa ?? '',
             'peringatan' => $peringatan,
+            'fallback_digunakan' => true,
+            'sumber' => 'data_tambahan',
         ];
     }
 
     /** True kalau sub kegiatan ini sudah punya pelimpahan. Dipakai untuk tampilkan peringatan di halaman detail NPD tanpa perlu resolve penuh. */
-    public static function sudahDiset(?string $subKegiatan): bool
+    public static function sudahDiset(?string $subKegiatan, ?string $program = null): bool
     {
-        return $subKegiatan !== null
-            && Pelimpahan::where('kode_sub_kegiatan', MasterAnggaran::normalisasiTeks($subKegiatan))
+        return $subKegiatan !== null && $program !== null
+            && Pelimpahan::aktif()
+                ->where('program_kunci', MasterAnggaran::normalisasiKunci($program))
+                ->where('sub_kegiatan_kunci', MasterAnggaran::normalisasiKunci($subKegiatan))
                 ->whereHas('kpa', fn ($query) => $query->where('aktif', true))
                 ->whereHas('kpa.kpaPegawai', fn ($query) => $query->where('aktif', true))
                 ->whereHas('kpa.bppPegawai', fn ($query) => $query->where('aktif', true))
                 ->whereHas('pptkPegawai', fn ($query) => $query->where('aktif', true))
+                ->whereHas('kpaPptk', fn ($query) => $query->where('aktif', true))
                 ->exists();
     }
 

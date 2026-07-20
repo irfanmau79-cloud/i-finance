@@ -58,6 +58,8 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::post('/pelimpahan/kpa', [PelimpahanController::class, 'storeKpa'])->name('pelimpahan.kpa.store');
         Route::put('/pelimpahan/kpa/{kpa}', [PelimpahanController::class, 'updateKpa'])->name('pelimpahan.kpa.update');
         Route::patch('/pelimpahan/kpa/{kpa}/toggle-aktif', [PelimpahanController::class, 'toggleKpaAktif'])->name('pelimpahan.kpa.toggle-aktif');
+        Route::post('/pelimpahan/pptk', [PelimpahanController::class, 'storePptk'])->name('pelimpahan.pptk.store');
+        Route::patch('/pelimpahan/pptk/{kpaPptk}/toggle-aktif', [PelimpahanController::class, 'togglePptk'])->name('pelimpahan.pptk.toggle-aktif');
         Route::post('/pelimpahan/sub-kegiatan', [PelimpahanController::class, 'setSubKegiatan'])->name('pelimpahan.sub-kegiatan.set');
     });
 

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Helpers\PejabatResolver;
 use App\Models\DataTambahan;
 use App\Models\Kpa;
+use App\Models\KpaPptk;
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
 use App\Models\Pegawai;
@@ -71,6 +72,19 @@ class PelimpahanPejabatTest extends TestCase
             'terbilang' => 'satu juta rupiah',
             'status' => 'Draft NPD - PPTK',
         ]);
+    }
+
+    private function siapkanPejabatOpd(): void
+    {
+        PejabatOpd::simpan([
+            'pa_pegawai_id' => $this->buatPegawai('PA OPD')->id,
+            'bendahara_pengeluaran_pegawai_id' => $this->buatPegawai('Bendahara Pengeluaran OPD')->id,
+        ]);
+    }
+
+    private function tempatkanPptk(Kpa $kpa, Pegawai $pptk): KpaPptk
+    {
+        return KpaPptk::create(['kpa_id' => $kpa->id, 'pptk_pegawai_id' => $pptk->id, 'aktif' => true]);
     }
 
     public function test_hanya_superadmin_dapat_mengelola_pelimpahan(): void
@@ -147,6 +161,7 @@ class PelimpahanPejabatTest extends TestCase
 
     public function test_dua_kpa_dua_bpp_dan_pelimpahan_lintas_program_menentukan_tanda_tangan_semua_jenis_npd(): void
     {
+        $this->siapkanPejabatOpd();
         $kpaPegawaiSatu = $this->buatPegawai('KPA Program Satu');
         $bppPegawaiSatu = $this->buatPegawai('BPP Program Satu');
         $pptkSatu = $this->buatPegawai('PPTK Program Satu');
@@ -156,6 +171,8 @@ class PelimpahanPejabatTest extends TestCase
 
         $kpaSatu = Kpa::create(['kpa_pegawai_id' => $kpaPegawaiSatu->id, 'bpp_pegawai_id' => $bppPegawaiSatu->id, 'aktif' => true]);
         $kpaDua = Kpa::create(['kpa_pegawai_id' => $kpaPegawaiDua->id, 'bpp_pegawai_id' => $bppPegawaiDua->id, 'aktif' => true]);
+        $this->tempatkanPptk($kpaSatu, $pptkSatu);
+        $this->tempatkanPptk($kpaDua, $pptkDua);
 
         $subSatu = '6.01.01.2.01 Sub Kegiatan Program Satu';
         $subDua = '6.01.02.2.02 Sub Kegiatan Program Dua';

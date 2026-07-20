@@ -36,6 +36,16 @@ class Kpa extends Model
         return $this->hasMany(Pelimpahan::class);
     }
 
+    public function pptkAssignments(): HasMany
+    {
+        return $this->hasMany(KpaPptk::class);
+    }
+
+    public function pptkAktif(): HasMany
+    {
+        return $this->pptkAssignments()->where('aktif', true);
+    }
+
     /** True kalau $pegawaiId sudah jadi KPA aktif di baris lain — validasi "satu pegawai tidak jadi KPA ganda". */
     public static function sudahJadiKpaAktifLain(int $pegawaiId, ?int $kecualiId = null): bool
     {
