@@ -12,6 +12,7 @@ use App\Models\Npd;
 use App\Models\Pegawai;
 use App\Models\SuratPerintah;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class NpdPdController extends Controller
 {
@@ -71,14 +72,6 @@ class NpdPdController extends Controller
             ]);
         }
 
-        $sisa = $masterAnggaran->sisaAnggaran();
-
-        if ($nominal > $sisa) {
-            return back()->withInput()->withErrors([
-                'tim' => 'Total (Rp '.number_format($nominal, 2, ',', '.').') melebihi Sisa Anggaran sumber dana ini (Rp '.number_format($sisa, 2, ',', '.').').',
-            ]);
-        }
-
         $suratPerintahId = $data['surat_perintah_id'] ?? null;
 
         $detailJson = [
@@ -93,6 +86,15 @@ class NpdPdController extends Controller
         ];
 
         $npd = DB::transaction(function () use ($data, $masterAnggaran, $keu, $nominal, $tim, $penerimaIndex, $suratPerintahId, $detailJson, $request) {
+            $masterAnggaran = MasterAnggaran::query()->lockForUpdate()->findOrFail($masterAnggaran->id);
+            $sisa = $masterAnggaran->sisaTersedia();
+
+            if ($nominal > $sisa) {
+                throw ValidationException::withMessages([
+                    'tim' => 'Total (Rp '.number_format($nominal, 2, ',', '.').') melebihi Sisa Tersedia sumber dana ini (Rp '.number_format($sisa, 2, ',', '.').').',
+                ]);
+            }
+
             $npd = Npd::create([
                 'jenis' => 'pd',
                 'master_anggaran_id' => $masterAnggaran->id,

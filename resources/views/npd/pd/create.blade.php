@@ -168,7 +168,7 @@
         'tagging_id' => $m->tagging_id,
         'tagging' => $m->tagging->nama ?? 'Tanpa Tagging',
         'pagu' => (float) $m->pagu,
-        'sisa' => $m->sisaAnggaran(),
+        'sisa' => $m->sisaTersedia(),
         'keu' => $m->tentukanKeu(),
     ]);
 

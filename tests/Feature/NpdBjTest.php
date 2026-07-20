@@ -190,7 +190,7 @@ class NpdBjTest extends TestCase
             'aktif' => true,
         ]);
 
-        $this->assertEquals(700_000.0, $masterAnggaran->sisaAnggaran());
+        $this->assertEquals(700_000.0, $masterAnggaran->sisaTersedia());
 
         $response = $this->actingAs($pptk)->get(route('npd.bj.create'));
 

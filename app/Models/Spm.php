@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 #[Fillable([
@@ -54,7 +55,7 @@ class Spm extends Model
 
     /**
      * Simpan SPM jalur LS (dicairkan langsung di BPKAD ke pihak ketiga,
-     * langsung mengurangi pagu — lihat MasterAnggaran::totalRealisasi()).
+     * langsung mengurangi pagu — lihat MasterAnggaran::sisaTersedia()).
      * Dipakai baik dari form input maupun proses impor, makanya validasinya
      * ditaruh di sini (satu pintu), bukan di controller/request.
      *
@@ -62,31 +63,37 @@ class Spm extends Model
      */
     public static function buatLs(array $data): self
     {
-        $masterAnggaran = MasterAnggaran::find($data['master_anggaran_id'] ?? null);
+        return DB::transaction(function () use ($data) {
+            $masterAnggaran = MasterAnggaran::query()
+                ->lockForUpdate()
+                ->find($data['master_anggaran_id'] ?? null);
 
-        if (! $masterAnggaran) {
-            throw new RuntimeException('Mata anggaran tidak ditemukan.');
-        }
+            if (! $masterAnggaran) {
+                throw new RuntimeException('Mata anggaran tidak ditemukan.');
+            }
 
-        $nominal = (float) ($data['nominal'] ?? 0);
-        $realisasiBaru = $masterAnggaran->totalRealisasi() + $nominal;
-        $pagu = (float) $masterAnggaran->pagu;
+            $nominal = (float) ($data['nominal'] ?? 0);
+            $sisaTersedia = $masterAnggaran->sisaTersedia();
 
-        if ($realisasiBaru > $pagu) {
-            $labelAnggaran = trim($masterAnggaran->kode_rekening.' '.$masterAnggaran->uraian_rekening);
+            if ($nominal <= 0) {
+                throw new RuntimeException('Nominal SPM harus lebih dari 0.');
+            }
 
-            throw new RuntimeException(sprintf(
-                'SPM LS sebesar %s membuat realisasi %s melebihi pagu %s pada %s.',
-                fmt_rupiah($nominal),
-                fmt_rupiah($realisasiBaru),
-                fmt_rupiah($pagu),
-                $labelAnggaran
-            ));
-        }
+            if ($nominal > $sisaTersedia) {
+                $labelAnggaran = trim($masterAnggaran->kode_rekening.' '.$masterAnggaran->uraian_rekening);
 
-        $data['jenis_spm'] = 'ls';
+                throw new RuntimeException(sprintf(
+                    'SPM LS sebesar %s melebihi sisa tersedia %s pada %s.',
+                    fmt_rupiah($nominal),
+                    fmt_rupiah($sisaTersedia),
+                    $labelAnggaran
+                ));
+            }
 
-        return self::create($data);
+            $data['jenis_spm'] = 'ls';
+
+            return self::create($data);
+        });
     }
 
     /**

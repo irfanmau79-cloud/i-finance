@@ -10,6 +10,7 @@ use App\Models\Npd;
 use App\Models\Pegawai;
 use App\Models\Vendor;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\ValidationException;
 
 class NpdBjController extends Controller
 {
@@ -92,15 +93,16 @@ class NpdBjController extends Controller
             ]);
         }
 
-        $sisa = $masterAnggaran->sisaAnggaran();
-
-        if ($nominal > $sisa) {
-            return back()->withInput()->withErrors([
-                'penerima' => 'Total Bruto (Rp '.number_format($nominal, 2, ',', '.').') melebihi Sisa Anggaran sumber dana ini (Rp '.number_format($sisa, 2, ',', '.').').',
-            ]);
-        }
-
         $npd = DB::transaction(function () use ($data, $masterAnggaran, $keu, $nominal, $penerima, $request) {
+            $masterAnggaran = MasterAnggaran::query()->lockForUpdate()->findOrFail($masterAnggaran->id);
+            $sisa = $masterAnggaran->sisaTersedia();
+
+            if ($nominal > $sisa) {
+                throw ValidationException::withMessages([
+                    'penerima' => 'Total Bruto (Rp '.number_format($nominal, 2, ',', '.').') melebihi Sisa Tersedia sumber dana ini (Rp '.number_format($sisa, 2, ',', '.').').',
+                ]);
+            }
+
             $npd = Npd::create([
                 'jenis' => 'bj',
                 'master_anggaran_id' => $masterAnggaran->id,

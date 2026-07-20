@@ -87,15 +87,16 @@ class MasterAnggaran extends Model
         };
     }
 
-    /**
-     * Realisasi dari jalur NPD (UP/GU): BPP bayar transaksi lewat NPD, lalu
-     * isi ulang kas lewat SPM UP/GU (SPM UP/GU sendiri BUKAN realisasi).
-     * Semua NPD kecuali yang batal/dibatalkan (Draft tetap dihitung karena
-     * dananya sudah dipesan).
-     */
-    public function realisasiNpd(): float
+    /** Dana terikat seluruh NPD aktif/non-batal, termasuk draft dan proses. */
+    public function danaTerikatNpd(): float
     {
         return (float) $this->npd()->where('status', 'not like', '%batal%')->sum('nominal');
+    }
+
+    /** Realisasi aktual jalur NPD hanya berasal dari NPD berstatus Selesai. */
+    public function realisasiNpd(): float
+    {
+        return (float) $this->npd()->where('status', 'Selesai')->sum('nominal');
     }
 
     /**
@@ -107,34 +108,46 @@ class MasterAnggaran extends Model
         return (float) $this->spm()->where('jenis_spm', 'ls')->sum('nominal');
     }
 
-    /**
-     * Total realisasi = jalur NPD (UP/GU) + jalur LS. Method terpusat ini
-     * dipanggil semua modul (form NPD, Rincian, Analisis, Dashboard) — JANGAN
-     * hitung realisasi terpisah di tempat lain, selalu lewat method ini.
-     */
-    public function totalRealisasi(): float
+    /** Realisasi aktual = NPD selesai + SPM LS. */
+    public function realisasiAktual(): float
     {
         return $this->realisasiNpd() + $this->realisasiLs();
     }
 
-    /** Sisa Anggaran = Pagu - total realisasi. Ini yang dipakai untuk validasi NPD/SPM LS, bukan pagu. */
+    /** Sisa tersedia = pagu - dana terikat NPD - SPM LS. */
+    public function sisaTersedia(): float
+    {
+        return (float) $this->pagu - $this->danaTerikatNpd() - $this->realisasiLs();
+    }
+
+    /** Compatibility wrapper untuk pemanggil lama. */
     public function sisaAnggaran(): float
     {
-        return (float) $this->pagu - $this->totalRealisasi();
+        return $this->sisaTersedia();
     }
 
     /**
-     * Sisa Anggaran SEBELUM $npd dibuat: pagu dikurangi seluruh NPD (non-batal)
-     * pada rekening ini yang tercatat lebih dulu (id lebih kecil). Dipakai di
-     * cetak NPD, kolom "Sisa Anggaran" di tabel rincian.
+     * Sisa sebelum NPD menurut tanggal transaksi. NPD pada tanggal sama
+     * diurutkan dengan id; SPM LS sampai tanggal NPD ikut mengurangi.
      */
     public function sisaAnggaranSebelum(Npd $npd): float
     {
-        $terpakaiSebelum = (float) $this->npd()
-            ->where('id', '<', $npd->id)
+        $danaTerikatSebelum = (float) $this->npd()
+            ->where(function ($query) use ($npd) {
+                $query->whereDate('tanggal_npd', '<', $npd->tanggal_npd)
+                    ->orWhere(function ($query) use ($npd) {
+                        $query->whereDate('tanggal_npd', $npd->tanggal_npd)
+                            ->where('id', '<', $npd->id);
+                    });
+            })
             ->where('status', 'not like', '%batal%')
             ->sum('nominal');
 
-        return (float) $this->pagu - $terpakaiSebelum;
+        $realisasiLsSebelum = (float) $this->spm()
+            ->where('jenis_spm', 'ls')
+            ->whereDate('tanggal_dokumen', '<=', $npd->tanggal_npd)
+            ->sum('nominal');
+
+        return (float) $this->pagu - $danaTerikatSebelum - $realisasiLsSebelum;
     }
 }
