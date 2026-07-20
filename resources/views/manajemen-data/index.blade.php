@@ -31,19 +31,26 @@
         </div>
         <a href="{{ route('manajemen-data.import.spm.create', 'spm-ls') }}" class="btn prim" style="white-space:nowrap;">Import Excel</a>
     </div>
+    <div class="dash-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div>
+            <h3 style="margin-bottom:0;">Import RAK Bulanan</h3>
+            <div class="sub" style="margin-bottom:0;">Wajib cocok ke mata anggaran aktif, nilai bulanan (bukan kumulatif).</div>
+        </div>
+        <a href="{{ route('manajemen-data.import.rak-bulanan.create') }}" class="btn prim" style="white-space:nowrap;">Import Excel</a>
+    </div>
     @foreach ($exports as $key => $meta)
     <div class="dash-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
         <div>
             <h3 style="margin-bottom:0;">{{ $meta['label'] }}</h3>
         </div>
-        <a href="{{ route('manajemen-data.export', $key) }}" class="btn prim" style="white-space:nowrap;">Unduh Excel</a>
+        <a href="{{ $key === 'rak-bulanan' ? route('manajemen-data.export', ['jenis' => $key, 'tahun' => $tahunSekarang]) : route('manajemen-data.export', $key) }}" class="btn prim" style="white-space:nowrap;">Unduh Excel</a>
     </div>
     @endforeach
 </div>
 
 <div class="dash-card" style="margin-top:18px;">
     <div class="sub" style="margin-bottom:0;">
-        Catatan: export RAK Bulanan belum tersedia karena tabel sumbernya belum dibuat di sistem ini.
+        Catatan: export RAK Bulanan mengunduh tahun berjalan ({{ $tahunSekarang }}). Untuk tahun lain, ubah parameter <code>tahun</code> di URL unduhan.
         Setiap unduhan tercatat di Log Aktivitas (jenis, waktu, pengguna, dan jumlah baris).
     </div>
 </div>

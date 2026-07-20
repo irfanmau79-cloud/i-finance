@@ -60,6 +60,11 @@ class MasterAnggaran extends Model
         return $this->hasMany(Spm::class);
     }
 
+    public function rakBulanan(): HasMany
+    {
+        return $this->hasMany(RakBulanan::class);
+    }
+
     /**
      * Normalisasi whitespace (baris baru / spasi ganda dari hasil impor
      * data — lihat juga DataTambahan::normalisasiSpasi()). Dipakai sebagai
@@ -170,5 +175,34 @@ class MasterAnggaran extends Model
             ->sum('nominal');
 
         return (float) $this->pagu - $danaTerikatSebelum - $realisasiLsSebelum;
+    }
+
+    /**
+     * Target RAK bulan tertentu, atau NULL kalau belum diisi untuk
+     * bulan/tahun itu. SENGAJA tidak pernah jatuh ke pagu/12 - pemanggil
+     * (dashboard/grafik target bulanan) wajib menampilkan status "RAK belum
+     * tersedia" saat hasilnya NULL, bukan menghitung perkiraan sendiri.
+     */
+    public function targetRakBulan(int $bulan, int $tahun): ?float
+    {
+        $target = $this->rakBulanan()->where('tahun', $tahun)->where('bulan', $bulan)->value('target');
+
+        return $target !== null ? (float) $target : null;
+    }
+
+    /**
+     * Target RAK kumulatif dari bulan 1 s.d. $bulan pada $tahun tsb, atau
+     * NULL kalau sama sekali belum ada data RAK untuk tahun itu (beda dari
+     * 0 - 0 berarti RAK ADA tapi memang bernilai nol). Bulan yang belum
+     * diisi di antaranya dihitung 0 dalam penjumlahan, selama setidaknya
+     * satu bulan pada tahun itu sudah ada.
+     */
+    public function targetRakKumulatifSampai(int $bulan, int $tahun): ?float
+    {
+        if (! $this->rakBulanan()->where('tahun', $tahun)->exists()) {
+            return null;
+        }
+
+        return (float) $this->rakBulanan()->where('tahun', $tahun)->where('bulan', '<=', $bulan)->sum('target');
     }
 }

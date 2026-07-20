@@ -14,6 +14,7 @@ use App\Http\Controllers\NpdTransportController;
 use App\Http\Controllers\PelimpahanController;
 use App\Http\Controllers\PengumumanController;
 use App\Http\Controllers\ProfilController;
+use App\Http\Controllers\RakBulananImportController;
 use App\Http\Controllers\SpmController;
 use App\Http\Controllers\SpmImportController;
 use App\Http\Controllers\SuratPerintahController;
@@ -167,7 +168,7 @@ Route::middleware('auth.or.guest')->group(function () {
     Route::middleware('role:superadmin,bendahara_pengeluaran')->group(function () {
         Route::get('/manajemen-data', [ManajemenDataController::class, 'index'])->name('manajemen-data.index');
         Route::get('/manajemen-data/export/{jenis}', [ManajemenDataController::class, 'export'])
-            ->whereIn('jenis', ['master-anggaran', 'npd', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'tagging', 'pejabat'])
+            ->whereIn('jenis', ['master-anggaran', 'npd', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'tagging', 'pejabat', 'rak-bulanan'])
             ->name('manajemen-data.export');
 
         // Import Pagu/Master Anggaran: upload -> staging (preview/dry-run) -> konfirmasi simpan.
@@ -187,6 +188,13 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/manajemen-data/import/spm/{import}/preview', [SpmImportController::class, 'preview'])->name('manajemen-data.import.spm.preview');
         Route::post('/manajemen-data/import/spm/{import}/konfirmasi', [SpmImportController::class, 'konfirmasi'])->name('manajemen-data.import.spm.konfirmasi');
         Route::delete('/manajemen-data/import/spm/{import}', [SpmImportController::class, 'batalkan'])->name('manajemen-data.import.spm.batalkan');
+
+        // Import RAK Bulanan: upload (format lebar Jan-Des) -> staging (preview/dry-run) -> konfirmasi simpan.
+        Route::get('/manajemen-data/import/rak-bulanan', [RakBulananImportController::class, 'create'])->name('manajemen-data.import.rak-bulanan.create');
+        Route::post('/manajemen-data/import/rak-bulanan', [RakBulananImportController::class, 'store'])->name('manajemen-data.import.rak-bulanan.store');
+        Route::get('/manajemen-data/import/rak-bulanan/{import}/preview', [RakBulananImportController::class, 'preview'])->name('manajemen-data.import.rak-bulanan.preview');
+        Route::post('/manajemen-data/import/rak-bulanan/{import}/konfirmasi', [RakBulananImportController::class, 'konfirmasi'])->name('manajemen-data.import.rak-bulanan.konfirmasi');
+        Route::delete('/manajemen-data/import/rak-bulanan/{import}', [RakBulananImportController::class, 'batalkan'])->name('manajemen-data.import.rak-bulanan.batalkan');
     });
 
     // Menu sidebar yang belum punya halaman sungguhan: placeholder generik,
