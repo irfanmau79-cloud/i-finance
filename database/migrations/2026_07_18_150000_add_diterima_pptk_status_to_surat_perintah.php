@@ -1,7 +1,9 @@
 <?php
 
 use Illuminate\Database\Migrations\Migration;
+use Illuminate\Database\Schema\Blueprint;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Support\Facades\Schema;
 
 return new class extends Migration
 {
@@ -15,15 +17,15 @@ return new class extends Migration
      */
     public function up(): void
     {
-        DB::statement("ALTER TABLE surat_perintah MODIFY status ENUM(
+        $this->ubahStatusEnum([
             'Diterima PPTK',
             'Draft NPD - PPTK',
             'Draft NPD - BPP',
             'Verifikasi - Verifikator',
             'Dikembalikan',
             'NPD Disetujui - BPP',
-            'Selesai'
-        ) NULL");
+            'Selesai',
+        ]);
 
         // Data lama tanpa status (belum pernah tertaut NPD) dianggap "Diterima PPTK".
         DB::table('surat_perintah')
@@ -40,13 +42,35 @@ return new class extends Migration
     {
         DB::table('surat_perintah')->where('status', 'Diterima PPTK')->update(['status' => null]);
 
-        DB::statement("ALTER TABLE surat_perintah MODIFY status ENUM(
+        $this->ubahStatusEnum([
             'Draft NPD - PPTK',
             'Draft NPD - BPP',
             'Verifikasi - Verifikator',
             'Dikembalikan',
             'NPD Disetujui - BPP',
-            'Selesai'
-        ) NULL");
+            'Selesai',
+        ]);
+    }
+
+    /**
+     * MySQL/MariaDB membutuhkan MODIFY untuk mengganti daftar ENUM. Driver
+     * lain (terutama SQLite in-memory pada test) harus melalui schema builder
+     * agar Laravel membangun ulang constraint kolom secara portabel.
+     */
+    private function ubahStatusEnum(array $nilai): void
+    {
+        if (in_array(DB::getDriverName(), ['mysql', 'mariadb'], true)) {
+            $enum = collect($nilai)
+                ->map(fn (string $status) => DB::getPdo()->quote($status))
+                ->implode(', ');
+
+            DB::statement("ALTER TABLE surat_perintah MODIFY status ENUM({$enum}) NULL");
+
+            return;
+        }
+
+        Schema::table('surat_perintah', function (Blueprint $table) use ($nilai) {
+            $table->enum('status', $nilai)->nullable()->change();
+        });
     }
 };
