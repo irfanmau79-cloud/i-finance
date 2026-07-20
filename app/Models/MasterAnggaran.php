@@ -39,6 +39,11 @@ class MasterAnggaran extends Model
         return $this->hasMany(Npd::class);
     }
 
+    public function spm(): HasMany
+    {
+        return $this->hasMany(Spm::class);
+    }
+
     /**
      * KEU ditentukan dari prefix sub_kegiatan: 6.01.01 -> KEU 1,
      * 6.01.02/6.01.03 -> KEU 2. Null kalau tidak dikenali.
@@ -54,15 +59,36 @@ class MasterAnggaran extends Model
     }
 
     /**
-     * Total nominal seluruh NPD terkait, kecuali yang batal/dibatalkan
-     * (Draft tetap ikut dihitung karena dananya sudah dipesan).
+     * Realisasi dari jalur NPD (UP/GU): BPP bayar transaksi lewat NPD, lalu
+     * isi ulang kas lewat SPM UP/GU (SPM UP/GU sendiri BUKAN realisasi).
+     * Semua NPD kecuali yang batal/dibatalkan (Draft tetap dihitung karena
+     * dananya sudah dipesan).
      */
-    public function totalRealisasi(): float
+    public function realisasiNpd(): float
     {
         return (float) $this->npd()->where('status', 'not like', '%batal%')->sum('nominal');
     }
 
-    /** Sisa Anggaran = Pagu - total realisasi. Ini yang dipakai untuk validasi NPD, bukan pagu. */
+    /**
+     * Realisasi dari jalur LS: dicairkan langsung di BPKAD ke pihak ketiga
+     * tanpa NPD, langsung mengurangi pagu. Lihat Spm::buatLs().
+     */
+    public function realisasiLs(): float
+    {
+        return (float) $this->spm()->where('jenis_spm', 'ls')->sum('nominal');
+    }
+
+    /**
+     * Total realisasi = jalur NPD (UP/GU) + jalur LS. Method terpusat ini
+     * dipanggil semua modul (form NPD, Rincian, Analisis, Dashboard) — JANGAN
+     * hitung realisasi terpisah di tempat lain, selalu lewat method ini.
+     */
+    public function totalRealisasi(): float
+    {
+        return $this->realisasiNpd() + $this->realisasiLs();
+    }
+
+    /** Sisa Anggaran = Pagu - total realisasi. Ini yang dipakai untuk validasi NPD/SPM LS, bukan pagu. */
     public function sisaAnggaran(): float
     {
         return (float) $this->pagu - $this->totalRealisasi();
