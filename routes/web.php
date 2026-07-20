@@ -2,6 +2,7 @@
 
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\ManajemenDataController;
 use App\Http\Controllers\MenuPlaceholderController;
 use App\Http\Controllers\NpdBjController;
 use App\Http\Controllers\NpdController;
@@ -158,6 +159,14 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::put('/spm/ls/{spm}', [SpmController::class, 'updateLs'])->name('spm.ls.update');
 
         Route::delete('/spm/{spm}', [SpmController::class, 'destroy'])->name('spm.destroy');
+    });
+
+    // Manajemen Data (export): khusus superadmin dan Bendahara Pengeluaran.
+    Route::middleware('role:superadmin,bendahara_pengeluaran')->group(function () {
+        Route::get('/manajemen-data', [ManajemenDataController::class, 'index'])->name('manajemen-data.index');
+        Route::get('/manajemen-data/export/{jenis}', [ManajemenDataController::class, 'export'])
+            ->whereIn('jenis', ['master-anggaran', 'npd', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'tagging', 'pejabat'])
+            ->name('manajemen-data.export');
     });
 
     // Menu sidebar yang belum punya halaman sungguhan: placeholder generik,
