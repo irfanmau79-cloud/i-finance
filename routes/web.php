@@ -50,6 +50,7 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
         Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
+        Route::patch('/users/{user}/username', [UserController::class, 'updateUsername'])->name('users.username.update');
         Route::patch('/users/{user}/toggle-aktif', [UserController::class, 'toggleAktif'])->name('users.toggle-aktif');
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
 

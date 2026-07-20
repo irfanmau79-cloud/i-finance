@@ -3,8 +3,12 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\AuditLog;
+use App\Http\Requests\UpdateUsernameRequest;
+use App\Models\AuditLog as AuditLogModel;
 use App\Models\Pegawai;
 use App\Models\User;
+use App\Rules\UniqueUsername;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
@@ -28,8 +32,9 @@ class UserController extends Controller
 
     public function store(Request $request)
     {
+        $request->merge(['username' => User::normalisasiUsername($request->input('username'))]);
         $validated = $request->validate([
-            'username' => ['required', 'string', 'max:50', 'unique:users,username'],
+            'username' => User::aturanUsername(new UniqueUsername),
             'nama' => ['required', 'string', 'max:150'],
             'role' => ['required', Rule::in(User::ROLE_OPTIONS)],
             'nip' => ['nullable', 'string', 'max:30', 'unique:users,nip'],
@@ -95,6 +100,52 @@ class UserController extends Controller
         AuditLog::catat('Ubah User', "username: {$user->username}".($passwordDireset ? ' (password direset)' : ''));
 
         return redirect()->route('users.index')->with('success', "User \"{$user->username}\" berhasil diperbarui.");
+    }
+
+    public function updateUsername(UpdateUsernameRequest $request, User $user)
+    {
+        $usernameBaru = $request->validated('username');
+
+        try {
+            DB::transaction(function () use ($user, $usernameBaru) {
+                $target = User::query()->lockForUpdate()->findOrFail($user->id);
+                $usernameLama = $target->username;
+
+                if ($usernameLama === $usernameBaru) {
+                    throw ValidationException::withMessages(['username' => 'Username baru sama dengan username saat ini.']);
+                }
+
+                $target->username = $usernameBaru;
+                $target->save();
+
+                $waktu = now()->toIso8601String();
+                $keterangan = "target_user_id: {$target->id}; username_lama: {$usernameLama}; username_baru: {$usernameBaru}; waktu: {$waktu}";
+                $auditIdSebelum = AuditLogModel::max('id') ?? 0;
+                AuditLog::catat(
+                    'Ubah Username User',
+                    $keterangan
+                );
+                $auditTercatat = AuditLogModel::query()
+                    ->where('id', '>', $auditIdSebelum)
+                    ->where('user_id', auth()->id())
+                    ->where('aktivitas', 'Ubah Username User')
+                    ->where('keterangan', $keterangan)
+                    ->exists();
+                if (! $auditTercatat) {
+                    throw ValidationException::withMessages([
+                        'username' => 'Username tidak diubah karena audit log gagal dicatat.',
+                    ]);
+                }
+            });
+        } catch (QueryException $e) {
+            if (($e->errorInfo[0] ?? null) === '23000' || str_contains(strtolower($e->getMessage()), 'unique')) {
+                throw ValidationException::withMessages(['username' => 'Username sudah digunakan.']);
+            }
+
+            throw $e;
+        }
+
+        return redirect()->route('users.index')->with('success', "Username berhasil diubah menjadi \"{$usernameBaru}\".");
     }
 
     /** Nyalakan/matikan akun tanpa menghapus data. Diutamakan daripada hapus permanen. */
