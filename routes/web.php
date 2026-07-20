@@ -6,6 +6,7 @@ use App\Http\Controllers\MenuPlaceholderController;
 use App\Http\Controllers\NpdBjController;
 use App\Http\Controllers\NpdController;
 use App\Http\Controllers\NpdPdController;
+use App\Http\Controllers\PelimpahanController;
 use App\Http\Controllers\PengumumanController;
 use App\Http\Controllers\ProfilController;
 use App\Http\Controllers\SuratPerintahController;
@@ -42,7 +43,7 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::put('/profil', [ProfilController::class, 'update'])->name('profil.update');
     });
 
-    // Manajemen Users: khusus Bendahara.
+    // Manajemen Users & Pelimpahan: khusus Bendahara (superadmin).
     Route::middleware('role:bendahara')->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
         Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
@@ -51,6 +52,13 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');
         Route::patch('/users/{user}/toggle-aktif', [UserController::class, 'toggleAktif'])->name('users.toggle-aktif');
         Route::delete('/users/{user}', [UserController::class, 'destroy'])->name('users.destroy');
+
+        Route::get('/pelimpahan', [PelimpahanController::class, 'index'])->name('pelimpahan.index');
+        Route::post('/pelimpahan/opd', [PelimpahanController::class, 'updateOpd'])->name('pelimpahan.opd.update');
+        Route::post('/pelimpahan/kpa', [PelimpahanController::class, 'storeKpa'])->name('pelimpahan.kpa.store');
+        Route::put('/pelimpahan/kpa/{kpa}', [PelimpahanController::class, 'updateKpa'])->name('pelimpahan.kpa.update');
+        Route::patch('/pelimpahan/kpa/{kpa}/toggle-aktif', [PelimpahanController::class, 'toggleKpaAktif'])->name('pelimpahan.kpa.toggle-aktif');
+        Route::post('/pelimpahan/sub-kegiatan', [PelimpahanController::class, 'setSubKegiatan'])->name('pelimpahan.sub-kegiatan.set');
     });
 
     // Hanya PPTK dan Bendahara boleh mengubah / menghapus data SP, toggle Monitoring, & ubah Pengajuan.

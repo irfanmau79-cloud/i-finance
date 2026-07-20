@@ -3,10 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\AuditLog;
+use App\Helpers\PejabatResolver;
 use App\Models\DataTambahan;
 use App\Models\Npd;
 use App\Models\NpdPenerima;
-use App\Models\Pegawai;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Collection;
@@ -73,7 +73,9 @@ class NpdController extends Controller
             default => ['npd.index', 'npd'],
         };
 
-        return view('npd.show', compact('npd', 'aksiTersedia', 'ruteDaftar', 'activeNav'));
+        $pelimpahanSudahDiset = PejabatResolver::sudahDiset($npd->masterAnggaran->sub_kegiatan);
+
+        return view('npd.show', compact('npd', 'aksiTersedia', 'ruteDaftar', 'activeNav', 'pelimpahanSudahDiset'));
     }
 
     /**
@@ -168,12 +170,14 @@ class NpdController extends Controller
     {
         $npd->load('masterAnggaran.tagging');
 
+        // No. DPA masih dari data_tambahan (di luar cakupan Pelimpahan); KPA/PPTK dari resolver terpusat.
         $dataTambahan = DataTambahan::untukProgram($npd->masterAnggaran->program);
+        $pejabat = PejabatResolver::untukNpd($npd);
 
         $html = view('npd.pdf.npd', [
             'npd' => $npd,
-            'kpa' => $this->resolvePegawai($dataTambahan?->kpa),
-            'pptk' => $this->resolvePegawai($dataTambahan?->pptk),
+            'kpa' => $pejabat['kpa'],
+            'pptk' => $pejabat['pptk'],
             'noDpa' => $dataTambahan?->no_dpa ?? '',
             'sisaSebelum' => $npd->masterAnggaran->sisaAnggaranSebelum($npd),
             'logoPath' => $this->logoKopPath(),
@@ -209,8 +213,7 @@ class NpdController extends Controller
     {
         $npd->load($npd->jenis === 'pd' ? ['masterAnggaran', 'tim.paket'] : ['masterAnggaran', 'penerima.pphList']);
 
-        $dataTambahan = DataTambahan::untukProgram($npd->masterAnggaran->program);
-        $pptk = $this->resolvePegawai($dataTambahan?->pptk);
+        $pptk = PejabatResolver::untukNpd($npd)['pptk'];
 
         if ($npd->jenis === 'pd') {
             $html = view('npd.pdf.pd-lampiran', array_merge([
@@ -254,10 +257,10 @@ class NpdController extends Controller
 
         $npd->load(['masterAnggaran', 'tim.paket']);
 
-        $dataTambahan = DataTambahan::untukProgram($npd->masterAnggaran->program);
         $detail = $npd->detail_json ?? [];
         $komponen = $this->komponenBiayaPd($npd);
         $rows = $this->rowsDaftarBayar($npd->tim);
+        $pejabat = PejabatResolver::untukNpd($npd);
 
         $html = view('npd.pdf.pd-daftar', [
             'npd' => $npd,
@@ -267,8 +270,8 @@ class NpdController extends Controller
             'tglPulang' => $this->tanggalIndo($detail['tanggal_pulang'] ?? null),
             'tglSp' => $this->tanggalIndo($detail['tanggal_sp'] ?? null),
             'rowsBody' => $rows['body'],
-            'kpa' => $this->resolvePegawai($dataTambahan?->kpa),
-            'bpp' => $this->resolvePegawai($dataTambahan?->bpp),
+            'kpa' => $pejabat['kpa'],
+            'bpp' => $pejabat['bpp'],
             'bulanNpd' => $npd->tanggal_npd->translatedFormat('F'),
         ])->render();
 
@@ -302,10 +305,10 @@ class NpdController extends Controller
 
         $npd->load(['masterAnggaran', 'tim.paket']);
 
-        $dataTambahan = DataTambahan::untukProgram($npd->masterAnggaran->program);
         $detail = $npd->detail_json ?? [];
         $komponen = $this->komponenBiayaPd($npd);
         $sr = $this->rowsSpdRampung($npd->tim);
+        $pejabat = PejabatResolver::untukNpd($npd);
 
         $penerimaTim = $npd->tim->firstWhere('is_penerima', true) ?? $npd->tim->first();
 
@@ -325,8 +328,8 @@ class NpdController extends Controller
             'tglSp' => $this->tanggalIndo($detail['tanggal_sp'] ?? null),
             'sr' => $sr,
             'blokRepresentatif' => $blokRepresentatif,
-            'kpa' => $this->resolvePegawai($dataTambahan?->kpa),
-            'bpp' => $this->resolvePegawai($dataTambahan?->bpp),
+            'kpa' => $pejabat['kpa'],
+            'bpp' => $pejabat['bpp'],
             'penerima' => (object) ['nama' => $penerimaTim->nama ?? '', 'nip' => $penerimaTim->nip ?? ''],
             'bulanNpd' => $npd->tanggal_npd->translatedFormat('F'),
             'logoPath' => $this->logoKopPath(),
@@ -350,23 +353,6 @@ class NpdController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="'.$fileName.'"',
         ]);
-    }
-
-    /**
-     * Resolusi nama bebas (data_tambahan.kpa/pptk) ke data pegawai (NIP,
-     * pangkat). Kalau tidak ketemu, nama tetap ditampilkan apa adanya
-     * (persis fallback "kosong" di _cariPegawai gas-lama), hanya NIP/pangkat
-     * yang kosong.
-     */
-    private function resolvePegawai(?string $nama): object
-    {
-        $match = Pegawai::cariByNama($nama);
-
-        return (object) [
-            'nama' => $match->nama ?? trim((string) $nama),
-            'pangkat' => $match->pangkat ?? '',
-            'nip' => $match->nip ?? '',
-        ];
     }
 
     private function logoKopPath(): ?string

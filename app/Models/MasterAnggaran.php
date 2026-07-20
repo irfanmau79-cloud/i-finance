@@ -45,6 +45,35 @@ class MasterAnggaran extends Model
     }
 
     /**
+     * Normalisasi whitespace (baris baru / spasi ganda dari hasil impor
+     * data — lihat juga DataTambahan::normalisasiSpasi()). Dipakai sebagai
+     * kunci pencocokan program/sub_kegiatan di Pelimpahan, supaya varian
+     * whitespace yang berbeda pada baris master_anggaran yang berbeda tetap
+     * dianggap sub kegiatan yang sama. Tanpa ini, satu "sub kegiatan" yang
+     * sama bisa muncul sebagai puluhan varian string berbeda (terverifikasi:
+     * 639 sub_kegiatan mentah, cuma 38 yang benar-benar unik).
+     */
+    public static function normalisasiTeks(?string $s): string
+    {
+        return trim(preg_replace('/\s+/', ' ', (string) $s));
+    }
+
+    public function subKegiatanNormal(): string
+    {
+        return self::normalisasiTeks($this->sub_kegiatan);
+    }
+
+    public function programNormal(): string
+    {
+        return self::normalisasiTeks($this->program);
+    }
+
+    public function kegiatanNormal(): string
+    {
+        return self::normalisasiTeks($this->kegiatan);
+    }
+
+    /**
      * KEU ditentukan dari prefix sub_kegiatan: 6.01.01 -> KEU 1,
      * 6.01.02/6.01.03 -> KEU 2. Null kalau tidak dikenali.
      */

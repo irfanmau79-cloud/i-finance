@@ -35,6 +35,7 @@
             'persetujuan' => route('npd.persetujuan'),
             'verifikasi' => route('npd.verifikasi'),
             'users' => route('users.index'),
+            'pelimpahan' => route('pelimpahan.index'),
             'profil' => route('profil.show'),
         ];
         $href = fn ($key) => $navHref[$key] ?? route('menu.placeholder', $key);
@@ -170,6 +171,13 @@
       <a class="sb-item{{ $activeNav === 'users' ? ' active' : '' }}" href="{{ $href('users') }}">
         <svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="4"/><path d="M3 21v-2a4 4 0 0 1 4-4h4a4 4 0 0 1 4 4v2"/><circle cx="18" cy="15" r="3"/><path d="M18 11.5v.9M18 17.6v.9M21.03 13.25l-.77.45M15.74 16.3l-.77.45M21.03 16.75l-.77-.45M15.74 13.7l-.77-.45"/></svg>
         Manajemen Users
+      </a>
+      @endif
+
+      @if (in_array('pelimpahan', $akses))
+      <a class="sb-item{{ $activeNav === 'pelimpahan' ? ' active' : '' }}" href="{{ $href('pelimpahan') }}">
+        <svg viewBox="0 0 24 24"><path d="M20 7h-9"/><path d="M14 17H5"/><circle cx="17" cy="17" r="3"/><circle cx="7" cy="7" r="3"/></svg>
+        Pelimpahan
       </a>
       @endif
 
