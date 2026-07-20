@@ -12,6 +12,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'jenis',
     'master_anggaran_id',
     'surat_perintah_id',
+    'npd_referensi_id',
+    'npd_induk_id',
     'keu',
     'nomor_urut',
     'bulan',
@@ -19,6 +21,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'nomor_lengkap',
     'tanggal_npd',
     'jenis_panjar',
+    'mode_kd',
     'nominal',
     'terbilang',
     'status',
@@ -39,10 +42,13 @@ class Npd extends Model
         'pd' => 'Perjalanan Dinas',
         'tr' => 'Transport',
         'ns' => 'Narasumber',
-        'kd' => 'Kegiatan Dalam',
+        'kd' => 'Kontribusi Diklat',
     ];
 
     public const JENIS_PANJAR_LIST = ['Panjar', 'Tanpa Panjar'];
+
+    /** Hanya berarti untuk jenis 'kd'. Port dari payload.mode di gas-lama/CodeKontribusiDiklat.gs. */
+    public const MODE_KD_LIST = ['kontribusi', 'perjalanan'];
 
     public const STATUS_LIST = [
         'Draft NPD - PPTK',
@@ -153,6 +159,50 @@ class Npd extends Model
     public function tim(): HasMany
     {
         return $this->hasMany(NpdTim::class);
+    }
+
+    public function narasumber(): HasMany
+    {
+        return $this->hasMany(NpdNarasumber::class);
+    }
+
+    public function peserta(): HasMany
+    {
+        return $this->hasMany(NpdPeserta::class);
+    }
+
+    /** Untuk jenis 'kd' mode 'perjalanan': NPD Kontribusi yang dijadikan referensi (boleh null bila diisi manual). */
+    public function referensi(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'npd_referensi_id');
+    }
+
+    /** Untuk jenis 'kd' mode 'kontribusi': daftar NPD Perjalanan yang mereferensikan NPD ini. */
+    public function turunanPerjalanan(): HasMany
+    {
+        return $this->hasMany(self::class, 'npd_referensi_id');
+    }
+
+    /** Untuk jenis 'tr': NPD Perjalanan Dinas induk (jenis 'pd', status Selesai saat dibuat). */
+    public function induk(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'npd_induk_id');
+    }
+
+    /** Untuk jenis 'pd': daftar NPD Transport yang menjadikan NPD ini induk. */
+    public function turunanTransport(): HasMany
+    {
+        return $this->hasMany(self::class, 'npd_induk_id');
+    }
+
+    /**
+     * True kalau NPD ini (biasanya jenis 'pd') masih punya turunan Transport
+     * yang aktif (belum Dibatalkan). Dipakai untuk mencegah pembatalan induk
+     * yang akan membuat turunan Transport menjadi yatim — lihat Prompt 07.
+     */
+    public function punyaTurunanTransportAktif(): bool
+    {
+        return $this->turunanTransport()->where('status', '!=', 'Dibatalkan')->exists();
     }
 
     public function historiStatus(): HasMany

@@ -16,6 +16,9 @@
         <div class="tbl-tools">
             <a href="{{ route('npd.bj.create') }}" class="btn prim" style="white-space:nowrap;">+ NPD Barang/Jasa</a>
             <a href="{{ route('npd.pd.create') }}" class="btn prim" style="white-space:nowrap;">+ NPD Perjalanan Dinas</a>
+            <a href="{{ route('npd.ns.create') }}" class="btn prim" style="white-space:nowrap;">+ NPD Narasumber</a>
+            <a href="{{ route('npd.kd.create') }}" class="btn prim" style="white-space:nowrap;">+ NPD Kontribusi Diklat</a>
+            <a href="{{ route('npd.tr.create') }}" class="btn prim" style="white-space:nowrap;">+ NPD Transport</a>
         </div>
     @endif
 

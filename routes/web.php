@@ -5,7 +5,10 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\MenuPlaceholderController;
 use App\Http\Controllers\NpdBjController;
 use App\Http\Controllers\NpdController;
+use App\Http\Controllers\NpdKontribusiDiklatController;
+use App\Http\Controllers\NpdNarasumberController;
 use App\Http\Controllers\NpdPdController;
+use App\Http\Controllers\NpdTransportController;
 use App\Http\Controllers\PelimpahanController;
 use App\Http\Controllers\PengumumanController;
 use App\Http\Controllers\ProfilController;
@@ -98,6 +101,18 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::post('/npd/pd', [NpdPdController::class, 'store'])->name('npd.pd.store');
         Route::get('/npd/pd/{npd}/edit', [NpdPdController::class, 'edit'])->name('npd.pd.edit');
         Route::put('/npd/pd/{npd}', [NpdPdController::class, 'update'])->name('npd.pd.update');
+        Route::get('/npd/ns/create', [NpdNarasumberController::class, 'create'])->name('npd.ns.create');
+        Route::post('/npd/ns', [NpdNarasumberController::class, 'store'])->name('npd.ns.store');
+        Route::get('/npd/ns/{npd}/edit', [NpdNarasumberController::class, 'edit'])->name('npd.ns.edit');
+        Route::put('/npd/ns/{npd}', [NpdNarasumberController::class, 'update'])->name('npd.ns.update');
+        Route::get('/npd/kd/create', [NpdKontribusiDiklatController::class, 'create'])->name('npd.kd.create');
+        Route::post('/npd/kd', [NpdKontribusiDiklatController::class, 'store'])->name('npd.kd.store');
+        Route::get('/npd/kd/{npd}/edit', [NpdKontribusiDiklatController::class, 'edit'])->name('npd.kd.edit');
+        Route::put('/npd/kd/{npd}', [NpdKontribusiDiklatController::class, 'update'])->name('npd.kd.update');
+        Route::get('/npd/tr/create', [NpdTransportController::class, 'create'])->name('npd.tr.create');
+        Route::post('/npd/tr', [NpdTransportController::class, 'store'])->name('npd.tr.store');
+        Route::get('/npd/tr/{npd}/edit', [NpdTransportController::class, 'edit'])->name('npd.tr.edit');
+        Route::put('/npd/tr/{npd}', [NpdTransportController::class, 'update'])->name('npd.tr.update');
         Route::delete('/npd/{npd}', [NpdController::class, 'destroy'])->name('npd.destroy');
     });
 
@@ -118,6 +133,8 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/npd/{npd}/cetak-lampiran', [NpdController::class, 'cetakLampiran'])->name('npd.cetak-lampiran');
         Route::get('/npd/{npd}/cetak-daftar', [NpdController::class, 'cetakDaftar'])->name('npd.cetak-daftar');
         Route::get('/npd/{npd}/cetak-spd', [NpdController::class, 'cetakSpd'])->name('npd.cetak-spd');
+        Route::get('/npd/{npd}/cetak-daftar-nara', [NpdController::class, 'cetakDaftarNarasumber'])->name('npd.cetak-daftar-nara');
+        Route::get('/npd/{npd}/cetak-daftar-kd', [NpdController::class, 'cetakDaftarKontribusiDiklat'])->name('npd.cetak-daftar-kd');
     });
 
     // Transisi workflow tidak diberikan kepada Bendahara Pengeluaran.

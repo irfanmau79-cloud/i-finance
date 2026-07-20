@@ -44,6 +44,30 @@
             @if ($npd->jenis_panjar)
                 <div class="li"><span class="k">Jenis NPD</span><span class="v">{{ $npd->jenis_panjar }}</span></div>
             @endif
+            @if ($npd->jenis === 'kd')
+                <div class="li"><span class="k">Mode</span><span class="v">{{ $npd->mode_kd === 'perjalanan' ? 'Perjalanan Dinas' : 'Kontribusi' }}</span></div>
+                <div class="li"><span class="k">Nama Pelatihan</span><span class="v">{{ $npd->detail_json['nama_pelatihan'] ?? '—' }}</span></div>
+                @if ($npd->referensi)
+                    <div class="li"><span class="k">Referensi NPD Kontribusi</span><span class="v"><a href="{{ route('npd.show', $npd->referensi) }}">{{ $npd->referensi->nomor_lengkap ?? '#'.$npd->referensi->id }}</a></span></div>
+                @endif
+                @if ($npd->turunanPerjalanan->isNotEmpty())
+                    <div class="li"><span class="k">NPD Perjalanan Terkait</span><span class="v">
+                        @foreach ($npd->turunanPerjalanan as $turunan)
+                            <a href="{{ route('npd.show', $turunan) }}">{{ $turunan->nomor_lengkap ?? '#'.$turunan->id }}</a>@if (! $loop->last), @endif
+                        @endforeach
+                    </span></div>
+                @endif
+            @endif
+            @if ($npd->jenis === 'tr' && $npd->induk)
+                <div class="li"><span class="k">Induk NPD Perjalanan Dinas</span><span class="v"><a href="{{ route('npd.show', $npd->induk) }}">{{ $npd->induk->nomor_lengkap ?? '#'.$npd->induk->id }}</a></span></div>
+            @endif
+            @if ($npd->jenis === 'pd' && $npd->turunanTransport->isNotEmpty())
+                <div class="li"><span class="k">NPD Transport Terkait</span><span class="v">
+                    @foreach ($npd->turunanTransport as $turunan)
+                        <a href="{{ route('npd.show', $turunan) }}">{{ $turunan->nomor_lengkap ?? '#'.$turunan->id }}</a> ({{ $turunan->status }})@if (! $loop->last), @endif
+                    @endforeach
+                </span></div>
+            @endif
             <div class="li"><span class="k">Dibuat oleh</span><span class="v">{{ $npd->dibuatOleh->nama ?? '—' }}</span></div>
         </div>
 
@@ -104,7 +128,7 @@
         @endif
     </div>
 
-    @if ($npd->jenis === 'pd')
+    @if (in_array($npd->jenis, ['pd', 'tr'], true))
         <h3 style="margin-top:22px;">Anggota Tim</h3>
         <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">
             <table class="realisasi">
@@ -145,6 +169,107 @@
                         </tr>
                     @endforelse
                 </tbody>
+            </table>
+        </div>
+    @elseif ($npd->jenis === 'ns')
+        <h3 style="margin-top:22px;">Daftar Narasumber</h3>
+        <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">
+            <table class="realisasi">
+                <thead>
+                    <tr>
+                        <th>Nama</th>
+                        <th>Jabatan</th>
+                        <th>JP</th>
+                        <th>Tarif/JP</th>
+                        <th>Honor</th>
+                        <th>Transport</th>
+                        <th>Bruto</th>
+                        <th>PPh 21</th>
+                        <th>Diterima</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    @forelse ($npd->narasumber as $n)
+                        <tr>
+                            <td>{{ $n->nama }}</td>
+                            <td>{{ $n->jabatan ?? '—' }}</td>
+                            <td>{{ $n->jumlah_jp }}</td>
+                            <td>Rp {{ number_format((float) $n->tarif_jp, 2, ',', '.') }}</td>
+                            <td>Rp {{ number_format($n->honor, 2, ',', '.') }}</td>
+                            <td>Rp {{ number_format((float) $n->transport, 2, ',', '.') }}</td>
+                            <td>Rp {{ number_format($n->bruto, 2, ',', '.') }}</td>
+                            <td>Rp {{ number_format((float) $n->pph21, 2, ',', '.') }}</td>
+                            <td>Rp {{ number_format($n->netto, 2, ',', '.') }}</td>
+                        </tr>
+                    @empty
+                        <tr>
+                            <td colspan="9" style="text-align:center;color:var(--mut);padding:20px;">Belum ada narasumber.</td>
+                        </tr>
+                    @endforelse
+                </tbody>
+            </table>
+        </div>
+    @elseif ($npd->jenis === 'kd')
+        <h3 style="margin-top:22px;">Daftar Peserta</h3>
+        <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">
+            <table class="realisasi">
+                @if ($npd->mode_kd === 'perjalanan')
+                    <thead>
+                        <tr>
+                            <th>Nama</th>
+                            <th>Pangkat</th>
+                            <th>Hari UH</th>
+                            <th>Jumlah Harian</th>
+                            <th>Akomodasi</th>
+                            <th>Uang Saku</th>
+                            <th>Transport</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($npd->peserta as $p)
+                            <tr>
+                                <td>{{ $p->nama }}</td>
+                                <td>{{ $p->pangkat ?? '—' }}</td>
+                                <td>{{ $p->hari_uh }}</td>
+                                <td>Rp {{ number_format($p->jumlah_harian, 2, ',', '.') }}</td>
+                                <td>Rp {{ number_format($p->jumlah_akomodasi, 2, ',', '.') }}</td>
+                                <td>Rp {{ number_format($p->jumlah_saku, 2, ',', '.') }}</td>
+                                <td>Rp {{ number_format((float) $p->transport, 2, ',', '.') }}</td>
+                                <td>Rp {{ number_format($p->sub_perjalanan, 2, ',', '.') }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="8" style="text-align:center;color:var(--mut);padding:20px;">Belum ada peserta.</td></tr>
+                        @endforelse
+                    </tbody>
+                @else
+                    <thead>
+                        <tr>
+                            <th>Nama</th>
+                            <th>Pangkat</th>
+                            <th>Volume Kontribusi</th>
+                            <th>Jumlah Kontribusi</th>
+                            <th>Volume MOOC</th>
+                            <th>Jumlah MOOC</th>
+                            <th>Subtotal</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        @forelse ($npd->peserta as $p)
+                            <tr>
+                                <td>{{ $p->nama }}</td>
+                                <td>{{ $p->pangkat ?? '—' }}</td>
+                                <td>{{ $p->volume_kontribusi }}</td>
+                                <td>Rp {{ number_format($p->jumlah_kontribusi, 2, ',', '.') }}</td>
+                                <td>{{ $p->volume_mooc }}</td>
+                                <td>Rp {{ number_format($p->jumlah_mooc, 2, ',', '.') }}</td>
+                                <td>Rp {{ number_format($p->sub_kontribusi, 2, ',', '.') }}</td>
+                            </tr>
+                        @empty
+                            <tr><td colspan="7" style="text-align:center;color:var(--mut);padding:20px;">Belum ada peserta.</td></tr>
+                        @endforelse
+                    </tbody>
+                @endif
             </table>
         </div>
     @else
@@ -215,13 +340,20 @@
     @php
         $bolehBatalkan = auth()->user()->isSuperadmin()
             || (auth()->user()->role === \App\Models\User::ROLE_PPTK && $npd->status === 'Draft NPD - PPTK');
+        $ruteEdit = match ($npd->jenis) {
+            'pd' => 'npd.pd.edit',
+            'ns' => 'npd.ns.edit',
+            'kd' => 'npd.kd.edit',
+            'tr' => 'npd.tr.edit',
+            default => 'npd.bj.edit',
+        };
     @endphp
     @if ($npd->dapatDieditOleh(auth()->user()) || $bolehBatalkan)
         <div class="grp" style="margin-top:22px;">
             <div class="gt">Kelola Draft</div>
             <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
                 @if ($npd->dapatDieditOleh(auth()->user()))
-                    <a class="btn" href="{{ route($npd->jenis === 'pd' ? 'npd.pd.edit' : 'npd.bj.edit', $npd) }}">Edit NPD</a>
+                    <a class="btn" href="{{ route($ruteEdit, $npd) }}">Edit NPD</a>
                 @endif
                 @if ($bolehBatalkan)
                     <form method="POST" action="{{ route('npd.destroy', $npd) }}" onsubmit="return confirm('Batalkan NPD ini? Tindakan dicatat dalam histori.');" style="display:flex;gap:6px;align-items:center;">
@@ -236,9 +368,13 @@
     @endif
 
     <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
-        @if ($npd->jenis === 'pd')
+        @if (in_array($npd->jenis, ['pd', 'tr'], true))
             <a class="btn" href="{{ route('npd.cetak-daftar', $npd) }}" target="_blank">Cetak Daftar Pembayaran</a>
             <a class="btn" href="{{ route('npd.cetak-spd', $npd) }}" target="_blank">Cetak SPD Rampung</a>
+        @elseif ($npd->jenis === 'ns')
+            <a class="btn" href="{{ route('npd.cetak-daftar-nara', $npd) }}" target="_blank">Cetak Daftar Pembayaran</a>
+        @elseif ($npd->jenis === 'kd')
+            <a class="btn" href="{{ route('npd.cetak-daftar-kd', $npd) }}" target="_blank">Cetak Daftar Bayar</a>
         @endif
         <a class="btn" href="{{ route('npd.cetak-npd', $npd) }}" target="_blank">Cetak NPD</a>
         <a class="btn" href="{{ route('npd.cetak-lampiran', $npd) }}" target="_blank">Cetak Lampiran</a>
