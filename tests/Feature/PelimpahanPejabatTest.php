@@ -73,21 +73,21 @@ class PelimpahanPejabatTest extends TestCase
         ]);
     }
 
-    public function test_hanya_administrator_bendahara_dapat_mengelola_pelimpahan(): void
+    public function test_hanya_superadmin_dapat_mengelola_pelimpahan(): void
     {
-        $bendahara = $this->buatUser('bendahara', 'admin-pelimpahan');
+        $superadmin = $this->buatUser('superadmin', 'admin-pelimpahan');
         $pptk = $this->buatUser('pptk', 'non-admin-pelimpahan');
         $pa = $this->buatPegawai('PA Administrator');
         $bendaharaPengeluaran = $this->buatPegawai('Bendahara Pengeluaran Administrator');
 
-        $this->actingAs($bendahara)->get(route('pelimpahan.index'))->assertOk();
+        $this->actingAs($superadmin)->get(route('pelimpahan.index'))->assertOk();
         $this->actingAs($pptk)->get(route('pelimpahan.index'))->assertForbidden();
         $this->actingAs($pptk)->post(route('pelimpahan.opd.update'), [
             'pa_pegawai_id' => $pa->id,
             'bendahara_pengeluaran_pegawai_id' => $bendaharaPengeluaran->id,
         ])->assertForbidden();
 
-        $this->actingAs($bendahara)->post(route('pelimpahan.opd.update'), [
+        $this->actingAs($superadmin)->post(route('pelimpahan.opd.update'), [
             'pa_pegawai_id' => $pa->id,
             'bendahara_pengeluaran_pegawai_id' => $bendaharaPengeluaran->id,
         ])->assertSessionHasNoErrors();
@@ -120,7 +120,7 @@ class PelimpahanPejabatTest extends TestCase
 
     public function test_kpa_aktif_ganda_ditolak_dan_setiap_kpa_wajib_memiliki_bpp_aktif(): void
     {
-        $admin = $this->buatUser('bendahara', 'admin-kpa');
+        $admin = $this->buatUser('superadmin', 'admin-kpa');
         $pegawaiKpa = $this->buatPegawai('KPA Tunggal');
         $bppSatu = $this->buatPegawai('BPP Aktif Satu');
         $bppDua = $this->buatPegawai('BPP Aktif Dua');

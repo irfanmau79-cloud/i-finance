@@ -6,8 +6,8 @@
 @section('content')
 @php
     $role = \App\Helpers\GuestSession::role() ?? 'layanan';
-    $bolehEditPengajuan = in_array($role, ['pptk', 'bendahara'], true);
-    $bolehEditPengumuman = in_array($role, ['bendahara', 'pptk', 'bpp', 'verifikator'], true);
+    $bolehEditPengajuan = in_array($role, ['pptk', 'superadmin'], true);
+    $bolehEditPengumuman = in_array($role, ['superadmin', 'pptk', 'bpp', 'verifikator'], true);
     $statusBadgeClass = ['Diterima PPTK' => 'st-diterima'] + \App\Models\Npd::STATUS_BADGE_CLASS;
 @endphp
 <div class="dash-card wf-card">

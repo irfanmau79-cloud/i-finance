@@ -26,7 +26,7 @@ class UserFactory extends Factory
         return [
             'username' => fake()->unique()->userName(),
             'nama' => fake()->name(),
-            'role' => 'bendahara',
+            'role' => User::ROLE_SUPERADMIN,
             'password' => static::$password ??= Hash::make('password'),
         ];
     }

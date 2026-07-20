@@ -79,7 +79,7 @@ class NpdController extends Controller
 
     /**
      * Transisi status workflow NPD (semua jenis). Port dari transisiNPD di
-     * gas-lama/CodeRevisi.gs: bendahara boleh aksi apa pun, role lain hanya
+     * gas-lama/CodeRevisi.gs: superadmin boleh aksi apa pun, role lain hanya
      * aksi yang dipetakan di Npd::TRANSISI.
      */
     public function transisi(Request $request, Npd $npd)

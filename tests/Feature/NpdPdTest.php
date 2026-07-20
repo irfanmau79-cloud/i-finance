@@ -114,14 +114,14 @@ class NpdPdTest extends TestCase
         ];
     }
 
-    public function test_hanya_pptk_dan_bendahara_dapat_mengakses_pembuatan_npd_perjalanan(): void
+    public function test_hanya_pptk_dan_superadmin_dapat_mengakses_pembuatan_npd_perjalanan(): void
     {
         $pptk = $this->buatUser('pptk', 'pd-pptk');
-        $bendahara = $this->buatUser('bendahara', 'pd-bendahara');
+        $superadmin = $this->buatUser('superadmin', 'pd-superadmin');
         $bpp = $this->buatUser('bpp', 'pd-bpp');
 
         $this->actingAs($pptk)->get(route('npd.pd.create'))->assertOk();
-        $this->actingAs($bendahara)->get(route('npd.pd.create'))->assertOk();
+        $this->actingAs($superadmin)->get(route('npd.pd.create'))->assertOk();
         $this->actingAs($bpp)->get(route('npd.pd.create'))->assertForbidden();
         $this->actingAs($bpp)->post(route('npd.pd.store'), [])->assertForbidden();
     }

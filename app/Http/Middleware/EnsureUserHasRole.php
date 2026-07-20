@@ -12,7 +12,7 @@ class EnsureUserHasRole
     /**
      * Handle an incoming request.
      *
-     * Usage: ->middleware('role:pptk,bendahara')
+     * Usage: ->middleware('role:pptk,superadmin')
      */
     public function handle(Request $request, Closure $next, string ...$roles): Response
     {

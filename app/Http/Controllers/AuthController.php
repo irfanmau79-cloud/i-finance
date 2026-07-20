@@ -45,7 +45,7 @@ class AuthController extends Controller
             $request->session()->regenerateToken();
 
             return back()
-                ->withErrors(['username' => 'Akun dinonaktifkan, hubungi Bendahara.'])
+                ->withErrors(['username' => 'Akun dinonaktifkan, hubungi Superadmin.'])
                 ->onlyInput('username');
         }
 

@@ -265,7 +265,7 @@ class NpdBjTest extends TestCase
         $this->assertSame(0, Npd::where('master_anggaran_id', $masterAnggaran->id)->where('nominal', 500_000)->count());
     }
 
-    public function test_bendahara_dan_pptk_boleh_akses_tapi_role_lain_ditolak(): void
+    public function test_superadmin_dan_pptk_boleh_akses_tapi_role_lain_ditolak(): void
     {
         $verifikator = User::create([
             'username' => 'test-verif',

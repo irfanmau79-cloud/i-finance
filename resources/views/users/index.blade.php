@@ -5,7 +5,7 @@
 
 @section('content')
 @php
-    $aktifBendaharaCount = $users->where('role', 'bendahara')->where('aktif', true)->count();
+    $aktifSuperadminCount = $users->where('role', \App\Models\User::ROLE_SUPERADMIN)->where('aktif', true)->count();
 @endphp
 <div class="dash-card wf-card">
     <h3>Manajemen Users</h3>
@@ -46,7 +46,7 @@
             <tbody>
                 @forelse ($users as $u)
                     @php
-                        $satuSatunyaBendaharaAktif = $u->role === 'bendahara' && $u->aktif && $aktifBendaharaCount <= 1;
+                        $satuSatunyaSuperadminAktif = $u->isSuperadmin() && $u->aktif && $aktifSuperadminCount <= 1;
                         $iniSayaSendiri = $u->id === auth()->id();
                     @endphp
                     <tr>
@@ -63,14 +63,14 @@
                                     <form method="POST" action="{{ route('users.destroy', $u) }}" onsubmit="return confirm('Yakin ingin menghapus PERMANEN user {{ $u->username }}? Tindakan ini tidak bisa dibatalkan.');">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="ic-btn danger" title="Hapus Permanen" @disabled($iniSayaSendiri || $satuSatunyaBendaharaAktif)><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
+                                        <button type="submit" class="ic-btn danger" title="Hapus Permanen" @disabled($iniSayaSendiri || $satuSatunyaSuperadminAktif)><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
                                     </form>
                                 </div>
                                 <form method="POST" action="{{ route('users.toggle-aktif', $u) }}" style="display:inline;">
                                     @csrf
                                     @method('PATCH')
                                     <label class="sw" title="{{ $u->aktif ? 'Nonaktifkan' : 'Aktifkan' }}">
-                                        <input type="checkbox" onchange="this.form.requestSubmit()" @checked($u->aktif) @disabled($iniSayaSendiri && $u->aktif || $satuSatunyaBendaharaAktif)>
+                                        <input type="checkbox" onchange="this.form.requestSubmit()" @checked($u->aktif) @disabled($iniSayaSendiri && $u->aktif || $satuSatunyaSuperadminAktif)>
                                         <span class="sl"></span>
                                     </label>
                                 </form>

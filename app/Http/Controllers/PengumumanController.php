@@ -16,7 +16,7 @@ class PengumumanController extends Controller
         ]);
     }
 
-    /** Simpan teks pengumuman baru. Hanya bendahara/pptk/bpp/verifikator. Selalu satu baris aktif. */
+    /** Simpan teks pengumuman baru. Hanya superadmin/pptk/bpp/verifikator. Selalu satu baris aktif. */
     public function store(Request $request)
     {
         $validated = $request->validate([

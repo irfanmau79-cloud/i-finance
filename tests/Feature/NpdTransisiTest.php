@@ -223,20 +223,20 @@ class NpdTransisiTest extends TestCase
         $this->assertSame('[Pembatalan Selesai] Salah input nominal', $npdSelesai->catatan);
     }
 
-    public function test_bendahara_boleh_melakukan_aksi_apa_pun(): void
+    public function test_superadmin_boleh_melakukan_aksi_apa_pun(): void
     {
-        $bendahara = $this->buatUser('bendahara', 'boleh-semua');
+        $superadmin = $this->buatUser('superadmin', 'boleh-semua');
         $npd = $this->buatNpd(); // Draft NPD - PPTK
 
-        // Bendahara langsung 'ajukan_bpp' (aksi milik PPTK) — tetap diizinkan.
-        $this->actingAs($bendahara)
+        // Superadmin langsung 'ajukan_bpp' (aksi milik PPTK) — tetap diizinkan.
+        $this->actingAs($superadmin)
             ->post(route('npd.transisi', $npd), ['aksi' => 'ajukan_bpp'])
             ->assertSessionHasNoErrors();
         $npd->refresh();
         $this->assertSame('Draft NPD - BPP', $npd->status);
 
-        // Bendahara juga boleh 'teruskan' (aksi milik BPP).
-        $this->actingAs($bendahara)
+        // Superadmin juga boleh 'teruskan' (aksi milik BPP).
+        $this->actingAs($superadmin)
             ->post(route('npd.transisi', $npd), ['aksi' => 'teruskan'])
             ->assertSessionHasNoErrors();
         $npd->refresh();

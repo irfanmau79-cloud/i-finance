@@ -6,16 +6,12 @@ use App\Helpers\AuditLog;
 use App\Models\Pegawai;
 use App\Models\User;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\ValidationException;
 
 class UserController extends Controller
 {
-    /** Role yang bisa dipilih saat tambah/ubah user. "layanan" bukan akun sungguhan (tidak login), jadi tidak ditawarkan di sini. */
-    private const ROLE_OPTIONS = [
-        'bendahara', 'pptk', 'bpp', 'verifikator',
-        'inspektur', 'sekretaris', 'kasubbag', 'inspektur_pembantu', 'perencanaan',
-    ];
-
     public function index()
     {
         $users = User::with('pegawai')->orderBy('username')->get();
@@ -35,7 +31,7 @@ class UserController extends Controller
         $validated = $request->validate([
             'username' => ['required', 'string', 'max:50', 'unique:users,username'],
             'nama' => ['required', 'string', 'max:150'],
-            'role' => ['required', Rule::in(self::ROLE_OPTIONS)],
+            'role' => ['required', Rule::in(User::ROLE_OPTIONS)],
             'nip' => ['nullable', 'string', 'max:30', 'unique:users,nip'],
             'pegawai_id' => ['nullable', 'exists:pegawai,id'],
             'password' => ['required', 'string', 'min:6'],
@@ -65,7 +61,7 @@ class UserController extends Controller
     {
         $validated = $request->validate([
             'nama' => ['required', 'string', 'max:150'],
-            'role' => ['required', Rule::in(self::ROLE_OPTIONS)],
+            'role' => ['required', Rule::in(User::ROLE_OPTIONS)],
             'nip' => ['nullable', 'string', 'max:30', Rule::unique('users', 'nip')->ignore($user->id)],
             'pegawai_id' => ['nullable', 'exists:pegawai,id'],
             'password' => ['nullable', 'string', 'min:6'],
@@ -75,22 +71,26 @@ class UserController extends Controller
             $validated['nip'] = Pegawai::findOrFail($validated['pegawai_id'])->nip;
         }
 
-        // Menurunkan bendahara aktif terakhir dari role-nya sama berbahayanya
+        // Menurunkan superadmin aktif terakhir dari role-nya sama berbahayanya
         // dengan menonaktifkan/menghapusnya — jaga invarian yang sama di sini.
-        if ($user->role === 'bendahara' && $user->aktif && $validated['role'] !== 'bendahara'
-            && ! $this->masihAdaBendaharaAktifLain($user)) {
-            return back()
-                ->withErrors(['role' => 'Minimal harus ada satu Bendahara Pengeluaran yang aktif. Jadikan user lain Bendahara dulu sebelum ini.'])
-                ->withInput();
-        }
-
         $passwordDireset = filled($validated['password'] ?? null);
 
         if (! $passwordDireset) {
             unset($validated['password']);
         }
 
-        $user->update($validated);
+        DB::transaction(function () use ($user, $validated) {
+            $this->kunciSuperadminAktif();
+
+            if ($user->isSuperadmin() && $user->aktif && $validated['role'] !== User::ROLE_SUPERADMIN
+                && ! $this->masihAdaSuperadminAktifLain($user)) {
+                throw ValidationException::withMessages([
+                    'role' => 'Minimal harus ada satu Superadmin aktif. Jadikan user lain Superadmin terlebih dahulu.',
+                ]);
+            }
+
+            $user->update($validated);
+        });
 
         AuditLog::catat('Ubah User', "username: {$user->username}".($passwordDireset ? ' (password direset)' : ''));
 
@@ -104,12 +104,16 @@ class UserController extends Controller
             return back()->withErrors(['user' => 'Tidak dapat menonaktifkan akun yang sedang login.']);
         }
 
-        if ($user->aktif && ! $this->masihAdaBendaharaAktifLain($user)) {
-            return back()->withErrors(['user' => 'Minimal harus ada satu Bendahara Pengeluaran yang aktif.']);
-        }
+        DB::transaction(function () use ($user) {
+            $this->kunciSuperadminAktif();
 
-        $user->aktif = ! $user->aktif;
-        $user->save();
+            if ($user->aktif && ! $this->masihAdaSuperadminAktifLain($user)) {
+                throw ValidationException::withMessages(['user' => 'Minimal harus ada satu Superadmin aktif.']);
+            }
+
+            $user->aktif = ! $user->aktif;
+            $user->save();
+        });
 
         AuditLog::catat($user->aktif ? 'Aktifkan User' : 'Nonaktifkan User', "username: {$user->username}");
 
@@ -123,28 +127,41 @@ class UserController extends Controller
             return back()->withErrors(['user' => 'Tidak dapat menghapus akun yang sedang login.']);
         }
 
-        if ($user->aktif && ! $this->masihAdaBendaharaAktifLain($user)) {
-            return back()->withErrors(['user' => 'Minimal harus ada satu Bendahara Pengeluaran yang aktif.']);
-        }
-
         $username = $user->username;
-        $user->delete();
+
+        DB::transaction(function () use ($user) {
+            $this->kunciSuperadminAktif();
+
+            if ($user->aktif && ! $this->masihAdaSuperadminAktifLain($user)) {
+                throw ValidationException::withMessages(['user' => 'Minimal harus ada satu Superadmin aktif.']);
+            }
+
+            $user->delete();
+        });
 
         AuditLog::catat('Hapus User', "username: {$username}");
 
         return redirect()->route('users.index')->with('success', "User \"{$username}\" berhasil dihapus.");
     }
 
-    /** True kalau masih ada bendahara AKTIF selain $target. Dipakai untuk menjaga minimal 1 bendahara aktif. */
-    private function masihAdaBendaharaAktifLain(User $target): bool
+    /** True kalau masih ada superadmin aktif selain target. */
+    private function masihAdaSuperadminAktifLain(User $target): bool
     {
-        if ($target->role !== 'bendahara') {
+        if (! $target->isSuperadmin()) {
             return true;
         }
 
-        return User::where('role', 'bendahara')
+        return User::where('role', User::ROLE_SUPERADMIN)
             ->where('aktif', true)
             ->where('id', '!=', $target->id)
             ->exists();
+    }
+
+    private function kunciSuperadminAktif(): void
+    {
+        User::where('role', User::ROLE_SUPERADMIN)
+            ->where('aktif', true)
+            ->lockForUpdate()
+            ->get();
     }
 }

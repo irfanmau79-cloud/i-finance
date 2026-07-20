@@ -18,7 +18,7 @@
     </div>
 
     @php
-        $bolehEditHapus = in_array(auth()->user()->role, ['pptk', 'bendahara'], true);
+        $bolehEditHapus = in_array(auth()->user()->role, ['pptk', 'superadmin'], true);
     @endphp
 
     <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">

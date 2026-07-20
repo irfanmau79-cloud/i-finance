@@ -16,7 +16,7 @@
         <div class="sumbar" style="background:var(--warn-bg);color:var(--warn);">
             <span>
                 {{ $peringatanPelimpahan }} KPA/BPP/PPTK pada dokumen cetak menggunakan sumber cadangan.
-                @if (auth()->user()->role === 'bendahara')
+                @if (auth()->user()->role === \App\Models\User::ROLE_SUPERADMIN)
                     <a href="{{ route('pelimpahan.index') }}" style="color:inherit;font-weight:700;">Atur di menu Pelimpahan</a>.
                 @endif
             </span>

@@ -85,13 +85,13 @@ class NpdAntreanTest extends TestCase
         $this->actingAs($bpp)->get(route('npd.verifikasi'))->assertForbidden();
     }
 
-    public function test_bendahara_bisa_akses_kedua_antrean(): void
+    public function test_superadmin_bisa_akses_kedua_antrean(): void
     {
-        $bendahara = $this->buatUser('bendahara', 'bendahara-antrean');
+        $superadmin = $this->buatUser('superadmin', 'superadmin-antrean');
         $this->buatNpd('Draft NPD - BPP');
 
-        $this->actingAs($bendahara)->get(route('npd.persetujuan'))->assertOk();
-        $this->actingAs($bendahara)->get(route('npd.verifikasi'))->assertOk();
+        $this->actingAs($superadmin)->get(route('npd.persetujuan'))->assertOk();
+        $this->actingAs($superadmin)->get(route('npd.verifikasi'))->assertOk();
     }
 
     public function test_bpp_klik_dari_antrean_ke_detail_melihat_tombol_teruskan_ke_verifikator(): void

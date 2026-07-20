@@ -12,10 +12,12 @@
         <div class="sumbar ok"><span>{{ session('success') }}</span></div>
     @endif
 
-    <div class="tbl-tools">
-        <a href="{{ route('npd.bj.create') }}" class="btn prim" style="white-space:nowrap;">+ NPD Barang/Jasa</a>
-        <a href="{{ route('npd.pd.create') }}" class="btn prim" style="white-space:nowrap;">+ NPD Perjalanan Dinas</a>
-    </div>
+    @if (in_array(auth()->user()->role, [\App\Models\User::ROLE_SUPERADMIN, \App\Models\User::ROLE_PPTK], true))
+        <div class="tbl-tools">
+            <a href="{{ route('npd.bj.create') }}" class="btn prim" style="white-space:nowrap;">+ NPD Barang/Jasa</a>
+            <a href="{{ route('npd.pd.create') }}" class="btn prim" style="white-space:nowrap;">+ NPD Perjalanan Dinas</a>
+        </div>
+    @endif
 
     @include('npd._tabel', ['npds' => $npds, 'routeName' => 'npd.index'])
 </div>

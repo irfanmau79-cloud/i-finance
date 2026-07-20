@@ -34,7 +34,7 @@
                     <tr>
                         <td>{{ $log->created_at?->format('d-m-Y H:i:s') }}</td>
                         <td>{{ $log->username }}</td>
-                        <td>{{ $log->role }}</td>
+                        <td>{{ config('akses.role_label')[$log->role] ?? $log->role }}</td>
                         <td>{{ $log->aktivitas }}</td>
                         <td>{{ $log->keterangan ?? '—' }}</td>
                         <td>{{ $log->ip_address ?? '—' }}</td>

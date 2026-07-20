@@ -61,7 +61,7 @@ class Npd extends Model
 
     /**
      * Alur transisi status NPD (berlaku untuk semua jenis: bj, pd, tr, ns, kd).
-     * Port dari transisiNPD/verifikasiNPD di gas-lama/CodeRevisi.gs. Bendahara
+     * Port dari transisiNPD/verifikasiNPD di gas-lama/CodeRevisi.gs. Superadmin
      * boleh melakukan aksi apa pun; role lain hanya aksi yang tercantum di 'roles'.
      */
     public const TRANSISI = [
@@ -152,12 +152,12 @@ class Npd extends Model
         return $this->hasMany(NpdTim::class);
     }
 
-    /** Role bendahara boleh melakukan aksi apa pun; role lain hanya sesuai daftar 'roles' aksi tsb. */
+    /** Superadmin boleh melakukan aksi apa pun; role lain hanya sesuai daftar 'roles' aksi tsb. */
     public static function bolehAksi(string $aksi, string $role): bool
     {
         $rule = self::TRANSISI[$aksi] ?? null;
 
-        return $rule !== null && ($role === 'bendahara' || in_array($role, $rule['roles'], true));
+        return $rule !== null && ($role === User::ROLE_SUPERADMIN || in_array($role, $rule['roles'], true));
     }
 
     /** Daftar kunci aksi yang bisa dilakukan role tsb, sesuai status NPD saat ini. */

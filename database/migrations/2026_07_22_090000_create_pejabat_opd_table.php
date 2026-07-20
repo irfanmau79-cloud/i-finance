@@ -13,7 +13,7 @@ return new class extends Migration
      * PENTING: "Bendahara Pengeluaran" di sini adalah JABATAN untuk tanda
      * tangan dokumen, level OPD. Ini BEDA dari "BPP" (Bendahara Pengeluaran
      * Pembantu, level KPA, lihat tabel kpa) dan BEDA dari role login
-     * 'bendahara' (akses sistem) — jangan disamakan satu sama lain.
+     * 'superadmin' (akses sistem) — jangan disamakan satu sama lain.
      */
     public function up(): void
     {
