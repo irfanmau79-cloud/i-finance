@@ -160,6 +160,22 @@
       </div>
       @endif
 
+      @php($spmVisible = in_array('spm', $akses, true))
+      @php($spmOpen = in_array($activeNav, ['spm-upgu', 'spm-ls'], true))
+      @if ($spmVisible)
+      <div class="sb-group{{ $spmOpen ? ' open' : '' }}">
+        <div class="sb-item sb-parent" id="nav-spm-parent">
+          <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/><line x1="6" y1="14" x2="10" y2="14"/></svg>
+          Data SPM
+          <svg class="chev" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+        <div class="sb-sub">
+          <a class="sb-item sub{{ $activeNav === 'spm-upgu' ? ' active' : '' }}" href="{{ route('spm.up-gu.index') }}">SPM UP/GU</a>
+          <a class="sb-item sub{{ $activeNav === 'spm-ls' ? ' active' : '' }}" href="{{ route('spm.ls.index') }}">SPM LS</a>
+        </div>
+      </div>
+      @endif
+
       @if (in_array('audit-log', $akses))
       <a class="sb-item{{ $activeNav === 'audit-log' ? ' active' : '' }}" href="{{ $href('audit-log') }}">
         <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>

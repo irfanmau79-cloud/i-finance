@@ -59,7 +59,7 @@ class Spm extends Model
      * Dipakai baik dari form input maupun proses impor, makanya validasinya
      * ditaruh di sini (satu pintu), bukan di controller/request.
      *
-     * @throws RuntimeException  kalau mata anggaran tidak ada atau nominalnya membuat realisasi melebihi pagu.
+     * @throws RuntimeException kalau mata anggaran tidak ada atau nominalnya membuat realisasi melebihi pagu.
      */
     public static function buatLs(array $data): self
     {
@@ -107,5 +107,60 @@ class Spm extends Model
         $data['master_anggaran_id'] = null;
 
         return self::create($data);
+    }
+
+    /**
+     * Perbarui SPM LS yang sudah ada. Nominal lama baris ini sendiri sudah
+     * ikut mengurangi sisaTersedia() lewat realisasiLs() — kalau mata
+     * anggarannya tidak berubah, tambahkan kembali supaya tidak terhitung
+     * dobel saat memvalidasi nominal baru.
+     *
+     * @throws RuntimeException kalau mata anggaran tidak ada atau nominalnya membuat realisasi melebihi pagu.
+     */
+    public function updateLs(array $data): void
+    {
+        DB::transaction(function () use ($data) {
+            $masterAnggaran = MasterAnggaran::query()
+                ->lockForUpdate()
+                ->find($data['master_anggaran_id'] ?? null);
+
+            if (! $masterAnggaran) {
+                throw new RuntimeException('Mata anggaran tidak ditemukan.');
+            }
+
+            $nominal = (float) ($data['nominal'] ?? 0);
+
+            if ($nominal <= 0) {
+                throw new RuntimeException('Nominal SPM harus lebih dari 0.');
+            }
+
+            $sisaTersedia = $masterAnggaran->sisaTersedia();
+
+            if ($this->master_anggaran_id === $masterAnggaran->id) {
+                $sisaTersedia += (float) $this->nominal;
+            }
+
+            if ($nominal > $sisaTersedia) {
+                $labelAnggaran = trim($masterAnggaran->kode_rekening.' '.$masterAnggaran->uraian_rekening);
+
+                throw new RuntimeException(sprintf(
+                    'SPM LS sebesar %s melebihi sisa tersedia %s pada %s.',
+                    fmt_rupiah($nominal),
+                    fmt_rupiah($sisaTersedia),
+                    $labelAnggaran
+                ));
+            }
+
+            $data['jenis_spm'] = 'ls';
+            $this->update($data);
+        });
+    }
+
+    /** Perbarui SPM UP/GU. master_anggaran_id selalu NULL, sama seperti buatUpGu(). */
+    public function updateUpGu(array $data): void
+    {
+        $data['jenis_spm'] = 'up_gu';
+        $data['master_anggaran_id'] = null;
+        $this->update($data);
     }
 }

@@ -12,6 +12,7 @@ use App\Http\Controllers\NpdTransportController;
 use App\Http\Controllers\PelimpahanController;
 use App\Http\Controllers\PengumumanController;
 use App\Http\Controllers\ProfilController;
+use App\Http\Controllers\SpmController;
 use App\Http\Controllers\SuratPerintahController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
@@ -140,6 +141,23 @@ Route::middleware('auth.or.guest')->group(function () {
     // Transisi workflow tidak diberikan kepada Bendahara Pengeluaran.
     Route::middleware('role:superadmin,pptk,bpp,verifikator')->group(function () {
         Route::post('/npd/{npd}/transisi', [NpdController::class, 'transisi'])->name('npd.transisi');
+    });
+
+    // Data SPM: khusus superadmin dan Bendahara Pengeluaran.
+    Route::middleware('role:superadmin,bendahara_pengeluaran')->group(function () {
+        Route::get('/spm/up-gu', [SpmController::class, 'indexUpGu'])->name('spm.up-gu.index');
+        Route::get('/spm/up-gu/create', [SpmController::class, 'createUpGu'])->name('spm.up-gu.create');
+        Route::post('/spm/up-gu', [SpmController::class, 'storeUpGu'])->name('spm.up-gu.store');
+        Route::get('/spm/up-gu/{spm}/edit', [SpmController::class, 'editUpGu'])->name('spm.up-gu.edit');
+        Route::put('/spm/up-gu/{spm}', [SpmController::class, 'updateUpGu'])->name('spm.up-gu.update');
+
+        Route::get('/spm/ls', [SpmController::class, 'indexLs'])->name('spm.ls.index');
+        Route::get('/spm/ls/create', [SpmController::class, 'createLs'])->name('spm.ls.create');
+        Route::post('/spm/ls', [SpmController::class, 'storeLs'])->name('spm.ls.store');
+        Route::get('/spm/ls/{spm}/edit', [SpmController::class, 'editLs'])->name('spm.ls.edit');
+        Route::put('/spm/ls/{spm}', [SpmController::class, 'updateLs'])->name('spm.ls.update');
+
+        Route::delete('/spm/{spm}', [SpmController::class, 'destroy'])->name('spm.destroy');
     });
 
     // Menu sidebar yang belum punya halaman sungguhan: placeholder generik,
