@@ -35,6 +35,8 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'link_pdf_npd',
     'link_pdf_lampiran',
     'dibuat_oleh',
+    'spj_verified_at',
+    'spj_verified_by',
 ])]
 class Npd extends Model
 {
@@ -138,6 +140,7 @@ class Npd extends Model
             'tanggal_npd' => 'date',
             'nominal' => 'decimal:2',
             'detail_json' => 'array',
+            'spj_verified_at' => 'datetime',
         ];
     }
 
@@ -154,6 +157,11 @@ class Npd extends Model
     public function dibuatOleh(): BelongsTo
     {
         return $this->belongsTo(User::class, 'dibuat_oleh');
+    }
+
+    public function spjVerifiedBy(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'spj_verified_by');
     }
 
     public function penerima(): HasMany
@@ -213,6 +221,16 @@ class Npd extends Model
     public function historiStatus(): HasMany
     {
         return $this->hasMany(NpdHistoriStatus::class)->orderBy('nomor_urut');
+    }
+
+    public function arsipSpj(): HasMany
+    {
+        return $this->hasMany(ArsipSpj::class)->orderByDesc('ditetapkan_at');
+    }
+
+    public function arsipSpjAktif(): HasMany
+    {
+        return $this->hasMany(ArsipSpj::class)->where('aktif', true)->orderBy('jenis_dokumen');
     }
 
     public function importHistoris(): BelongsTo

@@ -13,16 +13,16 @@
 return [
 
     'menu' => [
-        'superadmin' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'tk-monitor', 'dashspj', 'npd', 'npd-selesai', 'persetujuan', 'persetujuan-selesai', 'verifikasi', 'verifikasi-selesai', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'spm', 'manajemen-data', 'audit-log', 'users', 'pelimpahan', 'profil'],
-        'bendahara_pengeluaran' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'tk-monitor', 'dashspj', 'npd', 'npd-selesai', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'spm', 'manajemen-data', 'profil'],
-        'pptk' => ['dashboard', 'rincian', 'analisis', 'invspj', 'tk-monitor', 'dashspj', 'npd', 'npd-selesai', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
-        'bpp' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'tk-monitor', 'dashspj', 'persetujuan', 'persetujuan-selesai', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
-        'verifikator' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'tk-monitor', 'dashspj', 'verifikasi', 'verifikasi-selesai', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
-        'perencanaan' => ['dashboard', 'rincian', 'analisis', 'dashpd', 'tk-monitor', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
-        'inspektur' => ['dashboard', 'rincian', 'analisis', 'dashpd', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'audit-log', 'profil'],
-        'sekretaris' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
-        'kasubbag' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
-        'inspektur_pembantu' => ['dashboard', 'rincian', 'analisis', 'dashpd', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
+        'superadmin' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd', 'npd-selesai', 'persetujuan', 'persetujuan-selesai', 'verifikasi', 'verifikasi-selesai', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'spm', 'manajemen-data', 'audit-log', 'users', 'pelimpahan', 'profil'],
+        'bendahara_pengeluaran' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd', 'npd-selesai', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'spm', 'manajemen-data', 'profil'],
+        'pptk' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dash-tk', 'tk-monitor', 'dashspj', 'npd', 'npd-selesai', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
+        'bpp' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'persetujuan', 'persetujuan-selesai', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
+        'verifikator' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'verifikasi', 'verifikasi-selesai', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
+        'perencanaan' => ['dashboard', 'rincian', 'analisis', 'dashpd', 'dash-tk', 'tk-monitor', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
+        'inspektur' => ['dashboard', 'rincian', 'analisis', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'audit-log', 'profil'],
+        'sekretaris' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
+        'kasubbag' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
+        'inspektur_pembantu' => ['dashboard', 'rincian', 'analisis', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
         'layanan' => ['dashboard', 'rincian', 'sp-input', 'sp-monitor', 'tk-form'],
     ],
 

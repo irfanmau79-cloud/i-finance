@@ -4,6 +4,7 @@ use App\Http\Controllers\AnalisisTrenController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\DashboardRealisasiController;
+use App\Http\Controllers\InventarisasiSpjController;
 use App\Http\Controllers\ManajemenDataController;
 use App\Http\Controllers\MasterAnggaranImportController;
 use App\Http\Controllers\MenuPlaceholderController;
@@ -16,12 +17,16 @@ use App\Http\Controllers\NpdPdController;
 use App\Http\Controllers\NpdTransportController;
 use App\Http\Controllers\PelimpahanController;
 use App\Http\Controllers\PengumumanController;
+use App\Http\Controllers\PerjalananDinasDashboardController;
 use App\Http\Controllers\ProfilController;
 use App\Http\Controllers\RakBulananImportController;
 use App\Http\Controllers\RincianRealisasiController;
+use App\Http\Controllers\SpjDashboardController;
 use App\Http\Controllers\SpmController;
 use App\Http\Controllers\SpmImportController;
 use App\Http\Controllers\SuratPerintahController;
+use App\Http\Controllers\TunjanganKeluargaController;
+use App\Http\Controllers\TunjanganKeluargaImportController;
 use App\Http\Controllers\UserController;
 use Illuminate\Support\Facades\Route;
 
@@ -42,6 +47,8 @@ Route::post('/sp/input', [SuratPerintahController::class, 'publicStore'])->name(
 // yang diinput orang kantor"). Role yang login tetap melihatnya lewat sidebar biasa.
 Route::get('/surat-perintah/monitoring', [SuratPerintahController::class, 'monitoring'])->name('surat-perintah.monitoring');
 Route::get('/pengumuman', [PengumumanController::class, 'show'])->name('pengumuman.show');
+Route::get('/tunjangan-keluarga/perubahan', [TunjanganKeluargaController::class, 'form'])->name('tunjangan.form');
+Route::post('/tunjangan-keluarga/perubahan', [TunjanganKeluargaController::class, 'submit'])->middleware('throttle:5,1')->name('tunjangan.submit');
 
 Route::middleware('auth.or.guest')->group(function () {
     Route::get('/dashboard', DashboardRealisasiController::class)
@@ -53,6 +60,21 @@ Route::middleware('auth.or.guest')->group(function () {
     Route::get('/analisis-tren', AnalisisTrenController::class)
         ->middleware('menu-akses:analisis')
         ->name('analisis.index');
+    Route::get('/dashboard/perjalanan-dinas', PerjalananDinasDashboardController::class)
+        ->middleware('menu-akses:dashpd')
+        ->name('dashboard.perjalanan.index');
+    Route::get('/dashboard/spj-pengawasan', [SpjDashboardController::class, 'index'])
+        ->middleware('menu-akses:dashspj')
+        ->name('dashboard.spj.index');
+    Route::post('/dashboard/spj-pengawasan/{npd}/verifikasi', [SpjDashboardController::class, 'verify'])
+        ->middleware(['menu-akses:dashspj', 'role:superadmin,verifikator'])
+        ->name('dashboard.spj.verify');
+    Route::get('/inventarisasi-spj', [InventarisasiSpjController::class, 'index'])
+        ->middleware('menu-akses:invspj')->name('inventarisasi-spj.index');
+    Route::get('/tunjangan-keluarga/dashboard', [TunjanganKeluargaController::class, 'dashboard'])
+        ->middleware('menu-akses:dash-tk')->name('tunjangan.dashboard');
+    Route::get('/tunjangan-keluarga/monitoring', [TunjanganKeluargaController::class, 'monitoring'])
+        ->middleware('menu-akses:tk-monitor')->name('tunjangan.monitoring');
 
     // Semua role yang login, kecuali "layanan" (layanan tidak login).
     Route::middleware('role:superadmin,bendahara_pengeluaran,pptk,bpp,verifikator,sekretaris,kasubbag,inspektur,inspektur_pembantu,perencanaan')->group(function () {
@@ -91,6 +113,11 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/manajemen-data/import/npd-historis/{import}/preview', [NpdHistorisImportController::class, 'preview'])->name('manajemen-data.import.npd-historis.preview');
         Route::post('/manajemen-data/import/npd-historis/{import}/confirm', [NpdHistorisImportController::class, 'confirm'])->name('manajemen-data.import.npd-historis.confirm');
         Route::get('/manajemen-data/import/npd-historis/{import}/report/{mode}', [NpdHistorisImportController::class, 'report'])->name('manajemen-data.import.npd-historis.report');
+
+        Route::get('/tunjangan-keluarga/import', [TunjanganKeluargaImportController::class, 'create'])->name('tunjangan.import.create');
+        Route::post('/tunjangan-keluarga/import', [TunjanganKeluargaImportController::class, 'store'])->name('tunjangan.import.store');
+        Route::get('/tunjangan-keluarga/import/{import}', [TunjanganKeluargaImportController::class, 'preview'])->name('tunjangan.import.preview');
+        Route::post('/tunjangan-keluarga/import/{import}/confirm', [TunjanganKeluargaImportController::class, 'confirm'])->name('tunjangan.import.confirm');
     });
 
     // Hanya PPTK dan superadmin boleh mengubah / menghapus data SP, toggle Monitoring, & ubah Pengajuan.
@@ -161,6 +188,12 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/npd/{npd}/cetak-spd', [NpdController::class, 'cetakSpd'])->name('npd.cetak-spd');
         Route::get('/npd/{npd}/cetak-daftar-nara', [NpdController::class, 'cetakDaftarNarasumber'])->name('npd.cetak-daftar-nara');
         Route::get('/npd/{npd}/cetak-daftar-kd', [NpdController::class, 'cetakDaftarKontribusiDiklat'])->name('npd.cetak-daftar-kd');
+        Route::post('/npd/{npd}/arsip-spj', [InventarisasiSpjController::class, 'store'])->name('npd.arsip-spj.store');
+    });
+
+    Route::middleware('role:superadmin,bendahara_pengeluaran')->group(function () {
+        Route::post('/tunjangan-keluarga/pengajuan/{pengajuan}/proses', [TunjanganKeluargaController::class, 'proses'])->name('tunjangan.pengajuan.proses');
+        Route::get('/tunjangan-keluarga/lampiran/{lampiran}', [TunjanganKeluargaController::class, 'download'])->name('tunjangan.lampiran.download');
     });
 
     // Transisi workflow tidak diberikan kepada Bendahara Pengeluaran.
@@ -222,10 +255,7 @@ Route::middleware('auth.or.guest')->group(function () {
     // akses dijaga per-role lewat config('akses.menu') (middleware menu-akses).
     Route::get('/menu/{key}', [MenuPlaceholderController::class, 'show'])
         ->whereIn('key', [
-            'dashpd', 'tk-monitor', 'dashspj',
-            'invspj',
             'npd-selesai', 'persetujuan-selesai', 'verifikasi-selesai',
-            'tk-form',
         ])
         ->middleware('menu-akses')
         ->name('menu.placeholder');

@@ -71,7 +71,7 @@ class NpdController extends Controller
 
     public function show(Request $request, Npd $npd)
     {
-        $npd->load(['masterAnggaran.tagging', 'penerima.pphList', 'tim.paket', 'narasumber', 'peserta', 'referensi', 'turunanPerjalanan', 'induk', 'turunanTransport', 'dibuatOleh', 'historiStatus.user']);
+        $npd->load(['masterAnggaran.tagging', 'penerima.pphList', 'tim.paket', 'narasumber', 'peserta', 'referensi', 'turunanPerjalanan', 'induk', 'turunanTransport', 'dibuatOleh', 'historiStatus.user', 'arsipSpj.ditetapkanOleh']);
 
         $role = $request->user()->role;
         $aksiTersedia = $npd->aksiTersedia($role);
@@ -83,8 +83,9 @@ class NpdController extends Controller
         };
 
         $peringatanPelimpahan = PejabatResolver::untukNpd($npd)['peringatan'];
+        $bolehKelolaArsip = in_array($role, ['superadmin', 'bendahara_pengeluaran', 'pptk', 'bpp', 'verifikator'], true);
 
-        return view('npd.show', compact('npd', 'aksiTersedia', 'ruteDaftar', 'activeNav', 'peringatanPelimpahan'));
+        return view('npd.show', compact('npd', 'aksiTersedia', 'ruteDaftar', 'activeNav', 'peringatanPelimpahan', 'bolehKelolaArsip'));
     }
 
     /**

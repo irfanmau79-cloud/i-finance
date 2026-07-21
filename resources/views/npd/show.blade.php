@@ -321,6 +321,25 @@
         </div>
     @endif
 
+    <h3 style="margin-top:22px;">Lokasi Arsip SPJ</h3>
+    <div class="dash-card" style="box-shadow:none;border:1px solid var(--line);">
+        @if ($bolehKelolaArsip && $npd->status === 'Selesai')
+        <form method="POST" action="{{ route('npd.arsip-spj.store', $npd) }}" class="row" style="align-items:end;margin-bottom:16px;">
+            @csrf
+            <div><label class="fl">Jenis Dokumen</label><select name="jenis_dokumen" required>@foreach(\App\Services\InventarisasiSpjService::JENIS_DOKUMEN as $jenis)<option>{{ $jenis }}</option>@endforeach</select></div>
+            <div><label class="fl">Lokasi Bantex/Box</label><input name="lokasi" maxlength="100" required placeholder="Contoh: Bantex A-01"></div>
+            <div><label class="fl">Catatan</label><input name="catatan" maxlength="1000" placeholder="Opsional"></div>
+            <div><button class="btn prim" type="submit">Tetapkan / Pindahkan</button></div>
+        </form>
+        @elseif($npd->status !== 'Selesai')
+            <div class="sub" style="margin-bottom:12px;">Lokasi arsip dapat ditetapkan setelah NPD berstatus Selesai.</div>
+        @endif
+        <div class="sp-table-wrap"><table class="realisasi"><thead><tr><th>Waktu</th><th>Jenis Dokumen</th><th>Lokasi</th><th>Status</th><th>Petugas</th><th>Catatan</th></tr></thead><tbody>
+        @forelse($npd->arsipSpj as $arsip)<tr><td>{{ $arsip->ditetapkan_at->format('d-m-Y H:i') }}</td><td>{{ $arsip->jenis_dokumen }}</td><td>{{ $arsip->lokasi }}</td><td><span class="badge {{ $arsip->aktif ? 'st-aktif' : 'st-selesai' }}">{{ $arsip->aktif ? 'AKTIF' : 'HISTORI' }}</span></td><td>{{ $arsip->ditetapkanOleh?->nama ?? '-' }}</td><td>{{ $arsip->catatan ?? '-' }}</td></tr>
+        @empty<tr><td colspan="6" style="text-align:center;color:var(--mut);padding:18px;">Belum ada lokasi arsip.</td></tr>@endforelse
+        </tbody></table></div>
+    </div>
+
     @if ($npd->historiStatus->isNotEmpty())
         <h3 style="margin-top:22px;">Histori Status</h3>
         <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">

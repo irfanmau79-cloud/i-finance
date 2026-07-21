@@ -65,6 +65,7 @@ class NpdTransportTest extends TestCase
             $tim = $induk->tim()->create([
                 'nama' => $nama[$i],
                 'jabatan' => 'Auditor',
+                'bidang_snapshot' => 'Sekretariat',
                 'nip' => '19800101200001100'.$i,
                 'rekening' => '11111'.$i,
                 'bbm_liter' => 0,
@@ -143,6 +144,7 @@ class NpdTransportTest extends TestCase
             $h = $t->hitung();
             $this->assertEquals(0.0, $h['jml_harian']);
             $this->assertEquals(0.0, $h['jml_akom']);
+            $this->assertSame('Sekretariat', $t->bidang_snapshot);
         }
 
         $penerima = $npd->tim->firstWhere('is_penerima', true);

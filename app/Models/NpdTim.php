@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'pegawai_id',
     'nama',
     'jabatan',
+    'bidang_snapshot',
     'nip',
     'rekening',
     'bbm_liter',

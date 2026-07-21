@@ -255,6 +255,7 @@ class NpdTransportController extends Controller
                 'pegawai_id' => $sumber?->pegawai_id,
                 'nama' => $sumber?->nama ?? '',
                 'jabatan' => $sumber?->jabatan,
+                'bidang_snapshot' => $sumber?->bidang_snapshot ?: $sumber?->pegawai?->bidang,
                 'nip' => $sumber?->nip,
                 'rekening' => $sumber?->rekening,
                 'bbm_liter' => (float) ($t['bbm_liter'] ?? 0),

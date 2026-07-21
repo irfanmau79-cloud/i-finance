@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
+use App\Models\Pegawai;
 use App\Models\SuratPerintah;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -164,9 +165,15 @@ class NpdPdTest extends TestCase
         $pptk = $this->buatUser('pptk', 'pd-simpan');
         $masterAnggaran = $this->buatMasterAnggaran();
         $suratPerintah = $this->buatSuratPerintah();
+        $pegawai = Pegawai::create([
+            'nama' => 'Anggota Pertama', 'nip' => '198001012000011001', 'jabatan' => 'Auditor',
+            'bidang' => 'Inspektur Pembantu I', 'rekening' => '111111', 'aktif' => true,
+        ]);
+        $payload = $this->payload($masterAnggaran, $suratPerintah);
+        $payload['tim'][0]['pegawai_id'] = $pegawai->id;
 
         $response = $this->actingAs($pptk)
-            ->post(route('npd.pd.store'), $this->payload($masterAnggaran, $suratPerintah));
+            ->post(route('npd.pd.store'), $payload);
 
         $npd = Npd::with('tim.paket')->sole();
 
@@ -178,6 +185,7 @@ class NpdPdTest extends TestCase
         $this->assertSame($suratPerintah->id, $npd->surat_perintah_id);
         $this->assertSame(1_830_000.0, (float) $npd->nominal);
         $this->assertSame('001/SP/TEST/2026', $npd->detail_json['nomor_sp']);
+        $this->assertSame('Inspektur Pembantu I', $npd->tim->first()->bidang_snapshot);
 
         $this->assertCount(2, $npd->tim);
         $this->assertCount(1, $npd->tim[0]->paket);

@@ -117,7 +117,8 @@ class NpdPdController extends Controller
                 $pegawaiId = $anggota['pegawai_id'] ?? null;
                 $nama = $anggota['nama'];
 
-                if ($pegawaiId && ($pegawai = Pegawai::find($pegawaiId))) {
+                $pegawai = $pegawaiId ? Pegawai::find($pegawaiId) : null;
+                if ($pegawai) {
                     $nama = $pegawai->nama;
                 }
 
@@ -125,6 +126,7 @@ class NpdPdController extends Controller
                     'pegawai_id' => $pegawaiId,
                     'nama' => $nama,
                     'jabatan' => $anggota['jabatan'] ?? null,
+                    'bidang_snapshot' => $pegawai?->bidang,
                     'nip' => $anggota['nip'] ?? null,
                     'rekening' => $anggota['rekening'] ?? null,
                     'bbm_liter' => $anggota['bbm_liter'] ?? 0,
@@ -251,9 +253,11 @@ class NpdPdController extends Controller
     {
         foreach ($tim as $i => $anggota) {
             $pegawaiId = $anggota['pegawai_id'] ?? null;
-            $nama = ($pegawaiId && ($pegawai = Pegawai::find($pegawaiId))) ? $pegawai->nama : $anggota['nama'];
+            $pegawai = $pegawaiId ? Pegawai::find($pegawaiId) : null;
+            $nama = $pegawai ? $pegawai->nama : $anggota['nama'];
             $npdTim = $npd->tim()->create([
                 'pegawai_id' => $pegawaiId, 'nama' => $nama, 'jabatan' => $anggota['jabatan'] ?? null,
+                'bidang_snapshot' => $pegawai?->bidang,
                 'nip' => $anggota['nip'] ?? null, 'rekening' => $anggota['rekening'] ?? null,
                 'bbm_liter' => $anggota['bbm_liter'] ?? 0, 'bbm_tarif' => $anggota['bbm_tarif'] ?? 0,
                 'tol' => $anggota['tol'] ?? 0, 'tiket' => $anggota['tiket'] ?? 0,
