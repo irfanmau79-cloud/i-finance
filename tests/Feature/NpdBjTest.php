@@ -335,4 +335,53 @@ class NpdBjTest extends TestCase
         $response->assertSessionHasErrors(['penerima.0.keterangan']);
         $this->assertSame(0, Npd::count());
     }
+
+    public function test_pdf_barang_jasa_multi_penerima_dan_multi_pph_berhasil_dirender(): void
+    {
+        $pptk = User::create([
+            'username' => 'bj-pdf',
+            'nama' => 'PPTK PDF',
+            'role' => 'pptk',
+            'password' => 'rahasia',
+        ]);
+        $master = MasterAnggaran::create([
+            'program' => 'Program PDF Barang Jasa',
+            'kegiatan' => 'Kegiatan PDF Barang Jasa',
+            'sub_kegiatan' => '6.01.01.2.01 Sub Kegiatan PDF Barang Jasa',
+            'kode_rekening' => '5.1.02.01.01.0098',
+            'pagu' => 100_000_000,
+            'aktif' => true,
+        ]);
+        $npd = Npd::create([
+            'jenis' => 'bj',
+            'master_anggaran_id' => $master->id,
+            'keu' => '1',
+            'bulan' => 7,
+            'tahun' => 2026,
+            'tanggal_npd' => '2026-07-21',
+            'jenis_panjar' => 'Tanpa Panjar',
+            'nominal' => 3_500_000,
+            'terbilang' => 'tiga juta lima ratus ribu rupiah',
+            'status' => 'Draft NPD - PPTK',
+            'detail_json' => ['uraian' => 'Belanja barang dan jasa untuk pengujian PDF'],
+        ]);
+        $satu = $npd->penerima()->create([
+            'nama' => 'Penerima Pertama', 'rekening' => '1111111111', 'bruto' => 1_500_000,
+            'ppn' => 150_000, 'biaya_ku_rtgs' => 0, 'keterangan' => 'Belanja jasa pertama',
+        ]);
+        $satu->pphList()->createMany([
+            ['jenis' => 'PPh Pasal 21', 'nilai' => 75_000],
+            ['jenis' => 'PPh Pasal 23', 'nilai' => 30_000],
+        ]);
+        $npd->penerima()->create([
+            'nama' => 'Penerima Kedua', 'rekening' => '2222222222', 'bruto' => 2_000_000,
+            'ppn' => 0, 'biaya_ku_rtgs' => 15_000, 'keterangan' => 'Belanja barang kedua',
+        ]);
+
+        foreach (['npd.cetak-npd', 'npd.cetak-lampiran'] as $route) {
+            $response = $this->actingAs($pptk)->get(route($route, $npd));
+            $response->assertOk()->assertHeader('Content-Type', 'application/pdf');
+            $this->assertStringStartsWith('%PDF-', $response->getContent());
+        }
+    }
 }

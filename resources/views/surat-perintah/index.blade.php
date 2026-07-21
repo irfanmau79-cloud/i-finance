@@ -49,12 +49,12 @@
                         <td><span class="badge st-diterima">{{ $suratPerintah->status }}</span></td>
                         <td style="text-align:center;">
                             @php
-                                $fileTersedia = filled($suratPerintah->file_url) && \Illuminate\Support\Facades\Storage::disk('public')->exists($suratPerintah->file_url);
+                                $fileTersedia = $suratPerintah->fileTersedia();
                             @endphp
                             <div style="display:flex;align-items:center;justify-content:center;gap:10px;">
                                 <div class="aksi-wrap" style="width:auto;grid-template-columns:repeat({{ $bolehEditHapus ? 3 : 1 }},30px);">
                                     @if ($fileTersedia)
-                                        <a class="ic-btn" title="Lihat SP" href="{{ asset('storage/'.$suratPerintah->file_url) }}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></a>
+                                        <a class="ic-btn" title="Lihat SP" href="{{ route('surat-perintah.file', $suratPerintah) }}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></a>
                                     @else
                                         <button type="button" class="ic-btn" title="File tidak tersedia" style="opacity:.5;cursor:not-allowed;" onclick="alert('File tidak tersedia.');"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
                                     @endif

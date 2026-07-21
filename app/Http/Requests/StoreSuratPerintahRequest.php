@@ -14,6 +14,7 @@ class StoreSuratPerintahRequest extends FormRequest
     public function rules(): array
     {
         return [
+            'website' => ['prohibited'],
             'nomor_sp' => ['required', 'string', 'max:100'],
             'tanggal_sp' => ['required', 'date'],
             'unit_kerja' => ['required', 'in:Inspektur Pembantu I,Inspektur Pembantu II,Inspektur Pembantu III,Inspektur Pembantu IV,Inspektur Pembantu Investigasi,Sekretariat,Subbagian Tata Usaha'],
@@ -24,7 +25,7 @@ class StoreSuratPerintahRequest extends FormRequest
             'rincian_tgl_bayar' => ['required', 'string', 'max:255'],
             'keterangan' => ['required', 'string'],
             'status_sp' => ['required', 'in:Baru,Revisi'],
-            'file_url' => ['required', 'file', 'mimes:pdf', 'max:10240'],
+            'file_url' => ['required', 'file', 'mimes:pdf', 'mimetypes:application/pdf', 'max:10240'],
         ];
     }
 

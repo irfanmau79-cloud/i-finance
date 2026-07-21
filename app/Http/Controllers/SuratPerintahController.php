@@ -9,7 +9,11 @@ use App\Http\Requests\UpdateSuratPerintahRequest;
 use App\Models\SuratPerintah;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
+use Illuminate\Support\Str;
 use Mpdf\Mpdf;
+use Mpdf\Output\Destination;
+use Symfony\Component\HttpFoundation\StreamedResponse;
+use Throwable;
 
 class SuratPerintahController extends Controller
 {
@@ -78,7 +82,7 @@ class SuratPerintahController extends Controller
 
         $fileName = 'daftar-sp-'.now()->format('Ymd').'.pdf';
 
-        return response($mpdf->Output($fileName, \Mpdf\Output\Destination::STRING_RETURN), 200, [
+        return response($mpdf->Output($fileName, Destination::STRING_RETURN), 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'attachment; filename="'.$fileName.'"',
         ]);
@@ -126,12 +130,22 @@ class SuratPerintahController extends Controller
     private function simpanSuratPerintah(StoreSuratPerintahRequest $request): SuratPerintah
     {
         $data = $request->validated();
-
-        $data['file_url'] = $request->file('file_url')->store('sp', 'public');
+        unset($data['website']);
+        $path = 'sp/'.Str::uuid().'.pdf';
+        $stored = $request->file('file_url')->storeAs('sp', basename($path), 'local');
+        if (! $stored) {
+            throw new \RuntimeException('File SP gagal disimpan pada penyimpanan private.');
+        }
+        $data['file_url'] = 'private:'.$stored;
         $data['status'] = SuratPerintah::STATUS_DITERIMA_PPTK;
         $data['dipantau'] = true;
 
-        $suratPerintah = SuratPerintah::create($data);
+        try {
+            $suratPerintah = SuratPerintah::create($data);
+        } catch (Throwable $e) {
+            Storage::disk('local')->delete($stored);
+            throw $e;
+        }
 
         AuditLog::catat('Buat SP', 'Nomor SP: '.$suratPerintah->nomor_sp);
 
@@ -146,15 +160,31 @@ class SuratPerintahController extends Controller
     public function update(UpdateSuratPerintahRequest $request, SuratPerintah $suratPerintah)
     {
         $data = $request->validated();
+        unset($data['website']);
 
         if ($request->hasFile('file_url')) {
-            Storage::disk('public')->delete($suratPerintah->file_url);
-            $data['file_url'] = $request->file('file_url')->store('sp', 'public');
+            $pathLama = $suratPerintah->filePath();
+            $diskLama = $suratPerintah->fileDisk();
+            $pathBaru = $request->file('file_url')->storeAs('sp', Str::uuid().'.pdf', 'local');
+            if (! $pathBaru) {
+                throw new \RuntimeException('File SP pengganti gagal disimpan pada penyimpanan private.');
+            }
+            $data['file_url'] = 'private:'.$pathBaru;
         } else {
             unset($data['file_url']);
         }
 
-        $suratPerintah->update($data);
+        try {
+            $suratPerintah->update($data);
+        } catch (Throwable $e) {
+            if (isset($pathBaru)) {
+                Storage::disk('local')->delete($pathBaru);
+            }
+            throw $e;
+        }
+        if (isset($pathBaru)) {
+            Storage::disk($diskLama)->delete($pathLama);
+        }
 
         $fieldBerubah = array_keys(array_diff_key($suratPerintah->getChanges(), array_flip(['updated_at'])));
         $keterangan = 'Nomor SP: '.$suratPerintah->nomor_sp
@@ -171,7 +201,7 @@ class SuratPerintahController extends Controller
     {
         $nomorSp = $suratPerintah->nomor_sp;
 
-        Storage::disk('public')->delete($suratPerintah->file_url);
+        Storage::disk($suratPerintah->fileDisk())->delete($suratPerintah->filePath());
         $suratPerintah->delete();
 
         AuditLog::catat('Hapus SP', 'Nomor SP: '.$nomorSp);
@@ -179,5 +209,16 @@ class SuratPerintahController extends Controller
         return redirect()
             ->route('surat-perintah.index')
             ->with('success', 'Surat Perintah berhasil dihapus.');
+    }
+
+    public function downloadFile(SuratPerintah $suratPerintah): StreamedResponse
+    {
+        abort_unless($suratPerintah->fileTersedia(), 404);
+
+        return Storage::disk($suratPerintah->fileDisk())->download(
+            $suratPerintah->filePath(),
+            'surat-perintah-'.$suratPerintah->id.'.pdf',
+            ['Content-Type' => 'application/pdf']
+        );
     }
 }

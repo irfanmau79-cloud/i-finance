@@ -22,6 +22,9 @@
   .center { text-align:center; } .bold { font-weight:bold; } .vtop { vertical-align:top; }
   .ket { font-size:6.5pt; }
   .pph-jenis { font-size:8pt; color:#444; }
+  table.lamp.dense th, table.lamp.dense td { padding-left:2pt; padding-right:2pt; }
+  table.lamp.dense td.num { font-size:6.2pt; }
+  table.lamp tr.jml td { font-size:6.2pt; padding-left:2pt; padding-right:2pt; white-space:nowrap; }
 
   table.ttd { width:100%; border-collapse:collapse; margin-top:30pt; }
   table.ttd td { vertical-align:top; padding:0; border:none; }
@@ -45,7 +48,7 @@
     </table>
   </div>
 
-  <table class="lamp">
+  <table class="lamp{{ count($kolomPph) >= 2 ? ' dense' : '' }}">
     <thead>
       <tr>
         <th rowspan="2" style="width:12%;">Nama Penerima</th>

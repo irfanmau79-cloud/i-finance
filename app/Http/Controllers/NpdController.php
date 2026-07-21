@@ -14,17 +14,23 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
+use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
 
 class NpdController extends Controller
 {
+    public function create()
+    {
+        return view('npd.create');
+    }
+
     public function index(Request $request)
     {
-        $npds = $this->daftarNpd($request);
+        [$npds, $filters] = $this->daftarNpd($request);
 
-        return view('npd.index', compact('npds'));
+        return view('npd.index', compact('npds', 'filters'));
     }
 
     /**
@@ -34,9 +40,9 @@ class NpdController extends Controller
      */
     public function persetujuan(Request $request)
     {
-        $npds = $this->daftarNpd($request, true);
+        [$npds, $filters] = $this->daftarNpd($request, 'persetujuan');
 
-        return view('npd.persetujuan', compact('npds'));
+        return view('npd.persetujuan', compact('npds', 'filters'));
     }
 
     /**
@@ -45,28 +51,45 @@ class NpdController extends Controller
      */
     public function verifikasi(Request $request)
     {
-        $npds = $this->daftarNpd($request, true);
+        [$npds, $filters] = $this->daftarNpd($request, 'verifikasi');
 
-        return view('npd.verifikasi', compact('npds'));
+        return view('npd.verifikasi', compact('npds', 'filters'));
     }
 
-    private function daftarNpd(Request $request, bool $excludeHistorical = false)
+    private function daftarNpd(Request $request, string $mode = 'daftar'): array
     {
-        $query = Npd::with('masterAnggaran')->orderBy('tanggal_npd', 'desc');
+        $defaultStatus = match ($mode) {
+            'persetujuan' => 'Draft NPD - BPP',
+            'verifikasi' => 'Verifikasi - Verifikator',
+            default => null,
+        };
+        $validated = $request->validate([
+            'jenis' => ['nullable', Rule::in(array_keys(Npd::JENIS_LABEL))],
+            'status' => ['nullable', Rule::in([...Npd::STATUS_LIST, 'semua'])],
+        ]);
+        $filters = [
+            'jenis' => $validated['jenis'] ?? '',
+            'status' => $request->has('status') ? (($validated['status'] ?? null) ?: 'semua') : ($defaultStatus ?? 'semua'),
+        ];
 
-        if ($excludeHistorical) {
+        $query = Npd::query()
+            ->with('masterAnggaran:id,kode_rekening,sub_kegiatan')
+            ->latest('tanggal_npd')
+            ->latest('id');
+
+        if ($mode !== 'daftar') {
             $query->where('sumber_data', '!=', 'import_historis');
         }
 
-        if ($request->filled('jenis')) {
-            $query->where('jenis', $request->string('jenis'));
+        if ($filters['jenis'] !== '') {
+            $query->where('jenis', $filters['jenis']);
         }
 
-        if ($request->filled('status')) {
-            $query->where('status', $request->string('status'));
+        if ($filters['status'] !== 'semua') {
+            $query->where('status', $filters['status']);
         }
 
-        return $query->paginate(30)->withQueryString();
+        return [$query->paginate(30)->withQueryString(), $filters];
     }
 
     public function show(Request $request, Npd $npd)

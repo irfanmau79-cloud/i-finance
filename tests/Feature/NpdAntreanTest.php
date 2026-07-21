@@ -52,7 +52,7 @@ class NpdAntreanTest extends TestCase
         ]);
     }
 
-    public function test_bpp_bisa_buka_antrean_persetujuan_dan_melihat_semua_npd(): void
+    public function test_persetujuan_default_hanya_menampilkan_npd_yang_memerlukan_tindakan_bpp(): void
     {
         $bpp = $this->buatUser('bpp', 'antrean-bpp');
         $draftPptk = $this->buatNpd('Draft NPD - PPTK');
@@ -60,11 +60,19 @@ class NpdAntreanTest extends TestCase
 
         $this->actingAs($bpp)->get(route('npd.persetujuan'))
             ->assertOk()
+            ->assertSee($draftBpp->status)
+            ->assertViewHas('npds', fn ($npds) => $npds->total() === 1
+                && $npds->perPage() === 30
+                && $npds->first()->is($draftBpp));
+
+        $this->actingAs($bpp)->get(route('npd.persetujuan', ['status' => 'semua']))
+            ->assertOk()
             ->assertSee($draftPptk->status)
-            ->assertSee($draftBpp->status);
+            ->assertSee($draftBpp->status)
+            ->assertViewHas('npds', fn ($npds) => $npds->total() === 2);
     }
 
-    public function test_verifikator_bisa_buka_antrean_verifikasi_dan_melihat_semua_npd(): void
+    public function test_verifikasi_default_hanya_menampilkan_npd_yang_memerlukan_tindakan_verifikator(): void
     {
         $verifikator = $this->buatUser('verifikator', 'antrean-verif');
         $draftPptk = $this->buatNpd('Draft NPD - PPTK');
@@ -72,8 +80,14 @@ class NpdAntreanTest extends TestCase
 
         $this->actingAs($verifikator)->get(route('npd.verifikasi'))
             ->assertOk()
+            ->assertSee($verifikasi->status)
+            ->assertViewHas('npds', fn ($npds) => $npds->total() === 1 && $npds->first()->is($verifikasi));
+
+        $this->actingAs($verifikator)->get(route('npd.verifikasi', ['status' => 'semua']))
+            ->assertOk()
             ->assertSee($draftPptk->status)
-            ->assertSee($verifikasi->status);
+            ->assertSee($verifikasi->status)
+            ->assertViewHas('npds', fn ($npds) => $npds->total() === 2);
     }
 
     public function test_verifikator_ditolak_akses_antrean_persetujuan_dan_sebaliknya(): void

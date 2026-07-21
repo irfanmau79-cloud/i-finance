@@ -2,17 +2,17 @@
     <select name="jenis" style="max-width:220px;">
         <option value="">-- Semua Jenis --</option>
         @foreach (\App\Models\Npd::JENIS_LABEL as $kode => $label)
-            <option value="{{ $kode }}" @selected(request('jenis') === $kode)>{{ $label }}</option>
+            <option value="{{ $kode }}" @selected($filters['jenis'] === $kode)>{{ $label }}</option>
         @endforeach
     </select>
     <select name="status" style="max-width:260px;">
-        <option value="">-- Semua Status --</option>
+        <option value="semua" @selected($filters['status'] === 'semua')>-- Semua Status --</option>
         @foreach (\App\Models\Npd::STATUS_LIST as $status)
-            <option value="{{ $status }}" @selected(request('status') === $status)>{{ $status }}</option>
+            <option value="{{ $status }}" @selected($filters['status'] === $status)>{{ $status }}</option>
         @endforeach
     </select>
     <button type="submit" class="btn prim" style="white-space:nowrap;">Filter</button>
-    @if (request()->hasAny(['jenis', 'status']))
+    @if ($filters['jenis'] !== '' || request()->has('status'))
         <a href="{{ route($routeName) }}" class="btn" style="white-space:nowrap;">Reset</a>
     @endif
 </form>

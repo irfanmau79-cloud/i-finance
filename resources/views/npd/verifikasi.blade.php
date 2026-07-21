@@ -6,12 +6,12 @@
 @section('content')
 <div class="dash-card wf-card">
     <h3>Verifikasi NPD</h3>
-    <div class="sub">Seluruh NPD &mdash; tombol aksi di halaman detail aktif hanya untuk status "Verifikasi - Verifikator".</div>
+    <div class="sub">Secara default menampilkan NPD yang memerlukan tindakan Verifikator. Gunakan filter status untuk melihat arsip proses maupun NPD Selesai.</div>
 
     @if (session('success'))
         <div class="sumbar ok"><span>{{ session('success') }}</span></div>
     @endif
 
-    @include('npd._tabel', ['npds' => $npds, 'routeName' => 'npd.verifikasi'])
+    @include('npd._tabel', ['npds' => $npds, 'filters' => $filters, 'routeName' => 'npd.verifikasi'])
 </div>
 @endsection

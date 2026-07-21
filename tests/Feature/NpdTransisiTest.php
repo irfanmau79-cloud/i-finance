@@ -103,6 +103,42 @@ class NpdTransisiTest extends TestCase
         $this->assertSame('07/NPD-Keu.1.IBC/7/2026', $npd->nomor_lengkap);
     }
 
+    public function test_semua_lima_jenis_npd_menggunakan_lifecycle_backend_yang_sama(): void
+    {
+        $admin = $this->buatUser('superadmin', 'lifecycle-semua-jenis');
+        $master = $this->buatNpd()->masterAnggaran;
+        Npd::query()->delete();
+
+        foreach (array_keys(Npd::JENIS_LABEL) as $index => $jenis) {
+            $npd = Npd::create([
+                'jenis' => $jenis,
+                'master_anggaran_id' => $master->id,
+                'keu' => '1',
+                'bulan' => 7,
+                'tahun' => 2026,
+                'tanggal_npd' => '2026-07-18',
+                'jenis_panjar' => 'Tanpa Panjar',
+                'nominal' => 1_000_000,
+                'terbilang' => 'satu juta rupiah',
+                'status' => 'Draft NPD - PPTK',
+            ]);
+
+            foreach ([
+                ['ajukan_bpp', []],
+                ['teruskan', []],
+                ['verifikasi', ['nomor_urut' => 100 + $index]],
+                ['setuju', []],
+                ['selesai', []],
+            ] as [$aksi, $tambahan]) {
+                $this->actingAs($admin)->post(route('npd.transisi', $npd), ['aksi' => $aksi] + $tambahan)
+                    ->assertSessionHasNoErrors();
+            }
+
+            $this->assertSame('Selesai', $npd->fresh()->status, "Lifecycle jenis {$jenis} tidak selesai.");
+            $this->assertSame(5, $npd->historiStatus()->count(), "Histori lifecycle jenis {$jenis} tidak lengkap.");
+        }
+    }
+
     public function test_role_yang_salah_ditolak_di_setiap_tahap(): void
     {
         $pptk = $this->buatUser('pptk', 'salah-pptk');

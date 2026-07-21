@@ -7,7 +7,6 @@ use App\Http\Controllers\DashboardRealisasiController;
 use App\Http\Controllers\InventarisasiSpjController;
 use App\Http\Controllers\ManajemenDataController;
 use App\Http\Controllers\MasterAnggaranImportController;
-use App\Http\Controllers\MenuPlaceholderController;
 use App\Http\Controllers\NpdBjController;
 use App\Http\Controllers\NpdController;
 use App\Http\Controllers\NpdHistorisImportController;
@@ -40,7 +39,7 @@ Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middl
 
 // Publik, tanpa login — dipakai role "layanan" untuk mengisi orderan SP dari luar.
 Route::get('/sp/input', [SuratPerintahController::class, 'publicCreate'])->name('sp.input.create');
-Route::post('/sp/input', [SuratPerintahController::class, 'publicStore'])->name('sp.input.store');
+Route::post('/sp/input', [SuratPerintahController::class, 'publicStore'])->middleware('throttle:5,1')->name('sp.input.store');
 
 // Publik, tanpa login — Monitoring SP juga dipakai role "layanan" untuk memantau
 // orderan SP miliknya (lihat CodeSuratPerintah.gs: "Monitoring SP = daftar orderan
@@ -82,6 +81,7 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/surat-perintah/create', [SuratPerintahController::class, 'create'])->name('surat-perintah.create');
         Route::post('/surat-perintah', [SuratPerintahController::class, 'store'])->name('surat-perintah.store');
         Route::get('/surat-perintah/export-pdf', [SuratPerintahController::class, 'exportPdf'])->name('surat-perintah.export-pdf');
+        Route::get('/surat-perintah/{suratPerintah}/file', [SuratPerintahController::class, 'downloadFile'])->name('surat-perintah.file');
 
         Route::get('/profil', [ProfilController::class, 'show'])->name('profil.show');
         Route::put('/profil', [ProfilController::class, 'update'])->name('profil.update');
@@ -146,6 +146,7 @@ Route::middleware('auth.or.guest')->group(function () {
 
     // Pembuatan NPD: hanya superadmin dan PPTK.
     Route::middleware('role:superadmin,pptk')->group(function () {
+        Route::get('/npd/create', [NpdController::class, 'create'])->name('npd.create');
         Route::get('/npd/bj/create', [NpdBjController::class, 'create'])->name('npd.bj.create');
         Route::post('/npd/bj', [NpdBjController::class, 'store'])->name('npd.bj.store');
         Route::get('/npd/bj/{npd}/edit', [NpdBjController::class, 'edit'])->name('npd.bj.edit');
@@ -251,12 +252,4 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::delete('/manajemen-data/import/rak-bulanan/{import}', [RakBulananImportController::class, 'batalkan'])->name('manajemen-data.import.rak-bulanan.batalkan');
     });
 
-    // Menu sidebar yang belum punya halaman sungguhan: placeholder generik,
-    // akses dijaga per-role lewat config('akses.menu') (middleware menu-akses).
-    Route::get('/menu/{key}', [MenuPlaceholderController::class, 'show'])
-        ->whereIn('key', [
-            'npd-selesai', 'persetujuan-selesai', 'verifikasi-selesai',
-        ])
-        ->middleware('menu-akses')
-        ->name('menu.placeholder');
 });

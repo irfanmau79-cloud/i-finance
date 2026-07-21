@@ -33,6 +33,7 @@
             'sp-monitor' => route('surat-perintah.monitoring'),
             'audit-log' => route('audit-log.index'),
             'npd' => route('npd.index'),
+            'npd-create' => route('npd.create'),
             'persetujuan' => route('npd.persetujuan'),
             'verifikasi' => route('npd.verifikasi'),
             'users' => route('users.index'),
@@ -48,7 +49,7 @@
             'invspj' => route('inventarisasi-spj.index'),
             'profil' => route('profil.show'),
         ];
-        $href = fn ($key) => $navHref[$key] ?? route('menu.placeholder', $key);
+        $href = fn ($key) => $navHref[$key] ?? '#';
         $group = function (array $subs) use ($akses, $activeNav) {
             return [
                 'visible' => (bool) array_intersect($subs, $akses),
@@ -95,7 +96,7 @@
       </a>
       @endif
 
-      @php($g = $group(['npd', 'npd-selesai']))
+      @php($g = $group(['npd-create', 'npd']))
       @if ($g['visible'])
       <div class="sb-group{{ $g['open'] ? ' open' : '' }}">
         <div class="sb-item sb-parent" id="nav-npd-parent">
@@ -104,40 +105,24 @@
           <svg class="chev" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
         <div class="sb-sub">
-          @if (in_array('npd', $akses)) <a class="sb-item sub{{ $activeNav === 'npd' ? ' active' : '' }}" href="{{ $href('npd') }}">NPD Dalam Proses</a> @endif
-          @if (in_array('npd-selesai', $akses)) <a class="sb-item sub{{ $activeNav === 'npd-selesai' ? ' active' : '' }}" href="{{ $href('npd-selesai') }}">NPD Selesai</a> @endif
+          @if (in_array('npd-create', $akses)) <a class="sb-item sub{{ $activeNav === 'npd-create' ? ' active' : '' }}" href="{{ $href('npd-create') }}">Buat NPD</a> @endif
+          @if (in_array('npd', $akses)) <a class="sb-item sub{{ $activeNav === 'npd' ? ' active' : '' }}" href="{{ $href('npd') }}">Daftar NPD</a> @endif
         </div>
       </div>
       @endif
 
-      @php($g = $group(['persetujuan', 'persetujuan-selesai']))
-      @if ($g['visible'])
-      <div class="sb-group{{ $g['open'] ? ' open' : '' }}">
-        <div class="sb-item sb-parent" id="nav-persetujuan-parent">
+      @if (in_array('persetujuan', $akses))
+        <a class="sb-item{{ $activeNav === 'persetujuan' ? ' active' : '' }}" href="{{ $href('persetujuan') }}">
           <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          Persetujuan NPD
-          <svg class="chev" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>
-        <div class="sb-sub">
-          @if (in_array('persetujuan', $akses)) <a class="sb-item sub{{ $activeNav === 'persetujuan' ? ' active' : '' }}" href="{{ $href('persetujuan') }}">NPD Dalam Proses</a> @endif
-          @if (in_array('persetujuan-selesai', $akses)) <a class="sb-item sub{{ $activeNav === 'persetujuan-selesai' ? ' active' : '' }}" href="{{ $href('persetujuan-selesai') }}">NPD Selesai</a> @endif
-        </div>
-      </div>
+          <span>Persetujuan NPD</span>
+        </a>
       @endif
 
-      @php($g = $group(['verifikasi', 'verifikasi-selesai']))
-      @if ($g['visible'])
-      <div class="sb-group{{ $g['open'] ? ' open' : '' }}">
-        <div class="sb-item sb-parent" id="nav-verifikasi-parent">
+      @if (in_array('verifikasi', $akses))
+        <a class="sb-item{{ $activeNav === 'verifikasi' ? ' active' : '' }}" href="{{ $href('verifikasi') }}">
           <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          Verifikasi NPD
-          <svg class="chev" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>
-        <div class="sb-sub">
-          @if (in_array('verifikasi', $akses)) <a class="sb-item sub{{ $activeNav === 'verifikasi' ? ' active' : '' }}" href="{{ $href('verifikasi') }}">NPD Dalam Proses</a> @endif
-          @if (in_array('verifikasi-selesai', $akses)) <a class="sb-item sub{{ $activeNav === 'verifikasi-selesai' ? ' active' : '' }}" href="{{ $href('verifikasi-selesai') }}">NPD Selesai</a> @endif
-        </div>
-      </div>
+          <span>Verifikasi NPD</span>
+        </a>
       @endif
 
       @php($g = $group(['sp-input', 'sp-data', 'sp-monitor']))

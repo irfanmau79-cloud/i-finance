@@ -2,6 +2,11 @@
     $sp = $suratPerintah ?? null;
 @endphp
 
+<div aria-hidden="true" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;">
+    <label for="website">Website</label>
+    <input id="website" name="website" type="text" tabindex="-1" autocomplete="off">
+</div>
+
 <div class="form-grid">
     <div class="fg">
         <label class="fl" for="nomor_sp">Nomor Surat Perintah</label>
@@ -77,12 +82,12 @@
         <label class="fl" for="file_url">Upload PDF SP</label>
         @if ($sp)
             @php
-                $fileTersedia = filled($sp->file_url) && \Illuminate\Support\Facades\Storage::disk('public')->exists($sp->file_url);
+                $fileTersedia = $sp->fileTersedia();
             @endphp
             <p class="mini">
                 File saat ini:
                 @if ($fileTersedia)
-                    <a href="{{ asset('storage/'.$sp->file_url) }}" target="_blank" rel="noopener">Lihat SP</a>
+                    <a href="{{ route('surat-perintah.file', $sp) }}" target="_blank" rel="noopener">Lihat SP</a>
                 @else
                     <a href="#" onclick="alert('File tidak tersedia.'); return false;">Lihat SP</a>
                 @endif
