@@ -27,6 +27,7 @@
         $akses = config('akses.menu')[$currentRole] ?? [];
         $activeNav = trim($__env->yieldContent('activeNav'));
         $navHref = [
+            'dashboard' => route('dashboard.index'),
             'sp-input' => $currentRole === 'layanan' ? route('sp.input.create') : route('surat-perintah.create'),
             'sp-data' => route('surat-perintah.index'),
             'sp-monitor' => route('surat-perintah.monitoring'),
@@ -37,6 +38,8 @@
             'users' => route('users.index'),
             'pelimpahan' => route('pelimpahan.index'),
             'manajemen-data' => route('manajemen-data.index'),
+            'rincian' => route('rincian.index'),
+            'analisis' => route('analisis.index'),
             'profil' => route('profil.show'),
         ];
         $href = fn ($key) => $navHref[$key] ?? route('menu.placeholder', $key);

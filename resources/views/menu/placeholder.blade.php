@@ -11,6 +11,6 @@
     </svg>
     <h3 style="font-size:18px;">{{ $title }}</h3>
     <div class="sub" style="font-size:14px;margin-bottom:22px;">Fitur ini sedang dalam pengembangan.</div>
-    <a href="{{ route('menu.placeholder', 'dashboard') }}" class="btn prim">Kembali ke Dashboard</a>
+    <a href="{{ route('dashboard.index') }}" class="btn prim">Kembali ke Dashboard</a>
 </div>
 @endsection

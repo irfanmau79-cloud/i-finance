@@ -111,12 +111,20 @@ class MasterAnggaran extends Model
     /** Dana terikat seluruh NPD aktif/non-batal, termasuk draft dan proses. */
     public function danaTerikatNpd(): float
     {
+        if (array_key_exists('dana_terikat_npd_total', $this->attributes)) {
+            return (float) ($this->attributes['dana_terikat_npd_total'] ?? 0);
+        }
+
         return (float) $this->npd()->where('status', 'not like', '%batal%')->sum('nominal');
     }
 
     /** Realisasi aktual jalur NPD hanya berasal dari NPD berstatus Selesai. */
     public function realisasiNpd(): float
     {
+        if (array_key_exists('realisasi_npd_total', $this->attributes)) {
+            return (float) ($this->attributes['realisasi_npd_total'] ?? 0);
+        }
+
         return (float) $this->npd()->where('status', 'Selesai')->sum('nominal');
     }
 
@@ -126,7 +134,17 @@ class MasterAnggaran extends Model
      */
     public function realisasiLs(): float
     {
+        if (array_key_exists('realisasi_ls_total', $this->attributes)) {
+            return (float) ($this->attributes['realisasi_ls_total'] ?? 0);
+        }
+
         return (float) $this->spm()->where('jenis_spm', 'ls')->sum('nominal');
+    }
+
+    /** Nilai pagu DPA pada mata anggaran ini. */
+    public function nilaiPagu(): float
+    {
+        return (float) $this->pagu;
     }
 
     /** Realisasi aktual = NPD selesai + SPM LS. */
@@ -138,7 +156,42 @@ class MasterAnggaran extends Model
     /** Sisa tersedia = pagu - dana terikat NPD - SPM LS. */
     public function sisaTersedia(): float
     {
-        return (float) $this->pagu - $this->danaTerikatNpd() - $this->realisasiLs();
+        return $this->nilaiPagu() - $this->danaTerikatNpd() - $this->realisasiLs();
+    }
+
+    public static function hitungPersentaseRealisasi(float $realisasi, float $pagu): float
+    {
+        return $pagu > 0 ? ($realisasi / $pagu) * 100 : 0.0;
+    }
+
+    /** Persentase realisasi aktual terhadap pagu; pagu nol selalu menghasilkan 0%. */
+    public function persentaseRealisasiAktual(): float
+    {
+        return self::hitungPersentaseRealisasi($this->realisasiAktual(), $this->nilaiPagu());
+    }
+
+    /**
+     * Snapshot angka terpusat untuk rincian realisasi dan pemanggil lain.
+     * Semua nilai tetap diturunkan dari transaksi, tidak disimpan ulang.
+     *
+     * @return array{pagu: float, dana_terikat_npd: float, dana_terikat_belum_selesai: float, realisasi_npd: float, realisasi_ls: float, realisasi_aktual: float, sisa_tersedia: float, persentase_realisasi: float}
+     */
+    public function ringkasanRealisasi(): array
+    {
+        $realisasiNpd = $this->realisasiNpd();
+        $realisasiLs = $this->realisasiLs();
+        $danaTerikatNpd = $this->danaTerikatNpd();
+
+        return [
+            'pagu' => $this->nilaiPagu(),
+            'dana_terikat_npd' => $danaTerikatNpd,
+            'dana_terikat_belum_selesai' => $danaTerikatNpd - $realisasiNpd,
+            'realisasi_npd' => $realisasiNpd,
+            'realisasi_ls' => $realisasiLs,
+            'realisasi_aktual' => $realisasiNpd + $realisasiLs,
+            'sisa_tersedia' => $this->sisaTersedia(),
+            'persentase_realisasi' => $this->persentaseRealisasiAktual(),
+        ];
     }
 
     /** Compatibility wrapper untuk pemanggil lama. */

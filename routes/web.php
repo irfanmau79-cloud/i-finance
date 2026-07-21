@@ -1,7 +1,9 @@
 <?php
 
+use App\Http\Controllers\AnalisisTrenController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\DashboardRealisasiController;
 use App\Http\Controllers\ManajemenDataController;
 use App\Http\Controllers\MasterAnggaranImportController;
 use App\Http\Controllers\MenuPlaceholderController;
@@ -16,6 +18,7 @@ use App\Http\Controllers\PelimpahanController;
 use App\Http\Controllers\PengumumanController;
 use App\Http\Controllers\ProfilController;
 use App\Http\Controllers\RakBulananImportController;
+use App\Http\Controllers\RincianRealisasiController;
 use App\Http\Controllers\SpmController;
 use App\Http\Controllers\SpmImportController;
 use App\Http\Controllers\SuratPerintahController;
@@ -41,6 +44,16 @@ Route::get('/surat-perintah/monitoring', [SuratPerintahController::class, 'monit
 Route::get('/pengumuman', [PengumumanController::class, 'show'])->name('pengumuman.show');
 
 Route::middleware('auth.or.guest')->group(function () {
+    Route::get('/dashboard', DashboardRealisasiController::class)
+        ->middleware('menu-akses:dashboard')
+        ->name('dashboard.index');
+    Route::get('/rincian-realisasi', RincianRealisasiController::class)
+        ->middleware('menu-akses:rincian')
+        ->name('rincian.index');
+    Route::get('/analisis-tren', AnalisisTrenController::class)
+        ->middleware('menu-akses:analisis')
+        ->name('analisis.index');
+
     // Semua role yang login, kecuali "layanan" (layanan tidak login).
     Route::middleware('role:superadmin,bendahara_pengeluaran,pptk,bpp,verifikator,sekretaris,kasubbag,inspektur,inspektur_pembantu,perencanaan')->group(function () {
         Route::get('/surat-perintah', [SuratPerintahController::class, 'index'])->name('surat-perintah.index');
@@ -209,8 +222,8 @@ Route::middleware('auth.or.guest')->group(function () {
     // akses dijaga per-role lewat config('akses.menu') (middleware menu-akses).
     Route::get('/menu/{key}', [MenuPlaceholderController::class, 'show'])
         ->whereIn('key', [
-            'dashboard', 'dashpd', 'tk-monitor', 'dashspj',
-            'rincian', 'analisis', 'invspj',
+            'dashpd', 'tk-monitor', 'dashspj',
+            'invspj',
             'npd-selesai', 'persetujuan-selesai', 'verifikasi-selesai',
             'tk-form',
         ])
