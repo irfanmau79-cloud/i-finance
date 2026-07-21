@@ -121,9 +121,11 @@ Contoh backup konsisten MySQL/MariaDB:
 
 ```powershell
 New-Item -ItemType Directory -Force C:\laragon\backups\ifinance
-& 'C:\path\to\mysqldump.exe' --single-transaction --routines --triggers --events --databases ifinance --result-file='C:\laragon\backups\ifinance\ifinance-YYYYMMDD-HHMMSS.sql'
+& 'C:\path\to\mysqldump.exe' --single-transaction --routines --triggers --events ifinance --result-file='C:\laragon\backups\ifinance\ifinance-YYYYMMDD-HHMMSS.sql'
 Get-FileHash 'C:\laragon\backups\ifinance\ifinance-YYYYMMDD-HHMMSS.sql' -Algorithm SHA256
 ```
+
+Jangan tambahkan flag `--databases` pada mysqldump di atas. `--databases ifinance` menulis `CREATE DATABASE` dan `USE ifinance;` di awal file dump — saat file itu di-restore ke database lain (misalnya `ifinance_restore_test` di bawah), baris `USE ifinance;` tersebut diam-diam mengambil alih database tujuan dan menimpa `ifinance` yang asli, bukan database isolasi yang dimaksud. Tanpa `--databases`, dump hanya berisi definisi tabel dan data sehingga aman diarahkan ke database mana pun lewat command line.
 
 Backup storage private dan public secara terpisah dengan ACL tetap terjaga:
 

@@ -64,7 +64,7 @@
   table.rampung .val { text-align:right; white-space:nowrap; min-width:90pt; }
   table.rampung .val.uline { border-bottom:1pt solid #000; }
 
-  .kpa-box { margin-top:14pt; width:50%; margin-left:50%; text-align:center; font-size:7.5pt; }
+  .kpa-box { margin-top:14pt; width:50%; margin-left:50%; text-align:center; font-size:7.5pt; page-break-inside:avoid; }
   .kpa-box .sp { height:46pt; }
   .kpa-box .nama { font-weight:bold; }
   table.rinci tr { page-break-inside:avoid; }
