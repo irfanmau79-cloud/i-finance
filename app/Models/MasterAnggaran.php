@@ -60,11 +60,6 @@ class MasterAnggaran extends Model
         return $this->hasMany(Spm::class);
     }
 
-    public function rakBulanan(): HasMany
-    {
-        return $this->hasMany(RakBulanan::class);
-    }
-
     /**
      * Normalisasi whitespace (baris baru / spasi ganda dari hasil impor
      * data — lihat juga DataTambahan::normalisasiSpasi()). Dipakai sebagai
@@ -182,10 +177,19 @@ class MasterAnggaran extends Model
      * bulan/tahun itu. SENGAJA tidak pernah jatuh ke pagu/12 - pemanggil
      * (dashboard/grafik target bulanan) wajib menampilkan status "RAK belum
      * tersedia" saat hasilnya NULL, bukan menghitung perkiraan sendiri.
+     *
+     * Sejak Prompt 12A, RAK dikunci ke (tahun, sub_kegiatan_kunci,
+     * kode_rekening) - BUKAN ke baris master_anggaran ini secara spesifik -
+     * supaya baris master_anggaran lain dengan Tagging berbeda tapi Sub
+     * Kegiatan + Kode Rekening yang sama membaca RAK yang SAMA persis.
      */
     public function targetRakBulan(int $bulan, int $tahun): ?float
     {
-        $target = $this->rakBulanan()->where('tahun', $tahun)->where('bulan', $bulan)->value('target');
+        $target = RakBulanan::where('sub_kegiatan_kunci', $this->sub_kegiatan_kunci)
+            ->where('kode_rekening', $this->kode_rekening)
+            ->where('tahun', $tahun)
+            ->where('bulan', $bulan)
+            ->value('target');
 
         return $target !== null ? (float) $target : null;
     }
@@ -199,10 +203,14 @@ class MasterAnggaran extends Model
      */
     public function targetRakKumulatifSampai(int $bulan, int $tahun): ?float
     {
-        if (! $this->rakBulanan()->where('tahun', $tahun)->exists()) {
+        $query = fn () => RakBulanan::where('sub_kegiatan_kunci', $this->sub_kegiatan_kunci)
+            ->where('kode_rekening', $this->kode_rekening)
+            ->where('tahun', $tahun);
+
+        if (! $query()->exists()) {
             return null;
         }
 
-        return (float) $this->rakBulanan()->where('tahun', $tahun)->where('bulan', '<=', $bulan)->sum('target');
+        return (float) $query()->where('bulan', '<=', $bulan)->sum('target');
     }
 }

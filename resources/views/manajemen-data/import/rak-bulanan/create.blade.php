@@ -8,9 +8,14 @@
     <h3>Import RAK Bulanan</h3>
     <div class="sub">
         Upload file Excel (.xlsx/.xls) dengan header yang sama seperti hasil unduhan export RAK Bulanan:
-        Sub Kegiatan, Kode Rekening, Uraian Rekening, Tagging, Pagu, lalu 12 kolom Januari-Desember (nilai bulanan, bukan kumulatif).
-        Setiap baris wajib cocok ke mata anggaran yang sudah ada dan aktif - baris yang tidak cocok akan ditolak, bukan membuat mata anggaran baru.
+        Program, Kegiatan, Sub Kegiatan, Kode Rekening, Uraian Rekening, Pagu, lalu 12 kolom Januari-Desember (nilai bulanan, bukan kumulatif).
+        RAK Bulanan hanya sampai tingkat <strong>Kode Rekening</strong> - satu baris mewakili satu kombinasi Tahun Anggaran + Sub Kegiatan + Kode Rekening.
+        Kolom Program dan Kegiatan murni referensi (otomatis mengikuti Sub Kegiatan), tidak dibaca untuk pencocokan.
+        Setiap baris wajib cocok ke Sub Kegiatan + Kode Rekening yang sudah ada dan aktif pada Master Anggaran - baris yang tidak cocok akan ditolak, bukan membuat mata anggaran baru.
         File akan ditampilkan sebagai <strong>preview</strong> dulu - belum ada yang tersimpan sampai Anda menekan Konfirmasi Simpan.
+    </div>
+    <div class="sub" style="margin-top:4px;">
+        File format lama yang masih memiliki kolom Tagging tetap bisa diupload - kolom tersebut akan diabaikan sepenuhnya (RAK tidak lagi dibedakan per Tagging).
     </div>
 
     @if ($errors->any())

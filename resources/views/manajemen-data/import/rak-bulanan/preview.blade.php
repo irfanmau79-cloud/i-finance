@@ -29,6 +29,12 @@
         <div class="err-box" style="display:block;">Sesi preview ini sudah kedaluwarsa. Silakan upload ulang.</div>
     @endif
 
+    @if ($import->ada_kolom_tagging_lama)
+        <div class="err-box" style="display:block;background:#fef9c3;color:#854d0e;border-color:#fde68a;">
+            File ini menggunakan format lama yang masih memiliki kolom Tagging. Kolom tersebut sudah <strong>tidak digunakan</strong> dan diabaikan sepenuhnya - RAK Bulanan sekarang hanya sampai tingkat Kode Rekening, tidak dibedakan per Tagging.
+        </div>
+    @endif
+
     <div class="kpi-grid" style="margin-top:16px;">
         <div class="dash-card"><h3>{{ $import->total_baris }}</h3><div class="sub">Total Baris (per bulan)</div></div>
         <div class="dash-card"><h3 style="color:var(--ok);">{{ $import->jumlah_baru }}</h3><div class="sub">Baru</div></div>
@@ -57,7 +63,8 @@
                     <th>Baris</th>
                     <th>Bulan</th>
                     <th>Aksi</th>
-                    <th>Mata Anggaran</th>
+                    <th>Sub Kegiatan</th>
+                    <th>Kode Rekening</th>
                     <th>Target</th>
                     <th>Alasan</th>
                 </tr>
@@ -76,13 +83,14 @@
                                 <span class="badge" style="background:#fee2e2;color:#991b1b;">Ditolak</span>
                             @endif
                         </td>
-                        <td>{{ $b->kode_rekening ?? '—' }}{{ $b->tagging_nama ? ' ('.$b->tagging_nama.')' : '' }}</td>
+                        <td>{{ $b->sub_kegiatan ?? '—' }}</td>
+                        <td>{{ $b->kode_rekening ?? '—' }}</td>
                         <td>{{ $b->target !== null ? 'Rp '.fmt_rupiah($b->target) : '—' }}</td>
                         <td>{{ $b->alasan ?? '—' }}</td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="6" style="text-align:center;color:var(--mut);padding:20px;">Tidak ada baris.</td>
+                        <td colspan="7" style="text-align:center;color:var(--mut);padding:20px;">Tidak ada baris.</td>
                     </tr>
                 @endforelse
             </tbody>

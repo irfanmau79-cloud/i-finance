@@ -3,15 +3,24 @@
 namespace App\Exports;
 
 use App\Models\MasterAnggaran;
+use App\Models\RakBulanan;
 use Illuminate\Database\Eloquent\Builder;
+use Illuminate\Support\Collection;
 
 /**
- * Template RAK Bulanan: satu baris per mata anggaran AKTIF, kolom
+ * Template RAK Bulanan: satu baris per KOMBINASI Sub Kegiatan + Kode
+ * Rekening AKTIF (BUKAN per Tagging - lihat Prompt 12A), kolom
  * Januari..Desember berisi target BULANAN (bukan kumulatif - lihat
  * dokumentasi di migration create_rak_bulanan_table). Sel bulan yang belum
  * punya RAK dibiarkan KOSONG (null) - tidak pernah diisi pagu/12 - supaya
  * kekosongan tetap terlihat jelas sebagai "RAK belum tersedia" saat file
  * ini dibuka maupun saat diupload kembali sebagai template import.
+ *
+ * TIDAK ADA kolom Tagging. Satu Sub Kegiatan + Kode Rekening bisa punya
+ * banyak baris master_anggaran (satu per Tagging, untuk dana terikat/
+ * realisasi per NPD) - export ini menggabungkannya jadi SATU baris, dengan
+ * Pagu = jumlah pagu seluruh Tagging pada kombinasi tersebut, supaya total
+ * RAK tahunan tidak tergandakan.
  */
 class RakBulananExport extends DataManagementExport
 {
@@ -21,13 +30,35 @@ class RakBulananExport extends DataManagementExport
         9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
     ];
 
-    public function __construct(private readonly int $tahun) {}
+    /** @var array<int, int> id master_anggaran wakil (satu per kombinasi Sub Kegiatan+Kode Rekening) */
+    private array $idWakil;
+
+    /** @var Collection<int, float> pagu gabungan lintas Tagging, key = id wakil */
+    private Collection $paguByIdWakil;
+
+    /** @var Collection<string, Collection> RAK bulan tahun ini, key = "sub_kegiatan_kunci|kode_rekening" */
+    private Collection $rakByKunci;
+
+    public function __construct(private readonly int $tahun)
+    {
+        $agregat = MasterAnggaran::query()
+            ->selectRaw('MIN(id) as id_wakil, SUM(pagu) as pagu_gabungan')
+            ->where('aktif', true)
+            ->groupBy('sub_kegiatan_kunci', 'kode_rekening')
+            ->get();
+
+        $this->idWakil = $agregat->pluck('id_wakil')->all();
+        $this->paguByIdWakil = $agregat->pluck('pagu_gabungan', 'id_wakil');
+
+        $this->rakByKunci = RakBulanan::where('tahun', $tahun)
+            ->get()
+            ->groupBy(fn ($rak) => $rak->sub_kegiatan_kunci.'|'.$rak->kode_rekening);
+    }
 
     public function query(): Builder
     {
         return MasterAnggaran::query()
-            ->with(['tagging', 'rakBulanan' => fn ($q) => $q->where('tahun', $this->tahun)])
-            ->where('aktif', true)
+            ->whereIn('id', $this->idWakil)
             ->orderBy('sub_kegiatan')
             ->orderBy('kode_rekening');
     }
@@ -35,14 +66,16 @@ class RakBulananExport extends DataManagementExport
     public function headings(): array
     {
         return array_merge(
-            ['Sub Kegiatan', 'Kode Rekening', 'Uraian Rekening', 'Tagging', 'Pagu'],
+            ['Program', 'Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Uraian Rekening', 'Pagu'],
             array_values(self::BULAN_LABEL)
         );
     }
 
     public function map($row): array
     {
-        $perBulan = $row->rakBulanan->keyBy('bulan');
+        $kunci = $row->sub_kegiatan_kunci.'|'.$row->kode_rekening;
+        $perBulan = ($this->rakByKunci->get($kunci) ?? collect())->keyBy('bulan');
+        $pagu = (float) ($this->paguByIdWakil[$row->id] ?? $row->pagu);
 
         $kolomBulan = [];
 
@@ -51,11 +84,12 @@ class RakBulananExport extends DataManagementExport
         }
 
         return array_merge([
+            $row->program,
+            $row->kegiatan,
             $row->sub_kegiatan,
             $row->kode_rekening,
             $row->uraian_rekening,
-            $row->tagging?->nama,
-            (float) $row->pagu,
+            $pagu,
         ], $kolomBulan);
     }
 }

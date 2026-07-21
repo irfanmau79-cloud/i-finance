@@ -8,7 +8,6 @@ use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\UploadedFile;
-use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
@@ -18,18 +17,23 @@ use Throwable;
 /**
  * Batch import RAK Bulanan dengan alur preview/dry-run yang sama dengan
  * MasterAnggaranImport/SpmImport (Prompt 10/11). File yang diupload
- * berformat LEBAR (satu baris per mata anggaran, kolom Januari..Desember,
- * lihat app/Imports/RakBulananUploadImport.php) - lebih praktis diisi
- * manual daripada 12 baris terpisah per mata anggaran. Setiap baris lebar
+ * berformat LEBAR (satu baris per kombinasi Sub Kegiatan + Kode Rekening,
+ * kolom Januari..Desember, lihat app/Imports/RakBulananUploadImport.php) -
+ * lebih praktis diisi manual daripada 12 baris terpisah. Setiap baris lebar
  * di-explode menjadi sampai 12 baris staging (satu per bulan yang terisi)
  * di rak_bulanan_import_rows, supaya evaluasi & preview tetap granular per
- * bulan meski sumbernya lebar - lihat migration create_rak_bulanan_table
- * untuk penjelasan lengkap kenapa tabel akhirnya per-bulan, bukan per-tahun.
+ * bulan meski sumbernya lebar.
+ *
+ * Prompt 12A: identitas RAK adalah (tahun, Sub Kegiatan, Kode Rekening) -
+ * TIDAK melibatkan Tagging. File format lama yang masih punya kolom Tagging
+ * tetap bisa dibaca (kolomnya diabaikan sepenuhnya, hanya dicatat sebagai
+ * peringatan header lewat ada_kolom_tagging_lama).
  */
 #[Fillable([
     'user_id',
     'tahun',
     'nama_file',
+    'ada_kolom_tagging_lama',
     'status',
     'total_baris',
     'jumlah_baru',
@@ -46,7 +50,7 @@ class RakBulananImport extends Model
 
     public const STATUS_COMMITTED = 'committed';
 
-    /** Batas baris LEBAR (per mata anggaran) - satu baris bisa explode jadi sampai 12 baris staging. */
+    /** Batas baris LEBAR (per kombinasi Sub Kegiatan+Kode Rekening) - satu baris bisa explode jadi sampai 12 baris staging. */
     public const MAKS_BARIS = 2000;
 
     public const MENIT_KEDALUWARSA = 30;
@@ -60,6 +64,7 @@ class RakBulananImport extends Model
     protected function casts(): array
     {
         return [
+            'ada_kolom_tagging_lama' => 'boolean',
             'expires_at' => 'datetime',
             'committed_at' => 'datetime',
         ];
@@ -103,15 +108,21 @@ class RakBulananImport extends Model
 
         if ($barisLebar->count() > self::MAKS_BARIS) {
             throw ValidationException::withMessages([
-                'file' => sprintf('File berisi %d baris mata anggaran, melebihi batas maksimum %d baris per import.', $barisLebar->count(), self::MAKS_BARIS),
+                'file' => sprintf('File berisi %d baris, melebihi batas maksimum %d baris per import.', $barisLebar->count(), self::MAKS_BARIS),
             ]);
         }
 
-        return DB::transaction(function () use ($file, $tahun, $userId, $barisLebar) {
+        // File format lama (Prompt 12) masih punya kolom "Tagging" pada header -
+        // dideteksi lewat keberadaan key-nya (WithHeadingRow menyertakan key untuk
+        // SETIAP kolom header, terlepas dari isi selnya), bukan dari nilainya.
+        $adaKolomTaggingLama = array_key_exists('tagging', $barisLebar->first()->toArray());
+
+        return DB::transaction(function () use ($file, $tahun, $userId, $barisLebar, $adaKolomTaggingLama) {
             $import = self::create([
                 'user_id' => $userId,
                 'tahun' => $tahun,
                 'nama_file' => $file->getClientOriginalName(),
+                'ada_kolom_tagging_lama' => $adaKolomTaggingLama,
                 'status' => self::STATUS_STAGED,
                 'expires_at' => now()->addMinutes(self::MENIT_KEDALUWARSA),
             ]);
@@ -126,17 +137,22 @@ class RakBulananImport extends Model
 
                 $subKegiatan = trim((string) ($row['sub_kegiatan'] ?? ''));
                 $kodeRekening = trim((string) ($row['kode_rekening'] ?? ''));
-                $taggingNama = trim((string) ($row['tagging'] ?? ''));
-                $taggingNama = $taggingNama === '' ? null : $taggingNama;
 
-                [$masterAnggaran, $alasanGagal] = self::resolveMasterAnggaran($subKegiatan, $kodeRekening, $taggingNama);
+                // Kolom Tagging (kalau ada, format lama) dibaca murni untuk
+                // ditampilkan sebagai peringatan - TIDAK PERNAH dipakai untuk
+                // mencari/membuat RAK.
+                $taggingNamaLama = $adaKolomTaggingLama ? trim((string) ($row['tagging'] ?? '')) : null;
+                $taggingNamaLama = ($taggingNamaLama === '' ? null : $taggingNamaLama);
 
-                $duplikat = $masterAnggaran && isset($kunciTerlihat[$masterAnggaran->id]);
+                [$subKegiatanKunci, $kodeRekeningValid, $alasanGagal] = self::resolveSubKegiatanKodeRekening($subKegiatan, $kodeRekening);
+
+                $kunciMataAnggaran = $subKegiatanKunci !== null ? $subKegiatanKunci.'|'.$kodeRekeningValid : null;
+                $duplikat = $kunciMataAnggaran !== null && isset($kunciTerlihat[$kunciMataAnggaran]);
 
                 if ($duplikat) {
-                    $alasanGagal = "Duplikat mata anggaran dengan baris {$kunciTerlihat[$masterAnggaran->id]} pada file ini.";
-                } elseif ($masterAnggaran) {
-                    $kunciTerlihat[$masterAnggaran->id] = $nomorBaris;
+                    $alasanGagal = "Duplikat Sub Kegiatan + Kode Rekening dengan baris {$kunciTerlihat[$kunciMataAnggaran]} pada file ini.";
+                } elseif ($kunciMataAnggaran !== null) {
+                    $kunciTerlihat[$kunciMataAnggaran] = $nomorBaris;
                 }
 
                 foreach (self::BULAN_KOLOM as $bulan => $kolom) {
@@ -150,8 +166,8 @@ class RakBulananImport extends Model
                         $import->baris()->create([
                             'nomor_baris' => $nomorBaris, 'bulan' => $bulan,
                             'aksi' => RakBulananImportRow::AKSI_DITOLAK, 'alasan' => $alasanGagal,
-                            'sub_kegiatan' => $subKegiatan, 'kode_rekening' => $kodeRekening, 'tagging_nama' => $taggingNama,
-                            'master_anggaran_id' => $masterAnggaran?->id, 'target' => null, 'rak_bulanan_id' => null,
+                            'sub_kegiatan' => $subKegiatan, 'sub_kegiatan_kunci' => $subKegiatanKunci, 'kode_rekening' => $kodeRekening,
+                            'tagging_nama' => $taggingNamaLama, 'target' => null, 'rak_bulanan_id' => null,
                         ]);
                         $ditolak++;
 
@@ -165,15 +181,16 @@ class RakBulananImport extends Model
                             'nomor_baris' => $nomorBaris, 'bulan' => $bulan,
                             'aksi' => RakBulananImportRow::AKSI_DITOLAK,
                             'alasan' => 'Nilai bulan ini bukan angka non-negatif yang valid.',
-                            'sub_kegiatan' => $subKegiatan, 'kode_rekening' => $kodeRekening, 'tagging_nama' => $taggingNama,
-                            'master_anggaran_id' => $masterAnggaran->id, 'target' => null, 'rak_bulanan_id' => null,
+                            'sub_kegiatan' => $subKegiatan, 'sub_kegiatan_kunci' => $subKegiatanKunci, 'kode_rekening' => $kodeRekening,
+                            'tagging_nama' => $taggingNamaLama, 'target' => null, 'rak_bulanan_id' => null,
                         ]);
                         $ditolak++;
 
                         continue;
                     }
 
-                    $existing = RakBulanan::where('master_anggaran_id', $masterAnggaran->id)
+                    $existing = RakBulanan::where('sub_kegiatan_kunci', $subKegiatanKunci)
+                        ->where('kode_rekening', $kodeRekeningValid)
                         ->where('tahun', $tahun)
                         ->where('bulan', $bulan)
                         ->first();
@@ -182,8 +199,8 @@ class RakBulananImport extends Model
                         'nomor_baris' => $nomorBaris, 'bulan' => $bulan,
                         'aksi' => $existing ? RakBulananImportRow::AKSI_UPDATE : RakBulananImportRow::AKSI_BARU,
                         'alasan' => null,
-                        'sub_kegiatan' => $subKegiatan, 'kode_rekening' => $kodeRekening, 'tagging_nama' => $taggingNama,
-                        'master_anggaran_id' => $masterAnggaran->id, 'target' => $target, 'rak_bulanan_id' => $existing?->id,
+                        'sub_kegiatan' => $subKegiatan, 'sub_kegiatan_kunci' => $subKegiatanKunci, 'kode_rekening' => $kodeRekeningValid,
+                        'tagging_nama' => $taggingNamaLama, 'target' => $target, 'rak_bulanan_id' => $existing?->id,
                     ]);
 
                     $existing ? $update++ : $baru++;
@@ -227,7 +244,7 @@ class RakBulananImport extends Model
             $ditolakTambahan = 0;
 
             foreach ($barisTerkena as $baris) {
-                [$masterAnggaran, $alasanGagal] = self::resolveMasterAnggaran($baris->sub_kegiatan, $baris->kode_rekening, $baris->tagging_nama);
+                [$subKegiatanKunci, $kodeRekening, $alasanGagal] = self::resolveSubKegiatanKodeRekening($baris->sub_kegiatan, $baris->kode_rekening);
 
                 if ($alasanGagal !== null) {
                     $baris->update(['aksi' => RakBulananImportRow::AKSI_DITOLAK, 'alasan' => $alasanGagal]);
@@ -247,8 +264,8 @@ class RakBulananImport extends Model
 
                 try {
                     $rak = RakBulanan::updateOrCreate(
-                        ['master_anggaran_id' => $masterAnggaran->id, 'tahun' => $this->tahun, 'bulan' => $baris->bulan],
-                        ['target' => $target]
+                        ['sub_kegiatan_kunci' => $subKegiatanKunci, 'kode_rekening' => $kodeRekening, 'tahun' => $this->tahun, 'bulan' => $baris->bulan],
+                        ['sub_kegiatan' => $baris->sub_kegiatan, 'target' => $target]
                     );
                 } catch (Throwable $e) {
                     // Dilempar ulang di DALAM transaction supaya seluruh batch
@@ -258,7 +275,7 @@ class RakBulananImport extends Model
 
                 $rak->wasRecentlyCreated ? $baruAkhir++ : $updateAkhir++;
 
-                $baris->update(['master_anggaran_id' => $masterAnggaran->id, 'rak_bulanan_id' => $rak->id]);
+                $baris->update(['sub_kegiatan_kunci' => $subKegiatanKunci, 'rak_bulanan_id' => $rak->id]);
             }
 
             $this->update([
@@ -274,41 +291,34 @@ class RakBulananImport extends Model
     }
 
     /**
-     * Cocokkan (Sub Kegiatan, Kode Rekening, Tagging) ke master_anggaran
-     * AKTIF yang sudah ada - tidak pernah membuat baris baru di sana ("Master
-     * anggaran wajib ditemukan"). Dipakai baik saat parse (preview) maupun
-     * konfirmasi (re-validasi) supaya keduanya tidak bisa berbeda hasil.
+     * Cocokkan (Sub Kegiatan, Kode Rekening) ke master_anggaran AKTIF yang
+     * sudah ada - TIDAK PERNAH melibatkan Tagging, dan tidak pernah membuat
+     * baris baru di sana ("mata anggaran wajib ditemukan"). Kode Rekening
+     * divalidasi harus berada dalam Sub Kegiatan yang sama (bukan pencarian
+     * global). Dipakai baik saat parse (preview) maupun konfirmasi
+     * (re-validasi) supaya keduanya tidak bisa berbeda hasil.
      *
-     * @return array{0: ?MasterAnggaran, 1: ?string} [mata anggaran, alasan gagal]
+     * @return array{0: ?string, 1: ?string, 2: ?string} [sub_kegiatan_kunci, kode_rekening, alasan gagal]
      */
-    private static function resolveMasterAnggaran(string $subKegiatan, string $kodeRekening, ?string $taggingNama): array
+    private static function resolveSubKegiatanKodeRekening(string $subKegiatan, string $kodeRekening): array
     {
         if ($subKegiatan === '' || $kodeRekening === '') {
-            return [null, 'Sub Kegiatan atau Kode Rekening kosong.'];
+            return [null, null, 'Sub Kegiatan atau Kode Rekening kosong.'];
         }
 
-        $taggingId = null;
+        $subKegiatanKunci = MasterAnggaran::normalisasiKunci($subKegiatan);
 
-        if ($taggingNama !== null) {
-            $taggingId = Tagging::where('nama', $taggingNama)->value('id');
-
-            if ($taggingId === null) {
-                return [null, "Tagging '{$taggingNama}' tidak ditemukan."];
-            }
-        }
-
-        $masterAnggaran = MasterAnggaran::where('sub_kegiatan', $subKegiatan)
+        $ada = MasterAnggaran::where('sub_kegiatan_kunci', $subKegiatanKunci)
             ->where('kode_rekening', $kodeRekening)
-            ->where('tagging_id', $taggingId)
             ->where('aktif', true)
             ->lockForUpdate()
-            ->first();
+            ->exists();
 
-        if (! $masterAnggaran) {
-            return [null, 'Mata anggaran tidak ditemukan atau tidak aktif untuk kombinasi Sub Kegiatan + Kode Rekening + Tagging tersebut.'];
+        if (! $ada) {
+            return [null, null, 'Kode Rekening tidak ditemukan dalam Sub Kegiatan tersebut, atau mata anggaran tidak aktif.'];
         }
 
-        return [$masterAnggaran, null];
+        return [$subKegiatanKunci, $kodeRekening, null];
     }
 
     private static function adaNilai(mixed $nilai): bool

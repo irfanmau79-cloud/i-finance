@@ -13,9 +13,9 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'aksi',
     'alasan',
     'sub_kegiatan',
+    'sub_kegiatan_kunci',
     'kode_rekening',
     'tagging_nama',
-    'master_anggaran_id',
     'target',
     'rak_bulanan_id',
 ])]
@@ -39,11 +39,6 @@ class RakBulananImportRow extends Model
     public function import(): BelongsTo
     {
         return $this->belongsTo(RakBulananImport::class, 'import_id');
-    }
-
-    public function masterAnggaran(): BelongsTo
-    {
-        return $this->belongsTo(MasterAnggaran::class);
     }
 
     public function rakBulanan(): BelongsTo
