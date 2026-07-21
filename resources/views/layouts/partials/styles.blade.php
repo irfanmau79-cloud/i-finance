@@ -34,6 +34,13 @@
   .sb-head .t2{color:#9db8d6;font-size:11px;margin-top:3px;line-height:1.35;}
   .sb-menu{padding:12px 10px;}
   .sb-item{position:relative;display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:10px;color:#b9cbe0;cursor:pointer;font-size:14px;font-weight:500;margin-bottom:2px;transition:background .15s,color .15s;}
+  .sidebar .sb-menu a.sb-item,
+  .sidebar .sb-menu a.sb-item:visited,
+  .sidebar .sb-menu a.sb-item:hover,
+  .sidebar .sb-menu a.sb-item:focus,
+  .sidebar .sb-menu a.sb-item:focus-visible,
+  .sidebar .sb-menu a.sb-item:active,
+  .sidebar .sb-menu a.sb-item.active{text-decoration:none;}
   .sb-item svg{width:19px;height:19px;flex:0 0 19px;stroke:currentColor;fill:none;stroke-width:1.9;}
   .sb-item:hover{background:rgba(255,255,255,.06);color:#fff;}
   .sb-item.active{background:rgba(255,255,255,.10);color:#fff;font-weight:600;}
