@@ -7,8 +7,9 @@
 
 @section('content')
 <div class="dash-card">
-    <h3>Preview Import RAK Bulanan {{ $import->tahun }}</h3>
+    <h3>Preview Import RAK Bulanan — Tahun Anggaran {{ $import->tahun }}</h3>
     <div class="sub">File: {{ $import->nama_file }}</div>
+    <div class="sub">Format: {{ $import->format_sumber }}{{ $import->format_sumber === 'legacy_gas_cumulative_v1' ? ' - nilai sumber dikonversi kumulatif ke bulanan' : '' }}</div>
 
     @if ($errors->any())
         <div class="err-box" style="display:block;">
@@ -66,6 +67,7 @@
                     <th>Sub Kegiatan</th>
                     <th>Kode Rekening</th>
                     <th>Target</th>
+                    @if ($import->format_sumber === 'legacy_gas_cumulative_v1')<th>Nilai Kumulatif Asli</th>@endif
                     <th>Alasan</th>
                 </tr>
             </thead>
@@ -86,11 +88,12 @@
                         <td>{{ $b->sub_kegiatan ?? '—' }}</td>
                         <td>{{ $b->kode_rekening ?? '—' }}</td>
                         <td>{{ $b->target !== null ? 'Rp '.fmt_rupiah($b->target) : '—' }}</td>
+                        @if ($import->format_sumber === 'legacy_gas_cumulative_v1')<td>{{ $b->target_asli !== null ? 'Rp '.fmt_rupiah($b->target_asli) : '—' }}</td>@endif
                         <td>{{ $b->alasan ?? '—' }}</td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" style="text-align:center;color:var(--mut);padding:20px;">Tidak ada baris.</td>
+                        <td colspan="{{ $import->format_sumber === 'legacy_gas_cumulative_v1' ? 8 : 7 }}" style="text-align:center;color:var(--mut);padding:20px;">Tidak ada baris.</td>
                     </tr>
                 @endforelse
             </tbody>

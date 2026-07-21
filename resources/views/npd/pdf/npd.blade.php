@@ -124,7 +124,7 @@
       </tr>
       <tr>
         <td style="border-top:none;"></td>
-        <td class="sub-tag" style="border-top:none;">{{ $npd->masterAnggaran->tagging->nama ?? '' }}</td>
+        <td class="sub-tag" style="border-top:none;">{{ $npd->tagging_snapshot ?: ($npd->masterAnggaran->tagging->nama ?? '') }}</td>
         <td class="num" style="border-top:none;">{{ fmt_rupiah($npd->masterAnggaran->pagu) }}</td>
         <td style="border-top:none;"></td>
         <td style="border-top:none;"></td>

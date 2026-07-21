@@ -7,6 +7,7 @@ use App\Http\Controllers\MasterAnggaranImportController;
 use App\Http\Controllers\MenuPlaceholderController;
 use App\Http\Controllers\NpdBjController;
 use App\Http\Controllers\NpdController;
+use App\Http\Controllers\NpdHistorisImportController;
 use App\Http\Controllers\NpdKontribusiDiklatController;
 use App\Http\Controllers\NpdNarasumberController;
 use App\Http\Controllers\NpdPdController;
@@ -70,6 +71,13 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::post('/pelimpahan/pptk', [PelimpahanController::class, 'storePptk'])->name('pelimpahan.pptk.store');
         Route::patch('/pelimpahan/pptk/{kpaPptk}/toggle-aktif', [PelimpahanController::class, 'togglePptk'])->name('pelimpahan.pptk.toggle-aktif');
         Route::post('/pelimpahan/sub-kegiatan', [PelimpahanController::class, 'setSubKegiatan'])->name('pelimpahan.sub-kegiatan.set');
+
+        Route::get('/manajemen-data/import/npd-historis', [NpdHistorisImportController::class, 'create'])->name('manajemen-data.import.npd-historis.create');
+        Route::get('/manajemen-data/import/npd-historis/template', [NpdHistorisImportController::class, 'template'])->name('manajemen-data.import.npd-historis.template');
+        Route::post('/manajemen-data/import/npd-historis', [NpdHistorisImportController::class, 'store'])->name('manajemen-data.import.npd-historis.store');
+        Route::get('/manajemen-data/import/npd-historis/{import}/preview', [NpdHistorisImportController::class, 'preview'])->name('manajemen-data.import.npd-historis.preview');
+        Route::post('/manajemen-data/import/npd-historis/{import}/confirm', [NpdHistorisImportController::class, 'confirm'])->name('manajemen-data.import.npd-historis.confirm');
+        Route::get('/manajemen-data/import/npd-historis/{import}/report/{mode}', [NpdHistorisImportController::class, 'report'])->name('manajemen-data.import.npd-historis.report');
     });
 
     // Hanya PPTK dan superadmin boleh mengubah / menghapus data SP, toggle Monitoring, & ubah Pengajuan.

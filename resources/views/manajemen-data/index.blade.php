@@ -10,6 +10,12 @@
 </div>
 
 <div class="dash-grid" style="margin-top:18px;">
+    @if(auth()->user()->isSuperadmin())
+    <div class="dash-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div><h3 style="margin-bottom:0;">Import NPD Historis</h3><div class="sub" style="margin-bottom:0;">Upload, preview, validate, and import historical NPD data.</div></div>
+        <a href="{{ route('manajemen-data.import.npd-historis.create') }}" class="btn prim" style="white-space:nowrap;">Import Excel</a>
+    </div>
+    @endif
     <div class="dash-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
         <div>
             <h3 style="margin-bottom:0;">Import Pagu / Master Anggaran</h3>

@@ -20,7 +20,11 @@ class MasterAnggaranImportController extends Controller
         MasterAnggaranImport::bersihkanKedaluwarsa();
 
         try {
-            $import = MasterAnggaranImport::buatDariUpload($request->file('file'), $request->user()->id);
+            $import = MasterAnggaranImport::buatDariUpload(
+                $request->file('file'),
+                (int) $request->input('tahun'),
+                $request->user()->id
+            );
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors());
         }

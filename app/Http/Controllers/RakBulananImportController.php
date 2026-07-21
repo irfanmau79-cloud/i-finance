@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Helpers\AuditLog;
 use App\Http\Requests\StoreRakBulananImportRequest;
 use App\Models\RakBulananImport;
+use App\Services\RakBulananDuplicateAudit;
 use Illuminate\Validation\ValidationException;
 use RuntimeException;
 
@@ -12,7 +13,10 @@ class RakBulananImportController extends Controller
 {
     public function create()
     {
-        return view('manajemen-data.import.rak-bulanan.create', ['tahunSekarang' => now()->year]);
+        return view('manajemen-data.import.rak-bulanan.create', [
+            'tahunSekarang' => (int) config('anggaran.tahun_aktif'),
+            'auditDuplikat' => app(RakBulananDuplicateAudit::class)->auditDatabase(),
+        ]);
     }
 
     public function store(StoreRakBulananImportRequest $request)
@@ -20,7 +24,7 @@ class RakBulananImportController extends Controller
         RakBulananImport::bersihkanKedaluwarsa();
 
         try {
-            $import = RakBulananImport::buatDariUpload($request->file('file'), (int) $request->input('tahun'), $request->user()->id);
+            $import = RakBulananImport::buatDariUpload($request->file('file'), (int) $request->input('tahun'), $request->user()->id, $request->input('format_legacy'));
         } catch (ValidationException $e) {
             return back()->withErrors($e->errors());
         }

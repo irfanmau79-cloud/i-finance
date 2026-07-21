@@ -10,8 +10,12 @@ use App\Models\RakBulananImport;
 use App\Models\RakBulananImportRow;
 use App\Models\Tagging;
 use App\Models\User;
+use App\Services\RakBulananDuplicateAudit;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
+use Maatwebsite\Excel\Excel;
+use Maatwebsite\Excel\Facades\Excel as LaravelExcel;
+use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Tests\TestCase;
@@ -52,7 +56,7 @@ class RakBulananImportTest extends TestCase
     /** @param  array<int, array>  $baris */
     private function buatFileExcel(array $header, array $baris, ?string $namaFile = null): UploadedFile
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->fromArray($header, null, 'A1');
         $sheet->fromArray($baris, null, 'A2');
@@ -115,7 +119,111 @@ class RakBulananImportTest extends TestCase
         $headings = (new RakBulananExport(2026))->headings();
 
         $this->assertNotContains('Tagging', $headings);
-        $this->assertSame(['Program', 'Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Uraian Rekening', 'Pagu'], array_slice($headings, 0, 6));
+        $this->assertSame(['Tahun Anggaran', 'Program', 'Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Uraian Rekening', 'Pagu'], array_slice($headings, 0, 7));
+    }
+
+    public function test_template_baru_memiliki_marker_dan_instruksi_bulanan(): void
+    {
+        $bytes = LaravelExcel::raw(new RakBulananExport(2026), Excel::XLSX);
+        $basePath = tempnam(sys_get_temp_dir(), 'rak_template_');
+        $path = $basePath.'.xlsx';
+
+        try {
+            file_put_contents($path, $bytes);
+            $sheet = IOFactory::load($path)->getActiveSheet();
+
+            $this->assertSame(RakBulananExport::FORMAT_MARKER, $sheet->getCell('A1')->getValue());
+            $this->assertStringContainsString('BULANAN', $sheet->getCell('A2')->getValue());
+            $this->assertStringContainsString('TAHUN ANGGARAN 2026', $sheet->getCell('A2')->getValue());
+            $this->assertSame('Tahun Anggaran', $sheet->getCell('A3')->getValue());
+            $this->assertNotContains('Tagging', $sheet->rangeToArray('A3:S3')[0]);
+        } finally {
+            @unlink($path);
+            @unlink($basePath);
+        }
+    }
+
+    public function test_request_tahun_rak_2025_atau_2027_tidak_dapat_melewati_backend_guard(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $anggaran = $this->buatMasterAnggaran();
+
+        foreach ([2025, 2027] as $tahun) {
+            $this->store($superadmin, $this->buatFileExcel(self::HEADER, [$this->baseRow($anggaran)]), $tahun)
+                ->assertSessionHasErrors('tahun');
+        }
+
+        $this->actingAs($superadmin)->get(route('manajemen-data.export', ['jenis' => 'rak-bulanan', 'tahun' => 2025]))
+            ->assertSessionHasErrors('tahun');
+        $this->assertSame(0, RakBulananImport::count());
+        $this->assertSame(0, RakBulanan::count());
+    }
+
+    public function test_tahun_2025_dan_2027_di_dalam_file_rak_ditolak_tanpa_mutasi_rak(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $anggaran = $this->buatMasterAnggaran();
+        $header = array_merge(['Tahun Anggaran'], self::HEADER);
+
+        foreach ([2025, 2027] as $tahun) {
+            $file = $this->buatFileExcel($header, [array_merge([$tahun], $this->baseRow($anggaran))]);
+            $this->store($superadmin, $file, 2026)->assertRedirect();
+            $import = RakBulananImport::latest('id')->firstOrFail();
+
+            $this->assertSame(12, $import->jumlah_ditolak);
+            $this->assertStringContainsString((string) $tahun, $import->baris()->firstOrFail()->alasan);
+        }
+
+        $this->assertSame(0, RakBulanan::count());
+    }
+
+    public function test_legacy_gas_kumulatif_dikonversi_ke_bulanan_dan_nilai_asli_disimpan(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $anggaran = $this->buatMasterAnggaran();
+        $spreadsheet = new Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setCellValue('A1', 'IFINANCE_RAK_GAS_CUMULATIVE_V1');
+        $sheet->fromArray(self::HEADER, null, 'A3');
+        $sheet->fromArray([$this->baseRow($anggaran, [1 => 1_000_000, 2 => 3_000_000, 3 => 6_000_000])], null, 'A4');
+        $path = sys_get_temp_dir().'/'.uniqid('rak_gas_', true).'.xlsx';
+        (new Xlsx($spreadsheet))->save($path);
+
+        $this->store($superadmin, new UploadedFile($path, 'rak-gas.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true));
+        $import = RakBulananImport::firstOrFail();
+
+        $this->assertSame(RakBulananImport::FORMAT_LEGACY_GAS_CUMULATIVE_V1, $import->format_sumber);
+        $this->assertSame(3_000_000.0, (float) $import->baris()->where('bulan', 3)->value('target'));
+        $this->assertSame(6_000_000.0, (float) $import->baris()->where('bulan', 3)->value('target_asli'));
+    }
+
+    public function test_legacy_gas_kumulatif_menurun_ditolak(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $anggaran = $this->buatMasterAnggaran();
+        $spreadsheet = new Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setCellValue('A1', 'IFINANCE_RAK_GAS_CUMULATIVE_V1');
+        $sheet->fromArray(self::HEADER, null, 'A3');
+        $sheet->fromArray([$this->baseRow($anggaran, [1 => 5_000_000, 2 => 4_000_000])], null, 'A4');
+        $path = sys_get_temp_dir().'/'.uniqid('rak_gas_turun_', true).'.xlsx';
+        (new Xlsx($spreadsheet))->save($path);
+
+        $this->store($superadmin, new UploadedFile($path, 'rak-gas-turun.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true));
+        $row = RakBulananImport::firstOrFail()->baris()->where('bulan', 2)->firstOrFail();
+
+        $this->assertSame('ditolak', $row->aksi);
+        $this->assertStringContainsString('kumulatif menurun', $row->alasan);
+    }
+
+    public function test_audit_duplikat_membedakan_identik_dan_konflik_tanpa_normalisasi(): void
+    {
+        $base = fn ($source, $bulan, $target) => (object) ['id' => $source * 10 + $bulan, 'master_anggaran_id' => $source, 'tahun' => 2026, 'bulan' => $bulan, 'target' => $target, 'sub_kegiatan' => 'Sub A', 'sub_kegiatan_kunci' => 'sub a', 'kode_rekening' => '5.1'];
+        $identik = collect([$base(1, 1, 100), $base(1, 2, 200), $base(2, 1, 100), $base(2, 2, 200)]);
+        $konflik = collect([$base(1, 1, 100), $base(2, 1, 999)]);
+
+        $this->assertSame('identik', RakBulananDuplicateAudit::kelompokkan($identik)->first()['jenis']);
+        $this->assertSame('konflik', RakBulananDuplicateAudit::kelompokkan($konflik)->first()['jenis']);
     }
 
     public function test_export_menggabungkan_pagu_lintas_tagging_untuk_sub_kegiatan_kode_rekening_yang_sama(): void
@@ -130,7 +238,7 @@ class RakBulananImportTest extends TestCase
         $this->assertCount(1, $baris, 'Satu Sub Kegiatan+Kode Rekening dengan 2 tagging harus jadi SATU baris export.');
 
         $peta = (new RakBulananExport(2026))->map($baris->first());
-        $this->assertSame(25_000_000.0, $peta[5]); // indeks 5 = kolom Pagu
+        $this->assertSame(25_000_000.0, $peta[6]); // indeks 6 = kolom Pagu
     }
 
     // ---------------- Import baru tidak butuh Tagging ----------------

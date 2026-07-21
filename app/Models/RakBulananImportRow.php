@@ -17,6 +17,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'kode_rekening',
     'tagging_nama',
     'target',
+    'target_asli',
     'rak_bulanan_id',
 ])]
 class RakBulananImportRow extends Model
@@ -33,6 +34,7 @@ class RakBulananImportRow extends Model
     {
         return [
             'target' => 'decimal:2',
+            'target_asli' => 'decimal:2',
         ];
     }
 

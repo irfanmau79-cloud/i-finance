@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use Illuminate\Foundation\Http\FormRequest;
+use Illuminate\Validation\Rule;
 
 class StoreRakBulananImportRequest extends FormRequest
 {
@@ -16,7 +17,8 @@ class StoreRakBulananImportRequest extends FormRequest
         return [
             // max dalam KB - 5120 KB = 5 MB. mimes memvalidasi ekstensi & MIME sekaligus.
             'file' => ['required', 'file', 'mimes:xlsx,xls', 'max:5120'],
-            'tahun' => ['required', 'integer', 'min:2020', 'max:2100'],
+            'tahun' => ['required', 'integer', Rule::in([(int) config('anggaran.tahun_aktif')])],
+            'format_legacy' => ['nullable', 'in:legacy_laravel_monthly_v1,legacy_gas_cumulative_v1'],
         ];
     }
 
@@ -25,6 +27,13 @@ class StoreRakBulananImportRequest extends FormRequest
         return [
             'file' => 'File Excel',
             'tahun' => 'Tahun',
+        ];
+    }
+
+    public function messages(): array
+    {
+        return [
+            'tahun.in' => 'Import RAK Bulanan hanya menerima Tahun Anggaran '.config('anggaran.tahun_aktif').'.',
         ];
     }
 }

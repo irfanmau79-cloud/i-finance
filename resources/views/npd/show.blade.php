@@ -4,6 +4,11 @@
 @section('title', 'Detail NPD')
 
 @section('content')
+@if($npd->sumber_data === 'import_historis')
+<div class="err-box" style="display:block;background:#eef6ff;color:#15314a;border-color:#bfdbfe;">
+    Dokumen historis dari batch #{{ $npd->import_historis_id }}, baris sumber {{ $npd->import_baris }}. Detail khusus perjalanan/peserta/narasumber/barang tidak dibuat secara fiktif; Lampiran memakai snapshot penerima, rekening, bruto, dan pajak hasil import.
+</div>
+@endif
 <div class="dash-card wf-card">
     <h3>Detail NPD &mdash; {{ \App\Models\Npd::JENIS_LABEL[$npd->jenis] ?? strtoupper($npd->jenis) }}</h3>
     <div class="sub">{{ $npd->nomor_lengkap ?? 'Belum bernomor (masih Draft)' }}</div>
@@ -77,7 +82,7 @@
             <div class="li"><span class="k">Kegiatan</span><span class="v">{{ $npd->masterAnggaran->kegiatan }}</span></div>
             <div class="li"><span class="k">Sub Kegiatan</span><span class="v">{{ $npd->masterAnggaran->sub_kegiatan }}</span></div>
             <div class="li"><span class="k">Kode Rekening</span><span class="v">{{ $npd->masterAnggaran->kode_rekening }}</span></div>
-            <div class="li"><span class="k">Tagging</span><span class="v">{{ $npd->masterAnggaran->tagging->nama ?? '-' }}</span></div>
+            <div class="li"><span class="k">Tagging</span><span class="v">{{ $npd->tagging_snapshot ?: ($npd->masterAnggaran->tagging->nama ?? '-') }}</span></div>
             <div class="li"><span class="k">Pagu</span><span class="v">Rp {{ number_format((float) $npd->masterAnggaran->pagu, 2, ',', '.') }}</span></div>
         </div>
 

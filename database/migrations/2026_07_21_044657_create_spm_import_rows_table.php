@@ -49,7 +49,13 @@ return new class extends Migration
             $table->decimal('sisa_sebelum', 18, 2)->nullable();
             $table->decimal('sisa_sesudah', 18, 2)->nullable();
 
-            $table->foreignId('spm_id')->nullable()->constrained('spm')->nullOnDelete();
+            // Pada clean install, file migration create_spm_table memiliki
+            // timestamp yang lebih akhir. Kolom dibuat sekarang, sedangkan FK
+            // dipasang oleh migration 2026_07_26_090003 setelah tabel induk
+            // pasti tersedia. Instalasi lama yang sudah menjalankan versi awal
+            // migration ini tetap dipertahankan apa adanya.
+            $table->unsignedBigInteger('spm_id')->nullable();
+            $table->index('spm_id');
 
             $table->timestamps();
 

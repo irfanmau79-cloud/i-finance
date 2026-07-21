@@ -16,8 +16,8 @@ use App\Models\AuditLog;
 use App\Models\Kpa;
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
-use App\Models\PejabatOpd;
 use App\Models\Pegawai;
+use App\Models\PejabatOpd;
 use App\Models\Spm;
 use App\Models\Tagging;
 use App\Models\User;
@@ -99,19 +99,20 @@ class ManajemenDataExportTest extends TestCase
         Excel::fake();
         $this->actingAs($superadmin)->get(route('manajemen-data.export', 'master-anggaran'))->assertOk();
 
-        $export = new MasterAnggaranExport();
+        $export = new MasterAnggaranExport;
         $this->assertSame(
-            ['Program', 'Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Uraian Rekening', 'Tagging', 'Pagu', 'Aktif'],
+            ['Tahun Anggaran', 'Program', 'Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Uraian Rekening', 'Tagging', 'Pagu', 'Aktif'],
             $export->headings()
         );
         $this->assertSame(1, $export->jumlahBaris());
 
         $row = $export->query()->first();
         $mapped = $export->map($row);
-        $this->assertSame($anggaran->sub_kegiatan, $mapped[2]);
-        $this->assertSame(25_000_000.0, $mapped[6]);
-        $this->assertSame('Tagging Uji', $mapped[5]);
-        $this->assertSame('Ya', $mapped[7]);
+        $this->assertSame(2026, $mapped[0]);
+        $this->assertSame($anggaran->sub_kegiatan, $mapped[3]);
+        $this->assertSame(25_000_000.0, $mapped[7]);
+        $this->assertSame('Tagging Uji', $mapped[6]);
+        $this->assertSame('Ya', $mapped[8]);
     }
 
     public function test_export_npd_header_dan_isi_benar(): void
@@ -138,7 +139,7 @@ class ManajemenDataExportTest extends TestCase
         Excel::fake();
         $this->actingAs($superadmin)->get(route('manajemen-data.export', 'npd'))->assertOk();
 
-        $export = new NpdExport();
+        $export = new NpdExport;
         $this->assertSame(
             ['Nomor NPD', 'Jenis', 'Tanggal NPD', 'Sub Kegiatan', 'Kode Rekening', 'Uraian Rekening',
                 'Tagging', 'Jenis Panjar', 'Nominal', 'Terbilang', 'Penerima', 'Status', 'Catatan',
@@ -182,13 +183,13 @@ class ManajemenDataExportTest extends TestCase
         $this->actingAs($superadmin)->get(route('manajemen-data.export', 'spm-up-gu'))->assertOk();
         $this->actingAs($superadmin)->get(route('manajemen-data.export', 'spm-ls'))->assertOk();
 
-        $upGuExport = new SpmUpGuExport();
+        $upGuExport = new SpmUpGuExport;
         $this->assertSame(1, $upGuExport->jumlahBaris());
         $mappedUpGu = $upGuExport->map($upGuExport->query()->first());
         $this->assertSame($upGu->nomor_dokumen, $mappedUpGu[0]);
         $this->assertSame(3000000.0, $mappedUpGu[4]);
 
-        $lsExport = new SpmLsExport();
+        $lsExport = new SpmLsExport;
         $this->assertSame(
             ['Nomor Dokumen', 'Tanggal Dokumen', 'Nomor SP2D', 'Tanggal SP2D',
                 'Sub Kegiatan', 'Kode Rekening', 'Uraian Rekening', 'Tagging',
@@ -216,15 +217,15 @@ class ManajemenDataExportTest extends TestCase
             $this->actingAs($superadmin)->get(route('manajemen-data.export', $jenis))->assertOk();
         }
 
-        $pegawaiExport = new PegawaiExport();
+        $pegawaiExport = new PegawaiExport;
         $this->assertSame(['Nama', 'NIP', 'Jabatan', 'Bidang', 'Golongan', 'Pangkat', 'Rekening', 'Aktif'], $pegawaiExport->headings());
         $this->assertSame(1, $pegawaiExport->jumlahBaris());
 
-        $vendorExport = new VendorExport();
+        $vendorExport = new VendorExport;
         $this->assertSame(['Nama', 'Rekening', 'Aktif'], $vendorExport->headings());
         $this->assertSame(1, $vendorExport->jumlahBaris());
 
-        $taggingExport = new TaggingExport();
+        $taggingExport = new TaggingExport;
         $this->assertSame(['Nama', 'Aktif'], $taggingExport->headings());
         $this->assertSame(1, $taggingExport->jumlahBaris());
     }
@@ -244,7 +245,7 @@ class ManajemenDataExportTest extends TestCase
         Excel::fake();
         $this->actingAs($superadmin)->get(route('manajemen-data.export', 'pejabat'))->assertOk();
 
-        $export = new PejabatExport();
+        $export = new PejabatExport;
         $this->assertSame(2, $export->jumlahBaris());
 
         $sheets = $export->sheets();
@@ -263,15 +264,15 @@ class ManajemenDataExportTest extends TestCase
         $forbidden = ['password', 'token', 'session', 'remember'];
 
         $exports = [
-            new MasterAnggaranExport(),
-            new NpdExport(),
-            new SpmUpGuExport(),
-            new SpmLsExport(),
-            new PegawaiExport(),
-            new VendorExport(),
-            new TaggingExport(),
-            new PejabatOpdSheetExport(),
-            new KpaSheetExport(),
+            new MasterAnggaranExport,
+            new NpdExport,
+            new SpmUpGuExport,
+            new SpmLsExport,
+            new PegawaiExport,
+            new VendorExport,
+            new TaggingExport,
+            new PejabatOpdSheetExport,
+            new KpaSheetExport,
         ];
 
         foreach ($exports as $export) {
@@ -303,7 +304,7 @@ class ManajemenDataExportTest extends TestCase
             'dibuat_oleh' => $dibuatOleh->id,
         ]);
 
-        $export = new NpdExport();
+        $export = new NpdExport;
         $row = $export->query()->first();
         $mapped = $export->map($row);
 

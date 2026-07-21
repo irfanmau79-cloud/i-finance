@@ -13,6 +13,7 @@ use App\Exports\TaggingExport;
 use App\Exports\VendorExport;
 use App\Helpers\AuditLog;
 use Illuminate\Http\Request;
+use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
 
 class ManajemenDataController extends Controller
@@ -32,7 +33,7 @@ class ManajemenDataController extends Controller
 
     public function index()
     {
-        return view('manajemen-data.index', ['exports' => self::EXPORTS, 'tahunSekarang' => now()->year]);
+        return view('manajemen-data.index', ['exports' => self::EXPORTS, 'tahunSekarang' => (int) config('anggaran.tahun_aktif')]);
     }
 
     public function export(string $jenis, Request $request)
@@ -41,9 +42,18 @@ class ManajemenDataController extends Controller
 
         $meta = self::EXPORTS[$jenis];
         // RakBulananExport butuh tahun (RAK terikat per tahun anggaran) - export lain tidak punya parameter konstruktor.
-        $export = $jenis === 'rak-bulanan'
-            ? new $meta['class']($request->integer('tahun', now()->year))
-            : new $meta['class']();
+        if ($jenis === 'rak-bulanan') {
+            $tahunAktif = (int) config('anggaran.tahun_aktif');
+            $tahun = $request->integer('tahun', $tahunAktif);
+            if ($tahun !== $tahunAktif) {
+                throw ValidationException::withMessages([
+                    'tahun' => "Template RAK Bulanan hanya tersedia untuk Tahun Anggaran {$tahunAktif}.",
+                ]);
+            }
+            $export = new $meta['class']($tahun);
+        } else {
+            $export = new $meta['class'];
+        }
         $jumlahBaris = $export->jumlahBaris();
         $filename = 'export-'.$jenis.'-'.now()->format('Ymd-His').'.xlsx';
 

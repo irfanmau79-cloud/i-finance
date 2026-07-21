@@ -33,7 +33,7 @@ class NpdExport extends DataManagementExport
             $row->masterAnggaran?->sub_kegiatan,
             $row->masterAnggaran?->kode_rekening,
             $row->masterAnggaran?->uraian_rekening,
-            $row->masterAnggaran?->tagging?->nama,
+            $row->tagging_snapshot ?: $row->masterAnggaran?->tagging?->nama,
             $row->jenis_panjar,
             (float) $row->nominal,
             $row->terbilang,

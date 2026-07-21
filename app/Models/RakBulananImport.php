@@ -2,12 +2,14 @@
 
 namespace App\Models;
 
+use App\Exports\RakBulananExport;
 use App\Imports\RakBulananUploadImport;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
@@ -34,6 +36,7 @@ use Throwable;
     'tahun',
     'nama_file',
     'ada_kolom_tagging_lama',
+    'format_sumber',
     'status',
     'total_baris',
     'jumlah_baru',
@@ -54,6 +57,12 @@ class RakBulananImport extends Model
     public const MAKS_BARIS = 2000;
 
     public const MENIT_KEDALUWARSA = 30;
+
+    public const FORMAT_MONTHLY_V2 = 'monthly_v2';
+
+    public const FORMAT_LEGACY_MONTHLY_V1 = 'legacy_laravel_monthly_v1';
+
+    public const FORMAT_LEGACY_GAS_CUMULATIVE_V1 = 'legacy_gas_cumulative_v1';
 
     private const BULAN_KOLOM = [
         1 => 'januari', 2 => 'februari', 3 => 'maret', 4 => 'april',
@@ -93,12 +102,20 @@ class RakBulananImport extends Model
     /**
      * @throws ValidationException kalau file kosong atau melebihi batas jumlah baris.
      */
-    public static function buatDariUpload(UploadedFile $file, int $tahun, ?int $userId): self
+    public static function buatDariUpload(UploadedFile $file, int $tahun, ?int $userId, ?string $formatLegacy = null): self
     {
-        $sheet = new RakBulananUploadImport();
+        $tahunAktif = (int) config('anggaran.tahun_aktif');
+        if ($tahun !== $tahunAktif) {
+            throw ValidationException::withMessages([
+                'tahun' => "Import RAK Bulanan hanya menerima Tahun Anggaran {$tahunAktif}.",
+            ]);
+        }
+
+        $sheet = new RakBulananUploadImport;
         Excel::import($sheet, $file);
 
-        $barisLebar = $sheet->rows->filter(
+        [$barisLebar, $formatSumber, $adaKolomTaggingLama, $barisDataMulai] = self::normalisasiWorkbook($sheet->rows, $formatLegacy);
+        $barisLebar = $barisLebar->filter(
             fn ($row) => collect($row)->filter(fn ($v) => trim((string) $v) !== '')->isNotEmpty()
         );
 
@@ -112,17 +129,13 @@ class RakBulananImport extends Model
             ]);
         }
 
-        // File format lama (Prompt 12) masih punya kolom "Tagging" pada header -
-        // dideteksi lewat keberadaan key-nya (WithHeadingRow menyertakan key untuk
-        // SETIAP kolom header, terlepas dari isi selnya), bukan dari nilainya.
-        $adaKolomTaggingLama = array_key_exists('tagging', $barisLebar->first()->toArray());
-
-        return DB::transaction(function () use ($file, $tahun, $userId, $barisLebar, $adaKolomTaggingLama) {
+        return DB::transaction(function () use ($file, $tahun, $userId, $barisLebar, $adaKolomTaggingLama, $formatSumber, $barisDataMulai) {
             $import = self::create([
                 'user_id' => $userId,
                 'tahun' => $tahun,
                 'nama_file' => $file->getClientOriginalName(),
                 'ada_kolom_tagging_lama' => $adaKolomTaggingLama,
+                'format_sumber' => $formatSumber,
                 'status' => self::STATUS_STAGED,
                 'expires_at' => now()->addMinutes(self::MENIT_KEDALUWARSA),
             ]);
@@ -133,10 +146,11 @@ class RakBulananImport extends Model
             $ditolak = 0;
 
             foreach ($barisLebar as $indeksAsli => $row) {
-                $nomorBaris = $indeksAsli + 2; // baris 1 = header
+                $nomorBaris = $indeksAsli + $barisDataMulai;
 
                 $subKegiatan = trim((string) ($row['sub_kegiatan'] ?? ''));
                 $kodeRekening = trim((string) ($row['kode_rekening'] ?? ''));
+                $tahunFile = trim((string) ($row['tahun_anggaran'] ?? ''));
 
                 // Kolom Tagging (kalau ada, format lama) dibaca murni untuk
                 // ditampilkan sebagai peringatan - TIDAK PERNAH dipakai untuk
@@ -145,6 +159,10 @@ class RakBulananImport extends Model
                 $taggingNamaLama = ($taggingNamaLama === '' ? null : $taggingNamaLama);
 
                 [$subKegiatanKunci, $kodeRekeningValid, $alasanGagal] = self::resolveSubKegiatanKodeRekening($subKegiatan, $kodeRekening);
+
+                if ($tahunFile !== '' && (! ctype_digit($tahunFile) || (int) $tahunFile !== $tahun)) {
+                    $alasanGagal = "Tahun Anggaran pada file ({$tahunFile}) tidak sama dengan tahun import ({$tahun}).";
+                }
 
                 $kunciMataAnggaran = $subKegiatanKunci !== null ? $subKegiatanKunci.'|'.$kodeRekeningValid : null;
                 $duplikat = $kunciMataAnggaran !== null && isset($kunciTerlihat[$kunciMataAnggaran]);
@@ -155,6 +173,7 @@ class RakBulananImport extends Model
                     $kunciTerlihat[$kunciMataAnggaran] = $nomorBaris;
                 }
 
+                $kumulatifSebelumnya = 0.0;
                 foreach (self::BULAN_KOLOM as $bulan => $kolom) {
                     $nilaiMentah = $row[$kolom] ?? null;
 
@@ -162,27 +181,36 @@ class RakBulananImport extends Model
                         continue; // bulan tidak diisi - dilewati, bukan ditolak
                     }
 
+                    $targetAsli = self::normalisasiAngka($nilaiMentah);
+
                     if ($alasanGagal !== null) {
                         $import->baris()->create([
                             'nomor_baris' => $nomorBaris, 'bulan' => $bulan,
                             'aksi' => RakBulananImportRow::AKSI_DITOLAK, 'alasan' => $alasanGagal,
                             'sub_kegiatan' => $subKegiatan, 'sub_kegiatan_kunci' => $subKegiatanKunci, 'kode_rekening' => $kodeRekening,
-                            'tagging_nama' => $taggingNamaLama, 'target' => null, 'rak_bulanan_id' => null,
+                            'tagging_nama' => $taggingNamaLama, 'target_asli' => $targetAsli, 'target' => null, 'rak_bulanan_id' => null,
                         ]);
                         $ditolak++;
 
                         continue;
                     }
 
-                    $target = self::normalisasiAngka($nilaiMentah);
+                    $target = $targetAsli;
+
+                    if ($formatSumber === self::FORMAT_LEGACY_GAS_CUMULATIVE_V1 && $targetAsli !== null) {
+                        $target = $targetAsli - $kumulatifSebelumnya;
+                        $kumulatifSebelumnya = $targetAsli;
+                    }
 
                     if ($target === null || $target < 0) {
                         $import->baris()->create([
                             'nomor_baris' => $nomorBaris, 'bulan' => $bulan,
                             'aksi' => RakBulananImportRow::AKSI_DITOLAK,
-                            'alasan' => 'Nilai bulan ini bukan angka non-negatif yang valid.',
+                            'alasan' => $formatSumber === self::FORMAT_LEGACY_GAS_CUMULATIVE_V1 && $target !== null && $target < 0
+                                ? 'Nilai kumulatif menurun dari bulan sebelumnya sehingga hasil konversi bulanan menjadi negatif.'
+                                : 'Nilai bulan ini bukan angka non-negatif yang valid.',
                             'sub_kegiatan' => $subKegiatan, 'sub_kegiatan_kunci' => $subKegiatanKunci, 'kode_rekening' => $kodeRekening,
-                            'tagging_nama' => $taggingNamaLama, 'target' => null, 'rak_bulanan_id' => null,
+                            'tagging_nama' => $taggingNamaLama, 'target_asli' => $targetAsli, 'target' => null, 'rak_bulanan_id' => null,
                         ]);
                         $ditolak++;
 
@@ -200,7 +228,7 @@ class RakBulananImport extends Model
                         'aksi' => $existing ? RakBulananImportRow::AKSI_UPDATE : RakBulananImportRow::AKSI_BARU,
                         'alasan' => null,
                         'sub_kegiatan' => $subKegiatan, 'sub_kegiatan_kunci' => $subKegiatanKunci, 'kode_rekening' => $kodeRekeningValid,
-                        'tagging_nama' => $taggingNamaLama, 'target' => $target, 'rak_bulanan_id' => $existing?->id,
+                        'tagging_nama' => $taggingNamaLama, 'target_asli' => $targetAsli, 'target' => $target, 'rak_bulanan_id' => $existing?->id,
                     ]);
 
                     $existing ? $update++ : $baru++;
@@ -218,11 +246,60 @@ class RakBulananImport extends Model
         });
     }
 
+    private static function normalisasiWorkbook(Collection $rows, ?string $formatLegacy): array
+    {
+        $rows = $rows->values();
+        $marker = trim((string) ($rows->first()[0] ?? ''));
+        $headerIndex = 0;
+
+        if ($marker === RakBulananExport::FORMAT_MARKER) {
+            $format = self::FORMAT_MONTHLY_V2;
+            $headerIndex = 2;
+        } elseif ($marker === 'IFINANCE_RAK_GAS_CUMULATIVE_V1') {
+            $format = self::FORMAT_LEGACY_GAS_CUMULATIVE_V1;
+            $headerIndex = 2;
+        } else {
+            $format = $formatLegacy ?: self::FORMAT_LEGACY_MONTHLY_V1;
+            if ($format === self::FORMAT_LEGACY_GAS_CUMULATIVE_V1) {
+                throw ValidationException::withMessages(['file' => 'Format GAS kumulatif wajib memiliki marker IFINANCE_RAK_GAS_CUMULATIVE_V1.']);
+            }
+        }
+
+        $header = collect($rows->get($headerIndex, []))->map(fn ($value) => self::normalisasiHeader($value))->all();
+        if (! in_array('sub_kegiatan', $header, true) || ! in_array('kode_rekening', $header, true)) {
+            throw ValidationException::withMessages(['file' => 'Header Sub Kegiatan dan Kode Rekening tidak ditemukan pada format yang dipilih.']);
+        }
+
+        $adaTagging = in_array('tagging', $header, true);
+        $data = $rows->slice($headerIndex + 1)->map(function ($row) use ($header) {
+            $assoc = [];
+            foreach ($header as $i => $key) {
+                if ($key !== '') {
+                    $assoc[$key] = $row[$i] ?? null;
+                }
+            }
+
+            return $assoc;
+        })->values();
+
+        return [$data, $format, $adaTagging, $headerIndex + 2];
+    }
+
+    private static function normalisasiHeader(mixed $value): string
+    {
+        return trim(preg_replace('/_+/', '_', preg_replace('/[^a-z0-9]+/', '_', mb_strtolower(trim((string) $value)))), '_');
+    }
+
     /**
      * @throws RuntimeException kalau batch sudah diproses, kedaluwarsa, atau ada baris gagal disimpan fatal.
      */
     public function konfirmasi(): array
     {
+        $tahunAktif = (int) config('anggaran.tahun_aktif');
+        if ((int) $this->tahun !== $tahunAktif) {
+            throw new RuntimeException("Import RAK Bulanan hanya dapat dikonfirmasi untuk Tahun Anggaran {$tahunAktif}.");
+        }
+
         if ($this->status !== self::STATUS_STAGED) {
             throw new RuntimeException('Import ini sudah diproses sebelumnya.');
         }

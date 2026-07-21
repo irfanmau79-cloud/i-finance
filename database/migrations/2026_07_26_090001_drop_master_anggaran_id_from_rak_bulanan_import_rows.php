@@ -23,13 +23,14 @@ return new class extends Migration
             $table->dropColumn('master_anggaran_id');
 
             $table->string('sub_kegiatan_kunci', 255)->nullable()->after('sub_kegiatan');
+            $table->decimal('target_asli', 18, 2)->nullable()->after('target');
         });
     }
 
     public function down(): void
     {
         Schema::table('rak_bulanan_import_rows', function (Blueprint $table) {
-            $table->dropColumn('sub_kegiatan_kunci');
+            $table->dropColumn(['sub_kegiatan_kunci', 'target_asli']);
             $table->foreignId('master_anggaran_id')->nullable()->after('kode_rekening')->constrained('master_anggaran')->nullOnDelete();
         });
     }

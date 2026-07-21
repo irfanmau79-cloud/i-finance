@@ -17,13 +17,14 @@ return new class extends Migration
     {
         Schema::table('rak_bulanan_imports', function (Blueprint $table) {
             $table->boolean('ada_kolom_tagging_lama')->default(false)->after('nama_file');
+            $table->string('format_sumber', 50)->default('monthly_v2')->after('ada_kolom_tagging_lama');
         });
     }
 
     public function down(): void
     {
         Schema::table('rak_bulanan_imports', function (Blueprint $table) {
-            $table->dropColumn('ada_kolom_tagging_lama');
+            $table->dropColumn(['ada_kolom_tagging_lama', 'format_sumber']);
         });
     }
 };

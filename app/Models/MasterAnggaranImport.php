@@ -82,9 +82,16 @@ class MasterAnggaranImport extends Model
      *
      * @throws ValidationException kalau file kosong atau melebihi batas jumlah baris.
      */
-    public static function buatDariUpload(UploadedFile $file, ?int $userId): self
+    public static function buatDariUpload(UploadedFile $file, int $tahun, ?int $userId): self
     {
-        $sheet = new MasterAnggaranUploadImport();
+        $tahunAktif = (int) config('anggaran.tahun_aktif');
+        if ($tahun !== $tahunAktif) {
+            throw ValidationException::withMessages([
+                'tahun' => "Import Master Anggaran hanya menerima Tahun Anggaran {$tahunAktif}.",
+            ]);
+        }
+
+        $sheet = new MasterAnggaranUploadImport;
         Excel::import($sheet, $file);
 
         $baris = $sheet->rows->filter(
@@ -98,6 +105,18 @@ class MasterAnggaranImport extends Model
         if ($baris->count() > self::MAKS_BARIS) {
             throw ValidationException::withMessages([
                 'file' => sprintf('File berisi %d baris data, melebihi batas maksimum %d baris per import.', $baris->count(), self::MAKS_BARIS),
+            ]);
+        }
+
+        $tahunFileTidakValid = $baris->first(function ($row) use ($tahunAktif) {
+            $nilai = trim((string) ($row['tahun_anggaran'] ?? ''));
+
+            return $nilai !== '' && (! ctype_digit($nilai) || (int) $nilai !== $tahunAktif);
+        });
+        if ($tahunFileTidakValid !== null) {
+            $nilai = trim((string) ($tahunFileTidakValid['tahun_anggaran'] ?? ''));
+            throw ValidationException::withMessages([
+                'file' => "File Master Anggaran secara eksplisit bertanda Tahun Anggaran {$nilai}; hanya Tahun Anggaran {$tahunAktif} yang diterima.",
             ]);
         }
 

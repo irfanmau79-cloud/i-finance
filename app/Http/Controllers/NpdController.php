@@ -34,7 +34,7 @@ class NpdController extends Controller
      */
     public function persetujuan(Request $request)
     {
-        $npds = $this->daftarNpd($request);
+        $npds = $this->daftarNpd($request, true);
 
         return view('npd.persetujuan', compact('npds'));
     }
@@ -45,14 +45,18 @@ class NpdController extends Controller
      */
     public function verifikasi(Request $request)
     {
-        $npds = $this->daftarNpd($request);
+        $npds = $this->daftarNpd($request, true);
 
         return view('npd.verifikasi', compact('npds'));
     }
 
-    private function daftarNpd(Request $request)
+    private function daftarNpd(Request $request, bool $excludeHistorical = false)
     {
         $query = Npd::with('masterAnggaran')->orderBy('tanggal_npd', 'desc');
+
+        if ($excludeHistorical) {
+            $query->where('sumber_data', '!=', 'import_historis');
+        }
 
         if ($request->filled('jenis')) {
             $query->where('jenis', $request->string('jenis'));
@@ -90,6 +94,8 @@ class NpdController extends Controller
      */
     public function transisi(Request $request, Npd $npd)
     {
+        abort_if($npd->sumber_data === 'import_historis', 422, 'NPD historis adalah arsip final dan tidak mengikuti workflow persetujuan/verifikasi.');
+
         $aksi = (string) $request->input('aksi');
         $rule = Npd::TRANSISI[$aksi] ?? null;
 
@@ -300,7 +306,7 @@ class NpdController extends Controller
      */
     public function cetakLampiran(Npd $npd)
     {
-        $npd->load(match ($npd->jenis) {
+        $npd->load($npd->sumber_data === 'import_historis' ? ['masterAnggaran', 'penerima.pphList'] : match ($npd->jenis) {
             'pd', 'tr' => ['masterAnggaran', 'tim.paket'],
             'ns' => ['masterAnggaran', 'narasumber'],
             'kd' => ['masterAnggaran', 'peserta'],
@@ -309,7 +315,12 @@ class NpdController extends Controller
 
         $pptk = PejabatResolver::untukNpd($npd)['pptk'];
 
-        if (in_array($npd->jenis, ['pd', 'tr'], true)) {
+        if ($npd->sumber_data === 'import_historis') {
+            $html = view('npd.pdf.lampiran', array_merge([
+                'npd' => $npd,
+                'pptk' => $pptk,
+            ], $this->bangunLampiranPph($npd->penerima)))->render();
+        } elseif (in_array($npd->jenis, ['pd', 'tr'], true)) {
             $html = view('npd.pdf.pd-lampiran', array_merge([
                 'npd' => $npd,
                 'pptk' => $pptk,

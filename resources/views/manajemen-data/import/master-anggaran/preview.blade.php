@@ -5,8 +5,9 @@
 
 @section('content')
 <div class="dash-card">
-    <h3>Preview Import Pagu / Master Anggaran</h3>
+    <h3>Preview Import Pagu / Master Anggaran — Tahun Anggaran {{ config('anggaran.tahun_aktif') }}</h3>
     <div class="sub">File: {{ $import->nama_file }}</div>
+    <div class="sub">{{ config('anggaran.catatan_scope') }}</div>
 
     @if ($errors->any())
         <div class="err-box" style="display:block;">

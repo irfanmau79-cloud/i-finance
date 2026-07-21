@@ -14,12 +14,13 @@ class MasterAnggaranExport extends DataManagementExport
 
     public function headings(): array
     {
-        return ['Program', 'Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Uraian Rekening', 'Tagging', 'Pagu', 'Aktif'];
+        return ['Tahun Anggaran', 'Program', 'Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Uraian Rekening', 'Tagging', 'Pagu', 'Aktif'];
     }
 
     public function map($row): array
     {
         return [
+            (int) config('anggaran.tahun_aktif'),
             $row->program,
             $row->kegiatan,
             $row->sub_kegiatan,

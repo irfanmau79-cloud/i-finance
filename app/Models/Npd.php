@@ -27,6 +27,11 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'status',
     'catatan',
     'detail_json',
+    'sumber_data',
+    'import_historis_id',
+    'import_baris',
+    'import_identity_hash',
+    'tagging_snapshot',
     'link_pdf_npd',
     'link_pdf_lampiran',
     'dibuat_oleh',
@@ -208,6 +213,11 @@ class Npd extends Model
     public function historiStatus(): HasMany
     {
         return $this->hasMany(NpdHistoriStatus::class)->orderBy('nomor_urut');
+    }
+
+    public function importHistoris(): BelongsTo
+    {
+        return $this->belongsTo(NpdHistorisImport::class, 'import_historis_id');
     }
 
     public function dapatDieditOleh(User $user): bool

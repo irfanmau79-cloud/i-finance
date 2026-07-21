@@ -35,7 +35,7 @@ class MasterAnggaranImportTest extends TestCase
     /** @param  array<int, array>  $baris */
     private function buatFileExcel(array $baris, ?string $namaFile = null): UploadedFile
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->fromArray(self::HEADER, null, 'A1');
         $sheet->fromArray($baris, null, 'A2');
@@ -125,6 +125,54 @@ class MasterAnggaranImportTest extends TestCase
         $import->refresh();
         $this->assertSame(MasterAnggaranImport::STATUS_STAGED, $import->status);
         $this->assertSame(1, $import->jumlah_baru);
+    }
+
+    public function test_tahun_anggaran_2026_diterima_dan_ditampilkan_pada_preview(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $header = array_merge(['Tahun Anggaran'], self::HEADER);
+
+        $spreadsheet = new Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->fromArray($header, null, 'A1');
+        $sheet->fromArray([array_merge([2026], $this->baseRow())], null, 'A2');
+        $path = sys_get_temp_dir().'/'.uniqid('ma_tahun_', true).'.xlsx';
+        (new Xlsx($spreadsheet))->save($path);
+        $file = new UploadedFile($path, 'master-anggaran-2026.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.master-anggaran.store'), ['file' => $file, 'tahun' => 2026]);
+        $import = MasterAnggaranImport::firstOrFail();
+
+        $this->assertSame(0, MasterAnggaran::count());
+        $this->actingAs($superadmin)->get(route('manajemen-data.import.master-anggaran.preview', $import))
+            ->assertOk()->assertSee('Tahun Anggaran 2026');
+    }
+
+    public function test_request_atau_file_master_anggaran_tahun_lain_ditolak_tanpa_mutasi(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+
+        foreach ([2025, 2027] as $tahun) {
+            $this->actingAs($superadmin)->post(route('manajemen-data.import.master-anggaran.store'), [
+                'file' => $this->buatFileExcel([$this->baseRow()]),
+                'tahun' => $tahun,
+            ])->assertSessionHasErrors('tahun');
+        }
+
+        $spreadsheet = new Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->fromArray(array_merge(['Tahun Anggaran'], self::HEADER), null, 'A1');
+        $sheet->fromArray([array_merge([2027], $this->baseRow())], null, 'A2');
+        $path = sys_get_temp_dir().'/'.uniqid('ma_tahun_salah_', true).'.xlsx';
+        (new Xlsx($spreadsheet))->save($path);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.master-anggaran.store'), [
+            'file' => new UploadedFile($path, 'master-anggaran-2027.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true),
+            'tahun' => 2026,
+        ])->assertSessionHasErrors('file');
+
+        $this->assertSame(0, MasterAnggaranImport::count());
+        $this->assertSame(0, MasterAnggaran::count());
     }
 
     // ---------------- Konfirmasi ----------------
