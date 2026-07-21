@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\AuditLog as AuditHelper;
+use App\Helpers\GuestSession;
 use App\Http\Requests\StorePengajuanTunjanganRequest;
 use App\Models\AuditLog;
 use App\Models\LampiranTunjangan;
@@ -22,6 +23,8 @@ class TunjanganKeluargaController extends Controller
 {
     public function form(): View
     {
+        GuestSession::login();
+
         return view('tunjangan-keluarga.form');
     }
 

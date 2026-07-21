@@ -22,6 +22,42 @@ class TunjanganKeluargaTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_form_perubahan_pengguna_terautentikasi_memakai_shell_dan_menu_aktif(): void
+    {
+        $response = $this->actingAs($this->user('pptk'))->get(route('tunjangan.form'));
+
+        $response->assertOk()
+            ->assertSee('id="app-shell"', false)
+            ->assertSee('id="nav-tk-parent"', false)
+            ->assertSee('class="sb-item sub active" href="'.route('tunjangan.form').'"', false)
+            ->assertSee('action="'.route('tunjangan.submit').'"', false)
+            ->assertSee('name="lampiran"', false)
+            ->assertSee('+ Tambah Anak');
+
+        $this->assertMatchesRegularExpression(
+            '/<div class="sb-group open">\s*<div class="sb-item sb-parent" id="nav-tk-parent">/s',
+            $response->getContent()
+        );
+    }
+
+    public function test_form_perubahan_tamu_layanan_memakai_shell_dan_sidebar_layanan(): void
+    {
+        $response = $this->get(route('tunjangan.form'));
+
+        $response->assertOk()
+            ->assertSessionHas('guest_layanan', true)
+            ->assertSee('id="app-shell"', false)
+            ->assertSee('Pengguna Layanan')
+            ->assertSee('id="nav-tk-parent"', false)
+            ->assertSee('class="sb-item sub active" href="'.route('tunjangan.form').'"', false)
+            ->assertSee('action="'.route('tunjangan.submit').'"', false);
+
+        $this->assertMatchesRegularExpression(
+            '/<div class="sb-group open">\s*<div class="sb-item sb-parent" id="nav-tk-parent">/s',
+            $response->getContent()
+        );
+    }
+
     public function test_batas_usia_gas_tepat_21_dan_25_tahun_serta_perpanjangan_kuliah(): void
     {
         $service = app(TunjanganKeluargaService::class);
