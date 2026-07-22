@@ -17,6 +17,7 @@ use App\Http\Controllers\NpdTransportController;
 use App\Http\Controllers\PelimpahanController;
 use App\Http\Controllers\PengumumanController;
 use App\Http\Controllers\PerjalananDinasDashboardController;
+use App\Http\Controllers\PerjalananDinasPegawaiController;
 use App\Http\Controllers\ProfilController;
 use App\Http\Controllers\RakBulananImportController;
 use App\Http\Controllers\RincianRealisasiController;
@@ -62,6 +63,9 @@ Route::middleware('auth.or.guest')->group(function () {
     Route::get('/dashboard/perjalanan-dinas', PerjalananDinasDashboardController::class)
         ->middleware('menu-akses:dashpd')
         ->name('dashboard.perjalanan.index');
+    Route::get('/dashboard/perjalanan-dinas/pegawai/{pegawai}', PerjalananDinasPegawaiController::class)
+        ->middleware('menu-akses:dashpd')
+        ->name('dashboard.perjalanan.pegawai');
     Route::get('/dashboard/spj-pengawasan', [SpjDashboardController::class, 'index'])
         ->middleware('menu-akses:dashspj')
         ->name('dashboard.spj.index');

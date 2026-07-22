@@ -45,7 +45,7 @@ class PerjalananDinasDashboardService
             $first = $rows->first();
 
             return $this->jumlahkan($rows) + [
-                'key' => $first['pegawai_key'], 'nama' => $first['nama'], 'jabatan' => $first['jabatan'], 'bidang' => $first['bidang'],
+                'key' => $first['pegawai_key'], 'pegawai_id' => $first['pegawai_id'], 'nama' => $first['nama'], 'jabatan' => $first['jabatan'], 'bidang' => $first['bidang'],
             ];
         })->values();
 
@@ -76,6 +76,7 @@ class PerjalananDinasDashboardService
             'npd_id' => $npd->id,
             'bulan' => (int) $npd->tanggal_npd->month,
             'pegawai_key' => $tim->pegawai_id ? 'pegawai:'.$tim->pegawai_id : 'snapshot:'.sha1(mb_strtolower(trim($tim->nip.'|'.$tim->nama))),
+            'pegawai_id' => $tim->pegawai_id,
             'nama' => $tim->nama,
             'jabatan' => $tim->jabatan,
             'bidang' => $bidang,
