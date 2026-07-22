@@ -9,6 +9,7 @@ use App\Models\MasterAnggaran;
 use App\Models\Npd;
 use App\Models\NpdHistorisImport;
 use App\Models\RakBulanan;
+use App\Models\SpmDetail;
 use App\Models\Tagging;
 use Carbon\Carbon;
 use Illuminate\Http\UploadedFile;
@@ -330,7 +331,12 @@ class NpdHistorisImportService
                     $runningMonthly[$key] = ($runningMonthly[$key] ?? 0) + $importCents;
                 }
                 $activeNpd = self::cents((string) Npd::whereIn('master_anggaran_id', $ids)->where('status', 'not like', '%batal%')->sum('nominal'));
-                $ls = self::cents((string) DB::table('spm')->whereIn('master_anggaran_id', $ids)->where('jenis_spm', 'ls')->sum('nominal'));
+                // SPM LS sudah direstrukturisasi jadi header (spm) + banyak baris mata
+                // anggaran (spm_detail) - master_anggaran_id tidak lagi ada di tabel spm.
+                // spm_detail hanya pernah diisi oleh Spm::buatLs()/updateLs(), jadi setiap
+                // barisnya pasti milik SPM jenis 'ls' (lihat MasterAnggaran::realisasiLs()
+                // dan AnggaranRealisasiService, yang memakai asumsi/pola query yang sama).
+                $ls = self::cents((string) SpmDetail::whereIn('master_anggaran_id', $ids)->sum('nominal'));
                 $pagu = self::decimal($paguCents);
                 $rakNilai = (string) $rak->target;
                 $realisasiSebelum = self::decimal($beforeCents);

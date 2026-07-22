@@ -60,8 +60,8 @@ class DashboardRealisasiTest extends TestCase
 
         $this->actingAs($this->user)->get(route('dashboard.index'))
             ->assertOk()
-            ->assertSee('Dana Terikat NPD')
-            ->assertSee('Realisasi Aktual')
+            ->assertSee('Realisasi SP2D')
+            ->assertSee('Realisasi SPJ3')
             ->assertSee('Chart.js/4.4.1');
     }
 
@@ -111,6 +111,114 @@ class DashboardRealisasiTest extends TestCase
             ->assertOk()
             ->assertSee('Tidak ada data anggaran aktif untuk filter ini.')
             ->assertViewHas('dashboard', fn (array $data) => $data['kosong'] === true);
+    }
+
+    public function test_kartu_realisasi_sp2d_menjumlahkan_spm_ls_terfilter_dan_spm_up_gu_nasional(): void
+    {
+        $anggaran = $this->anggaran('Sub SP2D', '5.1.05', 10_000_000);
+        $anggaranLain = $this->anggaran('Sub SP2D Lain', '5.1.06', 20_000_000);
+
+        // SPM LS multi mata anggaran (spm_detail): satu baris milik $anggaran,
+        // satu baris milik $anggaranLain - membuktikan realisasi_ls tetap
+        // difilter per mata anggaran (bukan seluruh dokumen) meski nominalnya
+        // datang dari spm_detail, bukan kolom master_anggaran_id di spm.
+        Spm::buatLs([
+            'nomor_dokumen' => '900/SP2D-LS/2026', 'tanggal_dokumen' => '2026-07-05',
+            'baris' => [
+                ['master_anggaran_id' => $anggaran->id, 'nominal' => 1_000_000],
+                ['master_anggaran_id' => $anggaranLain->id, 'nominal' => 4_000_000],
+            ],
+        ]);
+        // Dua dokumen SPM UP/GU - membuktikan totalSpmUpGu() menjumlahkan
+        // seluruh dokumen 'up_gu', bukan hanya satu.
+        Spm::buatUpGu(['nomor_dokumen' => '001/SP2D-UP/2026', 'tanggal_dokumen' => '2026-07-01', 'nominal' => 2_000_000]);
+        Spm::buatUpGu(['nomor_dokumen' => '002/SP2D-GU/2026', 'tanggal_dokumen' => '2026-07-02', 'nominal' => 3_000_000]);
+
+        $service = app(AnggaranRealisasiService::class);
+
+        // Tanpa filter: realisasi_ls mencakup KEDUA mata anggaran (5jt),
+        // ditambah seluruh SPM UP/GU nasional (5jt) = 10jt.
+        $tanpaFilter = $service->dashboard([], 2026, 7);
+        $this->assertFalse($tanpaFilter['filter_aktif']);
+        $this->assertSame(5_000_000.0, $tanpaFilter['total']['realisasi_ls']);
+        $this->assertSame(5_000_000.0, $tanpaFilter['spm_up_gu_total']);
+        $this->assertSame(10_000_000.0, $tanpaFilter['realisasi_sp2d']['nominal']);
+
+        // Dengan filter ke $anggaran saja: realisasi_ls HARUS menyempit jadi
+        // 1jt (baris $anggaranLain tidak ikut), tapi SPM UP/GU/TU tetap total
+        // nasional penuh (5jt, sesuai keputusan produk - lihat AskUserQuestion
+        // di percakapan tugas ini) sehingga nominalnya 1jt + 5jt = 6jt,
+        // dibagi pagu YANG SUDAH DIFILTER (10jt) = 60%.
+        $terfilter = $service->dashboard([
+            'sub_kegiatan' => $anggaran->sub_kegiatan_kunci,
+            'kode_rekening' => $anggaran->kode_rekening,
+        ], 2026, 7);
+        $this->assertTrue($terfilter['filter_aktif']);
+        $this->assertSame(10_000_000.0, $terfilter['total']['pagu']);
+        $this->assertSame(1_000_000.0, $terfilter['total']['realisasi_ls']);
+        $this->assertSame(5_000_000.0, $terfilter['spm_up_gu_total']);
+        $this->assertSame(6_000_000.0, $terfilter['realisasi_sp2d']['nominal']);
+        $this->assertSame(60.0, $terfilter['realisasi_sp2d']['persentase']);
+
+        $this->actingAs($this->user)->get(route('dashboard.index', [
+            'sub_kegiatan' => $anggaran->sub_kegiatan_kunci,
+            'kode_rekening' => $anggaran->kode_rekening,
+        ]))->assertOk()->assertSee('bersifat nasional');
+    }
+
+    public function test_kartu_realisasi_spj3_dan_sisa_anggaran_berbeda_dari_sisa_tersedia_operasional(): void
+    {
+        $anggaran = $this->anggaran('Sub SPJ3', '5.1.07', 10_000_000);
+        $this->npd($anggaran, 2_000_000, 'Draft NPD - PPTK', '2026-01-10');
+        $this->npd($anggaran, 3_000_000, 'Selesai', '2026-02-10');
+        Spm::buatLs([
+            'nomor_dokumen' => '901/SPJ3-LS/2026', 'tanggal_dokumen' => '2026-03-10',
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 1_000_000]],
+        ]);
+
+        $dashboard = app(AnggaranRealisasiService::class)->dashboard([], 2026, 7);
+
+        // sisa_tersedia (dipakai validasi NPD & Rincian Realisasi) TIDAK
+        // berubah: pagu - dana_terikat_npd (termasuk draft 2jt) - realisasi_ls.
+        $this->assertSame(4_000_000.0, $dashboard['total']['sisa_tersedia']);
+        // Realisasi SPJ3 (kartu 3) = NPD Selesai + SPM LS = 3jt + 1jt.
+        $this->assertSame(4_000_000.0, $dashboard['total']['realisasi_aktual']);
+        $this->assertSame(40.0, $dashboard['total']['persentase_realisasi']);
+        // Sisa Anggaran (kartu 4) = Pagu - Realisasi SPJ3 = 10jt - 4jt = 6jt,
+        // SENGAJA berbeda dari sisa_tersedia (4jt) karena tidak mengurangi
+        // draft NPD yang belum selesai.
+        $this->assertSame(6_000_000.0, $dashboard['sisa_anggaran_spj3']['nominal']);
+        $this->assertSame(60.0, $dashboard['sisa_anggaran_spj3']['persentase']);
+    }
+
+    public function test_kartu_realisasi_aman_saat_pagu_nol(): void
+    {
+        $this->anggaran('Sub Pagu Nol', '5.1.08', 0);
+
+        $dashboard = app(AnggaranRealisasiService::class)->dashboard([], 2026, 7);
+
+        $this->assertSame(0.0, $dashboard['total']['pagu']);
+        $this->assertSame(0.0, $dashboard['total']['persentase_realisasi']);
+        $this->assertSame(0.0, $dashboard['realisasi_sp2d']['nominal']);
+        $this->assertSame(0.0, $dashboard['realisasi_sp2d']['persentase']);
+        $this->assertSame(0.0, $dashboard['sisa_anggaran_spj3']['nominal']);
+        $this->assertSame(0.0, $dashboard['sisa_anggaran_spj3']['persentase']);
+
+        $this->actingAs($this->user)->get(route('dashboard.index'))->assertOk()->assertSee('0,00 %');
+    }
+
+    public function test_dropdown_kode_rekening_menampilkan_kode_dan_uraian(): void
+    {
+        $this->anggaran('Sub Label Kode', '5.1.09', 1_000_000);
+
+        $this->actingAs($this->user)->get(route('dashboard.index'))
+            ->assertOk()
+            ->assertViewHas('pilihan', function (array $pilihan) {
+                $opsi = $pilihan['kode_rekening_berlabel']->firstWhere('value', '5.1.09');
+
+                return $opsi !== null && $opsi['label'] === '5.1.09 — Belanja Dashboard';
+            })
+            ->assertSee('5.1.09 — Belanja Dashboard');
     }
 
     public function test_route_dashboard_mengikuti_config_akses_menu_di_backend(): void

@@ -6,6 +6,7 @@ use App\Models\MasterAnggaran;
 use App\Models\Npd;
 use App\Models\PengembalianDetail;
 use App\Models\RakBulanan;
+use App\Models\Spm;
 use App\Models\SpmDetail;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
@@ -28,7 +29,7 @@ class AnggaranRealisasiService
             ->with('tagging:id,nama')
             ->orderBy('sub_kegiatan_normal')
             ->orderBy('kode_rekening')
-            ->get(['id', 'sub_kegiatan', 'sub_kegiatan_kunci', 'kode_rekening', 'tagging_id']);
+            ->get(['id', 'sub_kegiatan', 'sub_kegiatan_kunci', 'kode_rekening', 'uraian_rekening', 'tagging_id']);
 
         $kodeScope = $subKegiatanKunci
             ? $masters->where('sub_kegiatan_kunci', $subKegiatanKunci)
@@ -42,6 +43,23 @@ class AnggaranRealisasiService
                     'label' => $item->subKegiatanNormal(),
                 ])->values(),
             'kode_rekening' => $kodeScope->pluck('kode_rekening')->unique()->sort()->values(),
+            /**
+             * Sama seperti 'kode_rekening' di atas, tapi berlabel "kode —
+             * uraian" untuk dropdown yang perlu menampilkan uraian rekening
+             * (Dashboard Realisasi Anggaran). Kunci TAMBAHAN, sengaja tidak
+             * menggantikan 'kode_rekening' supaya Rincian Realisasi & Analisis
+             * Tren yang sudah memakai bentuk lama (daftar string polos) tidak
+             * ikut berubah.
+             */
+            'kode_rekening_berlabel' => $kodeScope
+                ->groupBy('kode_rekening')
+                ->map(function (Collection $items, string $kode) {
+                    $uraian = $items->first()->uraian_rekening;
+
+                    return ['value' => $kode, 'label' => $uraian ? "{$kode} — {$uraian}" : $kode];
+                })
+                ->sortBy('value', SORT_NATURAL)
+                ->values(),
             'tagging' => $masters->whereNotNull('tagging_id')
                 ->unique('tagging_id')
                 ->map(fn (MasterAnggaran $item) => [
@@ -339,12 +357,44 @@ class AnggaranRealisasiService
             return $direction === 'desc' ? -$comparison : $comparison;
         })->values();
 
+        // Realisasi SP2D (kartu Dashboard): SPM LS pada scope filter + total
+        // nasional SPM UP/GU/TU. UP/GU/TU TIDAK memiliki keterkaitan ke mata
+        // anggaran sama sekali (spm.master_anggaran_id sudah dihapus saat
+        // restrukturisasi SPM LS jadi header+detail, dan UP/GU tidak pernah
+        // membuat baris spm_detail - lihat Spm::buatUpGu()), jadi nilainya
+        // SELALU total nasional penuh, tidak menyempit walau filter Sub
+        // Kegiatan/Kode Rekening aktif - lihat 'filter_aktif' untuk
+        // menampilkan catatan bahwa persentase saat filter aktif hanya
+        // indikatif (keputusan produk, bukan kesalahan hitung).
+        $filterAktif = $filters['sub_kegiatan'] !== '' || $filters['kode_rekening'] !== '';
+        $totalSpmUpGu = $this->totalSpmUpGu();
+        $realisasiSp2dNominal = $rincian['total']['realisasi_ls'] + $totalSpmUpGu;
+
+        // Sisa Anggaran (kartu Dashboard) = Pagu - Realisasi SPJ3. Sengaja
+        // BUKAN 'sisa_tersedia' (dipakai validasi nominal NPD & Rincian
+        // Realisasi, yang mengurangi dana_terikat_npd - termasuk draft/proses
+        // - supaya pagu tidak overcommit oleh dokumen yang belum final).
+        // Kartu ini hanya melihat realisasi yang benar-benar sudah final
+        // (NPD Selesai + SPM LS), jadi angkanya bisa lebih besar dari
+        // sisa_tersedia - lihat catatan penyerahan/AUDIT untuk konteksnya.
+        $sisaAnggaranSpj3 = $rincian['total']['pagu'] - $rincian['total']['realisasi_aktual'];
+
         return [
             'tahun' => $tahun,
             'bulan_acuan' => $bulanAcuan,
             'bulan_acuan_label' => self::BULAN[$bulanAcuan - 1],
             'total' => $rincian['total'],
             'dana_terikat_belum_selesai' => $rincian['total']['dana_terikat_belum_selesai'],
+            'filter_aktif' => $filterAktif,
+            'spm_up_gu_total' => $totalSpmUpGu,
+            'realisasi_sp2d' => [
+                'nominal' => $realisasiSp2dNominal,
+                'persentase' => MasterAnggaran::hitungPersentaseRealisasi($realisasiSp2dNominal, $rincian['total']['pagu']),
+            ],
+            'sisa_anggaran_spj3' => [
+                'nominal' => $sisaAnggaranSpj3,
+                'persentase' => MasterAnggaran::hitungPersentaseRealisasi($sisaAnggaranSpj3, $rincian['total']['pagu']),
+            ],
             'realisasi_sd_bulan' => $analisis['realisasi_sd_bulan'],
             'target_rak_sd_bulan' => $analisis['rak_sd_bulan'],
             'persentase_target_rak' => $analisis['rak_sd_bulan'] !== null && $analisis['rak_sd_bulan'] > 0
@@ -357,6 +407,18 @@ class AnggaranRealisasiService
             'sort' => $sort,
             'direction' => $direction,
         ];
+    }
+
+    /**
+     * Total nominal SPM UP/GU/TU (replenishment kas BPP untuk isi ulang
+     * panjar - BUKAN realisasi per mata anggaran, lihat Spm::buatUpGu()).
+     * SPM jenis ini tidak pernah tertaut ke master_anggaran sama sekali,
+     * sehingga selalu berupa total nasional dan tidak bisa disempitkan
+     * mengikuti filter Sub Kegiatan/Kode Rekening.
+     */
+    public function totalSpmUpGu(): float
+    {
+        return (float) Spm::where('jenis_spm', 'up_gu')->sum('nominal');
     }
 
     private function masterQuery(array $filters): Builder

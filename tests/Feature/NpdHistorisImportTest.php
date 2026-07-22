@@ -191,6 +191,42 @@ class NpdHistorisImportTest extends TestCase
         $this->assertSame('1234567890', $penerima->rekening);
     }
 
+    public function test_preview_menghitung_realisasi_ls_dari_spm_detail_bukan_kolom_master_anggaran_id_di_spm(): void
+    {
+        // Regresi: SPM LS sudah direstrukturisasi jadi header (spm) + banyak baris
+        // mata anggaran (spm_detail) - master_anggaran_id tidak lagi ada di tabel
+        // spm. Sebelum diperbaiki, baris ini melempar QueryException 42S22
+        // "Unknown column 'master_anggaran_id'" karena kode lama masih query
+        // langsung ke tabel spm. Dua baris mata anggaran dipakai supaya juga
+        // membuktikan tidak ada double-counting: realisasi LS untuk mata anggaran
+        // NPD ini harus hanya mengambil baris miliknya sendiri (20jt), bukan
+        // seluruh dokumen SPM LS (20jt + 30jt).
+        $anggaranLain = MasterAnggaran::create([
+            'program' => 'Program Lain', 'kegiatan' => 'Kegiatan Lain',
+            'sub_kegiatan' => '6.01.01.2.02 Sub Lain', 'kode_rekening' => '5.1.02.01.01.0002',
+            'uraian_rekening' => 'Belanja Lain', 'pagu' => 50_000_000, 'aktif' => true,
+        ]);
+        Spm::buatLs([
+            'nomor_dokumen' => '900/SPM-LS/2026', 'tanggal_dokumen' => '2026-07-10',
+            'baris' => [
+                ['master_anggaran_id' => $this->anggaran->id, 'nominal' => 20_000_000],
+                ['master_anggaran_id' => $anggaranLain->id, 'nominal' => 30_000_000],
+            ],
+        ]);
+
+        $response = $this->actingAs($this->admin)->post(route('manajemen-data.import.npd-historis.store'), ['file' => $this->workbook([$this->row()])]);
+        $import = NpdHistorisImport::firstOrFail();
+        $response->assertRedirect(route('manajemen-data.import.npd-historis.preview', $import));
+
+        $row = $import->baris()->firstOrFail();
+        $this->assertSame('warning', $row->hasil);
+        // pagu 100jt - dana terikat NPD aktif (0, belum ada NPD) - realisasi LS
+        // mata anggaran ini saja (20jt, BUKAN 50jt) - nominal NPD yang diimpor (1jt).
+        $this->assertSame(79_000_000.0, (float) $row->sisa_proyeksi);
+
+        $this->actingAs($this->admin)->get(route('manajemen-data.import.npd-historis.preview', $import))->assertOk();
+    }
+
     public function test_duplicate_file_and_database_document_are_idempotent(): void
     {
         $path = sys_get_temp_dir().'/'.uniqid('npd_hist_same_', true).'.xlsx';
