@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
+use App\Models\PengembalianDetail;
 use App\Models\RakBulanan;
 use App\Models\SpmDetail;
 use Illuminate\Database\Eloquent\Builder;
@@ -64,7 +65,15 @@ class AnggaranRealisasiService
             ->withSum([
                 'npd as realisasi_npd_total' => fn (Builder $query) => $query->where('status', 'Selesai'),
             ], 'nominal')
-            ->withSum('spmDetail as realisasi_ls_total', 'nominal');
+            ->withSum('spmDetail as realisasi_ls_total', 'nominal')
+            ->withSum([
+                'pengembalianDetail as pengembalian_disetujui_npd_total' => fn (Builder $query) => $query
+                    ->whereHas('pengembalian', fn (Builder $q) => $q->where('status', 'disetujui')->where('dokumen_tipe', 'npd')),
+            ], 'nominal')
+            ->withSum([
+                'pengembalianDetail as pengembalian_disetujui_ls_total' => fn (Builder $query) => $query
+                    ->whereHas('pengembalian', fn (Builder $q) => $q->where('status', 'disetujui')->where('dokumen_tipe', 'spm_ls')),
+            ], 'nominal');
 
         $masters = $query
             ->orderBy('sub_kegiatan_normal')
@@ -143,6 +152,18 @@ class AnggaranRealisasiService
             ->get(['id', 'spm_id', 'master_anggaran_id', 'nominal'])
             ->each(function (SpmDetail $detail) use (&$realisasiBulanan) {
                 $realisasiBulanan[$detail->spm->tanggal_dokumen->month - 1] += (float) $detail->nominal;
+            });
+
+        // Pengembalian disetujui mengurangi realisasi pada BULAN pengembalian
+        // itu sendiri (tanggal_pengembalian), bukan menulis ulang bulan
+        // dokumen sumbernya - konsisten dengan prinsip append-only.
+        PengembalianDetail::query()
+            ->whereHas('pengembalian', fn (Builder $query) => $query->where('status', 'disetujui')->whereYear('tanggal_pengembalian', $tahun))
+            ->whereHas('masterAnggaran', fn (Builder $query) => $this->terapkanFilterMaster($query, $filters))
+            ->with('pengembalian:id,tanggal_pengembalian')
+            ->get(['id', 'pengembalian_id', 'master_anggaran_id', 'nominal'])
+            ->each(function (PengembalianDetail $detail) use (&$realisasiBulanan) {
+                $realisasiBulanan[$detail->pengembalian->tanggal_pengembalian->month - 1] -= (float) $detail->nominal;
             });
 
         $rakRows = $this->rakQuery($filters, $tahun)->get(['bulan', 'target']);
@@ -250,6 +271,20 @@ class AnggaranRealisasiService
                 $sub = $subByMaster->get($detail->master_anggaran_id);
                 if ($sub !== null) {
                     $realisasiSdBulan->put($sub, (float) $realisasiSdBulan->get($sub, 0.0) + (float) $detail->nominal);
+                }
+            });
+
+        PengembalianDetail::query()
+            ->whereIn('master_anggaran_id', $masters->pluck('id'))
+            ->whereHas('pengembalian', fn (Builder $query) => $query
+                ->where('status', 'disetujui')
+                ->whereYear('tanggal_pengembalian', $tahun)
+                ->whereMonth('tanggal_pengembalian', '<=', $bulanAcuan))
+            ->get(['master_anggaran_id', 'nominal'])
+            ->each(function (PengembalianDetail $detail) use ($subByMaster, $realisasiSdBulan) {
+                $sub = $subByMaster->get($detail->master_anggaran_id);
+                if ($sub !== null) {
+                    $realisasiSdBulan->put($sub, (float) $realisasiSdBulan->get($sub, 0.0) - (float) $detail->nominal);
                 }
             });
 

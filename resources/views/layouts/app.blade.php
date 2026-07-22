@@ -47,6 +47,8 @@
             'tk-monitor' => route('tunjangan.monitoring'),
             'tk-form' => route('tunjangan.form'),
             'invspj' => route('inventarisasi-spj.index'),
+            'pengembalian-create' => route('pengembalian.create'),
+            'pengembalian' => route('pengembalian.index'),
             'profil' => route('profil.show'),
         ];
         $href = fn ($key) => $navHref[$key] ?? '#';
@@ -168,6 +170,21 @@
         <div class="sb-sub">
           <a class="sb-item sub{{ $activeNav === 'spm-upgu' ? ' active' : '' }}" href="{{ route('spm.up-gu.index') }}">SPM UP/GU</a>
           <a class="sb-item sub{{ $activeNav === 'spm-ls' ? ' active' : '' }}" href="{{ route('spm.ls.index') }}">SPM LS</a>
+        </div>
+      </div>
+      @endif
+
+      @php($g = $group(['pengembalian-create', 'pengembalian']))
+      @if ($g['visible'])
+      <div class="sb-group{{ $g['open'] ? ' open' : '' }}">
+        <div class="sb-item sb-parent" id="nav-pengembalian-parent">
+          <svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><polyline points="3 3 3 8 8 8"/></svg>
+          Pengembalian
+          <svg class="chev" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+        <div class="sb-sub">
+          @if (in_array('pengembalian-create', $akses)) <a class="sb-item sub{{ $activeNav === 'pengembalian-create' ? ' active' : '' }}" href="{{ $href('pengembalian-create') }}">Input Data Pengembalian</a> @endif
+          @if (in_array('pengembalian', $akses)) <a class="sb-item sub{{ $activeNav === 'pengembalian' ? ' active' : '' }}" href="{{ $href('pengembalian') }}">Daftar Pengembalian</a> @endif
         </div>
       </div>
       @endif

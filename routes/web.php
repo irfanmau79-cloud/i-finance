@@ -15,6 +15,7 @@ use App\Http\Controllers\NpdNarasumberController;
 use App\Http\Controllers\NpdPdController;
 use App\Http\Controllers\NpdTransportController;
 use App\Http\Controllers\PelimpahanController;
+use App\Http\Controllers\PengembalianController;
 use App\Http\Controllers\PengumumanController;
 use App\Http\Controllers\PerjalananDinasDashboardController;
 use App\Http\Controllers\PerjalananDinasPegawaiController;
@@ -221,6 +222,28 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::put('/spm/ls/{spm}', [SpmController::class, 'updateLs'])->name('spm.ls.update');
 
         Route::delete('/spm/{spm}', [SpmController::class, 'destroy'])->name('spm.destroy');
+    });
+
+    // Pengembalian: Bendahara Pengeluaran dan BPP boleh input & lihat; HANYA
+    // Bendahara Pengeluaran yang boleh menyetujui (lihat middleware role di
+    // route setujui di bawah). Hapus draft: pembuatnya sendiri atau Bendahara
+    // Pengeluaran - dicek di controller (PengembalianController::destroy),
+    // bukan lewat middleware role, karena bukan restriksi per-role murni.
+    Route::middleware('role:superadmin,bendahara_pengeluaran,bpp')->group(function () {
+        Route::get('/pengembalian', [PengembalianController::class, 'index'])
+            ->middleware('menu-akses:pengembalian')->name('pengembalian.index');
+        Route::get('/pengembalian/create', [PengembalianController::class, 'create'])
+            ->middleware('menu-akses:pengembalian-create')->name('pengembalian.create');
+        Route::post('/pengembalian', [PengembalianController::class, 'store'])
+            ->middleware('menu-akses:pengembalian-create')->name('pengembalian.store');
+        Route::get('/pengembalian/{pengembalian}/dokumen-pendukung', [PengembalianController::class, 'unduhDokumenPendukung'])
+            ->middleware('menu-akses:pengembalian')->name('pengembalian.dokumen-pendukung');
+        Route::delete('/pengembalian/{pengembalian}', [PengembalianController::class, 'destroy'])
+            ->middleware('menu-akses:pengembalian')->name('pengembalian.destroy');
+    });
+
+    Route::middleware(['menu-akses:pengembalian', 'role:superadmin,bendahara_pengeluaran'])->group(function () {
+        Route::post('/pengembalian/{pengembalian}/setujui', [PengembalianController::class, 'setujui'])->name('pengembalian.setujui');
     });
 
     // Manajemen Data (export + import): khusus superadmin dan Bendahara Pengeluaran.

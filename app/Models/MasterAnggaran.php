@@ -66,6 +66,12 @@ class MasterAnggaran extends Model
         return $this->hasMany(SpmDetail::class);
     }
 
+    /** Baris mata anggaran Pengembalian (draft maupun disetujui - lihat Pengembalian::buatDraft()). */
+    public function pengembalianDetail(): HasMany
+    {
+        return $this->hasMany(PengembalianDetail::class);
+    }
+
     /**
      * Normalisasi whitespace (baris baru / spasi ganda dari hasil impor
      * data — lihat juga DataTambahan::normalisasiSpasi()). Dipakai sebagai
@@ -114,24 +120,59 @@ class MasterAnggaran extends Model
         };
     }
 
-    /** Dana terikat seluruh NPD aktif/non-batal, termasuk draft dan proses. */
-    public function danaTerikatNpd(): float
+    /**
+     * SUM(pengembalian_detail.nominal) untuk Pengembalian berstatus
+     * 'disetujui' yang sumbernya NPD, pada mata anggaran ini. Draft tidak
+     * dihitung — lihat Pengembalian::STATUS_DISETUJUI.
+     */
+    public function pengembalianDisetujuiNpd(): float
     {
-        if (array_key_exists('dana_terikat_npd_total', $this->attributes)) {
-            return (float) ($this->attributes['dana_terikat_npd_total'] ?? 0);
+        if (array_key_exists('pengembalian_disetujui_npd_total', $this->attributes)) {
+            return (float) ($this->attributes['pengembalian_disetujui_npd_total'] ?? 0);
         }
 
-        return (float) $this->npd()->where('status', 'not like', '%batal%')->sum('nominal');
+        return (float) $this->pengembalianDetail()
+            ->whereHas('pengembalian', fn ($q) => $q->where('status', 'disetujui')->where('dokumen_tipe', 'npd'))
+            ->sum('nominal');
     }
 
-    /** Realisasi aktual jalur NPD hanya berasal dari NPD berstatus Selesai. */
-    public function realisasiNpd(): float
+    /** Sama seperti pengembalianDisetujuiNpd(), untuk pengembalian yang sumbernya SPM LS. */
+    public function pengembalianDisetujuiLs(): float
     {
-        if (array_key_exists('realisasi_npd_total', $this->attributes)) {
-            return (float) ($this->attributes['realisasi_npd_total'] ?? 0);
+        if (array_key_exists('pengembalian_disetujui_ls_total', $this->attributes)) {
+            return (float) ($this->attributes['pengembalian_disetujui_ls_total'] ?? 0);
         }
 
-        return (float) $this->npd()->where('status', 'Selesai')->sum('nominal');
+        return (float) $this->pengembalianDetail()
+            ->whereHas('pengembalian', fn ($q) => $q->where('status', 'disetujui')->where('dokumen_tipe', 'spm_ls'))
+            ->sum('nominal');
+    }
+
+    /**
+     * Dana terikat seluruh NPD aktif/non-batal, termasuk draft dan proses,
+     * dikurangi pengembalian disetujui dari NPD (uang yang sudah
+     * dikembalikan tidak lagi mengikat pagu).
+     */
+    public function danaTerikatNpd(): float
+    {
+        $bruto = array_key_exists('dana_terikat_npd_total', $this->attributes)
+            ? (float) ($this->attributes['dana_terikat_npd_total'] ?? 0)
+            : (float) $this->npd()->where('status', 'not like', '%batal%')->sum('nominal');
+
+        return $bruto - $this->pengembalianDisetujuiNpd();
+    }
+
+    /**
+     * Realisasi aktual jalur NPD hanya berasal dari NPD berstatus Selesai,
+     * dikurangi pengembalian disetujui dari NPD (realisasi_npd_net).
+     */
+    public function realisasiNpd(): float
+    {
+        $bruto = array_key_exists('realisasi_npd_total', $this->attributes)
+            ? (float) ($this->attributes['realisasi_npd_total'] ?? 0)
+            : (float) $this->npd()->where('status', 'Selesai')->sum('nominal');
+
+        return $bruto - $this->pengembalianDisetujuiNpd();
     }
 
     /**
@@ -139,15 +180,16 @@ class MasterAnggaran extends Model
      * tanpa NPD, langsung mengurangi pagu. Lihat Spm::buatLs(). PPN/PPh SPM
      * LS tidak dipecah per mata anggaran, jadi realisasi per mata anggaran
      * tetap dihitung dari nominal BRUTO tiap baris spm_detail (konsisten
-     * dengan cara NPD menghitung realisasi dari nominal bruto).
+     * dengan cara NPD menghitung realisasi dari nominal bruto), dikurangi
+     * pengembalian disetujui dari SPM LS (realisasi_ls_net).
      */
     public function realisasiLs(): float
     {
-        if (array_key_exists('realisasi_ls_total', $this->attributes)) {
-            return (float) ($this->attributes['realisasi_ls_total'] ?? 0);
-        }
+        $bruto = array_key_exists('realisasi_ls_total', $this->attributes)
+            ? (float) ($this->attributes['realisasi_ls_total'] ?? 0)
+            : (float) $this->spmDetail()->sum('nominal');
 
-        return (float) $this->spmDetail()->sum('nominal');
+        return $bruto - $this->pengembalianDisetujuiLs();
     }
 
     /** Nilai pagu DPA pada mata anggaran ini. */
@@ -230,7 +272,21 @@ class MasterAnggaran extends Model
             ->whereHas('spm', fn ($query) => $query->whereDate('tanggal_dokumen', '<=', $npd->tanggal_npd))
             ->sum('nominal');
 
-        return (float) $this->pagu - $danaTerikatSebelum - $realisasiLsSebelum;
+        $pengembalianNpdSebelum = (float) $this->pengembalianDetail()
+            ->whereHas('pengembalian', fn ($query) => $query->where('status', 'disetujui')
+                ->where('dokumen_tipe', 'npd')
+                ->whereDate('tanggal_pengembalian', '<=', $npd->tanggal_npd))
+            ->sum('nominal');
+
+        $pengembalianLsSebelum = (float) $this->pengembalianDetail()
+            ->whereHas('pengembalian', fn ($query) => $query->where('status', 'disetujui')
+                ->where('dokumen_tipe', 'spm_ls')
+                ->whereDate('tanggal_pengembalian', '<=', $npd->tanggal_npd))
+            ->sum('nominal');
+
+        return (float) $this->pagu
+            - ($danaTerikatSebelum - $pengembalianNpdSebelum)
+            - ($realisasiLsSebelum - $pengembalianLsSebelum);
     }
 
     /**
