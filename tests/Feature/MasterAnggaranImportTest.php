@@ -340,8 +340,7 @@ class MasterAnggaranImportTest extends TestCase
         Spm::buatLs([
             'tanggal_dokumen' => '2026-07-10',
             'nomor_dokumen' => '001/SPM-LS/2026',
-            'master_anggaran_id' => $existing->id,
-            'nominal' => 5_000_000,
+            'baris' => [['master_anggaran_id' => $existing->id, 'nominal' => 5_000_000]],
             'penerima' => 'Vendor Uji',
             'uraian' => 'Pembayaran LS',
         ]);

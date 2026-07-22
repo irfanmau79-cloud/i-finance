@@ -5,7 +5,7 @@ namespace App\Services;
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
 use App\Models\RakBulanan;
-use App\Models\Spm;
+use App\Models\SpmDetail;
 use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Support\Collection;
 
@@ -64,9 +64,7 @@ class AnggaranRealisasiService
             ->withSum([
                 'npd as realisasi_npd_total' => fn (Builder $query) => $query->where('status', 'Selesai'),
             ], 'nominal')
-            ->withSum([
-                'spm as realisasi_ls_total' => fn (Builder $query) => $query->where('jenis_spm', 'ls'),
-            ], 'nominal');
+            ->withSum('spmDetail as realisasi_ls_total', 'nominal');
 
         $masters = $query
             ->orderBy('sub_kegiatan_normal')
@@ -138,13 +136,13 @@ class AnggaranRealisasiService
                 $realisasiBulanan[$npd->tanggal_npd->month - 1] += (float) $npd->nominal;
             });
 
-        Spm::query()
-            ->where('jenis_spm', 'ls')
-            ->whereYear('tanggal_dokumen', $tahun)
+        SpmDetail::query()
+            ->whereHas('spm', fn (Builder $query) => $query->whereYear('tanggal_dokumen', $tahun))
             ->whereHas('masterAnggaran', fn (Builder $query) => $this->terapkanFilterMaster($query, $filters))
-            ->get(['tanggal_dokumen', 'nominal'])
-            ->each(function (Spm $spm) use (&$realisasiBulanan) {
-                $realisasiBulanan[$spm->tanggal_dokumen->month - 1] += (float) $spm->nominal;
+            ->with('spm:id,tanggal_dokumen')
+            ->get(['id', 'spm_id', 'master_anggaran_id', 'nominal'])
+            ->each(function (SpmDetail $detail) use (&$realisasiBulanan) {
+                $realisasiBulanan[$detail->spm->tanggal_dokumen->month - 1] += (float) $detail->nominal;
             });
 
         $rakRows = $this->rakQuery($filters, $tahun)->get(['bulan', 'target']);
@@ -242,16 +240,16 @@ class AnggaranRealisasiService
                 }
             });
 
-        Spm::query()
+        SpmDetail::query()
             ->whereIn('master_anggaran_id', $masters->pluck('id'))
-            ->where('jenis_spm', 'ls')
-            ->whereYear('tanggal_dokumen', $tahun)
-            ->whereMonth('tanggal_dokumen', '<=', $bulanAcuan)
+            ->whereHas('spm', fn (Builder $query) => $query
+                ->whereYear('tanggal_dokumen', $tahun)
+                ->whereMonth('tanggal_dokumen', '<=', $bulanAcuan))
             ->get(['master_anggaran_id', 'nominal'])
-            ->each(function (Spm $spm) use ($subByMaster, $realisasiSdBulan) {
-                $sub = $subByMaster->get($spm->master_anggaran_id);
+            ->each(function (SpmDetail $detail) use ($subByMaster, $realisasiSdBulan) {
+                $sub = $subByMaster->get($detail->master_anggaran_id);
                 if ($sub !== null) {
-                    $realisasiSdBulan->put($sub, (float) $realisasiSdBulan->get($sub, 0.0) + (float) $spm->nominal);
+                    $realisasiSdBulan->put($sub, (float) $realisasiSdBulan->get($sub, 0.0) + (float) $detail->nominal);
                 }
             });
 

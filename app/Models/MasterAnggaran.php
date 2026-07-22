@@ -60,6 +60,12 @@ class MasterAnggaran extends Model
         return $this->hasMany(Spm::class);
     }
 
+    /** Baris mata anggaran SPM LS (lihat Spm::buatLs()) - setiap baris di sini pasti milik SPM berjenis 'ls'. */
+    public function spmDetail(): HasMany
+    {
+        return $this->hasMany(SpmDetail::class);
+    }
+
     /**
      * Normalisasi whitespace (baris baru / spasi ganda dari hasil impor
      * data — lihat juga DataTambahan::normalisasiSpasi()). Dipakai sebagai
@@ -130,7 +136,10 @@ class MasterAnggaran extends Model
 
     /**
      * Realisasi dari jalur LS: dicairkan langsung di BPKAD ke pihak ketiga
-     * tanpa NPD, langsung mengurangi pagu. Lihat Spm::buatLs().
+     * tanpa NPD, langsung mengurangi pagu. Lihat Spm::buatLs(). PPN/PPh SPM
+     * LS tidak dipecah per mata anggaran, jadi realisasi per mata anggaran
+     * tetap dihitung dari nominal BRUTO tiap baris spm_detail (konsisten
+     * dengan cara NPD menghitung realisasi dari nominal bruto).
      */
     public function realisasiLs(): float
     {
@@ -138,7 +147,7 @@ class MasterAnggaran extends Model
             return (float) ($this->attributes['realisasi_ls_total'] ?? 0);
         }
 
-        return (float) $this->spm()->where('jenis_spm', 'ls')->sum('nominal');
+        return (float) $this->spmDetail()->sum('nominal');
     }
 
     /** Nilai pagu DPA pada mata anggaran ini. */
@@ -217,9 +226,8 @@ class MasterAnggaran extends Model
             ->where('status', 'not like', '%batal%')
             ->sum('nominal');
 
-        $realisasiLsSebelum = (float) $this->spm()
-            ->where('jenis_spm', 'ls')
-            ->whereDate('tanggal_dokumen', '<=', $npd->tanggal_npd)
+        $realisasiLsSebelum = (float) $this->spmDetail()
+            ->whereHas('spm', fn ($query) => $query->whereDate('tanggal_dokumen', '<=', $npd->tanggal_npd))
             ->sum('nominal');
 
         return (float) $this->pagu - $danaTerikatSebelum - $realisasiLsSebelum;

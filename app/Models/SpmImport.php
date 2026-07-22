@@ -24,10 +24,29 @@ use Throwable;
  * menyentuh tabel spm) -> preview -> konfirmasi -> validasi ulang + commit
  * dalam satu transaction. Satu batch selalu satu jenis_spm.
  *
+ * Sejak Prompt 22, satu SPM LS bisa mencakup beberapa mata anggaran - format
+ * file mengikuti saran di spesifikasi: SATU BARIS FILE per kombinasi SPM +
+ * mata anggaran, dengan kolom header (Nomor/Tanggal Dokumen, SP2D, PPN, PPh,
+ * Penerima, Uraian) DIULANG persis sama di setiap baris milik SPM yang sama.
+ * Baris-baris itu dikelompokkan lewat kunci (nomor_dokumen, tanggal_dokumen)
+ * saat commit - lihat konfirmasi(). Ini dipilih dibanding format
+ * "satu-baris-per-SPM-dengan-kolom-mata-anggaran-berulang" karena jumlah
+ * mata anggaran per SPM tidak tetap, sehingga tidak bisa direpresentasikan
+ * sebagai kolom tetap di spreadsheet - baris datar per kombinasi jauh lebih
+ * sederhana untuk dibaca/ditulis Excel dan konsisten dengan cara pengguna
+ * sudah terbiasa mengisi baris demi baris.
+ *
  * LS wajib cocok ke master_anggaran aktif (tidak pernah membuat baris baru
  * di master_anggaran) dan tunduk pada batas anggaran AGREGAT per batch:
  * beberapa baris LS pada file yang sama bisa menyasar mata anggaran yang
  * sama, jadi validasi per-baris saja tidak cukup - lihat terapkanBatasAnggaran().
+ *
+ * Satu dokumen SPM LS disimpan SEKALIGUS atau TIDAK SAMA SEKALI
+ * (all-or-nothing per dokumen, sama seperti Spm::buatLs()/updateLs() untuk
+ * input manual): kalau salah satu baris pada dokumen yang sama ditolak (mata
+ * anggaran tidak ditemukan, melebihi sisa tersedia, duplikat mata anggaran,
+ * atau kolom header antar baris tidak konsisten), SELURUH baris pada
+ * dokumen itu ikut ditolak - lihat terapkanAturanGrupDokumen().
  */
 #[Fillable([
     'user_id',
@@ -90,7 +109,7 @@ class SpmImport extends Model
             throw new InvalidArgumentException("Jenis SPM tidak dikenal: {$jenisSpm}");
         }
 
-        $sheet = new SpmUploadImport();
+        $sheet = new SpmUploadImport;
         Excel::import($sheet, $file);
 
         $baris = $sheet->rows->filter(
@@ -123,7 +142,7 @@ class SpmImport extends Model
                 $import->baris()->create(self::kolomBaris($nomorBaris, $hasil));
             }
 
-            $import->update(self::hitungRingkasan($hasilBaris));
+            $import->update(self::hitungRingkasan($hasilBaris, $jenisSpm));
 
             return $import;
         });
@@ -177,68 +196,12 @@ class SpmImport extends Model
 
             if ($this->jenis_spm === 'ls') {
                 $hasilBaris = self::terapkanBatasAnggaran($hasilBaris);
+                $hasilBaris = self::terapkanAturanGrupDokumen($hasilBaris);
             }
 
-            $baruAkhir = 0;
-            $updateAkhir = 0;
-            $ditolakTambahan = 0;
-
-            foreach ($hasilBaris as $hasil) {
-                $barisModel = $hasil['_baris'];
-
-                if ($hasil['aksi'] === SpmImportRow::AKSI_DITOLAK) {
-                    $barisModel->update([
-                        'aksi' => SpmImportRow::AKSI_DITOLAK,
-                        'alasan' => $hasil['alasan'],
-                        'sisa_sebelum' => $hasil['sisa_sebelum'],
-                        'sisa_sesudah' => $hasil['sisa_sesudah'],
-                    ]);
-                    $ditolakTambahan++;
-
-                    continue;
-                }
-
-                $data = [
-                    'tanggal_dokumen' => $hasil['tanggal_dokumen'],
-                    'nomor_dokumen' => $hasil['nomor_dokumen'],
-                    'tanggal_sp2d' => $hasil['tanggal_sp2d'],
-                    'nomor_sp2d' => $hasil['nomor_sp2d'],
-                    'master_anggaran_id' => $hasil['master_anggaran_id'],
-                    'nominal' => $hasil['nominal'],
-                    'ppn' => $hasil['ppn'],
-                    'pph1' => $hasil['pph1'],
-                    'jenis_pph1' => $hasil['jenis_pph1'],
-                    'pph2' => $hasil['pph2'],
-                    'jenis_pph2' => $hasil['jenis_pph2'],
-                    'penerima' => $hasil['penerima'],
-                    'uraian' => $hasil['uraian'],
-                ];
-
-                try {
-                    if ($hasil['spm_id'] !== null) {
-                        $spm = Spm::where('id', $hasil['spm_id'])->lockForUpdate()->firstOrFail();
-                        $spm->update($data + ['jenis_spm' => $this->jenis_spm]);
-                    } else {
-                        $spm = Spm::create($data + ['jenis_spm' => $this->jenis_spm]);
-                    }
-                } catch (Throwable $e) {
-                    // Dilempar ulang di DALAM transaction supaya seluruh batch
-                    // (termasuk baris lain yang sudah disimpan) rollback.
-                    throw new RuntimeException("Baris {$barisModel->nomor_baris}: gagal disimpan - {$e->getMessage()}");
-                }
-
-                if ($hasil['spm_id'] !== null) {
-                    $updateAkhir++;
-                } else {
-                    $baruAkhir++;
-                }
-
-                $barisModel->update([
-                    'spm_id' => $spm->id,
-                    'sisa_sebelum' => $hasil['sisa_sebelum'],
-                    'sisa_sesudah' => $hasil['sisa_sesudah'],
-                ]);
-            }
+            [$baruAkhir, $updateAkhir, $ditolakTambahan] = $this->jenis_spm === 'ls'
+                ? self::commitBarisLs($hasilBaris)
+                : self::commitBarisUpGu($hasilBaris);
 
             $this->update([
                 'status' => self::STATUS_COMMITTED,
@@ -281,7 +244,14 @@ class SpmImport extends Model
 
             $hasil = $jenisSpm === 'ls' ? self::evaluasiLs($mentah) : self::evaluasiUpGu($mentah);
 
-            if ($hasil['aksi'] !== SpmImportRow::AKSI_DITOLAK) {
+            // UP/GU: satu baris file SELALU satu dokumen, jadi nomor+tanggal
+            // dokumen yang sama pada baris lain adalah duplikat murni. LS
+            // SENGAJA dikecualikan - baris dengan nomor+tanggal dokumen yang
+            // sama adalah cara file merepresentasikan beberapa mata anggaran
+            // dalam SATU dokumen yang sama (lihat dok kelas ini); duplikat
+            // mata anggaran DALAM dokumen yang sama dicek terpisah di
+            // terapkanAturanGrupDokumen().
+            if ($jenisSpm !== 'ls' && $hasil['aksi'] !== SpmImportRow::AKSI_DITOLAK) {
                 $kunci = mb_strtolower((string) $hasil['nomor_dokumen']).'|'.$hasil['tanggal_dokumen'];
 
                 if (isset($kunciTerlihat[$kunci])) {
@@ -297,6 +267,7 @@ class SpmImport extends Model
 
         if ($jenisSpm === 'ls') {
             $hasilBaris = self::terapkanBatasAnggaran($hasilBaris);
+            $hasilBaris = self::terapkanAturanGrupDokumen($hasilBaris);
         }
 
         return $hasilBaris;
@@ -420,6 +391,16 @@ class SpmImport extends Model
             ->lockForUpdate()
             ->first();
 
+        // "lama" hanya berarti kalau dokumen ini sudah punya baris spm_detail
+        // pada mata anggaran YANG SAMA sebelumnya - kalau baris dipindah ke
+        // mata anggaran lain, nominal lama tetap mengurangi mata anggaran
+        // LAMA di realisasiLs() sampai baris ini benar-benar di-commit
+        // (spm_detail lama baru dihapus saat commit), jadi tidak dikreditkan
+        // di sini.
+        $nominalLama = $existing
+            ? (float) (SpmDetail::where('spm_id', $existing->id)->where('master_anggaran_id', $masterAnggaran->id)->value('nominal') ?? 0)
+            : 0.0;
+
         return $dasar + [
             'aksi' => $existing ? SpmImportRow::AKSI_UPDATE : SpmImportRow::AKSI_BARU,
             'alasan' => null,
@@ -428,11 +409,7 @@ class SpmImport extends Model
             'sub_kegiatan' => $subKegiatan,
             'kode_rekening' => $kodeRekening,
             'tagging_nama' => $taggingNama,
-            // "lama" hanya berarti kalau row ini update DAN mata anggarannya
-            // TIDAK berubah - kalau LS dipindah ke mata anggaran lain, nominal
-            // lama tetap mengurangi mata anggaran LAMA di realisasiLs() sampai
-            // baris ini benar-benar di-commit, jadi tidak dikreditkan di sini.
-            'nominal_lama' => ($existing && $existing->master_anggaran_id === $masterAnggaran->id) ? (float) $existing->nominal : 0.0,
+            'nominal_lama' => $nominalLama,
             'sisa_sebelum' => null,
             'sisa_sesudah' => null,
         ];
@@ -488,6 +465,242 @@ class SpmImport extends Model
         return $hasilBaris;
     }
 
+    /**
+     * Satu dokumen SPM LS = kumpulan baris file dengan (nomor_dokumen,
+     * tanggal_dokumen) yang sama. Diterapkan SETELAH evaluasi per-baris dan
+     * batas anggaran agregat: mengecek mata anggaran tidak duplikat DAN
+     * kolom header (SP2D, PPN, PPh, Penerima, Uraian) konsisten antar baris
+     * pada dokumen yang sama, lalu menegakkan all-or-nothing PER DOKUMEN -
+     * kalau satu baris pada dokumen itu ditolak (alasan apa pun, termasuk
+     * dari terapkanBatasAnggaran()), seluruh baris dokumen itu ikut ditolak.
+     * Dokumen lain pada batch yang sama tidak terpengaruh. Sama seperti
+     * Spm::buatLs()/updateLs() untuk input manual: satu SPM adalah satu
+     * dokumen fisik, tidak boleh tersimpan sebagian.
+     *
+     * @param  array<int, array>  $hasilBaris
+     * @return array<int, array>
+     */
+    private static function terapkanAturanGrupDokumen(array $hasilBaris): array
+    {
+        $grup = [];
+
+        foreach ($hasilBaris as $nomorBaris => $hasil) {
+            $kunci = mb_strtolower((string) $hasil['nomor_dokumen']).'|'.$hasil['tanggal_dokumen'];
+            $grup[$kunci][] = $nomorBaris;
+        }
+
+        foreach ($grup as $kunci => $nomorBarisList) {
+            if (count($nomorBarisList) < 2) {
+                continue;
+            }
+
+            $alasanGrup = null;
+            $matadipakai = [];
+
+            foreach ($nomorBarisList as $n) {
+                $hasil = $hasilBaris[$n];
+                if ($hasil['aksi'] === SpmImportRow::AKSI_DITOLAK || $hasil['master_anggaran_id'] === null) {
+                    continue;
+                }
+                if (in_array($hasil['master_anggaran_id'], $matadipakai, true)) {
+                    $alasanGrup = "Mata anggaran dipilih lebih dari satu kali dalam dokumen {$hasil['nomor_dokumen']} ({$hasil['tanggal_dokumen']}).";
+                    break;
+                }
+                $matadipakai[] = $hasil['master_anggaran_id'];
+            }
+
+            if ($alasanGrup === null) {
+                $headerPertama = null;
+                foreach ($nomorBarisList as $n) {
+                    $hasil = $hasilBaris[$n];
+                    if ($hasil['aksi'] === SpmImportRow::AKSI_DITOLAK) {
+                        continue;
+                    }
+                    $header = [
+                        $hasil['tanggal_sp2d'], $hasil['nomor_sp2d'], $hasil['ppn'],
+                        $hasil['pph1'], $hasil['jenis_pph1'], $hasil['pph2'], $hasil['jenis_pph2'],
+                        $hasil['penerima'], $hasil['uraian'],
+                    ];
+                    if ($headerPertama === null) {
+                        $headerPertama = $header;
+                    } elseif ($header !== $headerPertama) {
+                        $alasanGrup = "Kolom SP2D/PPN/PPh/Penerima/Uraian berbeda antar baris untuk dokumen {$hasil['nomor_dokumen']} ({$hasil['tanggal_dokumen']}) - harus sama persis di semua baris dokumen yang sama.";
+                        break;
+                    }
+                }
+            }
+
+            if ($alasanGrup === null) {
+                $barisDitolak = collect($nomorBarisList)->first(fn ($n) => $hasilBaris[$n]['aksi'] === SpmImportRow::AKSI_DITOLAK);
+                if ($barisDitolak !== null) {
+                    $dok = $hasilBaris[$barisDitolak];
+                    $alasanGrup = "Ditolak karena salah satu baris lain pada dokumen {$dok['nomor_dokumen']} ({$dok['tanggal_dokumen']}) ditolak - satu dokumen SPM LS disimpan sekaligus atau tidak sama sekali.";
+                }
+            }
+
+            if ($alasanGrup !== null) {
+                foreach ($nomorBarisList as $n) {
+                    if ($hasilBaris[$n]['aksi'] !== SpmImportRow::AKSI_DITOLAK) {
+                        $hasilBaris[$n]['aksi'] = SpmImportRow::AKSI_DITOLAK;
+                        $hasilBaris[$n]['alasan'] = $alasanGrup;
+                    }
+                }
+            }
+        }
+
+        return $hasilBaris;
+    }
+
+    /** @return array{0: int, 1: int, 2: int} [baruAkhir, updateAkhir, ditolakTambahan] */
+    private static function commitBarisUpGu(array $hasilBaris): array
+    {
+        $baru = 0;
+        $update = 0;
+        $ditolakTambahan = 0;
+
+        foreach ($hasilBaris as $hasil) {
+            $barisModel = $hasil['_baris'];
+
+            if ($hasil['aksi'] === SpmImportRow::AKSI_DITOLAK) {
+                $barisModel->update([
+                    'aksi' => SpmImportRow::AKSI_DITOLAK,
+                    'alasan' => $hasil['alasan'],
+                    'sisa_sebelum' => $hasil['sisa_sebelum'],
+                    'sisa_sesudah' => $hasil['sisa_sesudah'],
+                ]);
+                $ditolakTambahan++;
+
+                continue;
+            }
+
+            $data = [
+                'tanggal_dokumen' => $hasil['tanggal_dokumen'],
+                'nomor_dokumen' => $hasil['nomor_dokumen'],
+                'tanggal_sp2d' => $hasil['tanggal_sp2d'],
+                'nomor_sp2d' => $hasil['nomor_sp2d'],
+                'nominal' => $hasil['nominal'],
+                'ppn' => $hasil['ppn'],
+                'pph1' => $hasil['pph1'],
+                'jenis_pph1' => $hasil['jenis_pph1'],
+                'pph2' => $hasil['pph2'],
+                'jenis_pph2' => $hasil['jenis_pph2'],
+                'penerima' => $hasil['penerima'],
+                'uraian' => $hasil['uraian'],
+            ];
+
+            try {
+                if ($hasil['spm_id'] !== null) {
+                    $spm = Spm::where('id', $hasil['spm_id'])->lockForUpdate()->firstOrFail();
+                    $spm->update($data + ['jenis_spm' => 'up_gu']);
+                } else {
+                    $spm = Spm::create($data + ['jenis_spm' => 'up_gu']);
+                }
+            } catch (Throwable $e) {
+                // Dilempar ulang di DALAM transaction supaya seluruh batch
+                // (termasuk baris lain yang sudah disimpan) rollback.
+                throw new RuntimeException("Baris {$barisModel->nomor_baris}: gagal disimpan - {$e->getMessage()}");
+            }
+
+            $hasil['spm_id'] !== null ? $update++ : $baru++;
+
+            $barisModel->update([
+                'spm_id' => $spm->id,
+                'sisa_sebelum' => $hasil['sisa_sebelum'],
+                'sisa_sesudah' => $hasil['sisa_sesudah'],
+            ]);
+        }
+
+        return [$baru, $update, $ditolakTambahan];
+    }
+
+    /**
+     * Satu grup (nomor_dokumen, tanggal_dokumen) -> satu Spm header + N
+     * SpmDetail (satu per baris file dalam grup itu, sudah lolos
+     * terapkanAturanGrupDokumen() sehingga tiap grup yang sampai di sini
+     * seluruh baris diterimanya konsisten - baik semua diterima atau
+     * (ditangani terpisah di bawah) semua ditolak). Baris detail lama
+     * diganti seluruhnya saat update, sama seperti Spm::updateLs().
+     *
+     * @return array{0: int, 1: int, 2: int} [baruAkhir, updateAkhir, ditolakTambahan]
+     */
+    private static function commitBarisLs(array $hasilBaris): array
+    {
+        $baru = 0;
+        $update = 0;
+        $ditolakTambahan = 0;
+
+        $grup = collect($hasilBaris)
+            ->groupBy(fn (array $hasil) => mb_strtolower((string) $hasil['nomor_dokumen']).'|'.$hasil['tanggal_dokumen']);
+
+        foreach ($grup as $anggotaGrup) {
+            foreach ($anggotaGrup as $hasil) {
+                if ($hasil['aksi'] === SpmImportRow::AKSI_DITOLAK) {
+                    $hasil['_baris']->update([
+                        'aksi' => SpmImportRow::AKSI_DITOLAK,
+                        'alasan' => $hasil['alasan'],
+                        'sisa_sebelum' => $hasil['sisa_sebelum'],
+                        'sisa_sesudah' => $hasil['sisa_sesudah'],
+                    ]);
+                    $ditolakTambahan++;
+                }
+            }
+
+            $diterima = $anggotaGrup->reject(fn (array $hasil) => $hasil['aksi'] === SpmImportRow::AKSI_DITOLAK);
+
+            if ($diterima->isEmpty()) {
+                continue;
+            }
+
+            $pertama = $diterima->first();
+            $data = [
+                'tanggal_dokumen' => $pertama['tanggal_dokumen'],
+                'nomor_dokumen' => $pertama['nomor_dokumen'],
+                'tanggal_sp2d' => $pertama['tanggal_sp2d'],
+                'nomor_sp2d' => $pertama['nomor_sp2d'],
+                'ppn' => $pertama['ppn'],
+                'pph1' => $pertama['pph1'],
+                'jenis_pph1' => $pertama['jenis_pph1'],
+                'pph2' => $pertama['pph2'],
+                'jenis_pph2' => $pertama['jenis_pph2'],
+                'penerima' => $pertama['penerima'],
+                'uraian' => $pertama['uraian'],
+            ];
+
+            try {
+                if ($pertama['spm_id'] !== null) {
+                    $spm = Spm::where('id', $pertama['spm_id'])->lockForUpdate()->firstOrFail();
+                    $spm->update($data + ['jenis_spm' => 'ls']);
+                    $spm->detail()->delete();
+                } else {
+                    $spm = Spm::create($data + ['jenis_spm' => 'ls']);
+                }
+
+                foreach ($diterima as $hasil) {
+                    $spm->detail()->create([
+                        'master_anggaran_id' => $hasil['master_anggaran_id'],
+                        'nominal' => $hasil['nominal'],
+                    ]);
+                }
+            } catch (Throwable $e) {
+                // Dilempar ulang di DALAM transaction supaya seluruh batch
+                // (termasuk dokumen lain yang sudah disimpan) rollback.
+                throw new RuntimeException("Baris {$pertama['_baris']->nomor_baris}: gagal disimpan - {$e->getMessage()}");
+            }
+
+            $pertama['spm_id'] !== null ? $update++ : $baru++;
+
+            foreach ($diterima as $hasil) {
+                $hasil['_baris']->update([
+                    'spm_id' => $spm->id,
+                    'sisa_sebelum' => $hasil['sisa_sebelum'],
+                    'sisa_sesudah' => $hasil['sisa_sesudah'],
+                ]);
+            }
+        }
+
+        return [$baru, $update, $ditolakTambahan];
+    }
+
     private static function kolomBaris(int $nomorBaris, array $hasil): array
     {
         return [
@@ -516,7 +729,42 @@ class SpmImport extends Model
         ];
     }
 
-    private static function hitungRingkasan(array $hasilBaris): array
+    /**
+     * jumlah_baru/jumlah_update dihitung PER DOKUMEN untuk LS (satu dokumen
+     * = satu SPM, apa pun jumlah baris file-nya) supaya angka yang
+     * ditampilkan tetap berarti "berapa SPM dibuat/diperbarui" seperti
+     * sebelum Prompt 22 - bukan "berapa baris file". jumlah_ditolak tetap
+     * dihitung per BARIS FILE karena tiap baris ditolak ditampilkan
+     * terpisah (dengan alasannya sendiri) di halaman preview. Untuk UP/GU
+     * satu baris selalu satu dokumen, jadi kedua cara hitung identik.
+     */
+    private static function hitungRingkasan(array $hasilBaris, string $jenisSpm): array
+    {
+        if ($jenisSpm !== 'ls') {
+            return self::hitungRingkasanPerBaris($hasilBaris);
+        }
+
+        $baru = 0;
+        $update = 0;
+        $ditolak = 0;
+
+        collect($hasilBaris)
+            ->groupBy(fn (array $hasil) => mb_strtolower((string) $hasil['nomor_dokumen']).'|'.$hasil['tanggal_dokumen'])
+            ->each(function (Collection $anggotaGrup) use (&$baru, &$update, &$ditolak) {
+                $ditolak += $anggotaGrup->filter(fn (array $hasil) => $hasil['aksi'] === SpmImportRow::AKSI_DITOLAK)->count();
+                $diterima = $anggotaGrup->reject(fn (array $hasil) => $hasil['aksi'] === SpmImportRow::AKSI_DITOLAK);
+
+                if ($diterima->isEmpty()) {
+                    return;
+                }
+
+                $diterima->first()['spm_id'] !== null ? $update++ : $baru++;
+            });
+
+        return ['jumlah_baru' => $baru, 'jumlah_update' => $update, 'jumlah_ditolak' => $ditolak];
+    }
+
+    private static function hitungRingkasanPerBaris(array $hasilBaris): array
     {
         $baru = 0;
         $update = 0;

@@ -107,8 +107,7 @@ class RincianRealisasiTest extends TestCase
         Spm::buatLs([
             'nomor_dokumen' => '001/RINCIAN-LS/2026',
             'tanggal_dokumen' => '2026-07-21',
-            'nominal' => 1_000_000,
-            'master_anggaran_id' => $anggaran->id,
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 1_000_000]],
         ]);
 
         $response = $this->actingAs($this->user)->get(route('rincian.index'));
@@ -125,6 +124,36 @@ class RincianRealisasiTest extends TestCase
         $this->actingAs($this->user)->get(route('npd.bj.create'))
             ->assertOk()
             ->assertSee('"sisa":4000000', false);
+    }
+
+    public function test_satu_spm_ls_tiga_baris_menaikkan_realisasi_ls_tiap_mata_anggaran_sesuai_barisnya_sendiri(): void
+    {
+        $a1 = $this->anggaran('Sub Multi A', '5.1.05.01', null, 10_000_000);
+        $a2 = $this->anggaran('Sub Multi B', '5.1.05.02', null, 10_000_000);
+        $a3 = $this->anggaran('Sub Multi C', '5.1.05.03', null, 10_000_000);
+
+        Spm::buatLs([
+            'nomor_dokumen' => '002/RINCIAN-LS/2026',
+            'tanggal_dokumen' => '2026-07-21',
+            'baris' => [
+                ['master_anggaran_id' => $a1->id, 'nominal' => 1_000_000],
+                ['master_anggaran_id' => $a2->id, 'nominal' => 2_000_000],
+                ['master_anggaran_id' => $a3->id, 'nominal' => 3_000_000],
+            ],
+        ]);
+
+        $response = $this->actingAs($this->user)->get(route('rincian.index'));
+        $response->assertOk();
+        $response->assertViewHas('tree', function ($tree) {
+            $angka = fn ($nama) => $tree->firstWhere('nama', $nama)['angka'];
+
+            return $angka('Sub Multi A')['realisasi_ls'] === 1_000_000.0
+                && $angka('Sub Multi B')['realisasi_ls'] === 2_000_000.0
+                && $angka('Sub Multi C')['realisasi_ls'] === 3_000_000.0
+                && $angka('Sub Multi A')['sisa_tersedia'] === 9_000_000.0
+                && $angka('Sub Multi B')['sisa_tersedia'] === 8_000_000.0
+                && $angka('Sub Multi C')['sisa_tersedia'] === 7_000_000.0;
+        });
     }
 
     public function test_backend_route_mengikuti_config_akses_menu(): void

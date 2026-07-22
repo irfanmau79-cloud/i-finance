@@ -24,8 +24,12 @@ class StoreSpmLsRequest extends FormRequest
                     ->where(fn ($query) => $query->where('jenis_spm', 'ls')->whereDate('tanggal_dokumen', $this->input('tanggal_dokumen')))
                     ->ignore($this->route('spm')),
             ],
-            'master_anggaran_id' => ['required', Rule::exists('master_anggaran', 'id')->where('aktif', true)],
-            'nominal' => ['required', 'numeric', 'min:0.01'],
+            // Satu dokumen LS bisa mencakup beberapa mata anggaran sekaligus
+            // (Prompt 22) - PPN/PPh/penerima/uraian di bawah tetap satu angka
+            // untuk seluruh dokumen, hanya nominal yang dipecah per baris.
+            'baris' => ['required', 'array', 'min:1'],
+            'baris.*.master_anggaran_id' => ['required', 'distinct', Rule::exists('master_anggaran', 'id')->where('aktif', true)],
+            'baris.*.nominal' => ['required', 'numeric', 'min:0.01'],
             'ppn' => ['nullable', 'numeric', 'min:0'],
             'pph1' => ['nullable', 'numeric', 'min:0'],
             'jenis_pph1' => ['nullable', 'string', 'max:50'],
@@ -41,8 +45,9 @@ class StoreSpmLsRequest extends FormRequest
         return [
             'tanggal_dokumen' => 'Tanggal SPM',
             'nomor_dokumen' => 'Nomor SPM',
-            'master_anggaran_id' => 'Sumber Dana',
-            'nominal' => 'Nominal',
+            'baris' => 'Baris Mata Anggaran',
+            'baris.*.master_anggaran_id' => 'Mata Anggaran',
+            'baris.*.nominal' => 'Nominal',
             'uraian' => 'Uraian',
         ];
     }

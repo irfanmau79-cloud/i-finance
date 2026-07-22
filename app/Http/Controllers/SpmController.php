@@ -70,10 +70,10 @@ class SpmController extends Controller
         try {
             $spm = Spm::buatLs($request->validated());
         } catch (RuntimeException $e) {
-            return back()->withInput()->withErrors(['nominal' => $e->getMessage()]);
+            return back()->withInput()->withErrors(['baris' => $e->getMessage()]);
         }
 
-        AuditLog::catat('Buat SPM', 'Jenis: LS, Nomor: '.$spm->nomor_dokumen.', Nominal: Rp '.number_format((float) $spm->nominal, 2, ',', '.'));
+        AuditLog::catat('Buat SPM', 'Jenis: LS, Nomor: '.$spm->nomor_dokumen.', Nominal: Rp '.number_format($spm->totalNominal(), 2, ',', '.'));
 
         return redirect()->route('spm.ls.index')->with('success', 'SPM LS berhasil disimpan.');
     }
@@ -82,8 +82,11 @@ class SpmController extends Controller
     {
         abort_unless($spm->jenis_spm === 'ls', 404);
 
+        $spm->load('detail');
+        $mataAnggaranTerpakai = $spm->detail->pluck('master_anggaran_id');
+
         $masterAnggaran = MasterAnggaran::with('tagging')
-            ->where(fn ($query) => $query->where('aktif', true)->orWhereKey($spm->master_anggaran_id))
+            ->where(fn ($query) => $query->where('aktif', true)->orWhereIn('id', $mataAnggaranTerpakai))
             ->orderBy('sub_kegiatan')
             ->get();
 
@@ -97,7 +100,7 @@ class SpmController extends Controller
         try {
             $spm->updateLs($request->validated());
         } catch (RuntimeException $e) {
-            return back()->withInput()->withErrors(['nominal' => $e->getMessage()]);
+            return back()->withInput()->withErrors(['baris' => $e->getMessage()]);
         }
 
         AuditLog::catat('Edit SPM', 'Jenis: LS, SPM #'.$spm->id.' ('.$spm->nomor_dokumen.')');
@@ -120,7 +123,11 @@ class SpmController extends Controller
 
     private function daftarSpm(Request $request, string $jenis)
     {
-        $query = Spm::where('jenis_spm', $jenis)->with('masterAnggaran')->orderBy('tanggal_dokumen', 'desc');
+        $query = Spm::where('jenis_spm', $jenis)->orderBy('tanggal_dokumen', 'desc');
+
+        if ($jenis === 'ls') {
+            $query->with('detail.masterAnggaran');
+        }
 
         if ($request->filled('cari')) {
             $cari = $request->string('cari');

@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Exports\SpmLsExport;
 use App\Models\AuditLog;
 use App\Models\MasterAnggaran;
 use App\Models\Spm;
@@ -48,7 +49,7 @@ class SpmImportTest extends TestCase
     /** @param  array<int, array>  $baris */
     private function buatFileExcel(array $header, array $baris, ?string $namaFile = null): UploadedFile
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->fromArray($header, null, 'A1');
         $sheet->fromArray($baris, null, 'A2');
@@ -310,11 +311,103 @@ class SpmImportTest extends TestCase
         $this->assertSame(1, Spm::count());
         $spm = Spm::firstOrFail();
         $this->assertSame('ls', $spm->jenis_spm);
-        $this->assertSame($anggaran->id, $spm->master_anggaran_id);
+        $this->assertSame($anggaran->id, $spm->detail->first()->master_anggaran_id);
 
         $log = AuditLog::where('aktivitas', 'Import SPM')->latest('id')->first();
         $this->assertNotNull($log);
         $this->assertStringContainsString('LS', $log->keterangan);
         $this->assertStringContainsString('Baru: 1', $log->keterangan);
+    }
+
+    // ---------------- Header + banyak mata anggaran per dokumen (Prompt 22) ----------------
+
+    public function test_beberapa_baris_file_dengan_nomor_dan_tanggal_dokumen_sama_digabung_jadi_satu_spm(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $a1 = $this->buatMasterAnggaran(['kode_rekening' => '5.1.02.05.02.8001']);
+        $a2 = $this->buatMasterAnggaran(['kode_rekening' => '5.1.02.05.02.8002']);
+
+        $file = $this->buatFileExcel(self::HEADER_LS, [
+            $this->baseRowLs($a1, ['nomor_dokumen' => '100/SPM-LS/2026', 'kode_rekening' => $a1->kode_rekening, 'nominal' => 1_000_000]),
+            $this->baseRowLs($a2, ['nomor_dokumen' => '100/SPM-LS/2026', 'kode_rekening' => $a2->kode_rekening, 'nominal' => 2_000_000]),
+        ]);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.store', 'spm-ls'), ['file' => $file]);
+        $import = SpmImport::firstOrFail();
+
+        $this->assertSame(1, $import->jumlah_baru, 'Dua baris file untuk dokumen yang sama = satu SPM baru, bukan dua.');
+        $this->assertSame(0, $import->jumlah_ditolak);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.konfirmasi', $import));
+
+        $this->assertSame(1, Spm::count());
+        $spm = Spm::where('nomor_dokumen', '100/SPM-LS/2026')->firstOrFail();
+        $this->assertSame(2, $spm->detail()->count());
+        $this->assertEquals(3_000_000.0, $spm->totalNominal());
+    }
+
+    public function test_satu_baris_gagal_dalam_dokumen_multi_baris_menolak_seluruh_dokumen(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $cukup = $this->buatMasterAnggaran(['kode_rekening' => '5.1.02.05.02.8011', 'pagu' => 10_000_000]);
+        $kurang = $this->buatMasterAnggaran(['kode_rekening' => '5.1.02.05.02.8012', 'pagu' => 1_000_000]);
+
+        $file = $this->buatFileExcel(self::HEADER_LS, [
+            $this->baseRowLs($cukup, ['nomor_dokumen' => '101/SPM-LS/2026', 'kode_rekening' => $cukup->kode_rekening, 'nominal' => 2_000_000]),
+            $this->baseRowLs($kurang, ['nomor_dokumen' => '101/SPM-LS/2026', 'kode_rekening' => $kurang->kode_rekening, 'nominal' => 5_000_000]),
+        ]);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.store', 'spm-ls'), ['file' => $file]);
+        $import = SpmImport::firstOrFail();
+
+        $this->assertSame(0, $import->jumlah_baru);
+        $this->assertSame(2, $import->jumlah_ditolak, 'Baris yang tadinya valid pada dokumen yang sama ikut ditolak (all-or-nothing per dokumen).');
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.konfirmasi', $import));
+
+        $this->assertSame(0, Spm::count());
+        $this->assertEquals(10_000_000.0, $cukup->fresh()->sisaTersedia(), 'Baris pada mata anggaran yang cukup juga tidak ikut tersimpan.');
+    }
+
+    public function test_export_ls_dapat_diimpor_ulang_roundtrip(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $a1 = $this->buatMasterAnggaran(['kode_rekening' => '5.1.02.05.02.9001']);
+        $a2 = $this->buatMasterAnggaran(['kode_rekening' => '5.1.02.05.02.9002']);
+
+        Spm::buatLs([
+            'tanggal_dokumen' => '2026-07-01',
+            'nomor_dokumen' => '900/SPM-LS/2026',
+            'baris' => [
+                ['master_anggaran_id' => $a1->id, 'nominal' => 1_000_000],
+                ['master_anggaran_id' => $a2->id, 'nominal' => 2_000_000],
+            ],
+            'ppn' => 50_000,
+            'penerima' => 'Vendor Roundtrip',
+            'uraian' => 'Uji roundtrip export-import',
+        ]);
+
+        $export = new SpmLsExport;
+        $baris = $export->query()->get()
+            ->map(fn ($row) => array_slice($export->map($row), 0, count(self::HEADER_LS)))
+            ->all();
+
+        $file = $this->buatFileExcel(self::HEADER_LS, $baris);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.store', 'spm-ls'), ['file' => $file]);
+        $import = SpmImport::latest('id')->firstOrFail();
+
+        // Dokumen yang sama (nomor + tanggal) sudah ada -> dikenali sebagai
+        // pembaruan, bukan dobel.
+        $this->assertSame(0, $import->jumlah_baru);
+        $this->assertSame(1, $import->jumlah_update);
+        $this->assertSame(0, $import->jumlah_ditolak);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.konfirmasi', $import));
+
+        $this->assertSame(1, Spm::where('jenis_spm', 'ls')->count());
+        $spm = Spm::where('nomor_dokumen', '900/SPM-LS/2026')->firstOrFail();
+        $this->assertSame(2, $spm->detail()->count());
+        $this->assertEquals(3_000_000.0, $spm->totalNominal());
     }
 }

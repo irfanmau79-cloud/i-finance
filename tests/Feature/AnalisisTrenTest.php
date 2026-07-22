@@ -48,8 +48,7 @@ class AnalisisTrenTest extends TestCase
         Spm::buatLs([
             'nomor_dokumen' => '001/AN-LS/2026',
             'tanggal_dokumen' => '2026-02-15',
-            'nominal' => 500_000,
-            'master_anggaran_id' => $anggaran->id,
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 500_000]],
         ]);
         Spm::buatUpGu([
             'nomor_dokumen' => '001/AN-UP/2026',
@@ -127,8 +126,7 @@ class AnalisisTrenTest extends TestCase
         Spm::buatLs([
             'nomor_dokumen' => '002/AN-LS/2026',
             'tanggal_dokumen' => '2026-06-15',
-            'nominal' => 1_000_000,
-            'master_anggaran_id' => $anggaran->id,
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 1_000_000]],
         ]);
 
         $service = app(AnggaranRealisasiService::class);

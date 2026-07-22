@@ -7,7 +7,7 @@
 @section('content')
 <div class="dash-card">
     <h3>{{ $spmEdit ? 'Edit' : 'Buat' }} SPM LS</h3>
-    <div class="sub">Pilih sumber dana, lengkapi nominal dan potongan, lalu simpan.</div>
+    <div class="sub">Lengkapi data dokumen, lalu tambahkan satu baris per mata anggaran yang dicakup dokumen ini. PPN/PPh/penerima berlaku untuk seluruh dokumen, bukan per baris.</div>
 
     @if ($errors->any())
         <div class="err-box" style="display:block;">
@@ -20,45 +20,9 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ $spmEdit ? route('spm.ls.update', $spmEdit) : route('spm.ls.store') }}">
+    <form method="POST" action="{{ $spmEdit ? route('spm.ls.update', $spmEdit) : route('spm.ls.store') }}" id="spm-ls-form">
         @csrf
         @if ($spmEdit) @method('PUT') @endif
-
-        <div class="fg">
-            <label class="fl" for="maf-program">Program</label>
-            <select id="maf-program"><option value="">Memuat data…</option></select>
-        </div>
-        <div class="fg">
-            <label class="fl" for="maf-kegiatan">Kegiatan</label>
-            <select id="maf-kegiatan" disabled><option value="">Pilih program dulu</option></select>
-        </div>
-        <div class="fg">
-            <label class="fl" for="maf-sub">Sub Kegiatan</label>
-            <select id="maf-sub" disabled><option value="">Pilih kegiatan dulu</option></select>
-        </div>
-        <div class="form-grid">
-            <div class="fg">
-                <label class="fl" for="maf-kode">Kode Rekening</label>
-                <select id="maf-kode" disabled><option value="">Pilih sub kegiatan dulu</option></select>
-            </div>
-            <div class="fg">
-                <label class="fl" for="maf-tagging">Tagging</label>
-                <select id="maf-tagging" disabled><option value="">Pilih kode rekening dulu</option></select>
-            </div>
-        </div>
-        <input type="hidden" name="master_anggaran_id" id="master_anggaran_id" value="{{ old('master_anggaran_id', $spmEdit?->master_anggaran_id) }}">
-
-        <div class="auto" id="ma-detail" style="display:none;">
-            <div class="ai"><span class="k">Program</span><span class="v" id="ma-program"></span></div>
-            <div class="ai"><span class="k">Kegiatan</span><span class="v" id="ma-kegiatan"></span></div>
-            <div class="ai"><span class="k">Sub Kegiatan</span><span class="v" id="ma-sub"></span></div>
-            <div class="ai"><span class="k">Kode Rekening</span><span class="v" id="ma-kode"></span></div>
-            <div class="ai"><span class="k">Tagging</span><span class="v" id="ma-tagging"></span></div>
-            <div class="ai"><span class="k">Pagu Anggaran</span><span class="v" id="ma-pagu"></span></div>
-            <div class="ai"><span class="k">Dana Terikat NPD</span><span class="v" id="ma-terikat"></span></div>
-            <div class="ai"><span class="k">Realisasi Aktual</span><span class="v" id="ma-realisasi"></span></div>
-            <div class="ai"><span class="k">Sisa Tersedia</span><span class="v" id="ma-sisa" style="color:var(--ok);font-weight:800;"></span></div>
-        </div>
 
         <div class="form-grid">
             <div class="fg">
@@ -71,11 +35,21 @@
             </div>
         </div>
 
-        <div class="fg">
-            <label class="fl" for="nominal">Nominal (Rp)</label>
-            <input type="number" step="0.01" min="0.01" id="nominal" name="nominal" value="{{ old('nominal', $spmEdit?->nominal) }}">
+        <h3 style="margin-top:22px;">Daftar Mata Anggaran</h3>
+        <div id="baris-list">
+            <?php $barisAwal = old('baris', $spmEdit ? $spmEdit->detail->map(fn ($d) => ['master_anggaran_id' => $d->master_anggaran_id, 'nominal' => (float) $d->nominal])->all() : [[]]); ?>
+            @foreach ($barisAwal as $i => $b)
+                @include('spm.ls._baris-row', ['i' => $i, 'b' => $b])
+            @endforeach
+        </div>
+        <button type="button" class="add" id="baris-add">+ Tambah Mata Anggaran</button>
+
+        <div class="sumbar" style="margin-top:16px;">
+            <span>Total Nominal Dokumen</span>
+            <span class="v" id="total-nominal">Rp 0</span>
         </div>
 
+        <h3 style="margin-top:22px;">Pajak/Biaya Dokumen (satu angka untuk seluruh SPM)</h3>
         <div class="form-grid">
             <div class="fg">
                 <label class="fl" for="ppn">PPN (Rp)</label>
@@ -117,8 +91,9 @@
 </div>
 
 <?php
-    $masterAnggaranJs = $masterAnggaran->map(function ($m) use ($spmEdit) {
-        $sisaTambahan = $spmEdit && $spmEdit->master_anggaran_id === $m->id ? (float) $spmEdit->nominal : 0;
+    $detailLama = $spmEdit ? $spmEdit->detail->pluck('nominal', 'master_anggaran_id')->map(fn ($v) => (float) $v) : collect();
+    $masterAnggaranJs = $masterAnggaran->map(function ($m) use ($detailLama) {
+        $sisaTambahan = (float) ($detailLama[$m->id] ?? 0);
 
         return [
             'id' => $m->id,
@@ -162,17 +137,9 @@
         return m.tagging_id === null || m.tagging_id === undefined ? NONE_TAG : String(m.tagging_id);
     }
 
-    const maSel = {
-        program: document.getElementById('maf-program'),
-        kegiatan: document.getElementById('maf-kegiatan'),
-        sub: document.getElementById('maf-sub'),
-        kode: document.getElementById('maf-kode'),
-        tagging: document.getElementById('maf-tagging'),
-    };
-    const maIdField = document.getElementById('master_anggaran_id');
-    const maDetail = document.getElementById('ma-detail');
-
-    const MSEL = { program: '', kegiatan: '', sub: '', kode: '', tagging: '' };
+    function kodeLabel(m) {
+        return m.uraian_rekening ? (m.kode_rekening + ' — ' + m.uraian_rekening) : m.kode_rekening;
+    }
 
     function fillOptions(sel, options, placeholder) {
         sel.innerHTML = '<option value="">' + escapeHtml(placeholder) + '</option>'
@@ -180,116 +147,196 @@
         sel.disabled = options.length === 0;
     }
 
-    function hideMaDetail() {
-        maIdField.value = '';
-        maDetail.style.display = 'none';
-    }
+    // ---- Cascade Program>Kegiatan>Sub Kegiatan>Kode Rekening>Tagging, dipasang per baris ----
+    function wireCascade(row) {
+        const sel = {
+            program: row.querySelector('[data-ma-program]'),
+            kegiatan: row.querySelector('[data-ma-kegiatan]'),
+            sub: row.querySelector('[data-ma-sub]'),
+            kode: row.querySelector('[data-ma-kode]'),
+            tagging: row.querySelector('[data-ma-tagging]'),
+        };
+        const idField = row.querySelector('[data-ma-id]');
+        const detailBox = row.querySelector('[data-ma-detail]');
+        const M = { program: '', kegiatan: '', sub: '', kode: '', tagging: '' };
 
-    function loadPrograms() {
-        const progs = uniq(masterAnggaranData.map(m => m.program));
-        fillOptions(maSel.program, progs.map(p => ({ value: p, label: p })), '— Pilih Program —');
-    }
-
-    function onProgramChange() {
-        MSEL.program = maSel.program.value;
-        MSEL.kegiatan = MSEL.sub = MSEL.kode = MSEL.tagging = '';
-        const k = uniq(masterAnggaranData.filter(m => m.program === MSEL.program).map(m => m.kegiatan));
-        fillOptions(maSel.kegiatan, k.map(v => ({ value: v, label: v })), k.length ? '— Pilih Kegiatan —' : 'Pilih program dulu');
-        fillOptions(maSel.sub, [], 'Pilih kegiatan dulu');
-        fillOptions(maSel.kode, [], 'Pilih sub kegiatan dulu');
-        fillOptions(maSel.tagging, [], 'Pilih kode rekening dulu');
-        hideMaDetail();
-    }
-
-    function onKegiatanChange() {
-        MSEL.kegiatan = maSel.kegiatan.value;
-        MSEL.sub = MSEL.kode = MSEL.tagging = '';
-        const s = uniq(masterAnggaranData.filter(m => m.program === MSEL.program && m.kegiatan === MSEL.kegiatan).map(m => m.sub_kegiatan));
-        fillOptions(maSel.sub, s.map(v => ({ value: v, label: v })), s.length ? '— Pilih Sub Kegiatan —' : 'Pilih kegiatan dulu');
-        fillOptions(maSel.kode, [], 'Pilih sub kegiatan dulu');
-        fillOptions(maSel.tagging, [], 'Pilih kode rekening dulu');
-        hideMaDetail();
-    }
-
-    function kodeLabel(m) {
-        return m.uraian_rekening ? (m.kode_rekening + ' — ' + m.uraian_rekening) : m.kode_rekening;
-    }
-
-    function onSubChange() {
-        MSEL.sub = maSel.sub.value;
-        MSEL.kode = MSEL.tagging = '';
-        const rows = masterAnggaranData.filter(m => m.program === MSEL.program && m.kegiatan === MSEL.kegiatan && m.sub_kegiatan === MSEL.sub);
-        const seen = new Set();
-        const opts = [];
-        rows.forEach(m => {
-            if (! seen.has(m.kode_rekening)) { seen.add(m.kode_rekening); opts.push({ value: m.kode_rekening, label: kodeLabel(m) }); }
-        });
-        fillOptions(maSel.kode, opts, opts.length ? '— Pilih Kode Rekening —' : 'Pilih sub kegiatan dulu');
-        fillOptions(maSel.tagging, [], 'Pilih kode rekening dulu');
-        hideMaDetail();
-    }
-
-    function onKodeChange() {
-        MSEL.kode = maSel.kode.value;
-        MSEL.tagging = '';
-        const rows = masterAnggaranData.filter(m => m.program === MSEL.program && m.kegiatan === MSEL.kegiatan && m.sub_kegiatan === MSEL.sub && m.kode_rekening === MSEL.kode);
-        const seen = new Set();
-        const opts = [];
-        rows.forEach(m => {
-            const val = taggingValue(m);
-            if (! seen.has(val)) { seen.add(val); opts.push({ value: val, label: m.tagging }); }
-        });
-        fillOptions(maSel.tagging, opts, opts.length ? '— Pilih Tagging —' : 'Pilih kode rekening dulu');
-        hideMaDetail();
-    }
-
-    function onTaggingChange() {
-        MSEL.tagging = maSel.tagging.value;
-        const row = masterAnggaranData.find(m => m.program === MSEL.program && m.kegiatan === MSEL.kegiatan && m.sub_kegiatan === MSEL.sub && m.kode_rekening === MSEL.kode && taggingValue(m) === MSEL.tagging);
-        if (row) {
-            selectMasterAnggaran(row);
-        } else {
-            hideMaDetail();
+        function hideDetail() {
+            idField.value = '';
+            detailBox.style.display = 'none';
+            recalcTotal();
         }
-    }
 
-    function selectMasterAnggaran(m) {
-        maIdField.value = m.id;
-        document.getElementById('ma-program').textContent = m.program;
-        document.getElementById('ma-kegiatan').textContent = m.kegiatan;
-        document.getElementById('ma-sub').textContent = m.sub_kegiatan;
-        document.getElementById('ma-kode').textContent = kodeLabel(m);
-        document.getElementById('ma-tagging').textContent = m.tagging;
-        document.getElementById('ma-pagu').textContent = formatRupiah(m.pagu);
-        document.getElementById('ma-terikat').textContent = formatRupiah(m.dana_terikat);
-        document.getElementById('ma-realisasi').textContent = formatRupiah(m.realisasi_aktual);
-        document.getElementById('ma-sisa').textContent = formatRupiah(m.sisa);
-        maDetail.style.display = 'block';
-    }
-
-    maSel.program.addEventListener('change', onProgramChange);
-    maSel.kegiatan.addEventListener('change', onKegiatanChange);
-    maSel.sub.addEventListener('change', onSubChange);
-    maSel.kode.addEventListener('change', onKodeChange);
-    maSel.tagging.addEventListener('change', onTaggingChange);
-
-    loadPrograms();
-
-    if (maIdField.value) {
-        const found = masterAnggaranData.find(m => String(m.id) === String(maIdField.value));
-        if (found) {
-            maSel.program.value = found.program;
-            onProgramChange();
-            maSel.kegiatan.value = found.kegiatan;
-            onKegiatanChange();
-            maSel.sub.value = found.sub_kegiatan;
-            onSubChange();
-            maSel.kode.value = found.kode_rekening;
-            onKodeChange();
-            maSel.tagging.value = taggingValue(found);
-            selectMasterAnggaran(found);
+        function loadPrograms() {
+            const progs = uniq(masterAnggaranData.map(m => m.program));
+            fillOptions(sel.program, progs.map(p => ({ value: p, label: p })), '— Pilih Program —');
         }
+
+        function onProgramChange() {
+            M.program = sel.program.value;
+            M.kegiatan = M.sub = M.kode = M.tagging = '';
+            const k = uniq(masterAnggaranData.filter(m => m.program === M.program).map(m => m.kegiatan));
+            fillOptions(sel.kegiatan, k.map(v => ({ value: v, label: v })), k.length ? '— Pilih Kegiatan —' : 'Pilih program dulu');
+            fillOptions(sel.sub, [], 'Pilih kegiatan dulu');
+            fillOptions(sel.kode, [], 'Pilih sub kegiatan dulu');
+            fillOptions(sel.tagging, [], 'Pilih kode rekening dulu');
+            hideDetail();
+        }
+
+        function onKegiatanChange() {
+            M.kegiatan = sel.kegiatan.value;
+            M.sub = M.kode = M.tagging = '';
+            const s = uniq(masterAnggaranData.filter(m => m.program === M.program && m.kegiatan === M.kegiatan).map(m => m.sub_kegiatan));
+            fillOptions(sel.sub, s.map(v => ({ value: v, label: v })), s.length ? '— Pilih Sub Kegiatan —' : 'Pilih kegiatan dulu');
+            fillOptions(sel.kode, [], 'Pilih sub kegiatan dulu');
+            fillOptions(sel.tagging, [], 'Pilih kode rekening dulu');
+            hideDetail();
+        }
+
+        function onSubChange() {
+            M.sub = sel.sub.value;
+            M.kode = M.tagging = '';
+            const rows = masterAnggaranData.filter(m => m.program === M.program && m.kegiatan === M.kegiatan && m.sub_kegiatan === M.sub);
+            const seen = new Set();
+            const opts = [];
+            rows.forEach(m => {
+                if (! seen.has(m.kode_rekening)) { seen.add(m.kode_rekening); opts.push({ value: m.kode_rekening, label: kodeLabel(m) }); }
+            });
+            fillOptions(sel.kode, opts, opts.length ? '— Pilih Kode Rekening —' : 'Pilih sub kegiatan dulu');
+            fillOptions(sel.tagging, [], 'Pilih kode rekening dulu');
+            hideDetail();
+        }
+
+        function onKodeChange() {
+            M.kode = sel.kode.value;
+            M.tagging = '';
+            const rows = masterAnggaranData.filter(m => m.program === M.program && m.kegiatan === M.kegiatan && m.sub_kegiatan === M.sub && m.kode_rekening === M.kode);
+            const seen = new Set();
+            const opts = [];
+            rows.forEach(m => {
+                const val = taggingValue(m);
+                if (! seen.has(val)) { seen.add(val); opts.push({ value: val, label: m.tagging }); }
+            });
+            fillOptions(sel.tagging, opts, opts.length ? '— Pilih Tagging —' : 'Pilih kode rekening dulu');
+            hideDetail();
+        }
+
+        function onTaggingChange() {
+            M.tagging = sel.tagging.value;
+            const found = masterAnggaranData.find(m => m.program === M.program && m.kegiatan === M.kegiatan && m.sub_kegiatan === M.sub && m.kode_rekening === M.kode && taggingValue(m) === M.tagging);
+            if (found) {
+                selectMasterAnggaran(found);
+            } else {
+                hideDetail();
+            }
+        }
+
+        function selectMasterAnggaran(m) {
+            idField.value = m.id;
+            row.querySelector('[data-ma-pagu]').textContent = formatRupiah(m.pagu);
+            row.querySelector('[data-ma-terikat]').textContent = formatRupiah(m.dana_terikat);
+            row.querySelector('[data-ma-realisasi]').textContent = formatRupiah(m.realisasi_aktual);
+            row.querySelector('[data-ma-sisa]').textContent = formatRupiah(m.sisa);
+            detailBox.style.display = 'block';
+            recalcTotal();
+        }
+
+        sel.program.addEventListener('change', onProgramChange);
+        sel.kegiatan.addEventListener('change', onKegiatanChange);
+        sel.sub.addEventListener('change', onSubChange);
+        sel.kode.addEventListener('change', onKodeChange);
+        sel.tagging.addEventListener('change', onTaggingChange);
+
+        loadPrograms();
+
+        if (idField.value) {
+            const found = masterAnggaranData.find(m => String(m.id) === String(idField.value));
+            if (found) {
+                sel.program.value = found.program;
+                onProgramChange();
+                sel.kegiatan.value = found.kegiatan;
+                onKegiatanChange();
+                sel.sub.value = found.sub_kegiatan;
+                onSubChange();
+                sel.kode.value = found.kode_rekening;
+                onKodeChange();
+                sel.tagging.value = taggingValue(found);
+                selectMasterAnggaran(found);
+            }
+        }
+
+        row.querySelector('[data-ma-nominal]').addEventListener('input', recalcTotal);
     }
+
+    // ---- Baris mata anggaran: tambah/hapus, mengikuti pola npd/kd (peserta) ----
+    const barisList = document.getElementById('baris-list');
+    let barisIndex = barisList.querySelectorAll('[data-baris-row]').length;
+
+    function barisRowHtml(idx) {
+        return '<div class="pen" data-baris-row>'
+            + '<button type="button" class="del" data-baris-remove title="Hapus baris">&times;</button>'
+            + '<h4>Mata Anggaran <span data-baris-number>#' + (idx + 1) + '</span></h4>'
+            + '<div class="fg"><label class="fl">Program</label><select data-ma-program><option value="">Memuat data…</option></select></div>'
+            + '<div class="fg"><label class="fl">Kegiatan</label><select data-ma-kegiatan disabled><option value="">Pilih program dulu</option></select></div>'
+            + '<div class="fg"><label class="fl">Sub Kegiatan</label><select data-ma-sub disabled><option value="">Pilih kegiatan dulu</option></select></div>'
+            + '<div class="form-grid">'
+            + '<div class="fg"><label class="fl">Kode Rekening</label><select data-ma-kode disabled><option value="">Pilih sub kegiatan dulu</option></select></div>'
+            + '<div class="fg"><label class="fl">Tagging</label><select data-ma-tagging disabled><option value="">Pilih kode rekening dulu</option></select></div>'
+            + '</div>'
+            + '<input type="hidden" data-ma-id name="baris[' + idx + '][master_anggaran_id]" value="">'
+            + '<div class="auto" data-ma-detail style="display:none;">'
+            + '<div class="ai"><span class="k">Pagu Anggaran</span><span class="v" data-ma-pagu></span></div>'
+            + '<div class="ai"><span class="k">Dana Terikat NPD</span><span class="v" data-ma-terikat></span></div>'
+            + '<div class="ai"><span class="k">Realisasi Aktual</span><span class="v" data-ma-realisasi></span></div>'
+            + '<div class="ai"><span class="k">Sisa Tersedia</span><span class="v" data-ma-sisa style="color:var(--ok);font-weight:800;"></span></div>'
+            + '</div>'
+            + '<div class="fg"><label class="fl">Nominal Bruto Baris Ini (Rp)</label><input type="number" step="0.01" min="0.01" data-ma-nominal name="baris[' + idx + '][nominal]" value=""></div>'
+            + '</div>';
+    }
+
+    function addBarisRow() {
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = barisRowHtml(barisIndex);
+        const row = wrapper.firstElementChild;
+        barisList.appendChild(row);
+        wireCascade(row);
+        attachDelete(row);
+        barisIndex++;
+        renumber();
+    }
+
+    function renumber() {
+        const rows = barisList.querySelectorAll('[data-baris-row]');
+        rows.forEach((row, i) => {
+            row.querySelector('[data-baris-number]').textContent = '#' + (i + 1);
+            row.querySelector('[data-baris-remove]').disabled = rows.length <= 1;
+        });
+    }
+
+    function recalcTotal() {
+        let total = 0;
+        barisList.querySelectorAll('[data-baris-row]').forEach(row => {
+            total += parseFloat(row.querySelector('[data-ma-nominal]').value) || 0;
+        });
+        document.getElementById('total-nominal').textContent = formatRupiah(total);
+    }
+
+    function attachDelete(row) {
+        row.querySelector('[data-baris-remove]').addEventListener('click', () => {
+            if (barisList.querySelectorAll('[data-baris-row]').length <= 1) return;
+            row.remove();
+            renumber();
+            recalcTotal();
+        });
+    }
+
+    document.getElementById('baris-add').addEventListener('click', addBarisRow);
+
+    barisList.querySelectorAll('[data-baris-row]').forEach(row => {
+        wireCascade(row);
+        attachDelete(row);
+    });
+    renumber();
+    recalcTotal();
 })();
 </script>
 @endsection

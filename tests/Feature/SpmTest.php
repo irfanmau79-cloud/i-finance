@@ -58,7 +58,7 @@ class SpmTest extends TestCase
         $response->assertRedirect(route('spm.up-gu.index'));
 
         $this->assertSame('up_gu', $spm->jenis_spm);
-        $this->assertNull($spm->master_anggaran_id);
+        $this->assertSame(0, $spm->detail()->count());
         $this->assertEquals(5_000_000.0, (float) $spm->nominal);
 
         $indexResponse = $this->actingAs($superadmin)->get(route('spm.up-gu.index'));
@@ -105,8 +105,7 @@ class SpmTest extends TestCase
         $payload = [
             'tanggal_dokumen' => '2026-07-20',
             'nomor_dokumen' => '001/SPM-LS/2026',
-            'master_anggaran_id' => $anggaran->id,
-            'nominal' => 3_000_000,
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 3_000_000]],
             'ppn' => 100_000,
             'jenis_pph1' => 'PPh Pasal 22',
             'pph1' => 50_000,
@@ -119,8 +118,8 @@ class SpmTest extends TestCase
         $response->assertRedirect(route('spm.ls.index'));
 
         $this->assertSame('ls', $spm->jenis_spm);
-        $this->assertSame($anggaran->id, $spm->master_anggaran_id);
-        $this->assertEquals(3_000_000.0, (float) $spm->nominal);
+        $this->assertSame($anggaran->id, $spm->detail->first()->master_anggaran_id);
+        $this->assertEquals(3_000_000.0, $spm->totalNominal());
         $this->assertEquals(7_000_000.0, $anggaran->fresh()->sisaTersedia());
 
         $indexResponse = $this->actingAs($bendahara)->get(route('spm.ls.index'));
@@ -130,10 +129,10 @@ class SpmTest extends TestCase
 
         // Edit: menaikkan nominal masih dalam sisa (setelah nominal lama dikembalikan).
         $updateResponse = $this->actingAs($bendahara)->put(route('spm.ls.update', $spm), array_merge($payload, [
-            'nominal' => 4_000_000,
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 4_000_000]],
         ]));
         $updateResponse->assertRedirect(route('spm.ls.index'));
-        $this->assertEquals(4_000_000.0, (float) $spm->fresh()->nominal);
+        $this->assertEquals(4_000_000.0, $spm->fresh()->totalNominal());
         $this->assertEquals(6_000_000.0, $anggaran->fresh()->sisaTersedia());
 
         // Hapus/edit LS otomatis memengaruhi agregasi karena realisasi dihitung dari transaksi.
@@ -151,30 +150,27 @@ class SpmTest extends TestCase
         $response = $this->actingAs($superadmin)->post(route('spm.ls.store'), [
             'tanggal_dokumen' => '2026-07-20',
             'nomor_dokumen' => '002/SPM-LS/2026',
-            'master_anggaran_id' => $anggaran->id,
-            'nominal' => 1_500_000,
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 1_500_000]],
             'uraian' => 'Melebihi sisa tersedia',
         ]);
-        $response->assertSessionHasErrors(['nominal']);
+        $response->assertSessionHasErrors(['baris']);
         $this->assertSame(0, Spm::count());
 
         // Simpan SPM LS yang sah dulu, lalu coba edit jadi melebihi sisa.
         $spm = Spm::buatLs([
             'nomor_dokumen' => '003/SPM-LS/2026',
             'tanggal_dokumen' => '2026-07-20',
-            'master_anggaran_id' => $anggaran->id,
-            'nominal' => 800_000,
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 800_000]],
         ]);
 
         $editResponse = $this->actingAs($superadmin)->put(route('spm.ls.update', $spm), [
             'tanggal_dokumen' => '2026-07-20',
             'nomor_dokumen' => '003/SPM-LS/2026',
-            'master_anggaran_id' => $anggaran->id,
-            'nominal' => 1_200_000,
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 1_200_000]],
             'uraian' => 'Revisi melebihi sisa',
         ]);
-        $editResponse->assertSessionHasErrors(['nominal']);
-        $this->assertEquals(800_000.0, (float) $spm->fresh()->nominal);
+        $editResponse->assertSessionHasErrors(['baris']);
+        $this->assertEquals(800_000.0, $spm->fresh()->totalNominal());
     }
 
     public function test_form_ls_menampilkan_pagu_dana_terikat_realisasi_dan_sisa_tersedia(): void
@@ -200,6 +196,101 @@ class SpmTest extends TestCase
         $response->assertSee('"pagu":10000000', false);
         $response->assertSee('"dana_terikat":2000000', false);
         $response->assertSee('"sisa":8000000', false);
+    }
+
+    // ---------------- Struktur header + banyak mata anggaran (Prompt 22) ----------------
+
+    public function test_spm_ls_dengan_tiga_baris_mata_anggaran_totalnya_sum_ketiganya_pajak_satu_angka(): void
+    {
+        $superadmin = $this->buatUser('superadmin', 'spm-ls-3baris');
+        $a1 = $this->buatMasterAnggaran(10_000_000, '5.1.02.05.01.0001');
+        $a2 = $this->buatMasterAnggaran(10_000_000, '5.1.02.05.01.0002');
+        $a3 = $this->buatMasterAnggaran(10_000_000, '5.1.02.05.01.0003');
+
+        $response = $this->actingAs($superadmin)->post(route('spm.ls.store'), [
+            'tanggal_dokumen' => '2026-07-20',
+            'nomor_dokumen' => '030/SPM-LS/2026',
+            'baris' => [
+                ['master_anggaran_id' => $a1->id, 'nominal' => 1_000_000],
+                ['master_anggaran_id' => $a2->id, 'nominal' => 2_000_000],
+                ['master_anggaran_id' => $a3->id, 'nominal' => 3_000_000],
+            ],
+            'ppn' => 60_000,
+            'penerima' => 'CV Tiga Baris',
+            'uraian' => 'Tiga mata anggaran sekaligus',
+        ]);
+        $response->assertRedirect(route('spm.ls.index'));
+
+        $spm = Spm::firstOrFail();
+        $this->assertSame(3, $spm->detail()->count());
+        $this->assertEquals(6_000_000.0, $spm->totalNominal());
+        $this->assertEquals(60_000.0, (float) $spm->ppn, 'PPN satu angka untuk seluruh dokumen, bukan per baris.');
+
+        // realisasi_ls tiap mata anggaran naik sesuai nominal barisnya sendiri.
+        $this->assertEquals(1_000_000.0, $a1->fresh()->realisasiLs());
+        $this->assertEquals(2_000_000.0, $a2->fresh()->realisasiLs());
+        $this->assertEquals(3_000_000.0, $a3->fresh()->realisasiLs());
+        $this->assertEquals(9_000_000.0, $a1->fresh()->sisaTersedia());
+        $this->assertEquals(8_000_000.0, $a2->fresh()->sisaTersedia());
+        $this->assertEquals(7_000_000.0, $a3->fresh()->sisaTersedia());
+    }
+
+    public function test_mata_anggaran_yang_sama_diulang_dalam_satu_spm_ls_ditolak(): void
+    {
+        $superadmin = $this->buatUser('superadmin', 'spm-ls-dup-baris');
+        $anggaran = $this->buatMasterAnggaran(10_000_000);
+
+        $response = $this->actingAs($superadmin)->post(route('spm.ls.store'), [
+            'tanggal_dokumen' => '2026-07-20',
+            'nomor_dokumen' => '031/SPM-LS/2026',
+            'baris' => [
+                ['master_anggaran_id' => $anggaran->id, 'nominal' => 1_000_000],
+                ['master_anggaran_id' => $anggaran->id, 'nominal' => 2_000_000],
+            ],
+            'uraian' => 'Mata anggaran duplikat',
+        ]);
+
+        $response->assertSessionHasErrors();
+        $this->assertSame(0, Spm::count());
+    }
+
+    public function test_satu_baris_melebihi_sisa_tersedia_menolak_seluruh_dokumen_bukan_hanya_baris_itu(): void
+    {
+        $superadmin = $this->buatUser('superadmin', 'spm-ls-allornone');
+        $cukup = $this->buatMasterAnggaran(10_000_000, '5.1.02.05.01.0011');
+        $kurang = $this->buatMasterAnggaran(1_000_000, '5.1.02.05.01.0012');
+
+        $response = $this->actingAs($superadmin)->post(route('spm.ls.store'), [
+            'tanggal_dokumen' => '2026-07-20',
+            'nomor_dokumen' => '032/SPM-LS/2026',
+            'baris' => [
+                ['master_anggaran_id' => $cukup->id, 'nominal' => 2_000_000],
+                ['master_anggaran_id' => $kurang->id, 'nominal' => 5_000_000], // melebihi sisa (pagu 1jt)
+            ],
+            'uraian' => 'Salah satu baris melebihi sisa - all-or-nothing',
+        ]);
+
+        $response->assertSessionHasErrors(['baris']);
+        // All-or-nothing: baris pada mata anggaran yang CUKUP juga tidak
+        // ikut tersimpan - satu SPM adalah satu dokumen, tidak bisa sebagian.
+        $this->assertSame(0, Spm::count());
+        $this->assertEquals(10_000_000.0, $cukup->fresh()->sisaTersedia());
+        $this->assertEquals(1_000_000.0, $kurang->fresh()->sisaTersedia());
+    }
+
+    public function test_spm_ls_tanpa_baris_sama_sekali_ditolak_saat_simpan(): void
+    {
+        $superadmin = $this->buatUser('superadmin', 'spm-ls-kosong');
+
+        $response = $this->actingAs($superadmin)->post(route('spm.ls.store'), [
+            'tanggal_dokumen' => '2026-07-20',
+            'nomor_dokumen' => '033/SPM-LS/2026',
+            'baris' => [],
+            'uraian' => 'Tanpa baris',
+        ]);
+
+        $response->assertSessionHasErrors(['baris']);
+        $this->assertSame(0, Spm::count());
     }
 
     // ---------------- Duplikasi nomor ----------------
@@ -238,8 +329,7 @@ class SpmTest extends TestCase
         $this->actingAs($superadmin)->post(route('spm.ls.store'), [
             'tanggal_dokumen' => '2026-07-20',
             'nomor_dokumen' => '010/SPM/2026',
-            'master_anggaran_id' => $anggaran->id,
-            'nominal' => 500_000,
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 500_000]],
             'uraian' => 'Jenis beda',
         ])->assertRedirect(route('spm.ls.index'));
 
@@ -300,7 +390,7 @@ class SpmTest extends TestCase
             ->assertSessionHasErrors(['tanggal_dokumen', 'nomor_dokumen', 'nominal']);
 
         $this->actingAs($superadmin)->post(route('spm.ls.store'), [])
-            ->assertSessionHasErrors(['tanggal_dokumen', 'nomor_dokumen', 'master_anggaran_id', 'nominal']);
+            ->assertSessionHasErrors(['tanggal_dokumen', 'nomor_dokumen', 'baris']);
 
         $this->assertSame(0, Spm::count());
     }

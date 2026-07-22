@@ -45,8 +45,7 @@ class DashboardRealisasiTest extends TestCase
         Spm::buatLs([
             'nomor_dokumen' => '001/DB-LS/2026',
             'tanggal_dokumen' => '2026-03-10',
-            'nominal' => 1_000_000,
-            'master_anggaran_id' => $anggaran->id,
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 1_000_000]],
         ]);
 
         $dashboard = app(AnggaranRealisasiService::class)->dashboard([], 2026, 7);

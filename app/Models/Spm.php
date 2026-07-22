@@ -5,6 +5,7 @@ namespace App\Models;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -14,7 +15,6 @@ use RuntimeException;
     'nomor_dokumen',
     'tanggal_sp2d',
     'nomor_sp2d',
-    'master_anggaran_id',
     'nominal',
     'ppn',
     'pph1',
@@ -43,9 +43,10 @@ class Spm extends Model
         ];
     }
 
-    public function masterAnggaran(): BelongsTo
+    /** Baris mata anggaran (HANYA untuk jenis_spm 'ls' - lihat Spm::buatLs()). */
+    public function detail(): HasMany
     {
-        return $this->belongsTo(MasterAnggaran::class);
+        return $this->hasMany(SpmDetail::class);
     }
 
     public function dibuatOleh(): BelongsTo
@@ -54,113 +55,162 @@ class Spm extends Model
     }
 
     /**
+     * Total nominal dokumen. Untuk 'up_gu' langsung dari kolom nominal
+     * header (satu angka, tanpa mata anggaran). Untuk 'ls' kolom nominal
+     * header tidak pernah diisi - totalnya SELALU SUM(spm_detail.nominal),
+     * karena satu dokumen LS bisa mencakup beberapa mata anggaran.
+     */
+    public function totalNominal(): float
+    {
+        if ($this->jenis_spm !== 'ls') {
+            return (float) $this->nominal;
+        }
+
+        return (float) ($this->relationLoaded('detail') ? $this->detail->sum('nominal') : $this->detail()->sum('nominal'));
+    }
+
+    /**
      * Simpan SPM jalur LS (dicairkan langsung di BPKAD ke pihak ketiga,
-     * langsung mengurangi pagu — lihat MasterAnggaran::sisaTersedia()).
-     * Dipakai baik dari form input maupun proses impor, makanya validasinya
-     * ditaruh di sini (satu pintu), bukan di controller/request.
+     * langsung mengurangi pagu — lihat MasterAnggaran::sisaTersedia()). Satu
+     * dokumen LS bisa mencakup BEBERAPA mata anggaran sekaligus lewat
+     * $data['baris'] (array of ['master_anggaran_id' => int, 'nominal' =>
+     * float]) - PPN/PPh/penerima/uraian tetap satu angka untuk seluruh
+     * dokumen (kolom header biasa di $data). Dipakai baik dari form input
+     * maupun proses impor, makanya validasinya ditaruh di sini (satu pintu),
+     * bukan di controller/request.
      *
-     * @throws RuntimeException kalau mata anggaran tidak ada atau nominalnya membuat realisasi melebihi pagu.
+     * Semua baris divalidasi lebih dulu (di dalam transaction, sebelum
+     * apa pun disimpan) - kalau SATU baris saja gagal (mata anggaran tidak
+     * ada atau melebihi sisa tersedia mata anggaran itu), SELURUH dokumen
+     * ditolak (all-or-nothing). Alasan: satu SPM adalah satu dokumen fisik
+     * dengan satu nomor dokumen - menyimpan sebagian baris yang diminta
+     * pengguna akan menghasilkan dokumen yang tidak sesuai dengan yang
+     * sebenarnya diajukan.
+     *
+     * @throws RuntimeException kalau baris kosong/duplikat mata anggaran, mata anggaran tidak ada, atau nominal baris manapun melebihi sisa tersedia mata anggaran itu.
      */
     public static function buatLs(array $data): self
     {
         return DB::transaction(function () use ($data) {
-            $masterAnggaran = MasterAnggaran::query()
-                ->lockForUpdate()
-                ->find($data['master_anggaran_id'] ?? null);
+            $baris = self::validasiBaris($data['baris'] ?? []);
 
-            if (! $masterAnggaran) {
-                throw new RuntimeException('Mata anggaran tidak ditemukan.');
+            $spm = self::create($data + ['jenis_spm' => 'ls']);
+
+            foreach ($baris as $item) {
+                $spm->detail()->create($item);
             }
 
-            $nominal = (float) ($data['nominal'] ?? 0);
-            $sisaTersedia = $masterAnggaran->sisaTersedia();
-
-            if ($nominal <= 0) {
-                throw new RuntimeException('Nominal SPM harus lebih dari 0.');
-            }
-
-            if ($nominal > $sisaTersedia) {
-                $labelAnggaran = trim($masterAnggaran->kode_rekening.' '.$masterAnggaran->uraian_rekening);
-
-                throw new RuntimeException(sprintf(
-                    'SPM LS sebesar %s melebihi sisa tersedia %s pada %s.',
-                    fmt_rupiah($nominal),
-                    fmt_rupiah($sisaTersedia),
-                    $labelAnggaran
-                ));
-            }
-
-            $data['jenis_spm'] = 'ls';
-
-            return self::create($data);
+            return $spm;
         });
     }
 
     /**
      * Simpan SPM jalur UP/GU (isi ulang kas BPP, BUKAN realisasi — realisasi
-     * sudah tercatat lewat NPD saat transaksi dibayar). master_anggaran_id
-     * selalu NULL untuk jenis ini, apa pun yang dikirim di $data.
+     * sudah tercatat lewat NPD saat transaksi dibayar). Tidak pernah punya
+     * baris spm_detail.
      */
     public static function buatUpGu(array $data): self
     {
         $data['jenis_spm'] = 'up_gu';
-        $data['master_anggaran_id'] = null;
 
         return self::create($data);
     }
 
     /**
-     * Perbarui SPM LS yang sudah ada. Nominal lama baris ini sendiri sudah
-     * ikut mengurangi sisaTersedia() lewat realisasiLs() — kalau mata
-     * anggarannya tidak berubah, tambahkan kembali supaya tidak terhitung
-     * dobel saat memvalidasi nominal baru.
+     * Perbarui SPM LS yang sudah ada. Baris lama diganti seluruhnya dengan
+     * baris baru (form selalu mengirim keadaan akhir yang diinginkan, bukan
+     * diff) - nominal lama tiap mata anggaran dikreditkan kembali ke
+     * sisaTersedia() mata anggaran itu sebelum divalidasi ulang, supaya
+     * baris yang mata anggarannya tidak berubah tidak terhitung dobel.
+     * All-or-nothing, sama seperti buatLs().
      *
-     * @throws RuntimeException kalau mata anggaran tidak ada atau nominalnya membuat realisasi melebihi pagu.
+     * @throws RuntimeException kalau baris kosong/duplikat mata anggaran, mata anggaran tidak ada, atau nominal baris manapun melebihi sisa tersedia mata anggaran itu.
      */
     public function updateLs(array $data): void
     {
         DB::transaction(function () use ($data) {
-            $masterAnggaran = MasterAnggaran::query()
+            $nominalLama = $this->detail()
                 ->lockForUpdate()
-                ->find($data['master_anggaran_id'] ?? null);
+                ->get()
+                ->mapWithKeys(fn (SpmDetail $d) => [(int) $d->master_anggaran_id => (float) $d->nominal])
+                ->all();
+
+            $baris = self::validasiBaris($data['baris'] ?? [], $nominalLama);
+
+            $this->update($data + ['jenis_spm' => 'ls']);
+            $this->detail()->delete();
+
+            foreach ($baris as $item) {
+                $this->detail()->create($item);
+            }
+        });
+    }
+
+    /** Perbarui SPM UP/GU. */
+    public function updateUpGu(array $data): void
+    {
+        $data['jenis_spm'] = 'up_gu';
+        $this->update($data);
+    }
+
+    /**
+     * Validasi baris mata anggaran SPM LS: minimal 1 baris, nominal semua
+     * baris > 0, mata anggaran tidak boleh duplikat dalam satu dokumen, dan
+     * sisa_tersedia PER mata anggaran (dihitung independen - baris pada
+     * mata anggaran A tidak memengaruhi validasi baris pada mata anggaran
+     * B). Mengunci baris master_anggaran yang dipakai (lockForUpdate) supaya
+     * aman dari race condition dengan SPM LS lain yang disimpan bersamaan.
+     *
+     * @param  array<int, array{master_anggaran_id?: mixed, nominal?: mixed}>  $baris
+     * @param  array<int, float>  $nominalLama  nominal lama per master_anggaran_id (dikreditkan kembali saat edit, lihat updateLs())
+     * @return array<int, array{master_anggaran_id: int, nominal: float}>
+     *
+     * @throws RuntimeException
+     */
+    private static function validasiBaris(array $baris, array $nominalLama = []): array
+    {
+        if (empty($baris)) {
+            throw new RuntimeException('SPM LS wajib memiliki minimal 1 baris mata anggaran.');
+        }
+
+        $dipakai = [];
+        $hasil = [];
+
+        foreach ($baris as $item) {
+            $masterAnggaranId = (int) ($item['master_anggaran_id'] ?? 0);
+            $nominal = (float) ($item['nominal'] ?? 0);
+
+            if ($nominal <= 0) {
+                throw new RuntimeException('Nominal setiap baris mata anggaran harus lebih dari 0.');
+            }
+
+            if (in_array($masterAnggaranId, $dipakai, true)) {
+                throw new RuntimeException('Mata anggaran tidak boleh dipilih lebih dari satu kali dalam satu SPM LS.');
+            }
+            $dipakai[] = $masterAnggaranId;
+
+            $masterAnggaran = MasterAnggaran::query()->lockForUpdate()->find($masterAnggaranId);
 
             if (! $masterAnggaran) {
                 throw new RuntimeException('Mata anggaran tidak ditemukan.');
             }
 
-            $nominal = (float) ($data['nominal'] ?? 0);
-
-            if ($nominal <= 0) {
-                throw new RuntimeException('Nominal SPM harus lebih dari 0.');
-            }
-
-            $sisaTersedia = $masterAnggaran->sisaTersedia();
-
-            if ($this->master_anggaran_id === $masterAnggaran->id) {
-                $sisaTersedia += (float) $this->nominal;
-            }
+            $sisaTersedia = $masterAnggaran->sisaTersedia() + ($nominalLama[$masterAnggaranId] ?? 0.0);
 
             if ($nominal > $sisaTersedia) {
                 $labelAnggaran = trim($masterAnggaran->kode_rekening.' '.$masterAnggaran->uraian_rekening);
 
                 throw new RuntimeException(sprintf(
-                    'SPM LS sebesar %s melebihi sisa tersedia %s pada %s.',
+                    'SPM LS sebesar %s pada mata anggaran %s melebihi sisa tersedia %s.',
                     fmt_rupiah($nominal),
-                    fmt_rupiah($sisaTersedia),
-                    $labelAnggaran
+                    $labelAnggaran,
+                    fmt_rupiah($sisaTersedia)
                 ));
             }
 
-            $data['jenis_spm'] = 'ls';
-            $this->update($data);
-        });
-    }
+            $hasil[] = ['master_anggaran_id' => $masterAnggaranId, 'nominal' => $nominal];
+        }
 
-    /** Perbarui SPM UP/GU. master_anggaran_id selalu NULL, sama seperti buatUpGu(). */
-    public function updateUpGu(array $data): void
-    {
-        $data['jenis_spm'] = 'up_gu';
-        $data['master_anggaran_id'] = null;
-        $this->update($data);
+        return $hasil;
     }
 }

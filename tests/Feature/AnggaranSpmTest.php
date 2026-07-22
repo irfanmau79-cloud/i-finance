@@ -49,13 +49,23 @@ class AnggaranSpmTest extends TestCase
         return ['nomor_dokumen' => $nomor, 'tanggal_dokumen' => $tanggal, 'nominal' => $nominal];
     }
 
+    /** Payload Spm::buatLs()/updateLs(): satu baris mata anggaran. */
+    private function dataSpmLs(string $nomor, string $tanggal, float $nominal, int $masterAnggaranId): array
+    {
+        return [
+            'nomor_dokumen' => $nomor,
+            'tanggal_dokumen' => $tanggal,
+            'baris' => [['master_anggaran_id' => $masterAnggaranId, 'nominal' => $nominal]],
+        ];
+    }
+
     public function test_dana_terikat_realisasi_aktual_dan_sisa_tersedia_dibedakan(): void
     {
         $anggaran = $this->buatAnggaran();
         $draft = $this->buatNpd($anggaran, 2_000_000, 'Draft NPD - PPTK');
         $selesai = $this->buatNpd($anggaran, 3_000_000, 'Selesai');
 
-        Spm::buatLs($this->dataSpm('001/SPM-LS/2026', '2026-07-18', 1_000_000) + ['master_anggaran_id' => $anggaran->id]);
+        Spm::buatLs($this->dataSpmLs('001/SPM-LS/2026', '2026-07-18', 1_000_000, $anggaran->id));
         Spm::buatUpGu($this->dataSpm('001/SPM-UP/2026', '2026-07-19', 4_000_000));
         Spm::buatUpGu($this->dataSpm('001/SPM-GU/2026', '2026-07-20', 2_000_000));
 
@@ -64,7 +74,7 @@ class AnggaranSpmTest extends TestCase
         $this->assertSame(1_000_000.0, $anggaran->realisasiLs());
         $this->assertSame(4_000_000.0, $anggaran->realisasiAktual());
         $this->assertSame(4_000_000.0, $anggaran->sisaTersedia());
-        $this->assertNull(Spm::where('jenis_spm', 'up_gu')->firstOrFail()->master_anggaran_id);
+        $this->assertSame(0, Spm::where('jenis_spm', 'up_gu')->firstOrFail()->detail()->count());
 
         $selesai->update(['status' => 'Draft NPD - BPP']);
 
@@ -82,8 +92,8 @@ class AnggaranSpmTest extends TestCase
         $npdSaatIni = $this->buatNpd($anggaran, 1_000_000, 'Draft NPD - BPP', '2026-07-20');
         $this->buatNpd($anggaran, 500_000, 'Draft NPD - PPTK', '2026-07-21');
 
-        Spm::buatLs($this->dataSpm('002/SPM-LS/2026', '2026-07-15', 1_000_000) + ['master_anggaran_id' => $anggaran->id]);
-        Spm::buatLs($this->dataSpm('003/SPM-LS/2026', '2026-07-21', 500_000) + ['master_anggaran_id' => $anggaran->id]);
+        Spm::buatLs($this->dataSpmLs('002/SPM-LS/2026', '2026-07-15', 1_000_000, $anggaran->id));
+        Spm::buatLs($this->dataSpmLs('003/SPM-LS/2026', '2026-07-21', 500_000, $anggaran->id));
 
         $this->assertSame(4_000_000.0, $anggaran->sisaAnggaranSebelum($npdSaatIni));
     }
@@ -98,7 +108,7 @@ class AnggaranSpmTest extends TestCase
         $this->expectException(RuntimeException::class);
         $this->expectExceptionMessage('melebihi sisa tersedia');
 
-        Spm::buatLs($this->dataSpm('004/SPM-LS/2026', '2026-07-20', 200_001) + ['master_anggaran_id' => $anggaran->id]);
+        Spm::buatLs($this->dataSpmLs('004/SPM-LS/2026', '2026-07-20', 200_001, $anggaran->id));
     }
 
     public function test_identitas_dokumen_spm_unik_per_jenis_nomor_dan_tanggal(): void
@@ -117,7 +127,7 @@ class AnggaranSpmTest extends TestCase
 
         Spm::buatUpGu($data);
         Spm::buatUpGu(array_merge($data, ['tanggal_dokumen' => '2026-07-21']));
-        Spm::buatLs($data + ['master_anggaran_id' => $anggaran->id]);
+        Spm::buatLs($this->dataSpmLs($data['nomor_dokumen'], $data['tanggal_dokumen'], $data['nominal'], $anggaran->id));
 
         $this->assertSame(3, Spm::count());
     }
@@ -132,7 +142,7 @@ class AnggaranSpmTest extends TestCase
         ]);
         $anggaran = $this->buatAnggaran();
         $this->buatNpd($anggaran, 2_000_000, 'Draft NPD - PPTK');
-        Spm::buatLs($this->dataSpm('007/SPM-LS/2026', '2026-07-20', 1_000_000) + ['master_anggaran_id' => $anggaran->id]);
+        Spm::buatLs($this->dataSpmLs('007/SPM-LS/2026', '2026-07-20', 1_000_000, $anggaran->id));
 
         $this->actingAs($pptk)->get(route('npd.bj.create'))
             ->assertOk()

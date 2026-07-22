@@ -173,8 +173,7 @@ class ManajemenDataExportTest extends TestCase
         $ls = Spm::buatLs([
             'tanggal_dokumen' => '2026-07-05',
             'nomor_dokumen' => '002/SPM-LS/2026',
-            'master_anggaran_id' => $anggaran->id,
-            'nominal' => 2_000_000,
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 2_000_000]],
             'penerima' => 'Vendor Uji',
             'uraian' => 'Pembayaran LS',
         ]);
