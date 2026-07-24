@@ -17,7 +17,7 @@
   .an-kpi .note{font-size:11.5px;color:var(--mut);margin-top:3px}.an-kpi .positive{color:var(--ok)}.an-kpi .negative{color:var(--err)}
   .an-notice{border-radius:10px;padding:11px 13px;margin:12px 0;font-size:13px;background:var(--warn-bg);color:var(--warn);border:1px solid #f0dcae}
   .an-chart-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
-  .an-chart-head h3{margin:0;color:var(--navy)}.an-chart-head p{margin:3px 0 0;color:var(--mut);font-size:12px}
+  .an-chart-head h3{margin:0;color:var(--navy)}
   .an-chart-box{position:relative;height:430px;margin-top:14px}.an-chart-error,.an-empty{padding:52px 16px;text-align:center;color:var(--mut)}
   .an-chart-error{display:none;color:var(--err)}
   @media(max-width:1050px){.an-kpis{grid-template-columns:1fr 1fr}}
@@ -86,7 +86,7 @@
 
 <div class="dash-card">
     <div class="an-chart-head">
-        <div><h3>Realisasi Aktual dan Target RAK</h3><p>Januari&ndash;Desember {{ $analisis['tahun'] }} &middot; batang = realisasi aktual, garis = target RAK resmi</p></div>
+        <div><h3>Realisasi Aktual dan Target RAK</h3></div>
         <div class="an-seg" role="group" aria-label="Mode grafik">
             <button type="button" class="an-seg-btn active" data-an-mode="bulanan">Bulanan</button>
             <button type="button" class="an-seg-btn" data-an-mode="kumulatif">Kumulatif</button>
