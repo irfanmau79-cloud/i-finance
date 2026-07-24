@@ -63,7 +63,7 @@ class InventarisasiSpjTest extends TestCase
         $npd = $this->npd('6.01.02.1.01 Pengawasan', '5.1.02.01', null);
         $sekretaris = $this->user('sekretaris');
         $perencanaan = $this->user('perencanaan');
-        $this->actingAs($sekretaris)->get(route('inventarisasi-spj.index'))->assertOk()->assertSee('Rak bantex interaktif');
+        $this->actingAs($sekretaris)->get(route('inventarisasi-spj.index'))->assertOk()->assertSee('Inventarisasi SPJ');
         $this->actingAs($perencanaan)->get(route('inventarisasi-spj.index'))->assertForbidden();
         $this->actingAs($sekretaris)->post(route('npd.arsip-spj.store', $npd), ['jenis_dokumen' => 'NPD', 'lokasi' => 'X'])->assertForbidden();
         $this->assertSame(0, ArsipSpj::count());

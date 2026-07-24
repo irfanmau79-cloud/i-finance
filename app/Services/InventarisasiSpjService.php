@@ -25,6 +25,15 @@ class InventarisasiSpjService
             'kode_rekening' => $semua->pluck('kode_rekening')->unique()->sort()->values()->all(),
             'tagging' => $semua->pluck('tagging')->filter()->unique()->sort()->values()->all(),
         ];
+        $pilihanBerlabel = [
+            'sub_kegiatan' => collect($pilihan['sub_kegiatan'])->map(fn (string $v) => ['value' => $v, 'label' => $v])->all(),
+            'kode_rekening' => $semua->groupBy('kode_rekening')->map(function (Collection $items, string $kode) {
+                $uraian = $items->first()['uraian_rekening'] ?? null;
+
+                return ['value' => $kode, 'label' => $uraian ? "{$kode} — {$uraian}" : $kode];
+            })->sortBy('value', SORT_NATURAL)->values()->all(),
+            'tagging' => collect($pilihan['tagging'])->map(fn (string $v) => ['value' => $v, 'label' => $v])->all(),
+        ];
 
         $rows = $semua
             ->when($filters['bulan'] ?? '', fn (Collection $items, string $value) => $items->where('bulan', (int) $value))
@@ -49,13 +58,17 @@ class InventarisasiSpjService
             ];
         })->sortKeys()->values()->all();
 
+        $jumlahLokasi = $rows->pluck('lokasi')->unique()->count();
+
         return [
             'rows' => $rows->all(),
             'lokasi' => $lokasi,
             'pilihan' => $pilihan,
+            'pilihan_berlabel' => $pilihanBerlabel,
             'jumlah_dokumen' => $rows->count(),
-            'jumlah_lokasi' => $rows->pluck('lokasi')->unique()->count(),
+            'jumlah_lokasi' => $jumlahLokasi,
             'total_nominal' => (float) $rows->unique('npd_id')->sum('nominal'),
+            'rata_rata_dokumen_per_bantex' => $jumlahLokasi > 0 ? round($rows->count() / $jumlahLokasi, 1) : 0.0,
             'kosong' => $rows->isEmpty(),
         ];
     }
@@ -97,6 +110,7 @@ class InventarisasiSpjService
             'jenis_dokumen' => $jenis,
             'sub_kegiatan' => $npd->masterAnggaran->subKegiatanNormal(),
             'kode_rekening' => $npd->masterAnggaran->kode_rekening,
+            'uraian_rekening' => $npd->masterAnggaran->uraian_rekening,
             'tagging' => $npd->tagging_snapshot ?: ($npd->masterAnggaran->tagging?->nama ?? ''),
             'uraian' => $npd->detail_json['uraian'] ?? $npd->detail_json['uraian_sp'] ?? $npd->detail_json['keterangan_lampiran'] ?? '-',
             'nominal' => (float) $npd->nominal,
