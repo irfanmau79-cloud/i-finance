@@ -6,8 +6,8 @@
 @section('content')
 <style>
   .an-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:16px}
-  .an-head h2{margin:0;color:var(--navy);font-size:22px}.an-head p{margin:3px 0 0;color:var(--mut)}
-  .an-filter{display:grid;grid-template-columns:minmax(260px,2fr) minmax(220px,1fr) auto;gap:12px;align-items:end}
+  .an-head h2{margin:0;color:var(--navy);font-size:22px}
+  .an-filter{display:grid;grid-template-columns:minmax(220px,1fr) minmax(220px,1fr) auto;gap:12px;align-items:end}
   .an-filter label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:5px}
   .an-filter-actions{display:flex;gap:8px}.an-filter-actions .btn{padding:9px 14px;white-space:nowrap}
   .an-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:16px 0}
@@ -28,34 +28,43 @@
     $rupiah = fn (?float $nilai) => $nilai === null ? 'Tidak tersedia' : fmt_rupiah($nilai);
     $persen = fn (?float $nilai) => $nilai === null ? 'Tidak tersedia' : number_format($nilai, 2, ',', '.').' %';
     $deviasiClass = ($analisis['deviasi_rupiah'] ?? 0) >= 0 ? 'positive' : 'negative';
+    $cariLabel = function ($options, $value) {
+        foreach ($options as $opt) {
+            if ((string) $opt['value'] === (string) $value) return $opt['label'];
+        }
+        return '';
+    };
+    $subSelectedLabel = $filters['sub_kegiatan'] !== '' ? $cariLabel($pilihan['sub_kegiatan'], $filters['sub_kegiatan']) : '';
+    $kodeSelectedLabel = $filters['kode_rekening'] !== '' ? $cariLabel($pilihan['kode_rekening_berlabel'], $filters['kode_rekening']) : '';
+    $subOptionsJs = collect([['value' => '', 'label' => 'Semua Sub Kegiatan']])->concat($pilihan['sub_kegiatan']);
+    $kodeOptionsJs = collect([['value' => '', 'label' => 'Semua Kode Rekening']])->concat($pilihan['kode_rekening_berlabel']);
 @endphp
 
 <div class="an-head">
     <div>
         <h2>Analisis dan Tren</h2>
-        <p>Realisasi transaksi Laravel dan target RAK resmi Tahun Anggaran {{ $analisis['tahun'] }}.</p>
     </div>
 </div>
 
 <div class="dash-card">
     <form method="GET" action="{{ route('analisis.index') }}" class="an-filter" id="an-filter-form">
         <div>
-            <label for="an-sub">Sub Kegiatan</label>
-            <select name="sub_kegiatan" id="an-sub">
-                <option value="">Semua Sub Kegiatan</option>
-                @foreach ($pilihan['sub_kegiatan'] as $option)
-                    <option value="{{ $option['value'] }}" @selected($filters['sub_kegiatan'] === $option['value'])>{{ $option['label'] }}</option>
-                @endforeach
-            </select>
+            <label for="an-sub-inp">Sub Kegiatan</label>
+            <div class="nsearch" id="an-sub-wrap">
+                <svg class="ns-ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input class="ns-inp" id="an-sub-inp" autocomplete="off" placeholder="Semua Sub Kegiatan" value="{{ $subSelectedLabel }}">
+                <input type="hidden" name="sub_kegiatan" id="an-sub" value="{{ $filters['sub_kegiatan'] }}">
+                <div class="ns-drop" id="an-sub-drop"></div>
+            </div>
         </div>
         <div>
-            <label for="an-kode">Kode Rekening</label>
-            <select name="kode_rekening" id="an-kode">
-                <option value="">Semua Kode Rekening</option>
-                @foreach ($pilihan['kode_rekening'] as $kode)
-                    <option value="{{ $kode }}" @selected($filters['kode_rekening'] === $kode)>{{ $kode }}</option>
-                @endforeach
-            </select>
+            <label for="an-kode-inp">Kode Rekening</label>
+            <div class="nsearch" id="an-kode-wrap">
+                <svg class="ns-ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input class="ns-inp" id="an-kode-inp" autocomplete="off" placeholder="Semua Kode Rekening" value="{{ $kodeSelectedLabel }}">
+                <input type="hidden" name="kode_rekening" id="an-kode" value="{{ $filters['kode_rekening'] }}">
+                <div class="ns-drop" id="an-kode-drop"></div>
+            </div>
         </div>
         <div class="an-filter-actions">
             <button class="btn prim" type="submit">Terapkan</button>
@@ -94,10 +103,46 @@
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('an-filter-form');
-    const sub = document.getElementById('an-sub');
-    const kode = document.getElementById('an-kode');
-    sub.addEventListener('change', function () { kode.value = ''; form.submit(); });
-    kode.addEventListener('change', function () { form.submit(); });
+
+    function initSearchSelect(inputId, hiddenId, dropId, options, onSelect) {
+        const input = document.getElementById(inputId);
+        const hidden = document.getElementById(hiddenId);
+        const drop = document.getElementById(dropId);
+        let selectedLabel = input.value;
+
+        function renderList(query) {
+            const q = (query || '').toLowerCase().trim();
+            const items = options.filter(o => !q || o.label.toLowerCase().includes(q));
+            drop.innerHTML = items.length
+                ? items.map(o => '<div class="ns-item" data-value="'+String(o.value).replace(/"/g,'&quot;')+'">'+o.label.replace(/</g,'&lt;')+'</div>').join('')
+                : '<div class="ns-empty">Tidak ditemukan</div>';
+            drop.classList.add('show');
+        }
+        function hide() { drop.classList.remove('show'); }
+
+        input.addEventListener('focus', () => renderList(input.value === selectedLabel ? '' : input.value));
+        input.addEventListener('input', () => renderList(input.value));
+        input.addEventListener('blur', () => setTimeout(() => { hide(); input.value = selectedLabel; }, 150));
+        drop.addEventListener('mousedown', function (e) {
+            const item = e.target.closest('.ns-item[data-value]');
+            if (!item) return;
+            e.preventDefault();
+            hidden.value = item.dataset.value;
+            selectedLabel = item.textContent;
+            input.value = selectedLabel;
+            hide();
+            if (onSelect) onSelect(item.dataset.value);
+        });
+    }
+
+    initSearchSelect('an-sub-inp', 'an-sub', 'an-sub-drop', {{ Illuminate\Support\Js::from($subOptionsJs) }}, function () {
+        document.getElementById('an-kode-inp').value = '';
+        document.getElementById('an-kode').value = '';
+        form.submit();
+    });
+    initSearchSelect('an-kode-inp', 'an-kode', 'an-kode-drop', {{ Illuminate\Support\Js::from($kodeOptionsJs) }}, function () {
+        form.submit();
+    });
 
     const canvas = document.getElementById('an-chart');
     if (!canvas) return;
