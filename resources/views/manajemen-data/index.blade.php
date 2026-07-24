@@ -4,12 +4,16 @@
 @section('title', 'Manajemen Data')
 
 @section('content')
-<div class="dash-card">
-    <h3>Manajemen Data</h3>
-    <div class="sub">Unduh data master dan transaksi dalam format Excel (.xlsx). Setiap file diawali baris header yang stabil.</div>
+<div class="page-head">
+    <div>
+        <div class="ph-crumb">Beranda / <b>Manajemen Data</b></div>
+        <div class="ph-title">Manajemen Data</div>
+    </div>
 </div>
 
-<div class="dash-grid" style="margin-top:18px;">
+<div class="profil-sec-title">Import Data</div>
+<div class="sub" style="margin-top:-8px;margin-bottom:16px;">Upload data master dan transaksi dari file Excel (.xlsx).</div>
+<div class="dash-grid">
     @if(auth()->user()->isSuperadmin())
     <div class="dash-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
         <div><h3 style="margin-bottom:0;">Import NPD Historis</h3><div class="sub" style="margin-bottom:0;">Upload, preview, validate, and import historical NPD data.</div></div>
@@ -44,6 +48,12 @@
         </div>
         <a href="{{ route('manajemen-data.import.rak-bulanan.create') }}" class="btn prim" style="white-space:nowrap;">Import Excel</a>
     </div>
+</div>
+
+<div class="profil-divider"></div>
+
+<div class="profil-sec-title">Export Data</div>
+<div class="dash-grid">
     @foreach ($exports as $key => $meta)
     <div class="dash-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
         <div>
