@@ -6,36 +6,48 @@
 @section('content')
 <style>
   .rr-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:16px}
-  .rr-head h2{margin:0;color:var(--navy);font-size:22px}.rr-head p{margin:3px 0 0;color:var(--mut)}
+  .rr-head h2{margin:0;color:var(--navy);font-size:22px}
   .rr-actions{display:flex;gap:8px;flex-wrap:wrap}.rr-actions .btn{padding:8px 14px}
-  .rr-filter{display:grid;grid-template-columns:minmax(210px,2fr) minmax(170px,1fr) minmax(170px,1fr) minmax(210px,1.5fr) auto;gap:10px;align-items:end}
+  .rr-filter{display:grid;grid-template-columns:minmax(190px,1fr) minmax(190px,1fr) minmax(190px,1fr) minmax(210px,1.3fr) auto;gap:10px;align-items:end}
   .rr-filter label{display:block;color:var(--navy);font-size:12px;font-weight:700;margin-bottom:5px}
   .rr-filter .rr-filter-actions{display:flex;gap:7px}.rr-filter .btn{padding:9px 14px;white-space:nowrap}
-  .rr-summary{display:grid;grid-template-columns:repeat(5,minmax(150px,1fr));gap:10px;margin:16px 0}
-  .rr-metric{border:1px solid var(--line);border-radius:11px;padding:11px 13px;background:#fff}
-  .rr-metric span{display:block;color:var(--mut);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.35px}
-  .rr-metric strong{display:block;color:var(--navy);font-size:15px;margin-top:3px;font-variant-numeric:tabular-nums}
-  .rr-wrap{overflow:auto;border:1px solid var(--line);border-radius:11px}
+  .rr-wrap{overflow:auto;border:1px solid var(--line);border-radius:11px;margin-top:16px}
   table.rr-tree{min-width:1060px;margin:0}table.rr-tree th{white-space:nowrap}
   table.rr-tree .rr-label{min-width:340px}table.rr-tree .rr-num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
   .rr-toggle{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;border:0;background:transparent;color:var(--navy);cursor:pointer;border-radius:5px}
   .rr-toggle:hover{background:rgba(21,49,74,.09)}.rr-toggle svg{width:14px;height:14px;transition:transform .15s;stroke:currentColor;fill:none;stroke-width:2.2}
   .rr-toggle[aria-expanded="true"] svg{transform:rotate(90deg)}.rr-submeta{display:block;color:var(--mut);font-size:11px;font-weight:400;margin-left:21px}
   .rr-empty{text-align:center;padding:34px 16px;color:var(--mut)}
-  @media(max-width:1200px){.rr-filter{grid-template-columns:1fr 1fr}.rr-filter .rr-filter-actions{grid-column:1/-1}.rr-summary{grid-template-columns:repeat(2,1fr)}}
-  @media(max-width:620px){.rr-filter{grid-template-columns:1fr}.rr-filter .rr-filter-actions{grid-column:auto}.rr-summary{grid-template-columns:1fr}}
+  @media(max-width:1200px){.rr-filter{grid-template-columns:1fr 1fr}.rr-filter .rr-filter-actions{grid-column:1/-1}}
+  @media(max-width:620px){.rr-filter{grid-template-columns:1fr}.rr-filter .rr-filter-actions{grid-column:auto}}
 </style>
 
 @php
     $rupiah = fn (float $nilai) => fmt_rupiah($nilai);
     $persen = fn (float $nilai) => number_format($nilai, 2, ',', '.').' %';
+    $cariLabel = function ($options, $value) {
+        foreach ($options as $opt) {
+            if ((string) $opt['value'] === (string) $value) return $opt['label'];
+        }
+        return '';
+    };
+    $subSelectedLabel = $filters['sub_kegiatan'] !== '' ? $cariLabel($subKegiatanOptions, $filters['sub_kegiatan']) : '';
+    $kodeSelectedLabel = $filters['kode_rekening'] !== '' ? $cariLabel($kodeRekeningOptions, $filters['kode_rekening']) : '';
+    $taggingSelectedLabel = $filters['tagging'] === 'tanpa'
+        ? 'Tanpa Tagging'
+        : ($filters['tagging'] !== '' ? $cariLabel($taggingOptions, $filters['tagging']) : '');
+
+    $subOptionsJs = collect([['value' => '', 'label' => 'Semua Sub Kegiatan']])->concat($subKegiatanOptions);
+    $kodeOptionsJs = collect([['value' => '', 'label' => 'Semua Kode Rekening']])->concat($kodeRekeningOptions);
+    $taggingOptionsJs = collect([['value' => '', 'label' => 'Semua Tagging']])
+        ->when($memilikiTanpaTagging, fn ($c) => $c->push(['value' => 'tanpa', 'label' => 'Tanpa Tagging']))
+        ->concat($taggingOptions);
 @endphp
 
 <div class="dash-card">
     <div class="rr-head">
         <div>
             <h2>Rincian Realisasi</h2>
-            <p>Agregasi transaksi aktif menurut Sub Kegiatan, Kode Rekening, dan Tagging.</p>
         </div>
         <div class="rr-actions">
             <button type="button" class="btn" id="rr-close-all">Tutup Semua</button>
@@ -45,32 +57,31 @@
 
     <form method="GET" action="{{ route('rincian.index') }}" class="rr-filter">
         <div>
-            <label for="rr-sub">Sub Kegiatan</label>
-            <select id="rr-sub" name="sub_kegiatan">
-                <option value="">Semua Sub Kegiatan</option>
-                @foreach ($subKegiatanOptions as $option)
-                    <option value="{{ $option['value'] }}" @selected($filters['sub_kegiatan'] === $option['value'])>{{ $option['label'] }}</option>
-                @endforeach
-            </select>
+            <label for="rr-sub-inp">Sub Kegiatan</label>
+            <div class="nsearch" id="rr-sub-wrap">
+                <svg class="ns-ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input class="ns-inp" id="rr-sub-inp" autocomplete="off" placeholder="Semua Sub Kegiatan" value="{{ $subSelectedLabel }}">
+                <input type="hidden" name="sub_kegiatan" id="rr-sub" value="{{ $filters['sub_kegiatan'] }}">
+                <div class="ns-drop" id="rr-sub-drop"></div>
+            </div>
         </div>
         <div>
-            <label for="rr-kode">Kode Rekening</label>
-            <select id="rr-kode" name="kode_rekening">
-                <option value="">Semua Kode Rekening</option>
-                @foreach ($kodeRekeningOptions as $kode)
-                    <option value="{{ $kode }}" @selected($filters['kode_rekening'] === $kode)>{{ $kode }}</option>
-                @endforeach
-            </select>
+            <label for="rr-kode-inp">Kode Rekening</label>
+            <div class="nsearch" id="rr-kode-wrap">
+                <svg class="ns-ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input class="ns-inp" id="rr-kode-inp" autocomplete="off" placeholder="Semua Kode Rekening" value="{{ $kodeSelectedLabel }}">
+                <input type="hidden" name="kode_rekening" id="rr-kode" value="{{ $filters['kode_rekening'] }}">
+                <div class="ns-drop" id="rr-kode-drop"></div>
+            </div>
         </div>
         <div>
-            <label for="rr-tagging">Tagging</label>
-            <select id="rr-tagging" name="tagging">
-                <option value="">Semua Tagging</option>
-                @if ($memilikiTanpaTagging)<option value="tanpa" @selected($filters['tagging'] === 'tanpa')>Tanpa Tagging</option>@endif
-                @foreach ($taggingOptions as $option)
-                    <option value="{{ $option['value'] }}" @selected($filters['tagging'] === $option['value'])>{{ $option['label'] }}</option>
-                @endforeach
-            </select>
+            <label for="rr-tagging-inp">Tagging</label>
+            <div class="nsearch" id="rr-tagging-wrap">
+                <svg class="ns-ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                <input class="ns-inp" id="rr-tagging-inp" autocomplete="off" placeholder="Semua Tagging" value="{{ $taggingSelectedLabel }}">
+                <input type="hidden" name="tagging" id="rr-tagging" value="{{ $filters['tagging'] }}">
+                <div class="ns-drop" id="rr-tagging-drop"></div>
+            </div>
         </div>
         <div>
             <label for="rr-search">Pencarian</label>
@@ -82,39 +93,31 @@
         </div>
     </form>
 
-    <div class="rr-summary" aria-label="Total hasil filter">
-        <div class="rr-metric"><span>Pagu</span><strong>{{ $rupiah($total['pagu']) }}</strong></div>
-        <div class="rr-metric"><span>Dana Terikat NPD</span><strong>{{ $rupiah($total['dana_terikat_npd']) }}</strong></div>
-        <div class="rr-metric"><span>Realisasi Aktual</span><strong>{{ $rupiah($total['realisasi_aktual']) }}</strong></div>
-        <div class="rr-metric"><span>Sisa Tersedia</span><strong>{{ $rupiah($total['sisa_tersedia']) }}</strong></div>
-        <div class="rr-metric"><span>Realisasi / Pagu</span><strong>{{ $persen($total['persentase_realisasi']) }}</strong></div>
-    </div>
-
     <div class="rr-wrap">
         <table class="realisasi pivot rr-tree">
-            <thead><tr><th class="rr-label">Uraian</th><th class="rr-num">Pagu</th><th class="rr-num">Dana Terikat NPD</th><th class="rr-num">Realisasi Aktual</th><th class="rr-num">Sisa Tersedia</th><th class="rr-num">Realisasi / Pagu</th></tr></thead>
+            <thead><tr><th class="rr-label">Uraian</th><th class="rr-num">Pagu Anggaran</th><th class="rr-num">Realisasi</th><th class="rr-num">Sisa Anggaran</th><th class="rr-num">%Realisasi</th></tr></thead>
             <tbody>
             @forelse ($tree as $subIndex => $sub)
                 @php($subNode = 'rr-sub-'.$subIndex)
-                <tr class="row-lvl0" data-rr-node="{{ $subNode }}">
+                <tr class="row-lvl0 {{ $subIndex % 2 === 0 ? 'lvl0-gelap' : 'lvl0-terang' }}" data-rr-node="{{ $subNode }}">
                     <td class="rr-label"><div class="uraian"><button type="button" class="rr-toggle" data-rr-toggle="{{ $subNode }}" aria-expanded="true" aria-label="Tutup atau buka Sub Kegiatan"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button><span>{{ $sub['nama'] }}<small class="rr-submeta">{{ $sub['program'] }} &middot; {{ $sub['kegiatan'] }}</small></span></div></td>
-                    <td class="rr-num">{{ $rupiah($sub['angka']['pagu']) }}</td><td class="rr-num">{{ $rupiah($sub['angka']['dana_terikat_npd']) }}</td><td class="rr-num">{{ $rupiah($sub['angka']['realisasi_aktual']) }}</td><td class="rr-num">{{ $rupiah($sub['angka']['sisa_tersedia']) }}</td><td class="rr-num">{{ $persen($sub['angka']['persentase_realisasi']) }}</td>
+                    <td class="rr-num">{{ $rupiah($sub['angka']['pagu']) }}</td><td class="rr-num">{{ $rupiah($sub['angka']['realisasi_aktual']) }}</td><td class="rr-num">{{ $rupiah($sub['angka']['sisa_tersedia']) }}</td><td class="rr-num">{{ $persen($sub['angka']['persentase_realisasi']) }}</td>
                 </tr>
                 @foreach ($sub['rekening'] as $rekeningIndex => $rekening)
                     @php($rekeningNode = $subNode.'-rekening-'.$rekeningIndex)
                     <tr class="row-lvl1" data-rr-node="{{ $rekeningNode }}" data-rr-ancestors="{{ $subNode }}">
                         <td class="rr-label ind1"><div class="uraian"><button type="button" class="rr-toggle" data-rr-toggle="{{ $rekeningNode }}" aria-expanded="true" aria-label="Tutup atau buka Kode Rekening"><svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg></button><span><span class="kode-chip">{{ $rekening['kode'] }}</span> {{ $rekening['uraian'] }}</span></div></td>
-                        <td class="rr-num">{{ $rupiah($rekening['angka']['pagu']) }}</td><td class="rr-num">{{ $rupiah($rekening['angka']['dana_terikat_npd']) }}</td><td class="rr-num">{{ $rupiah($rekening['angka']['realisasi_aktual']) }}</td><td class="rr-num">{{ $rupiah($rekening['angka']['sisa_tersedia']) }}</td><td class="rr-num">{{ $persen($rekening['angka']['persentase_realisasi']) }}</td>
+                        <td class="rr-num">{{ $rupiah($rekening['angka']['pagu']) }}</td><td class="rr-num">{{ $rupiah($rekening['angka']['realisasi_aktual']) }}</td><td class="rr-num">{{ $rupiah($rekening['angka']['sisa_tersedia']) }}</td><td class="rr-num">{{ $persen($rekening['angka']['persentase_realisasi']) }}</td>
                     </tr>
                     @foreach ($rekening['tagging'] as $tagging)
                         <tr class="row-lvl2" data-rr-ancestors="{{ $subNode }} {{ $rekeningNode }}">
                             <td class="rr-label ind2"><div class="uraian"><span class="spacer"></span><span>{{ $tagging['nama'] }}</span></div></td>
-                            <td class="rr-num">{{ $rupiah($tagging['angka']['pagu']) }}</td><td class="rr-num">{{ $rupiah($tagging['angka']['dana_terikat_npd']) }}</td><td class="rr-num">{{ $rupiah($tagging['angka']['realisasi_aktual']) }}</td><td class="rr-num">{{ $rupiah($tagging['angka']['sisa_tersedia']) }}</td><td class="rr-num">{{ $persen($tagging['angka']['persentase_realisasi']) }}</td>
+                            <td class="rr-num">{{ $rupiah($tagging['angka']['pagu']) }}</td><td class="rr-num">{{ $rupiah($tagging['angka']['realisasi_aktual']) }}</td><td class="rr-num">{{ $rupiah($tagging['angka']['sisa_tersedia']) }}</td><td class="rr-num">{{ $persen($tagging['angka']['persentase_realisasi']) }}</td>
                         </tr>
                     @endforeach
                 @endforeach
             @empty
-                <tr><td colspan="6" class="rr-empty">Tidak ada mata anggaran aktif yang sesuai filter.</td></tr>
+                <tr><td colspan="5" class="rr-empty">Tidak ada mata anggaran aktif yang sesuai filter.</td></tr>
             @endforelse
             </tbody>
         </table>
@@ -123,26 +126,61 @@
 
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-    const toggles = Array.from(document.querySelectorAll('[data-rr-toggle]'));
-    const expanded = new Set(toggles.map(button => button.dataset.rrToggle));
+    const expanded = new Set();
+    document.querySelectorAll('[data-rr-toggle]').forEach(btn => expanded.add(btn.dataset.rrToggle));
 
     function refresh() {
         document.querySelectorAll('[data-rr-ancestors]').forEach(function (row) {
             const ancestors = row.dataset.rrAncestors.split(/\s+/).filter(Boolean);
             row.hidden = !ancestors.every(node => expanded.has(node));
         });
-        toggles.forEach(button => button.setAttribute('aria-expanded', expanded.has(button.dataset.rrToggle) ? 'true' : 'false'));
+        document.querySelectorAll('[data-rr-toggle]').forEach(btn => btn.setAttribute('aria-expanded', expanded.has(btn.dataset.rrToggle) ? 'true' : 'false'));
     }
 
-    toggles.forEach(function (button) {
-        button.addEventListener('click', function () {
-            const node = button.dataset.rrToggle;
+    document.querySelectorAll('tr[data-rr-node]').forEach(function (row) {
+        const node = row.dataset.rrNode;
+        row.addEventListener('click', function () {
             expanded.has(node) ? expanded.delete(node) : expanded.add(node);
             refresh();
         });
     });
+
     document.getElementById('rr-close-all').addEventListener('click', function () { expanded.clear(); refresh(); });
-    document.getElementById('rr-open-all').addEventListener('click', function () { toggles.forEach(button => expanded.add(button.dataset.rrToggle)); refresh(); });
+    document.getElementById('rr-open-all').addEventListener('click', function () { document.querySelectorAll('[data-rr-toggle]').forEach(btn => expanded.add(btn.dataset.rrToggle)); refresh(); });
+
+    function initSearchSelect(inputId, hiddenId, dropId, options) {
+        const input = document.getElementById(inputId);
+        const hidden = document.getElementById(hiddenId);
+        const drop = document.getElementById(dropId);
+        let selectedLabel = input.value;
+
+        function renderList(query) {
+            const q = (query || '').toLowerCase().trim();
+            const items = options.filter(o => !q || o.label.toLowerCase().includes(q));
+            drop.innerHTML = items.length
+                ? items.map(o => '<div class="ns-item" data-value="'+String(o.value).replace(/"/g,'&quot;')+'">'+o.label.replace(/</g,'&lt;')+'</div>').join('')
+                : '<div class="ns-empty">Tidak ditemukan</div>';
+            drop.classList.add('show');
+        }
+        function hide() { drop.classList.remove('show'); }
+
+        input.addEventListener('focus', () => renderList(input.value === selectedLabel ? '' : input.value));
+        input.addEventListener('input', () => renderList(input.value));
+        input.addEventListener('blur', () => setTimeout(() => { hide(); input.value = selectedLabel; }, 150));
+        drop.addEventListener('mousedown', function (e) {
+            const item = e.target.closest('.ns-item[data-value]');
+            if (!item) return;
+            e.preventDefault();
+            hidden.value = item.dataset.value;
+            selectedLabel = item.textContent;
+            input.value = selectedLabel;
+            hide();
+        });
+    }
+
+    initSearchSelect('rr-sub-inp', 'rr-sub', 'rr-sub-drop', {{ Illuminate\Support\Js::from($subOptionsJs) }});
+    initSearchSelect('rr-kode-inp', 'rr-kode', 'rr-kode-drop', {{ Illuminate\Support\Js::from($kodeOptionsJs) }});
+    initSearchSelect('rr-tagging-inp', 'rr-tagging', 'rr-tagging-drop', {{ Illuminate\Support\Js::from($taggingOptionsJs) }});
 });
 </script>
 @endsection

@@ -8,6 +8,7 @@
 @include('layouts.partials.styles')
 </head>
 <body>
+<script>if(localStorage.getItem('ifinance-sidebar-collapsed')==='1'){document.documentElement.classList.add('sidebar-collapsed');}</script>
 
 <div class="sb-overlay" id="sb-overlay"></div>
 <div class="shell" id="app-shell">
@@ -19,6 +20,7 @@
         <div class="t1">i-Finance</div>
         <div class="t2">Inspektorat Daerah<br>Provinsi Jawa Barat</div>
       </div>
+      <div class="sb-collapse" id="sb-collapse-btn" title="Sembunyikan menu"><svg viewBox="0 0 24 24"><polyline points="15 18 9 12 15 6"/></svg></div>
       <div class="sb-close" id="sb-close"><svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg></div>
     </div>
     <nav class="sb-menu">
@@ -236,6 +238,10 @@
     </div>
   </aside>
 
+  <button type="button" class="sb-expand" id="sb-expand-btn" title="Tampilkan menu" aria-label="Tampilkan menu">
+    <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+  </button>
+
   <div class="main">
     <div class="topbar">
       <div class="burger" id="sb-burger"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></div>
@@ -254,6 +260,28 @@
       parent.closest('.sb-group').classList.toggle('open');
     });
   });
+
+  (function () {
+    var STORAGE_KEY = 'ifinance-sidebar-collapsed';
+    function setCollapsed(collapsed) {
+      document.documentElement.classList.toggle('sidebar-collapsed', collapsed);
+      localStorage.setItem(STORAGE_KEY, collapsed ? '1' : '0');
+    }
+    var collapseBtn = document.getElementById('sb-collapse-btn');
+    var expandBtn = document.getElementById('sb-expand-btn');
+    if (collapseBtn) collapseBtn.addEventListener('click', function () { setCollapsed(true); });
+    if (expandBtn) expandBtn.addEventListener('click', function () { setCollapsed(false); });
+
+    var burger = document.getElementById('sb-burger');
+    var closeBtn = document.getElementById('sb-close');
+    var overlay = document.getElementById('sb-overlay');
+    var sidebar = document.querySelector('.sidebar');
+    function openMobile() { sidebar.classList.add('open'); overlay.classList.add('show'); }
+    function closeMobile() { sidebar.classList.remove('open'); overlay.classList.remove('show'); }
+    if (burger) burger.addEventListener('click', openMobile);
+    if (closeBtn) closeBtn.addEventListener('click', closeMobile);
+    if (overlay) overlay.addEventListener('click', closeMobile);
+  })();
 </script>
 
 </body>

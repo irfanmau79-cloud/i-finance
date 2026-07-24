@@ -5,29 +5,61 @@
 
 @section('content')
 <style>
-  .pd-head h2{margin:0;color:var(--navy);font-size:22px}.pd-head p{margin:4px 0 16px;color:var(--mut)}
   .pd-filter{display:grid;grid-template-columns:1fr 1fr 1fr auto;gap:12px;align-items:end}.pd-filter label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:5px}
-  .pd-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:16px 0}.pd-kpi{background:#fff;border:1px solid var(--line);border-radius:13px;padding:15px 16px;box-shadow:var(--shadow)}.pd-kpi small{display:block;color:var(--mut);font-weight:700;text-transform:uppercase}.pd-kpi strong{display:block;color:var(--navy);font-size:20px;margin-top:5px}
   .pd-chart{height:360px;position:relative}.pd-table-wrap{overflow:auto}.pd-table{min-width:1050px}.pd-toggle{border:0;background:transparent;color:var(--navy);cursor:pointer;font-weight:800}.pd-member{display:none;background:#fafbfd}.pd-member.show{display:table-row}.pd-member td:first-child{padding-left:34px}
   .pd-empty{text-align:center;padding:50px 16px;color:var(--mut)}
-  @media(max-width:900px){.pd-filter{grid-template-columns:1fr 1fr}.pd-kpis{grid-template-columns:1fr 1fr}}@media(max-width:600px){.pd-filter,.pd-kpis{grid-template-columns:1fr}}
+  @media(max-width:900px){.pd-filter{grid-template-columns:1fr 1fr}}@media(max-width:600px){.pd-filter{grid-template-columns:1fr}}
 </style>
 @php($rupiah = fn ($nilai) => fmt_rupiah((float) $nilai))
-<div class="pd-head"><h2>Dashboard Perjalanan Dinas</h2><p>Agregasi otomatis NPD Perjalanan Dinas dan Transport berstatus Selesai, TA {{ $dashboard['tahun'] }}.</p></div>
+
+<div class="page-head">
+  <div>
+    <div class="ph-crumb">Beranda / <b>Dashboard Perjalanan Dinas</b></div>
+    <div class="ph-title">Dashboard Perjalanan Dinas</div>
+  </div>
+  <div class="ph-actions">
+    <a class="btn" href="{{ request()->fullUrl() }}" style="white-space:nowrap;">&#8635; Muat Ulang</a>
+  </div>
+</div>
+
 <div class="dash-card"><form method="GET" class="pd-filter" id="pd-filter">
   <div><label for="pd-bidang">Bidang</label><select id="pd-bidang" name="bidang"><option value="">Semua Bidang</option>@foreach($dashboard['pilihan']['bidang'] as $bidang)<option @selected($filters['bidang']===$bidang)>{{ $bidang }}</option>@endforeach</select></div>
   <div><label for="pd-pegawai">Pegawai</label><select id="pd-pegawai" name="pegawai"><option value="">Semua Pegawai</option>@foreach($dashboard['pilihan']['pegawai'] as $pegawai)<option value="{{ $pegawai['value'] }}" data-bidang="{{ $pegawai['bidang'] }}" @selected($filters['pegawai']===$pegawai['value'])>{{ $pegawai['label'] }}</option>@endforeach</select></div>
-  <div><label for="pd-metrik">Metrik Grafik</label><select id="pd-metrik" name="metrik">@foreach(['diterima'=>'Jumlah Diterima','hari'=>'Jumlah Hari','uang_harian'=>'Uang Harian','akomodasi'=>'Akomodasi','transport'=>'Transport','representatif'=>'Representatif'] as $key=>$label)<option value="{{ $key }}" @selected($dashboard['metrik']===$key)>{{ $label }}</option>@endforeach</select></div>
+  <input type="hidden" name="metrik" value="{{ $dashboard['metrik'] }}">
   <div><button class="btn prim">Terapkan</button> <a class="btn" href="{{ route('dashboard.perjalanan.index') }}">Reset</a></div>
 </form></div>
-<div class="pd-kpis">
-  <div class="pd-kpi"><small>Jumlah Hari</small><strong>{{ number_format($dashboard['total']['hari'], 0, ',', '.') }}</strong></div>
-  <div class="pd-kpi"><small>Uang Harian + Akomodasi</small><strong>{{ $rupiah($dashboard['total']['uang_harian']+$dashboard['total']['akomodasi']) }}</strong></div>
-  <div class="pd-kpi"><small>Transport + Representatif</small><strong>{{ $rupiah($dashboard['total']['transport']+$dashboard['total']['representatif']) }}</strong></div>
-  <div class="pd-kpi"><small>Jumlah Diterima</small><strong>{{ $rupiah($dashboard['total']['diterima']) }}</strong></div>
+
+<div class="kpi-grid">
+  <div class="kpi" style="--kc:#15314a;--kbg:#15314a14;">
+    <div class="kpi-top"><div class="kpi-ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg></div><div><div class="kpi-lbl">Jumlah Hari</div></div></div>
+    <div class="kpi-val">{{ number_format($dashboard['total']['hari'], 0, ',', '.') }}</div>
+  </div>
+  <div class="kpi" style="--kc:#0f6e56;--kbg:#0f6e5614;">
+    <div class="kpi-top"><div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></div><div><div class="kpi-lbl">Uang Harian + Akomodasi</div></div></div>
+    <div class="kpi-val">{{ $rupiah($dashboard['total']['uang_harian']+$dashboard['total']['akomodasi']) }}</div>
+  </div>
+  <div class="kpi" style="--kc:#b07d1d;--kbg:#b07d1d14;">
+    <div class="kpi-top"><div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M3 6h18l-2 13H5z"/><path d="M8 10v4M12 10v4M16 10v4"/></svg></div><div><div class="kpi-lbl">Transport + Representatif</div></div></div>
+    <div class="kpi-val">{{ $rupiah($dashboard['total']['transport']+$dashboard['total']['representatif']) }}</div>
+  </div>
+  <div class="kpi" style="--kc:#7c3aed;--kbg:#7c3aed14;">
+    <div class="kpi-top"><div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div><div><div class="kpi-lbl">Jumlah Diterima</div></div></div>
+    <div class="kpi-val">{{ $rupiah($dashboard['total']['diterima']) }}</div>
+  </div>
 </div>
+
 @if($dashboard['kosong'])<div class="dash-card pd-empty">Belum ada NPD Perjalanan Dinas atau Transport berstatus Selesai untuk filter ini.</div>@else
-<div class="dash-card"><h3 style="margin:0;color:var(--navy)">Tren Bulanan — {{ $dashboard['metrik_label'] }}</h3><div class="pd-chart"><canvas id="pd-chart"></canvas></div></div>
+<div class="dash-card">
+  <div style="display:flex;justify-content:space-between;align-items:flex-start;gap:12px;flex-wrap:wrap;margin-bottom:6px;">
+    <div><h3 style="margin:0;">Tren Bulanan</h3><div class="sub">{{ $dashboard['metrik_label'] }} &middot; Januari &ndash; Desember</div></div>
+    <div class="an-seg">
+      @foreach(['diterima'=>'Jumlah Diterima','uang_harian'=>'Uang Harian','akomodasi'=>'Akomodasi','transport'=>'Transport','representatif'=>'Representatif','hari'=>'Jumlah Hari'] as $key=>$label)
+        <a href="{{ route('dashboard.perjalanan.index', array_merge($filters, ['metrik'=>$key])) }}" class="an-seg-btn {{ $dashboard['metrik']===$key ? 'active' : '' }}">{{ $label }}</a>
+      @endforeach
+    </div>
+  </div>
+  <div class="pd-chart"><canvas id="pd-chart"></canvas></div>
+</div>
 <div class="dash-card" style="margin-top:16px"><h3 style="margin:0;color:var(--navy)">Rekap per Bidang</h3><div class="sub">Klik bidang untuk membuka rincian anggota.</div><div class="pd-table-wrap"><table class="realisasi pd-table"><thead><tr><th>Bidang / Pegawai</th><th class="num">Hari</th><th class="num">Uang Harian</th><th class="num">Akomodasi</th><th class="num">Transport</th><th class="num">Representatif</th><th class="num">Diterima</th></tr></thead><tbody>
 @foreach($dashboard['bidang'] as $i=>$bidang)<tr><td><button type="button" class="pd-toggle" data-group="pd-{{ $i }}" aria-expanded="false">&#9656; {{ $bidang['bidang'] }} ({{ $bidang['jumlah_pegawai'] }})</button></td><td class="num">{{ number_format($bidang['hari'],0,',','.') }}</td><td class="num">{{ $rupiah($bidang['uang_harian']) }}</td><td class="num">{{ $rupiah($bidang['akomodasi']) }}</td><td class="num">{{ $rupiah($bidang['transport']) }}</td><td class="num">{{ $rupiah($bidang['representatif']) }}</td><td class="num"><strong>{{ $rupiah($bidang['diterima']) }}</strong></td></tr>
 @foreach($bidang['pegawai'] as $pegawai)<tr class="pd-member" data-member="pd-{{ $i }}"><td>@if($pegawai['pegawai_id'])<a href="{{ route('dashboard.perjalanan.pegawai', $pegawai['pegawai_id']) }}">{{ $pegawai['nama'] }}</a>@else{{ $pegawai['nama'] }}@endif<small style="display:block;color:var(--mut)">{{ $pegawai['jabatan'] ?: 'Jabatan tidak tersedia' }}</small></td><td class="num">{{ number_format($pegawai['hari'],0,',','.') }}</td><td class="num">{{ $rupiah($pegawai['uang_harian']) }}</td><td class="num">{{ $rupiah($pegawai['akomodasi']) }}</td><td class="num">{{ $rupiah($pegawai['transport']) }}</td><td class="num">{{ $rupiah($pegawai['representatif']) }}</td><td class="num">{{ $rupiah($pegawai['diterima']) }}</td></tr>@endforeach

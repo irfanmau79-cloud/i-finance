@@ -61,7 +61,7 @@ class DashboardSpjTest extends TestCase
         $this->actingAs($verifikator)->post(route('dashboard.spj.verify', $penunjang), ['aksi' => 'verifikasi'])->assertSessionHasErrors('aksi');
         $this->actingAs($pptk)->post(route('dashboard.spj.verify', $penunjang), ['aksi' => 'verifikasi'])->assertForbidden();
         $this->actingAs($tanpaMenu)->get(route('dashboard.spj.index'))->assertForbidden();
-        $this->actingAs($verifikator)->get(route('dashboard.spj.index'))->assertOk()->assertSee('Status SPJ terpisah dari status NPD');
+        $this->actingAs($verifikator)->get(route('dashboard.spj.index'))->assertOk()->assertSee('Dashboard SPJ Pengawasan');
         $this->assertNull($draft->fresh()->spj_verified_at);
         $this->assertNull($penunjang->fresh()->spj_verified_at);
     }

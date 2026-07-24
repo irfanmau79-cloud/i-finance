@@ -10,7 +10,7 @@
     <div class="sub">Status {{ $import->status }} · Hash {{ $import->file_hash }} · Eksekusi batch bersifat atomik: seluruh baris yang valid/warning berhasil bersama atau transaksi dibatalkan.</div>
     @if(session('success'))<div class="sub" style="color:var(--ok);font-weight:700;">{{ session('success') }}</div>@endif
     @if($errors->any())<div class="err-box" style="display:block;"><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
-    <div class="kpi-grid" style="margin-top:14px;">
+    <div class="kpi-grid">
         <div class="dash-card"><h3>{{ $import->total_baris }}</h3><div class="sub">Total</div></div>
         <div class="dash-card"><h3>{{ $import->jumlah_valid }}</h3><div class="sub">Valid</div></div>
         <div class="dash-card"><h3>{{ $import->jumlah_warning }}</h3><div class="sub">Warning</div></div>

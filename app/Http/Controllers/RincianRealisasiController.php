@@ -32,7 +32,7 @@ class RincianRealisasiController extends Controller
             'total' => $rincian['total'],
             'filters' => $filters,
             'subKegiatanOptions' => $pilihan['sub_kegiatan'],
-            'kodeRekeningOptions' => $pilihan['kode_rekening'],
+            'kodeRekeningOptions' => $pilihan['kode_rekening_berlabel'],
             'taggingOptions' => $pilihan['tagging'],
             'memilikiTanpaTagging' => $pilihan['tanpa_tagging'],
         ]);
