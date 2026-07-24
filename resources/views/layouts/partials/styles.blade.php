@@ -385,7 +385,7 @@
   table.inv-modtable tbody tr:hover{background:#f5f9ff;}
   table.inv-modtable tbody tr:last-child td{border-bottom:none;}
   table.inv-modtable td.ta-r{text-align:right;white-space:nowrap;font-weight:700;color:#14663c;font-variant-numeric:tabular-nums;}
-  table.inv-modtable .badge-bulan{display:inline-block;background:#eef3fb;color:#26507f;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap;}
+  table.inv-modtable .badge-bulan{display:inline-block;background:#eef3fb;color:#26507f;font-size:13px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap;}
   table.inv-modtable .badge-lok{display:inline-block;background:#fff5e2;color:#9a6b12;font-size:11px;font-weight:700;padding:3px 9px;border-radius:20px;white-space:nowrap;}
   table.inv-modtable .cell-clip{white-space:normal;word-break:break-word;overflow-wrap:anywhere;min-width:110px;}
   table.inv-modtable td{vertical-align:top;}

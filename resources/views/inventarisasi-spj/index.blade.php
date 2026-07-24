@@ -137,7 +137,11 @@
   <div class="inv-table-body" id="inv-table-body">
     <div class="inv-tbl-card">
       <div class="inv-tbl-scroll">
-        <table class="inv-modtable" id="inv-table">
+        <table class="inv-modtable" id="inv-table" style="table-layout:fixed;">
+          <colgroup>
+            <col style="width:4%;"><col style="width:10%;"><col style="width:15%;"><col style="width:15%;">
+            <col style="width:10%;"><col style="width:22%;"><col style="width:8%;"><col style="width:9%;"><col style="width:7%;">
+          </colgroup>
           <thead><tr>
             <th>Bulan</th><th>Nomor Dokumen</th><th>Sub Kegiatan</th><th>Kode Rekening</th>
             <th>Tagging</th><th>Uraian</th><th class="ta-r">Nominal</th><th>Penerima</th><th>Lokasi</th>
@@ -299,7 +303,7 @@ document.addEventListener('DOMContentLoaded', function () {
         '<td><span class="badge-bulan">' + esc(r.bulan_label) + '</span></td>' +
         '<td class="cell-npd">' + esc(r.nomor_npd) + '</td>' +
         '<td class="cell-clip" title="' + esc(r.sub_kegiatan) + '">' + esc(r.sub_kegiatan) + '</td>' +
-        '<td class="cell-clip" title="' + esc(r.kode_rekening) + '">' + esc(r.kode_rekening) + '</td>' +
+        '<td class="cell-clip" title="' + esc(r.kode_rekening) + '">' + esc(r.uraian_rekening ? (r.kode_rekening + ' — ' + r.uraian_rekening) : r.kode_rekening) + '</td>' +
         '<td class="cell-clip" title="' + esc(r.tagging || '') + '">' + esc(r.tagging || '-') + '</td>' +
         '<td class="cell-clip" title="' + esc(r.uraian) + '">' + esc(r.uraian) + '</td>' +
         '<td class="ta-r">' + rp(r.nominal) + '</td>' +
