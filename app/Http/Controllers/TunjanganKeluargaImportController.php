@@ -2,18 +2,25 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\TunjanganKeluargaTemplateExport;
 use App\Models\TunjanganKeluargaImport;
 use App\Services\TunjanganKeluargaImportService;
 use App\Services\TunjanganKeluargaService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\View\View;
+use Maatwebsite\Excel\Facades\Excel;
 
 class TunjanganKeluargaImportController extends Controller
 {
     public function create(): View
     {
         return view('tunjangan-keluarga.import.create');
+    }
+
+    public function template()
+    {
+        return Excel::download(new TunjanganKeluargaTemplateExport, 'template-import-tunjangan-keluarga.xlsx');
     }
 
     public function store(Request $request, TunjanganKeluargaImportService $service): RedirectResponse

@@ -90,6 +90,31 @@ class TunjanganKeluargaController extends Controller
         return view('tunjangan-keluarga.data', ['pegawaiList' => $pegawaiList, 'cari' => $cari, 'service' => $service]);
     }
 
+    public function createPegawai(): View
+    {
+        return view('tunjangan-keluarga.pegawai-create');
+    }
+
+    public function storePegawai(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'nama' => ['required', 'string', 'max:255'],
+            'nip' => ['required', 'string', 'max:30', 'unique:pegawai,nip'],
+            'jabatan' => ['required', 'string', 'max:255'],
+            'golongan' => ['nullable', 'string', 'max:20'],
+            'pangkat' => ['nullable', 'string', 'max:100'],
+            'bidang' => ['required', 'string', 'max:100'],
+            'rekening' => ['nullable', 'string', 'max:100'],
+        ]);
+        $data['aktif'] = $request->boolean('aktif', true);
+
+        $pegawai = Pegawai::create($data);
+
+        AuditHelper::catat('Tambah Pegawai', "Pegawai: {$pegawai->nama} (NIP {$pegawai->nip})");
+
+        return redirect()->route('tunjangan.data.index')->with('success', "Pegawai {$pegawai->nama} berhasil ditambahkan.");
+    }
+
     public function editData(Pegawai $pegawai, TunjanganKeluargaService $service): View
     {
         $pegawai->load('tunjanganKeluarga.anggota');

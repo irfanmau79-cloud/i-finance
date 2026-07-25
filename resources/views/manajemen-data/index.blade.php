@@ -48,6 +48,15 @@
         </div>
         <a href="{{ route('manajemen-data.import.rak-bulanan.create') }}" class="btn prim" style="white-space:nowrap;">Import Excel</a>
     </div>
+    @if(auth()->user()->isSuperadmin())
+    <div class="dash-card" style="display:flex;align-items:center;justify-content:space-between;gap:12px;">
+        <div>
+            <h3 style="margin-bottom:0;">Import Data Tunjangan Keluarga</h3>
+            <div class="sub" style="margin-bottom:0;">Import awal (dry-run): preview lalu konfirmasi. NIP wajib sudah terdaftar di master Pegawai.</div>
+        </div>
+        <a href="{{ route('tunjangan.import.create') }}" class="btn prim" style="white-space:nowrap;">Import Excel</a>
+    </div>
+    @endif
 </div>
 
 <div class="profil-divider"></div>

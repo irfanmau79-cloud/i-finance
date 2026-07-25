@@ -120,12 +120,15 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/manajemen-data/import/npd-historis/{import}/report/{mode}', [NpdHistorisImportController::class, 'report'])->name('manajemen-data.import.npd-historis.report');
 
         Route::get('/tunjangan-keluarga/import', [TunjanganKeluargaImportController::class, 'create'])->name('tunjangan.import.create');
+        Route::get('/tunjangan-keluarga/import/template', [TunjanganKeluargaImportController::class, 'template'])->name('tunjangan.import.template');
         Route::post('/tunjangan-keluarga/import', [TunjanganKeluargaImportController::class, 'store'])->name('tunjangan.import.store');
         Route::get('/tunjangan-keluarga/import/{import}', [TunjanganKeluargaImportController::class, 'preview'])->name('tunjangan.import.preview');
         Route::post('/tunjangan-keluarga/import/{import}/confirm', [TunjanganKeluargaImportController::class, 'confirm'])->name('tunjangan.import.confirm');
 
         // Data Tunjangan Keluarga: sumber data mentah dashboard, diisi langsung oleh superadmin.
         Route::get('/tunjangan-keluarga/data', [TunjanganKeluargaController::class, 'data'])->name('tunjangan.data.index');
+        Route::get('/tunjangan-keluarga/pegawai/tambah', [TunjanganKeluargaController::class, 'createPegawai'])->name('tunjangan.pegawai.create');
+        Route::post('/tunjangan-keluarga/pegawai', [TunjanganKeluargaController::class, 'storePegawai'])->name('tunjangan.pegawai.store');
         Route::get('/tunjangan-keluarga/data/{pegawai}/edit', [TunjanganKeluargaController::class, 'editData'])->name('tunjangan.data.edit');
         Route::post('/tunjangan-keluarga/data/{pegawai}', [TunjanganKeluargaController::class, 'simpanData'])->name('tunjangan.data.simpan');
         Route::get('/tunjangan-keluarga/data-dokumen/{tunjanganKeluarga}', [TunjanganKeluargaController::class, 'unduhDokumenData'])->name('tunjangan.data.dokumen');
