@@ -4,11 +4,11 @@ namespace App\Http\Controllers;
 
 use App\Helpers\AuditLog;
 use App\Models\Kpa;
-use App\Models\KpaPptk;
 use App\Models\MasterAnggaran;
 use App\Models\Pegawai;
 use App\Models\PejabatOpd;
 use App\Models\Pelimpahan;
+use App\Models\PptkRoster;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,10 +20,9 @@ class PelimpahanController extends Controller
     public function index(Request $request)
     {
         $pejabatOpd = PejabatOpd::aktif();
-        $pegawaiList = Pegawai::where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'nip', 'jabatan']);
+        $pegawaiList = Pegawai::where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'nip', 'jabatan', 'pangkat', 'golongan']);
         $kpaList = Kpa::with(['kpaPegawai', 'bppPegawai'])->orderBy('id')->get();
-        $pptkAssignments = KpaPptk::with(['kpa.kpaPegawai', 'pptkPegawai'])
-            ->where('aktif', true)->orderBy('kpa_id')->get();
+        $pptkRoster = PptkRoster::with('pegawai')->aktif()->orderBy('id')->get();
 
         $scopeDasar = MasterAnggaran::query()->where('aktif', true)
             ->selectRaw('program_normal, program_kunci, MIN(kegiatan_normal) kegiatan_normal, sub_kegiatan_normal, sub_kegiatan_kunci')
@@ -50,7 +49,7 @@ class PelimpahanController extends Controller
             $subKegiatanQuery->whereExists($existsCallback);
         } elseif ($status === 'unassigned') {
             $subKegiatanQuery->whereNotExists($existsCallback);
-        } elseif ($request->filled('kpa_id') || $request->filled('bpp_pegawai_id') || $request->filled('pptk_pegawai_id')) {
+        } elseif ($request->filled('kpa_id') || $request->filled('pptk_pegawai_id')) {
             $subKegiatanQuery->whereExists($existsCallback);
         }
 
@@ -79,28 +78,20 @@ class PelimpahanController extends Controller
 
         $programList = MasterAnggaran::query()->where('aktif', true)
             ->select('program_normal', 'program_kunci')->distinct()->orderBy('program_normal')->get();
-        $kpaHierarki = Kpa::query()->where('aktif', true)
-            ->with([
-                'kpaPegawai', 'bppPegawai',
-                'pptkAktif.pptkPegawai',
-                'pptkAktif.pelimpahan' => fn ($query) => $query->aktif()->orderBy('program_normal')->orderBy('kode_sub_kegiatan'),
-            ])->orderBy('id')->get();
 
         return view('pelimpahan.index', compact(
-            'pejabatOpd', 'pegawaiList', 'kpaList', 'pptkAssignments', 'subKegiatanList',
-            'pelimpahanMap', 'programList', 'kpaHierarki', 'ringkasan'
+            'pejabatOpd', 'pegawaiList', 'kpaList', 'pptkRoster', 'subKegiatanList',
+            'pelimpahanMap', 'programList', 'ringkasan'
         ));
     }
 
     private function pelimpahanAktifUntukFilter($query, Request $request): void
     {
         $query->selectRaw('1')->from('pelimpahan as pf')
-            ->join('kpa as kf', 'kf.id', '=', 'pf.kpa_id')
             ->whereColumn('pf.program_kunci', 'master_anggaran.program_kunci')
             ->whereColumn('pf.sub_kegiatan_kunci', 'master_anggaran.sub_kegiatan_kunci')
             ->where('pf.aktif', true)
             ->when($request->filled('kpa_id'), fn ($q) => $q->where('pf.kpa_id', $request->integer('kpa_id')))
-            ->when($request->filled('bpp_pegawai_id'), fn ($q) => $q->where('kf.bpp_pegawai_id', $request->integer('bpp_pegawai_id')))
             ->when($request->filled('pptk_pegawai_id'), fn ($q) => $q->where('pf.pptk_pegawai_id', $request->integer('pptk_pegawai_id')));
     }
 
@@ -184,92 +175,85 @@ class PelimpahanController extends Controller
         return back()->with('success', 'Status KPA berhasil diperbarui.');
     }
 
-    public function storePptk(Request $request)
+    public function storePptkRoster(Request $request)
     {
         $validated = $request->validate([
-            'kpa_id' => ['required', Rule::exists('kpa', 'id')->where('aktif', true)],
-            'pptk_pegawai_id' => ['required', Rule::exists('pegawai', 'id')->where('aktif', true)],
+            'pegawai_id' => ['required', Rule::exists('pegawai', 'id')->where('aktif', true)],
         ]);
-        $assignment = DB::transaction(function () use ($validated) {
-            $kpa = Kpa::query()->with(['kpaPegawai', 'bppPegawai'])->lockForUpdate()->findOrFail($validated['kpa_id']);
-            $pptk = Pegawai::query()->lockForUpdate()->findOrFail($validated['pptk_pegawai_id']);
-            if (! $kpa->aktif || ! $kpa->kpaPegawai?->aktif || ! $kpa->bppPegawai?->aktif || ! $pptk->aktif) {
-                throw ValidationException::withMessages(['pptk_pegawai_id' => 'Seluruh pejabat pada rantai harus aktif.']);
+        $pegawaiId = (int) $validated['pegawai_id'];
+
+        $roster = DB::transaction(function () use ($pegawaiId) {
+            $baris = PptkRoster::where('pegawai_id', $pegawaiId)->lockForUpdate()->first();
+            if ($baris?->aktif) {
+                throw ValidationException::withMessages(['pegawai_id' => 'Pegawai ini sudah terdaftar sebagai PPTK.']);
             }
-            if (in_array($pptk->id, [$kpa->kpa_pegawai_id, $kpa->bpp_pegawai_id], true)) {
-                throw ValidationException::withMessages(['pptk_pegawai_id' => 'KPA atau BPP tidak dapat sekaligus menjadi PPTK.']);
-            }
-            $aktif = KpaPptk::where('pptk_pegawai_id', $pptk->id)->where('aktif', true)->lockForUpdate()->first();
-            if ($aktif && $aktif->kpa_id !== $kpa->id) {
-                throw ValidationException::withMessages(['pptk_pegawai_id' => 'PPTK ini sudah berada di bawah KPA aktif lain.']);
+            if ($baris) {
+                $baris->update(['aktif' => true, 'dinonaktifkan_at' => null]);
+
+                return $baris;
             }
 
-            return $aktif ?? KpaPptk::create(['kpa_id' => $kpa->id, 'pptk_pegawai_id' => $pptk->id, 'aktif' => true]);
+            return PptkRoster::create(['pegawai_id' => $pegawaiId, 'aktif' => true]);
         });
-        $assignment->load(['kpa.kpaPegawai', 'pptkPegawai']);
-        AuditLog::catat('Tambah PPTK KPA', "KPA: {$assignment->kpa->kpaPegawai->nama}, PPTK: {$assignment->pptkPegawai->nama}");
+        $roster->load('pegawai');
+        AuditLog::catat('Tambah PPTK', "PPTK: {$roster->pegawai->nama}");
 
-        return back()->with('success', 'PPTK berhasil ditempatkan di bawah KPA.');
+        return back()->with('success', 'PPTK berhasil ditambahkan.');
     }
 
-    public function togglePptk(KpaPptk $kpaPptk)
+    public function togglePptkRoster(PptkRoster $pptkRoster)
     {
-        DB::transaction(function () use ($kpaPptk) {
-            $kpaPptk = KpaPptk::query()->lockForUpdate()->findOrFail($kpaPptk->id);
-            if ($kpaPptk->aktif && $kpaPptk->pelimpahan()->aktif()->exists()) {
-                throw ValidationException::withMessages(['pptk' => 'PPTK masih memiliki Sub Kegiatan aktif. Reassign terlebih dahulu.']);
+        DB::transaction(function () use ($pptkRoster) {
+            $pptkRoster = PptkRoster::query()->lockForUpdate()->findOrFail($pptkRoster->id);
+            if ($pptkRoster->aktif && Pelimpahan::aktif()->where('pptk_pegawai_id', $pptkRoster->pegawai_id)->exists()) {
+                throw ValidationException::withMessages(['pptk' => 'PPTK masih memiliki Sub Kegiatan aktif. Pindahkan Sub Kegiatan tersebut dulu di tabel di bawah.']);
             }
-            if (! $kpaPptk->aktif && KpaPptk::whereKeyNot($kpaPptk->id)
-                ->where('pptk_pegawai_id', $kpaPptk->pptk_pegawai_id)->where('aktif', true)->exists()) {
-                throw ValidationException::withMessages(['pptk' => 'PPTK sudah berada di rantai KPA aktif lain.']);
-            }
-            $kpaPptk->aktif = ! $kpaPptk->aktif;
-            $kpaPptk->dinonaktifkan_at = $kpaPptk->aktif ? null : now();
-            $kpaPptk->save();
+            $pptkRoster->aktif = ! $pptkRoster->aktif;
+            $pptkRoster->dinonaktifkan_at = $pptkRoster->aktif ? null : now();
+            $pptkRoster->save();
         });
-        $kpaPptk->refresh();
-        AuditLog::catat($kpaPptk->aktif ? 'Aktifkan PPTK KPA' : 'Nonaktifkan PPTK KPA', "KPA-PPTK #{$kpaPptk->id}");
+        $pptkRoster->refresh()->load('pegawai');
+        AuditLog::catat($pptkRoster->aktif ? 'Aktifkan PPTK' : 'Nonaktifkan PPTK', "PPTK: {$pptkRoster->pegawai->nama}");
 
-        return back()->with('success', 'Status PPTK pada KPA berhasil diperbarui.');
+        return back()->with('success', 'Status PPTK berhasil diperbarui.');
     }
 
     public function setSubKegiatan(Request $request)
     {
         $validated = $request->validate([
-            'kpa_id' => ['required', Rule::exists('kpa', 'id')->where('aktif', true)],
-            'bpp_pegawai_id' => ['required', Rule::exists('pegawai', 'id')->where('aktif', true)],
-            'pptk_pegawai_id' => ['required', Rule::exists('pegawai', 'id')->where('aktif', true)],
-            'scope' => ['required', 'array', 'min:1'],
-            'scope.*' => ['string', 'max:2000'],
+            'rows' => ['required', 'array', 'min:1'],
+            'rows.*.scope' => ['required', 'string', 'max:2000'],
+            'rows.*.kpa_id' => ['required', Rule::exists('kpa', 'id')->where('aktif', true)],
+            'rows.*.pptk_pegawai_id' => ['required', Rule::exists('pegawai', 'id')->where('aktif', true)],
         ]);
-        $scopes = collect($validated['scope'])->map(function (string $encoded) {
-            $scope = json_decode((string) base64_decode($encoded, true), true);
+
+        $rows = collect($validated['rows'])->map(function (array $baris) {
+            $scope = json_decode((string) base64_decode($baris['scope'], true), true);
             if (! is_array($scope) || ! isset($scope['program'], $scope['sub_kegiatan'])) {
-                throw ValidationException::withMessages(['scope' => 'Lingkup Sub Kegiatan tidak valid.']);
+                throw ValidationException::withMessages(['rows' => 'Lingkup Sub Kegiatan tidak valid.']);
             }
 
-            return $scope;
+            return [
+                'program' => $scope['program'],
+                'sub_kegiatan' => $scope['sub_kegiatan'],
+                'kpa_id' => (int) $baris['kpa_id'],
+                'pptk_pegawai_id' => (int) $baris['pptk_pegawai_id'],
+            ];
         })->all();
 
         try {
-            $hasil = Pelimpahan::tetapkan(
-                $scopes,
-                (int) $validated['kpa_id'],
-                (int) $validated['bpp_pegawai_id'],
-                (int) $validated['pptk_pegawai_id'],
-                $request->user()->id,
-            );
+            $hasil = Pelimpahan::tetapkanBaris($rows, $request->user()->id);
         } catch (QueryException $e) {
             if (str_contains(strtolower($e->getMessage()), 'unique') || ($e->errorInfo[0] ?? null) === '23000') {
-                throw ValidationException::withMessages(['scope' => 'Sub Kegiatan baru saja ditugaskan oleh transaksi lain. Muat ulang halaman.']);
+                throw ValidationException::withMessages(['rows' => 'Sub Kegiatan baru saja ditugaskan oleh transaksi lain. Muat ulang halaman.']);
             }
             throw $e;
         }
 
-        $jumlah = count($scopes);
+        $jumlah = count($rows);
         AuditLog::catat(
             'Set Pelimpahan Sub Kegiatan',
-            "{$jumlah} scope diproses; baru {$hasil['baru']}, dipindahkan {$hasil['dipindahkan']}, tetap {$hasil['tetap']}"
+            "{$jumlah} baris diproses; baru {$hasil['baru']}, dipindahkan {$hasil['dipindahkan']}, tetap {$hasil['tetap']}"
         );
 
         return back()->with('success', "{$jumlah} Sub Kegiatan berhasil diproses.");

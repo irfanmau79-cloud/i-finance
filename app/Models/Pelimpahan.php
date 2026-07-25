@@ -76,6 +76,68 @@ class Pelimpahan extends Model
     }
 
     /**
+     * Assign dari tabel Sub Kegiatan baris-per-baris — tiap baris boleh punya
+     * pasangan KPA+PPTK berbeda-beda (bukan satu pasangan untuk semua baris
+     * seperti tetapkan()). $rows: list of ['program', 'sub_kegiatan',
+     * 'kpa_id', 'pptk_pegawai_id']. Pasangan kpa_pptk dicari/dibuat otomatis
+     * di belakang layar per grup (kpa_id, pptk_pegawai_id) — user tidak
+     * perlu mendaftarkan PPTK ke KPA tertentu lebih dulu.
+     */
+    public static function tetapkanBaris(array $rows, ?int $userId = null): array
+    {
+        return DB::transaction(function () use ($rows, $userId) {
+            $hasil = ['baru' => 0, 'dipindahkan' => 0, 'tetap' => 0];
+
+            $grup = collect($rows)->groupBy(fn ($row) => $row['kpa_id'].'|'.$row['pptk_pegawai_id']);
+            foreach ($grup as $baris) {
+                $kpaId = (int) $baris->first()['kpa_id'];
+                $pptkPegawaiId = (int) $baris->first()['pptk_pegawai_id'];
+
+                self::pastikanKpaPptk($kpaId, $pptkPegawaiId);
+                $kpa = Kpa::findOrFail($kpaId);
+                $scopes = $baris->map(fn ($row) => ['program' => $row['program'], 'sub_kegiatan' => $row['sub_kegiatan']])->all();
+
+                $hasilGrup = self::tetapkan($scopes, $kpaId, $kpa->bpp_pegawai_id, $pptkPegawaiId, $userId);
+                foreach ($hasilGrup as $kunci => $nilai) {
+                    $hasil[$kunci] += $nilai;
+                }
+            }
+
+            return $hasil;
+        });
+    }
+
+    /**
+     * Cari kpa_pptk aktif untuk pasangan ini; buat baru kalau belum ada.
+     * Menolak (bukan memindahkan diam-diam) kalau PPTK ini sudah aktif di
+     * KPA LAIN — memindahkan otomatis akan membuat baris Pelimpahan lain
+     * milik PPTK itu di KPA lama jadi "tidak valid" tanpa sepengetahuan
+     * user (lihat PejabatResolver::untukSubKegiatan, yang mencocokkan
+     * kpaPptk->kpa_id dengan pelimpahan->kpa_id).
+     */
+    private static function pastikanKpaPptk(int $kpaId, int $pptkPegawaiId): KpaPptk
+    {
+        $aktifDiKpaIni = KpaPptk::where('kpa_id', $kpaId)
+            ->where('pptk_pegawai_id', $pptkPegawaiId)
+            ->where('aktif', true)->lockForUpdate()->first();
+        if ($aktifDiKpaIni) {
+            return $aktifDiKpaIni;
+        }
+
+        $aktifDiKpaLain = KpaPptk::with('kpa.kpaPegawai')
+            ->where('pptk_pegawai_id', $pptkPegawaiId)
+            ->where('aktif', true)->lockForUpdate()->first();
+        if ($aktifDiKpaLain) {
+            $jumlahScope = self::aktif()->where('kpa_pptk_id', $aktifDiKpaLain->id)->count();
+            throw ValidationException::withMessages([
+                'pptk_pegawai_id' => "PPTK ini sudah aktif di bawah KPA {$aktifDiKpaLain->kpa->kpaPegawai->nama} dengan {$jumlahScope} Sub Kegiatan aktif. Pindahkan Sub Kegiatan tersebut ke KPA yang sama dulu sebelum menugaskan PPTK ini ke KPA lain.",
+            ]);
+        }
+
+        return KpaPptk::create(['kpa_id' => $kpaId, 'pptk_pegawai_id' => $pptkPegawaiId, 'aktif' => true]);
+    }
+
+    /**
      * Assign/reassign scope Sub Kegiatan. Baris lama selalu dinonaktifkan,
      * tidak ditimpa atau dihapus, sehingga rantai lama tetap dapat diaudit.
      */

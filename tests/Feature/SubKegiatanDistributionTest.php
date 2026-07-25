@@ -10,6 +10,7 @@ use App\Models\MasterAnggaran;
 use App\Models\Pegawai;
 use App\Models\PejabatOpd;
 use App\Models\Pelimpahan;
+use App\Models\PptkRoster;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -91,6 +92,15 @@ class SubKegiatanDistributionTest extends TestCase
         ], JSON_THROW_ON_ERROR));
     }
 
+    private function rowsPayload(MasterAnggaran $anggaran, int $kpaId, int $pptkPegawaiId): array
+    {
+        return ['rows' => [[
+            'scope' => $this->scope($anggaran),
+            'kpa_id' => $kpaId,
+            'pptk_pegawai_id' => $pptkPegawaiId,
+        ]]];
+    }
+
     public function test_satu_kpa_dapat_memiliki_banyak_pptk_dengan_beberapa_sub_kegiatan(): void
     {
         $this->opdAktif();
@@ -109,22 +119,18 @@ class SubKegiatanDistributionTest extends TestCase
         $this->assertSame('PPTK Kedua', PejabatResolver::untukSubKegiatan($c->program, $c->sub_kegiatan)['pptk']->nama);
     }
 
-    public function test_rantai_lintas_kpa_dan_bpp_atau_pptk_yang_salah_ditolak(): void
+    public function test_pptk_yang_sudah_aktif_di_kpa_lain_ditolak(): void
     {
         $this->opdAktif();
         $admin = $this->user('superadmin');
-        [$kpaSatu, $pptkSatu] = $this->rantai('Satu');
-        [$kpaDua, $pptkDua] = $this->rantai('Dua');
+        [$kpaSatu] = $this->rantai('Satu');
+        [, $pptkDua] = $this->rantai('Dua');
         $anggaran = $this->anggaran('Program Lingkup', 'Sub Lingkup');
 
-        $this->actingAs($admin)->post(route('pelimpahan.sub-kegiatan.set'), [
-            'kpa_id' => $kpaSatu->id, 'bpp_pegawai_id' => $kpaDua->bpp_pegawai_id,
-            'pptk_pegawai_id' => $pptkSatu->id, 'scope' => [$this->scope($anggaran)],
-        ])->assertSessionHasErrors('bpp_pegawai_id');
-        $this->actingAs($admin)->post(route('pelimpahan.sub-kegiatan.set'), [
-            'kpa_id' => $kpaSatu->id, 'bpp_pegawai_id' => $kpaSatu->bpp_pegawai_id,
-            'pptk_pegawai_id' => $pptkDua->id, 'scope' => [$this->scope($anggaran)],
-        ])->assertSessionHasErrors('pptk_pegawai_id');
+        $this->actingAs($admin)->post(
+            route('pelimpahan.sub-kegiatan.set'),
+            $this->rowsPayload($anggaran, $kpaSatu->id, $pptkDua->id)
+        )->assertSessionHasErrors('pptk_pegawai_id');
 
         $this->assertSame(0, Pelimpahan::count());
     }
@@ -165,18 +171,16 @@ class SubKegiatanDistributionTest extends TestCase
         Pelimpahan::create($attributes);
     }
 
-    public function test_pegawai_pptk_nonaktif_tidak_dapat_ditempatkan(): void
+    public function test_pegawai_nonaktif_tidak_dapat_didaftarkan_sebagai_pptk(): void
     {
         $admin = $this->user('superadmin');
-        [$kpa] = $this->rantai('Aktif');
         $pptkNonaktif = $this->pegawai('PPTK Nonaktif', false);
 
         $this->actingAs($admin)->post(route('pelimpahan.pptk.store'), [
-            'kpa_id' => $kpa->id,
-            'pptk_pegawai_id' => $pptkNonaktif->id,
-        ])->assertSessionHasErrors('pptk_pegawai_id');
+            'pegawai_id' => $pptkNonaktif->id,
+        ])->assertSessionHasErrors('pegawai_id');
 
-        $this->assertFalse(KpaPptk::where('pptk_pegawai_id', $pptkNonaktif->id)->exists());
+        $this->assertFalse(PptkRoster::where('pegawai_id', $pptkNonaktif->id)->exists());
     }
 
     public function test_sub_kegiatan_dengan_program_ambigu_ditolak(): void
@@ -201,10 +205,10 @@ class SubKegiatanDistributionTest extends TestCase
         $anggaran = $this->anggaran('Program Reassign', 'Sub Reassign');
         Pelimpahan::tetapkan([['program' => $anggaran->program, 'sub_kegiatan' => $anggaran->sub_kegiatan]], $kpaSatu->id, $kpaSatu->bpp_pegawai_id, $pptkSatu->id);
 
-        $this->actingAs($admin)->post(route('pelimpahan.sub-kegiatan.set'), [
-            'kpa_id' => $kpaDua->id, 'bpp_pegawai_id' => $kpaDua->bpp_pegawai_id,
-            'pptk_pegawai_id' => $pptkDua->id, 'scope' => [$this->scope($anggaran)],
-        ])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post(
+            route('pelimpahan.sub-kegiatan.set'),
+            $this->rowsPayload($anggaran, $kpaDua->id, $pptkDua->id)
+        )->assertSessionHasNoErrors();
 
         $this->assertSame(2, Pelimpahan::count());
         $this->assertSame(1, Pelimpahan::aktif()->count());
@@ -257,12 +261,11 @@ class SubKegiatanDistributionTest extends TestCase
         $bendahara = $this->user('bendahara_pengeluaran');
         $pptkUser = $this->user('pptk');
         $pegawaiPptk = $this->pegawai('PPTK Otorisasi');
-        $kpa = Kpa::create(['kpa_pegawai_id' => $this->pegawai('KPA Otorisasi')->id, 'bpp_pegawai_id' => $this->pegawai('BPP Otorisasi')->id, 'aktif' => true]);
 
-        $this->actingAs($admin)->post(route('pelimpahan.pptk.store'), ['kpa_id' => $kpa->id, 'pptk_pegawai_id' => $pegawaiPptk->id])->assertSessionHasNoErrors();
+        $this->actingAs($admin)->post(route('pelimpahan.pptk.store'), ['pegawai_id' => $pegawaiPptk->id])->assertSessionHasNoErrors();
         $this->actingAs($bendahara)->get(route('npd.index'))->assertOk();
         $this->actingAs($bendahara)->get(route('pelimpahan.index'))->assertForbidden();
-        $this->actingAs($bendahara)->post(route('pelimpahan.pptk.store'), ['kpa_id' => $kpa->id, 'pptk_pegawai_id' => $pegawaiPptk->id])->assertForbidden();
-        $this->actingAs($pptkUser)->post(route('pelimpahan.pptk.store'), ['kpa_id' => $kpa->id, 'pptk_pegawai_id' => $pegawaiPptk->id])->assertForbidden();
+        $this->actingAs($bendahara)->post(route('pelimpahan.pptk.store'), ['pegawai_id' => $pegawaiPptk->id])->assertForbidden();
+        $this->actingAs($pptkUser)->post(route('pelimpahan.pptk.store'), ['pegawai_id' => $pegawaiPptk->id])->assertForbidden();
     }
 }
