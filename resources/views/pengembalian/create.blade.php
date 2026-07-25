@@ -25,12 +25,13 @@
         <h3 style="margin-top:0;">Cari Dokumen Sumber</h3>
         <div class="form-grid">
             <div class="fg">
-                <label class="fl" for="f-bulan">Bulan</label>
-                <select id="f-bulan"><option value="">— Semua Bulan —</option>
+                <label class="fl" for="f-bulan">Bulan <span style="color:var(--err);">*</span></label>
+                <select id="f-bulan"><option value="">— Pilih Bulan —</option>
                     @foreach ($bulanList as $i => $label)
                         <option value="{{ $i + 1 }}">{{ $label }}</option>
                     @endforeach
                 </select>
+                <div class="sub" style="margin-top:4px;">Pilih bulan dulu supaya daftar Dokumen Sumber tidak terlalu banyak.</div>
             </div>
             <div class="fg">
                 <label class="fl" for="f-program">Program</label>
@@ -157,6 +158,7 @@
     }
 
     function matchingDocs() {
+        if (bulanSel.value === '') return [];
         const tipe = currentTipe();
         return docsByKegiatan()
             .filter(d => ! subSel.value || d.sub_kegiatan_list.includes(subSel.value))
@@ -180,11 +182,13 @@
 
     function onFilterChange() {
         const docs = matchingDocs();
+        const belumPilihBulan = bulanSel.value === '';
         fillOptions(
             dokumenSel,
             docs.map(d => ({ value: d.tipe + ':' + d.id, label: d.label + ' — ' + d.tanggal })),
-            docs.length ? '— Pilih Dokumen —' : 'Tidak ada dokumen yang cocok dengan filter ini'
+            belumPilihBulan ? '— Pilih Bulan terlebih dahulu —' : (docs.length ? '— Pilih Dokumen —' : 'Tidak ada dokumen yang cocok dengan filter ini')
         );
+        dokumenSel.disabled = belumPilihBulan;
         hideBreakdown();
     }
 
@@ -244,6 +248,11 @@
     onBulanChange();
 
     if (oldTipe && oldId) {
+        const oldDoc = dokumenData.find(d => d.tipe === oldTipe && String(d.id) === oldId);
+        if (oldDoc) {
+            bulanSel.value = String(oldDoc.bulan);
+            onBulanChange();
+        }
         const radio = document.querySelector('input[name="f_tipe"][value="' + oldTipe + '"]');
         if (radio) radio.checked = true;
         onFilterChange();
