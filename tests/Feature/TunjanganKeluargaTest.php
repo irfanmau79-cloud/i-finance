@@ -177,6 +177,64 @@ class TunjanganKeluargaTest extends TestCase
         }
     }
 
+    public function test_data_tunjangan_keluarga_hanya_superadmin_dan_jadi_acuan_dashboard(): void
+    {
+        $pegawai = $this->pegawai('500');
+        $admin = $this->user('superadmin');
+
+        foreach (['pptk', 'bendahara_pengeluaran'] as $role) {
+            $bukanAdmin = $this->user($role);
+            $this->actingAs($bukanAdmin)->get(route('tunjangan.data.index'))->assertForbidden();
+            $this->actingAs($bukanAdmin)->get(route('tunjangan.data.edit', $pegawai))->assertForbidden();
+            $this->actingAs($bukanAdmin)->post(route('tunjangan.data.simpan', $pegawai), [])->assertForbidden();
+        }
+
+        $this->actingAs($admin)->get(route('tunjangan.data.index'))
+            ->assertOk()->assertSee($pegawai->nama)->assertSee('Belum ada');
+
+        $this->actingAs($admin)->post(route('tunjangan.data.simpan', $pegawai), [
+            'pasangan' => ['nama' => 'Pasangan Admin', 'status_tunjangan' => '1'],
+            'anak' => [
+                ['nama' => 'Anak Satu', 'tanggal_lahir' => now()->subYears(5)->toDateString(), 'status_tunjangan' => '1'],
+                ['nama' => 'Anak Dua', 'tanggal_lahir' => now()->subYears(23)->toDateString(), 'status_tunjangan' => '0'],
+            ],
+        ])->assertSessionHasNoErrors()->assertRedirect(route('tunjangan.data.index'));
+
+        $this->assertDatabaseHas('tunjangan_keluarga', ['pegawai_id' => $pegawai->id, 'diperbarui_oleh' => $admin->id]);
+        $this->assertDatabaseHas('anggota_keluarga', ['nama' => 'Pasangan Admin', 'hubungan' => 'pasangan', 'status_tunjangan' => true]);
+        $this->assertDatabaseHas('audit_log', ['user_id' => $admin->id, 'aktivitas' => 'Perbarui Data Tunjangan Keluarga']);
+
+        // Data yang baru saja diisi manual langsung jadi acuan Dashboard Tunjangan Keluarga.
+        $this->actingAs($admin)->get(route('tunjangan.dashboard'))
+            ->assertOk()->assertSee('Pasangan Admin')->assertSee('Anak Satu');
+
+        $this->actingAs($admin)->get(route('tunjangan.data.index'))
+            ->assertOk()->assertSee('Pasangan Admin')->assertSee('5 tahun');
+    }
+
+    public function test_data_tunjangan_keluarga_maksimal_dua_anak_dan_dokumen_pendukung_tersimpan_privat(): void
+    {
+        Storage::fake('local');
+        $pegawai = $this->pegawai('600');
+        $admin = $this->user('superadmin');
+
+        $this->actingAs($admin)->post(route('tunjangan.data.simpan', $pegawai), [
+            'anak' => [['nama' => 'A'], ['nama' => 'B'], ['nama' => 'C']],
+        ])->assertSessionHasErrors('anak');
+
+        $this->actingAs($admin)->post(route('tunjangan.data.simpan', $pegawai), [
+            'dokumen_pendukung' => UploadedFile::fake()->create('bukti-rahasia.pdf', 100, 'application/pdf'),
+        ])->assertSessionHasNoErrors();
+
+        $tunjangan = TunjanganKeluarga::where('pegawai_id', $pegawai->id)->sole();
+        $this->assertNotNull($tunjangan->dokumen_pendukung_path);
+        $this->assertSame('bukti-rahasia.pdf', $tunjangan->dokumen_pendukung_nama);
+        Storage::disk('local')->assertExists($tunjangan->dokumen_pendukung_path);
+
+        $this->actingAs($admin)->get(route('tunjangan.data.dokumen', $tunjangan))->assertOk();
+        $this->actingAs($this->user('pptk'))->get(route('tunjangan.data.dokumen', $tunjangan))->assertForbidden();
+    }
+
     private function pegawai(string $nip): Pegawai
     {
         return Pegawai::create(['nama' => 'Pegawai '.$nip, 'nip' => $nip, 'jabatan' => 'Auditor', 'bidang' => 'Sekretariat', 'aktif' => true]);

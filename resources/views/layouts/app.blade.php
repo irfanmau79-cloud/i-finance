@@ -45,6 +45,7 @@
             'dashpd' => route('dashboard.perjalanan.index'),
             'dashspj' => route('dashboard.spj.index'),
             'dash-tk' => route('tunjangan.dashboard'),
+            'tk-data' => route('tunjangan.data.index'),
             'tk-monitor' => route('tunjangan.monitoring'),
             'tk-form' => route('tunjangan.form'),
             'invspj' => route('inventarisasi-spj.index'),
@@ -167,7 +168,7 @@
       </div>
       @endif
 
-      @php($g = $group(['tk-form', 'tk-monitor']))
+      @php($g = $group(['tk-data', 'tk-form', 'tk-monitor']))
       @if ($g['visible'])
       <div class="sb-group{{ $g['open'] ? ' open' : '' }}">
         <div class="sb-item sb-parent" id="nav-tk-parent">
@@ -176,6 +177,7 @@
           <svg class="chev" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
         <div class="sb-sub">
+          @if (in_array('tk-data', $akses)) <a class="sb-item sub{{ $activeNav === 'tk-data' ? ' active' : '' }}" href="{{ $href('tk-data') }}">Data Tunjangan Keluarga</a> @endif
           @if (in_array('tk-form', $akses)) <a class="sb-item sub{{ $activeNav === 'tk-form' ? ' active' : '' }}" href="{{ $href('tk-form') }}">Perubahan Data</a> @endif
           @if (in_array('tk-monitor', $akses)) <a class="sb-item sub{{ $activeNav === 'tk-monitor' ? ' active' : '' }}" href="{{ $href('tk-monitor') }}">Monitoring Pengajuan</a> @endif
         </div>

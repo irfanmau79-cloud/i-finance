@@ -13,7 +13,7 @@
 return [
 
     'menu' => [
-        'superadmin' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd', 'persetujuan', 'verifikasi', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'spm', 'pengembalian-create', 'pengembalian', 'manajemen-data', 'audit-log', 'users', 'pelimpahan', 'profil'],
+        'superadmin' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd', 'persetujuan', 'verifikasi', 'sp-input', 'sp-data', 'sp-monitor', 'tk-data', 'tk-form', 'spm', 'pengembalian-create', 'pengembalian', 'manajemen-data', 'audit-log', 'users', 'pelimpahan', 'profil'],
         'bendahara_pengeluaran' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'spm', 'pengembalian-create', 'pengembalian', 'manajemen-data', 'profil'],
         'pptk' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dash-tk', 'tk-monitor', 'dashspj', 'npd', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'profil'],
         'bpp' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'persetujuan', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'pengembalian-create', 'pengembalian', 'profil'],

@@ -46,6 +46,13 @@ class TunjanganKeluargaService
             Pegawai::query()->lockForUpdate()->findOrFail($pegawai->id);
             $keluarga = TunjanganKeluarga::updateOrCreate(['pegawai_id' => $pegawai->id], [
                 'catatan' => $payload['catatan'] ?? null, 'diperbarui_oleh' => $userId,
+                // Hanya disentuh kalau pemanggil eksplisit mengirim kunci ini (dipakai halaman
+                // admin Data Tunjangan Keluarga) — alur pengajuan/import lama tidak pernah
+                // mengirimnya, jadi dokumen yang sudah ada tidak boleh ikut terhapus diam-diam.
+                ...(array_key_exists('dokumen_pendukung_path', $payload) ? [
+                    'dokumen_pendukung_path' => $payload['dokumen_pendukung_path'],
+                    'dokumen_pendukung_nama' => $payload['dokumen_pendukung_nama'] ?? null,
+                ] : []),
             ]);
             $keluarga->anggota()->delete();
 
