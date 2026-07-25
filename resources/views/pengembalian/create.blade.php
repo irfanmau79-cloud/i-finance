@@ -208,9 +208,9 @@
             row.innerHTML =
                 '<h4>' + escapeHtml(b.label) + '</h4>'
                 + '<div class="auto">'
-                + '<div class="ai"><span class="k">Nominal Asli</span><span class="v">' + formatRupiah(b.nominal_asli) + '</span></div>'
+                + '<div class="ai"><span class="k">Nominal Realisasi</span><span class="v">' + formatRupiah(b.nominal_asli) + '</span></div>'
                 + '<div class="ai"><span class="k">Sudah Dikembalikan</span><span class="v">' + formatRupiah(b.sudah_dikembalikan) + '</span></div>'
-                + '<div class="ai"><span class="k">Sisa Bisa Dikembalikan</span><span class="v" style="color:var(--ok);font-weight:800;">' + formatRupiah(b.sisa) + '</span></div>'
+                + '<div class="ai"><span class="k">Nominal Realisasi (setelah pengembalian)</span><span class="v" style="color:var(--ok);font-weight:800;">' + formatRupiah(b.sisa) + '</span></div>'
                 + '</div>'
                 + '<input type="hidden" name="baris[' + idx + '][master_anggaran_id]" value="' + b.master_anggaran_id + '">'
                 + '<div class="fg"><label class="fl">Nominal Pengembalian (Rp)</label>'
