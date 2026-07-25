@@ -35,7 +35,6 @@
             'sp-monitor' => route('surat-perintah.monitoring'),
             'audit-log' => route('audit-log.index'),
             'npd' => route('npd.index'),
-            'npd-create' => route('npd.create'),
             'persetujuan' => route('npd.persetujuan'),
             'verifikasi' => route('npd.verifikasi'),
             'users' => route('users.index'),
@@ -100,19 +99,25 @@
       </a>
       @endif
 
-      @php($g = $group(['npd-create', 'npd']))
-      @if ($g['visible'])
-      <div class="sb-group{{ $g['open'] ? ' open' : '' }}">
-        <div class="sb-item sb-parent" id="nav-npd-parent">
-          <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
-          Pembuatan NPD
-          <svg class="chev" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
-        </div>
-        <div class="sb-sub">
-          @if (in_array('npd-create', $akses)) <a class="sb-item sub{{ $activeNav === 'npd-create' ? ' active' : '' }}" href="{{ $href('npd-create') }}">Buat NPD</a> @endif
-          @if (in_array('npd', $akses)) <a class="sb-item sub{{ $activeNav === 'npd' ? ' active' : '' }}" href="{{ $href('npd') }}">Daftar NPD</a> @endif
-        </div>
-      </div>
+      @if (in_array('npd', $akses))
+      <a class="sb-item{{ $activeNav === 'npd' ? ' active' : '' }}" href="{{ $href('npd') }}">
+        <svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/><line x1="9" y1="13" x2="15" y2="13"/><line x1="9" y1="17" x2="13" y2="17"/></svg>
+        Pembuatan NPD
+      </a>
+      @endif
+
+      @if (in_array('persetujuan', $akses))
+        <a class="sb-item{{ $activeNav === 'persetujuan' ? ' active' : '' }}" href="{{ $href('persetujuan') }}">
+          <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+          <span>Persetujuan NPD</span>
+        </a>
+      @endif
+
+      @if (in_array('verifikasi', $akses))
+        <a class="sb-item{{ $activeNav === 'verifikasi' ? ' active' : '' }}" href="{{ $href('verifikasi') }}">
+          <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
+          <span>Verifikasi NPD</span>
+        </a>
       @endif
 
       @php($g = $group(['pengembalian-create', 'pengembalian']))
@@ -130,27 +135,13 @@
       </div>
       @endif
 
-      @if (in_array('persetujuan', $akses))
-        <a class="sb-item{{ $activeNav === 'persetujuan' ? ' active' : '' }}" href="{{ $href('persetujuan') }}">
-          <svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
-          <span>Persetujuan NPD</span>
-        </a>
-      @endif
-
-      @if (in_array('verifikasi', $akses))
-        <a class="sb-item{{ $activeNav === 'verifikasi' ? ' active' : '' }}" href="{{ $href('verifikasi') }}">
-          <svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>
-          <span>Verifikasi NPD</span>
-        </a>
-      @endif
-
       @php($spmVisible = in_array('spm', $akses, true))
       @php($spmOpen = in_array($activeNav, ['spm-upgu', 'spm-ls'], true))
       @if ($spmVisible)
       <div class="sb-group{{ $spmOpen ? ' open' : '' }}">
         <div class="sb-item sb-parent" id="nav-spm-parent">
           <svg viewBox="0 0 24 24"><rect x="2" y="4" width="20" height="16" rx="2"/><line x1="2" y1="9" x2="22" y2="9"/><line x1="6" y1="14" x2="10" y2="14"/></svg>
-          Data SPM
+          Data SPM/SP2D
           <svg class="chev" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
         <div class="sb-sub">

@@ -244,6 +244,46 @@ class Npd extends Model
             && in_array($user->role, [User::ROLE_SUPERADMIN, User::ROLE_PPTK], true);
     }
 
+    public function dapatDihapusOleh(User $user): bool
+    {
+        return $user->isSuperadmin()
+            || ($user->role === User::ROLE_PPTK && $this->status === 'Draft NPD - PPTK');
+    }
+
+    /**
+     * Ringkasan nama penerima untuk daftar NPD (kolom "Penerima" — port dari
+     * n.penerima di gas-lama/index.html renderDaftarNPD). Sumbernya beda per
+     * jenis: bj/kd pakai npd_penerima langsung, pd/tr pakai anggota tim yang
+     * ditandai is_penerima (fallback ke semua anggota kalau belum ada yang
+     * ditandai), ns pakai npd_narasumber, kd pakai npd_peserta. Relasi harus
+     * sudah di-eager-load oleh pemanggil untuk menghindari N+1.
+     */
+    public function ringkasanPenerima(): string
+    {
+        $nama = match ($this->jenis) {
+            'bj' => $this->penerima->pluck('nama'),
+            'pd', 'tr' => $this->tim->where('is_penerima', true)->isNotEmpty()
+                ? $this->tim->where('is_penerima', true)->pluck('nama')->values()
+                : $this->tim->pluck('nama'),
+            'ns' => $this->narasumber->pluck('nama'),
+            'kd' => $this->peserta->pluck('nama'),
+            default => collect(),
+        };
+        $nama = $nama->filter()->values();
+
+        if ($nama->isEmpty()) {
+            return '-';
+        }
+
+        if ($nama->count() === 1) {
+            return (string) $nama->first();
+        }
+
+        $sisa = $nama->count() - 1;
+
+        return "{$nama->first()} (dan {$sisa} lainnya)";
+    }
+
     public function catatHistoriStatus(
         ?User $user,
         string $aksi,

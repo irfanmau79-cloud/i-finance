@@ -362,8 +362,7 @@
     @endif
 
     @php
-        $bolehBatalkan = auth()->user()->isSuperadmin()
-            || (auth()->user()->role === \App\Models\User::ROLE_PPTK && $npd->status === 'Draft NPD - PPTK');
+        $bolehBatalkan = $npd->dapatDihapusOleh(auth()->user());
         $ruteEdit = match ($npd->jenis) {
             'pd' => 'npd.pd.edit',
             'ns' => 'npd.ns.edit',

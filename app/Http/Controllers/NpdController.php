@@ -9,6 +9,7 @@ use App\Models\NpdNarasumber;
 use App\Models\NpdPenerima;
 use App\Models\NpdPeserta;
 use App\Models\NpdTim;
+use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -21,16 +22,18 @@ use Mpdf\Output\Destination;
 
 class NpdController extends Controller
 {
-    public function create()
-    {
-        return view('npd.create');
-    }
-
+    /**
+     * Pembuatan NPD: satu halaman gabungan pemilih jenis + daftar NPD, port
+     * 1:1 dari #page-npd di gas-lama/index.html (bukan dua halaman terpisah
+     * seperti sebelumnya). Pemilih jenis hanya untuk role yang boleh
+     * membuat NPD; Bendahara Pengeluaran cuma memantau daftarnya.
+     */
     public function index(Request $request)
     {
-        [$npds, $filters] = $this->daftarNpd($request);
+        [$npds, $filters] = $this->daftarNpd($request, 'daftar', lengkap: true);
+        $bolehBuat = in_array($request->user()->role, [User::ROLE_SUPERADMIN, User::ROLE_PPTK], true);
 
-        return view('npd.index', compact('npds', 'filters'));
+        return view('npd.index', compact('npds', 'filters', 'bolehBuat'));
     }
 
     /**
@@ -40,7 +43,7 @@ class NpdController extends Controller
      */
     public function persetujuan(Request $request)
     {
-        [$npds, $filters] = $this->daftarNpd($request, 'persetujuan');
+        [$npds, $filters] = $this->daftarNpd($request, 'persetujuan', lengkap: true);
 
         return view('npd.persetujuan', compact('npds', 'filters'));
     }
@@ -51,12 +54,17 @@ class NpdController extends Controller
      */
     public function verifikasi(Request $request)
     {
-        [$npds, $filters] = $this->daftarNpd($request, 'verifikasi');
+        [$npds, $filters] = $this->daftarNpd($request, 'verifikasi', lengkap: true);
 
         return view('npd.verifikasi', compact('npds', 'filters'));
     }
 
-    private function daftarNpd(Request $request, string $mode = 'daftar'): array
+    /**
+     * $lengkap eager-load relasi tambahan (tagging + seluruh sumber penerima)
+     * yang cuma dibutuhkan halaman Pembuatan NPD (kolom Tagging/Penerima) —
+     * persetujuan/verifikasi tidak menampilkannya jadi tidak perlu query ekstra.
+     */
+    private function daftarNpd(Request $request, string $mode = 'daftar', bool $lengkap = false): array
     {
         $defaultStatus = match ($mode) {
             'persetujuan' => 'Draft NPD - BPP',
@@ -73,7 +81,9 @@ class NpdController extends Controller
         ];
 
         $query = Npd::query()
-            ->with('masterAnggaran:id,kode_rekening,sub_kegiatan')
+            ->with($lengkap
+                ? ['masterAnggaran.tagging', 'penerima', 'tim', 'narasumber', 'peserta']
+                : ['masterAnggaran:id,kode_rekening,sub_kegiatan'])
             ->latest('tanggal_npd')
             ->latest('id');
 

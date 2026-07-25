@@ -1,0 +1,218 @@
+{{--
+    Tabel Daftar NPD gas-lama-style (Sub Kegiatan/Kode Rekening/Tagging/Penerima/
+    Nominal/Status/Aksi) — dipakai bersama oleh Pembuatan NPD, Persetujuan NPD,
+    dan Verifikasi NPD. Aksi transisi workflow (Ajukan/Teruskan/Verifikasi/
+    Setujui/dst) dihitung generik lewat $npd->aksiTersedia($role), jadi satu
+    partial ini otomatis menampilkan tombol yang tepat di ketiga halaman tanpa
+    perlu tahu halaman mana yang memanggilnya. $tampilkanKelola (Edit + Hapus)
+    cuma relevan di Pembuatan NPD, sesuai gas-lama (Persetujuan/Verifikasi
+    tidak punya aksi itu).
+--}}
+@php
+    $tampilkanKelola = $tampilkanKelola ?? false;
+    $editRouteMap = ['bj' => 'npd.bj.edit', 'pd' => 'npd.pd.edit', 'tr' => 'npd.tr.edit', 'ns' => 'npd.ns.edit', 'kd' => 'npd.kd.edit'];
+    $wfIkon = [
+        'ajukan_bpp' => '<svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
+        'teruskan' => '<svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
+        'verifikasi' => '<svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg>',
+        'kembali_bpp' => '<svg viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>',
+        'kembali_pptk' => '<svg viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>',
+        'setuju' => '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>',
+        'selesai' => '<svg viewBox="0 0 24 24"><path d="M4 22V4a1 1 0 0 1 1-1h13l-2 5 2 5H6"/></svg>',
+        'batal_selesai' => '<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><polyline points="3 3 3 8 8 8"/></svg>',
+    ];
+    $wfDanger = ['kembali_bpp', 'kembali_pptk', 'batal_selesai'];
+    $aksiButuhForm = ['verifikasi', 'kembali_bpp', 'kembali_pptk', 'batal_selesai'];
+    $role = auth()->user()->role;
+@endphp
+
+<div class="tbl-tools">
+    <input type="text" id="npd-search" placeholder="Cari Sub Kegiatan, Penerima, Status…">
+</div>
+
+<div class="npd-scroll" style="border:1px solid var(--line);border-radius:8px;overflow:auto;">
+    <table class="realisasi npd-table" id="npd-tabel" style="width:100%;table-layout:fixed;">
+        <colgroup>
+            <col style="width:19%;"><col style="width:17%;"><col style="width:15%;">
+            <col style="width:15%;"><col style="width:10%;"><col style="width:14%;"><col style="width:10%;">
+        </colgroup>
+        <thead>
+            <tr>
+                <th>Sub Kegiatan</th><th>Kode Rekening</th><th>Tagging</th>
+                <th>Penerima</th><th class="num">Nominal</th><th class="st">Status</th>
+                <th style="text-align:center;">Aksi</th>
+            </tr>
+        </thead>
+        <tbody id="npd-tabel-body">
+            @forelse ($npds as $npd)
+                @php
+                    $aksiTersedia = $npd->aksiTersedia($role);
+                    $bisaEdit = $tampilkanKelola && $npd->dapatDieditOleh(auth()->user());
+                    $bisaHapus = $tampilkanKelola && $npd->dapatDihapusOleh(auth()->user());
+                @endphp
+                <tr>
+                    <td>{{ $npd->masterAnggaran->sub_kegiatan }}</td>
+                    <td>{{ $npd->masterAnggaran->kode_rekening }}</td>
+                    <td>{{ $npd->masterAnggaran->tagging->nama ?? '-' }}</td>
+                    <td>
+                        <div class="pen-nm">{{ $npd->ringkasanPenerima() }}</div>
+                        <div class="pen-sub">({{ \App\Models\Npd::JENIS_LABEL[$npd->jenis] ?? strtoupper($npd->jenis) }})</div>
+                    </td>
+                    <td class="num">Rp {{ number_format((float) $npd->nominal, 2, ',', '.') }}</td>
+                    <td>
+                        <div class="stat-cell">
+                            <div class="stat-badge"><span class="badge {{ \App\Models\Npd::STATUS_BADGE_CLASS[$npd->status] ?? 'st-diterima' }}">{{ $npd->status }}</span></div>
+                            @if ($npd->catatan)
+                                <span class="stat-cat-chip"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Terdapat Catatan</span>
+                            @endif
+                        </div>
+                    </td>
+                    <td style="text-align:center;">
+                        <div class="aksi-wrap">
+                            @foreach ($aksiTersedia as $aksi)
+                                @php($rule = \App\Models\Npd::TRANSISI[$aksi])
+                                @if (in_array($aksi, $aksiButuhForm, true))
+                                    <button type="button" class="ic-btn {{ in_array($aksi, $wfDanger, true) ? 'danger' : '' }}" title="{{ $rule['label'] }}"
+                                        data-wf-open="{{ $aksi }}" data-wf-url="{{ route('npd.transisi', $npd) }}">{!! $wfIkon[$aksi] !!}</button>
+                                @else
+                                    <form method="POST" action="{{ route('npd.transisi', $npd) }}" onsubmit="return confirm('Yakin {{ $rule['label'] }}?');" style="display:inline;">
+                                        @csrf
+                                        <input type="hidden" name="aksi" value="{{ $aksi }}">
+                                        <button type="submit" class="ic-btn" title="{{ $rule['label'] }}">{!! $wfIkon[$aksi] !!}</button>
+                                    </form>
+                                @endif
+                            @endforeach
+                            @if ($bisaEdit)
+                                <a class="ic-btn" title="Edit NPD" href="{{ route($editRouteMap[$npd->jenis] ?? 'npd.bj.edit', $npd) }}"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></a>
+                            @endif
+                            <a class="ic-btn" title="Lihat NPD" href="{{ route('npd.show', $npd) }}"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></a>
+                            @if ($bisaHapus)
+                                <details class="npd-hapus-pop">
+                                    <summary class="ic-btn danger" title="Hapus NPD"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></summary>
+                                    <form method="POST" action="{{ route('npd.destroy', $npd) }}" class="npd-hapus-form" onsubmit="return confirm('Batalkan NPD ini? Tindakan dicatat dalam histori.');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <label class="fl" style="margin-top:0;">Alasan pembatalan</label>
+                                        <input type="text" name="alasan" required maxlength="500" placeholder="Wajib diisi">
+                                        <button type="submit" class="btn" style="margin-top:8px;width:100%;">Batalkan NPD</button>
+                                    </form>
+                                </details>
+                            @endif
+                        </div>
+                    </td>
+                </tr>
+            @empty
+                <tr><td colspan="7" style="text-align:center;color:var(--mut);padding:20px;">Belum ada NPD.</td></tr>
+            @endforelse
+        </tbody>
+    </table>
+</div>
+
+@if ($npds->hasPages())
+    <div class="pager">
+        <div class="pager-info">Menampilkan {{ $npds->firstItem() }}&ndash;{{ $npds->lastItem() }} dari {{ $npds->total() }} data</div>
+        <div class="pager-btns">
+            <a class="pg-btn" href="{{ $npds->previousPageUrl() ?? '#' }}"@if (! $npds->previousPageUrl()) style="pointer-events:none;opacity:.4;" @endif>&larr; Sebelumnya</a>
+            <a class="pg-btn" href="{{ $npds->nextPageUrl() ?? '#' }}"@if (! $npds->nextPageUrl()) style="pointer-events:none;opacity:.4;" @endif>Berikutnya &rarr;</a>
+        </div>
+    </div>
+@endif
+
+<div class="mdl-ov" id="wf-mdl-ov">
+    <div class="mdl">
+        <div class="mdl-h" id="wf-mdl-title">Aksi</div>
+        <div class="mdl-b">
+            <form method="POST" id="wf-mdl-form">
+                @csrf
+                <input type="hidden" name="aksi" id="wf-mdl-aksi" value="">
+                <div id="wf-mdl-nomor-wrap" style="display:none;">
+                    <label class="fl">Nomor Urut NPD (1&ndash;999)</label>
+                    <input type="number" name="nomor_urut" id="wf-mdl-nomor" min="1" max="999">
+                </div>
+                <div id="wf-mdl-catatan-wrap">
+                    <label class="fl" id="wf-mdl-catatan-label">Catatan</label>
+                    <textarea name="catatan" id="wf-mdl-catatan" rows="3" style="width:100%;box-sizing:border-box;"></textarea>
+                </div>
+                <div class="mdl-f" style="padding:14px 0 0;">
+                    <button type="button" class="btn" onclick="wfModalClose()">Batal</button>
+                    <button type="submit" class="btn prim">Kirim</button>
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+<style>
+    .npd-hapus-pop{position:relative;display:inline-block;}
+    .npd-hapus-pop summary{list-style:none;}
+    .npd-hapus-pop summary::-webkit-details-marker{display:none;}
+    .npd-hapus-pop .npd-hapus-form{position:absolute;right:0;top:calc(100% + 6px);z-index:20;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.13);padding:12px;width:220px;text-align:left;}
+    .npd-hapus-pop .npd-hapus-form input{width:100%;box-sizing:border-box;}
+</style>
+
+<script>
+(function () {
+    document.getElementById('npd-search').addEventListener('input', function (e) {
+        const q = e.target.value.toLowerCase();
+        document.querySelectorAll('#npd-tabel-body > tr').forEach(function (row) {
+            row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+        });
+    });
+
+    // Cuma satu popover Hapus yang boleh terbuka sekaligus.
+    document.querySelectorAll('.npd-hapus-pop').forEach(function (pop) {
+        pop.addEventListener('toggle', function () {
+            if (!pop.open) return;
+            document.querySelectorAll('.npd-hapus-pop').forEach(function (other) {
+                if (other !== pop) other.open = false;
+            });
+        });
+    });
+
+    // Modal aksi workflow yang butuh input (catatan wajib/opsional, nomor urut verifikasi).
+    var WF_FORM_META = {
+        verifikasi: { title: 'Verifikasi NPD', nomor: true, catatanLabel: 'Catatan untuk BPP (opsional)', catatanRequired: false },
+        kembali_bpp: { title: 'Kembalikan ke BPP', nomor: false, catatanLabel: 'Catatan Revisi (wajib)', catatanRequired: true },
+        kembali_pptk: { title: 'Kembalikan ke PPTK', nomor: false, catatanLabel: 'Catatan Revisi (wajib)', catatanRequired: true },
+        batal_selesai: { title: 'Batalkan Status Selesai', nomor: false, catatanLabel: 'Alasan Pembatalan (wajib)', catatanRequired: true },
+    };
+
+    var ov = document.getElementById('wf-mdl-ov');
+    var form = document.getElementById('wf-mdl-form');
+    var aksiField = document.getElementById('wf-mdl-aksi');
+    var nomorWrap = document.getElementById('wf-mdl-nomor-wrap');
+    var nomorInput = document.getElementById('wf-mdl-nomor');
+    var catatanLabel = document.getElementById('wf-mdl-catatan-label');
+    var catatanInput = document.getElementById('wf-mdl-catatan');
+    var titleEl = document.getElementById('wf-mdl-title');
+
+    function wfModalOpen(aksi, url) {
+        var meta = WF_FORM_META[aksi];
+        if (!meta) return;
+
+        titleEl.textContent = meta.title;
+        form.action = url;
+        aksiField.value = aksi;
+
+        nomorWrap.style.display = meta.nomor ? 'block' : 'none';
+        nomorInput.required = meta.nomor;
+        nomorInput.value = '';
+
+        catatanLabel.textContent = meta.catatanLabel;
+        catatanInput.required = meta.catatanRequired;
+        catatanInput.value = '';
+
+        ov.classList.add('show');
+    }
+
+    window.wfModalClose = function () {
+        ov.classList.remove('show');
+    };
+
+    document.querySelectorAll('[data-wf-open]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            wfModalOpen(btn.getAttribute('data-wf-open'), btn.getAttribute('data-wf-url'));
+        });
+    });
+})();
+</script>

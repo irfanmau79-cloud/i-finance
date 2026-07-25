@@ -13,10 +13,10 @@ class NpdNavigationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_halaman_buat_npd_memuat_lima_jenis_dan_dijaga_backend(): void
+    public function test_halaman_pembuatan_npd_memuat_pemilih_lima_jenis_untuk_yang_boleh_membuat(): void
     {
         $pptk = $this->user('pptk');
-        $response = $this->actingAs($pptk)->get(route('npd.create'));
+        $response = $this->actingAs($pptk)->get(route('npd.index'));
 
         $response->assertOk()
             ->assertSee('Barang/Jasa')
@@ -29,34 +29,55 @@ class NpdNavigationTest extends TestCase
             $response->assertSee(route($route), false);
         }
 
-        $this->actingAs($this->user('bendahara_pengeluaran'))->get(route('npd.create'))->assertForbidden();
-        $this->actingAs($this->user('bpp'))->get(route('npd.create'))->assertForbidden();
-        $this->actingAs($this->user('verifikator'))->get(route('npd.create'))->assertForbidden();
+        // Bendahara Pengeluaran boleh memantau daftarnya tapi tidak melihat pemilih jenis (tidak boleh membuat NPD).
+        $this->actingAs($this->user('bendahara_pengeluaran'))->get(route('npd.index'))
+            ->assertOk()
+            ->assertDontSee(route('npd.bj.create'), false);
+
+        $this->actingAs($this->user('bpp'))->get(route('npd.index'))->assertForbidden();
+        $this->actingAs($this->user('verifikator'))->get(route('npd.index'))->assertForbidden();
     }
 
-    public function test_daftar_npd_memakai_filter_query_dan_pagination_server_side(): void
+    public function test_daftar_npd_memakai_filter_status_dan_pagination_server_side(): void
     {
         $master = $this->master();
         foreach (range(1, 31) as $index) {
             $this->npd($master, 'bj', 'Draft NPD - PPTK', "DRAFT-{$index}");
         }
-        $selesai = $this->npd($master, 'pd', 'Selesai', 'PD-SELESAI');
+        $this->npd($master, 'pd', 'Selesai', 'PD-SELESAI');
         $user = $this->user('pptk');
 
         DB::flushQueryLog();
         DB::enableQueryLog();
+        // Kolom "Nomor" tidak lagi ditampilkan di tabel Pembuatan NPD (port gas-lama tidak
+        // punya kolom itu) — kebenaran filter status dibuktikan lewat total()/count() paginator,
+        // bukan lewat teks nomor_lengkap yang sudah tidak dirender.
         $this->actingAs($user)->get(route('npd.index', ['status' => 'Draft NPD - PPTK']))
             ->assertOk()
-            ->assertViewHas('npds', fn ($npds) => $npds->total() === 31 && $npds->count() === 30 && $npds->perPage() === 30)
-            ->assertDontSee($selesai->nomor_lengkap);
+            ->assertViewHas('npds', fn ($npds) => $npds->total() === 31 && $npds->count() === 30 && $npds->perPage() === 30);
         $listingQueries = collect(DB::getQueryLog())->filter(fn (array $query) => str_contains($query['query'], 'npd') || str_contains($query['query'], 'master_anggaran'));
-        $this->assertLessThanOrEqual(3, $listingQueries->count(), 'Daftar NPD melakukan query berlebihan atau N+1.');
+        // count + select + masterAnggaran + tagging + (penerima/tim/narasumber/peserta eager loads
+        // untuk kolom Tagging/Penerima gas-lama-style) = 8 query flat, bukan N+1 per baris.
+        $this->assertLessThanOrEqual(8, $listingQueries->count(), 'Daftar NPD melakukan query berlebihan atau N+1.');
         DB::disableQueryLog();
+    }
+
+    public function test_daftar_npd_memakai_filter_jenis_dan_status_khusus(): void
+    {
+        $master = $this->master();
+        $this->npd($master, 'bj', 'Draft NPD - PPTK', 'DRAFT-LAIN');
+        $this->npd($master, 'pd', 'Selesai', 'PD-SELESAI');
+        $user = $this->user('pptk');
 
         $this->actingAs($user)->get(route('npd.index', ['jenis' => 'pd', 'status' => 'Selesai']))
             ->assertOk()
-            ->assertSee($selesai->nomor_lengkap)
+            ->assertSee($master->sub_kegiatan)
             ->assertViewHas('npds', fn ($npds) => $npds->total() === 1);
+    }
+
+    public function test_daftar_npd_menolak_jenis_tidak_valid(): void
+    {
+        $user = $this->user('pptk');
 
         $this->actingAs($user)->get(route('npd.index', ['jenis' => 'tidak-valid']))
             ->assertSessionHasErrors('jenis');
@@ -74,7 +95,6 @@ class NpdNavigationTest extends TestCase
         }
 
         $superadmin = $this->user('superadmin');
-        $this->actingAs($superadmin)->get(route('npd.create'))->assertOk();
         $this->actingAs($superadmin)->get(route('npd.index'))->assertOk();
         $this->actingAs($superadmin)->get(route('npd.persetujuan'))->assertOk();
         $this->actingAs($superadmin)->get(route('npd.verifikasi'))->assertOk();
