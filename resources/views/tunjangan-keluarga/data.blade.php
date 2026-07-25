@@ -6,18 +6,19 @@
 @section('content')
 <style>
     #tk-data-table{table-layout:fixed;min-width:0;}
-    #tk-data-table th{white-space:normal;word-break:normal;overflow-wrap:break-word;vertical-align:bottom;line-height:1.25;padding:8px 4px;font-size:10px;text-transform:none;letter-spacing:normal;}
+    #tk-data-table th{white-space:normal;word-break:normal;overflow-wrap:break-word;vertical-align:middle;line-height:1.25;padding:8px 4px;font-size:12.5px;text-transform:none;letter-spacing:normal;text-align:left;}
+    #tk-data-table th.col-aksi,#tk-data-table th.col-status-pasangan,#tk-data-table th.col-status1,#tk-data-table th.col-status2{text-align:center;}
     #tk-data-table td{word-break:normal;overflow-wrap:break-word;padding:8px 6px;}
     #tk-data-table .col-nama{width:13%;}
-    #tk-data-table .col-nip{width:9%;}
-    #tk-data-table .col-pasangan{width:13%;}
-    #tk-data-table .col-status-pasangan{width:5%;}
-    #tk-data-table .col-anak1{width:13%;}
-    #tk-data-table .col-tgl1{width:7%;}
-    #tk-data-table .col-status1{width:5%;}
-    #tk-data-table .col-anak2{width:13%;}
-    #tk-data-table .col-tgl2{width:7%;}
-    #tk-data-table .col-status2{width:10%;}
+    #tk-data-table .col-nip{width:10%;}
+    #tk-data-table .col-pasangan{width:11%;}
+    #tk-data-table .col-status-pasangan{width:6%;}
+    #tk-data-table .col-anak1{width:11%;}
+    #tk-data-table .col-tgl1{width:9%;}
+    #tk-data-table .col-status1{width:6%;}
+    #tk-data-table .col-anak2{width:11%;}
+    #tk-data-table .col-tgl2{width:9%;}
+    #tk-data-table .col-status2{width:6%;}
     #tk-data-table .col-aksi{width:8%;}
     #tk-data-table td.col-aksi{padding-left:2px;padding-right:2px;}
     #tk-data-table .ic-btn{width:26px;height:26px;}
@@ -42,8 +43,6 @@
 @endif
 
 <div class="dash-card wf-card">
-    <div class="sub" style="margin-bottom:14px;">Sumber data mentah yang dipakai Dashboard Tunjangan Keluarga. Kolom Nama Pasangan sampai Status Tunjangan Anak Tanggungan-2 diisi dan diperbarui langsung oleh superadmin.</div>
-
     <form method="GET" action="{{ route('tunjangan.data.index') }}" class="tbl-tools" style="margin-bottom:14px;">
         <input type="text" name="cari" value="{{ $cari }}" placeholder="Cari Nama / NIP…" style="max-width:320px;">
         <button type="submit" class="btn prim">Cari</button>
@@ -60,12 +59,12 @@
                     <th class="col-nip">NIP</th>
                     <th class="col-pasangan">Nama Pasangan</th>
                     <th class="col-status-pasangan">Status Tunjangan Pasangan</th>
-                    <th class="col-anak1">Nama Anak (Tanggungan-1)</th>
+                    <th class="col-anak1">Nama Anak<br>(Tanggungan-1)</th>
                     <th class="col-tgl1">Tanggal Lahir Anak (Tanggungan-1)</th>
-                    <th class="col-status1">Status Tunjangan Anak Tanggungan-1</th>
-                    <th class="col-anak2">Nama Anak (Tanggungan-2)</th>
+                    <th class="col-status1">Status Tunjangan (Anak-1)</th>
+                    <th class="col-anak2">Nama Anak<br>(Tanggungan-2)</th>
                     <th class="col-tgl2">Tanggal Lahir Anak (Tanggungan-2)</th>
-                    <th class="col-status2">Status Tunjangan Anak Tanggungan-2</th>
+                    <th class="col-status2">Status Tunjangan (Anak-2)</th>
                     <th class="col-aksi" style="text-align:center;">Aksi</th>
                 </tr>
             </thead>
