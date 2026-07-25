@@ -12,6 +12,23 @@ class StorePengajuanTunjanganRequest extends FormRequest
         return true;
     }
 
+    /**
+     * "Dapat Tunjangan?"/"Perpanjangan Kuliah?" adalah <select> (selalu
+     * terkirim, defaultnya "Tidak"/0) — bukan checkbox yang absen kalau
+     * tidak dicentang. Tanpa ini, kartu anak yang sengaja dikosongkan
+     * (mis. Anak Ke-2 saat hanya Anak Ke-1 diisi) tetap dianggap "ada
+     * isinya" oleh required_with di rules() karena field status selalu
+     * bernilai "0", bukan benar-benar kosong.
+     */
+    protected function prepareForValidation(): void
+    {
+        $anak = collect($this->input('anak', []))
+            ->filter(fn ($a) => filled($a['nama'] ?? null) || filled($a['tanggal_lahir'] ?? null) || filled($a['keterangan'] ?? null))
+            ->values()->all();
+
+        $this->merge(['anak' => $anak]);
+    }
+
     public function rules(): array
     {
         return [
