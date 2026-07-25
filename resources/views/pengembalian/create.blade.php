@@ -213,7 +213,7 @@
                 + '<div class="ai"><span class="k">Sisa Bisa Dikembalikan</span><span class="v" style="color:var(--ok);font-weight:800;">' + formatRupiah(b.sisa) + '</span></div>'
                 + '</div>'
                 + '<input type="hidden" name="baris[' + idx + '][master_anggaran_id]" value="' + b.master_anggaran_id + '">'
-                + '<div class="fg"><label class="fl">Nominal Pengembalian (Rp) — kosongkan bila tidak dikembalikan</label>'
+                + '<div class="fg"><label class="fl">Nominal Pengembalian (Rp)</label>'
                 + '<input type="number" step="0.01" min="0" max="' + b.sisa + '" data-baris-nominal name="baris[' + idx + '][nominal]" value=""></div>';
             barisList.appendChild(row);
         });
