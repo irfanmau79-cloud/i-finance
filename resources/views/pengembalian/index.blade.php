@@ -40,13 +40,11 @@
         <table class="realisasi">
             <thead>
                 <tr>
-                    <th>Tanggal</th>
-                    <th>Dokumen Sumber</th>
-                    <th>Mata Anggaran</th>
-                    <th>Total Nominal</th>
-                    <th>Status</th>
-                    <th>Dibuat Oleh</th>
-                    <th>Aksi</th>
+                    <th>Tanggal Pengembalian</th>
+                    <th>Nomor Dokumen Sumber</th>
+                    <th>Sub Kegiatan</th>
+                    <th style="text-align:right;">Nominal</th>
+                    <th style="text-align:center;">Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -55,39 +53,39 @@
                         $nomorDokumen = $p->dokumen_tipe === 'npd'
                             ? ($npdMap[$p->dokumen_id]->nomor_lengkap ?? '(Draft #'.$p->dokumen_id.')')
                             : ($spmMap[$p->dokumen_id]->nomor_dokumen ?? '#'.$p->dokumen_id);
-                        $mataAnggaran = $p->detail->map(fn ($d) => $d->masterAnggaran?->kode_rekening)->filter()->implode(', ');
+                        $subKegiatan = $p->detail->map(fn ($d) => $d->masterAnggaran?->sub_kegiatan)->filter()->unique()->implode(', ');
+                        $bolehKelola = $p->dibuat_oleh === auth()->id() || $bolehSetujui;
                     @endphp
                     <tr>
                         <td>{{ $p->tanggal_pengembalian->format('d-m-Y') }}</td>
-                        <td>{{ $p->dokumen_tipe === 'npd' ? 'NPD' : 'SPM LS' }} — {{ $nomorDokumen }}</td>
-                        <td>{{ $mataAnggaran ?: '—' }}</td>
-                        <td>Rp {{ number_format($p->totalNominal(), 2, ',', '.') }}</td>
-                        <td><span class="badge {{ $p->status === 'disetujui' ? 'st-selesai' : 'st-npd' }}">{{ $p->status === 'disetujui' ? 'Disetujui' : 'Draft' }}</span></td>
-                        <td>{{ $p->dibuatOleh?->nama ?? '—' }}</td>
-                        <td style="display:flex;gap:6px;flex-wrap:wrap;">
-                            @if ($p->dokumen_pendukung)
-                                <a class="btn" href="{{ route('pengembalian.dokumen-pendukung', $p) }}">Dokumen</a>
-                            @endif
-                            @if ($p->status === 'draft')
-                                @if ($bolehSetujui)
+                        <td>{{ $p->dokumen_tipe === 'npd' ? 'NPD' : 'SPM LS' }} &mdash; {{ $nomorDokumen }}</td>
+                        <td>{{ $subKegiatan ?: '—' }}</td>
+                        <td style="text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;">Rp {{ number_format($p->totalNominal(), 2, ',', '.') }}</td>
+                        <td style="text-align:center;">
+                            <div style="display:inline-flex;gap:6px;">
+                                @if ($p->status === 'draft' && $bolehSetujui)
                                     <form method="POST" action="{{ route('pengembalian.setujui', $p) }}" onsubmit="return confirm('Setujui pengembalian ini? Realisasi akan berubah setelah disetujui.');">
                                         @csrf
-                                        <button type="submit" class="btn prim">Setujui</button>
+                                        <button type="submit" class="ic-btn" title="Setujui"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></button>
                                     </form>
                                 @endif
-                                @if ($p->dibuat_oleh === auth()->id() || $bolehSetujui)
+                                @if ($p->status === 'draft' && $bolehKelola)
+                                    <a class="ic-btn" title="Edit" href="{{ route('pengembalian.edit', $p) }}"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></a>
+                                @endif
+                                <a class="ic-btn" title="Lihat" href="{{ route('pengembalian.show', $p) }}"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></a>
+                                @if ($p->status === 'draft' && $bolehKelola)
                                     <form method="POST" action="{{ route('pengembalian.destroy', $p) }}" onsubmit="return confirm('Hapus draft pengembalian ini?');">
                                         @csrf
                                         @method('DELETE')
-                                        <button type="submit" class="btn">Hapus</button>
+                                        <button type="submit" class="ic-btn danger" title="Hapus"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
                                     </form>
                                 @endif
-                            @endif
+                            </div>
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" style="text-align:center;color:var(--mut);padding:20px;">Belum ada data pengembalian.</td>
+                        <td colspan="5" style="text-align:center;color:var(--mut);padding:20px;">Belum ada data pengembalian.</td>
                     </tr>
                 @endforelse
             </tbody>

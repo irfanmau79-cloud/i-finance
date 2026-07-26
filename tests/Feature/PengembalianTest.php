@@ -444,4 +444,121 @@ class PengembalianTest extends TestCase
         $response->assertSessionHasErrors();
         $this->assertSame(0, Pengembalian::count());
     }
+
+    // ---------------- Tambahan: Lihat (show) ----------------
+
+    public function test_lihat_detail_pengembalian_menampilkan_dokumen_sumber_dan_breakdown(): void
+    {
+        $bpp = $this->buatUser('bpp', 'peng-bpp-13');
+        $anggaran = $this->buatMasterAnggaran(10_000_000);
+        $npd = $this->buatNpdSelesai($anggaran, 1_000_000);
+
+        $pengembalian = Pengembalian::buatDraft([
+            'dokumen_tipe' => 'npd', 'dokumen_id' => $npd->id, 'tanggal_pengembalian' => '2026-07-15',
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 300_000]],
+        ], $bpp->id);
+
+        $this->actingAs($bpp)->get(route('pengembalian.show', $pengembalian))
+            ->assertOk()
+            ->assertSee($npd->nomor_lengkap ?? '(Draft #'.$npd->id.')')
+            ->assertSee($anggaran->kode_rekening)
+            ->assertSee('Rp 300.000,00');
+    }
+
+    // ---------------- Tambahan: Edit (update) draft ----------------
+
+    public function test_edit_draft_mengubah_nominal_tanggal_dan_keterangan(): void
+    {
+        $bpp = $this->buatUser('bpp', 'peng-bpp-14');
+        $anggaran = $this->buatMasterAnggaran(10_000_000);
+        $npd = $this->buatNpdSelesai($anggaran, 1_000_000);
+
+        $pengembalian = Pengembalian::buatDraft([
+            'dokumen_tipe' => 'npd', 'dokumen_id' => $npd->id, 'tanggal_pengembalian' => '2026-07-15',
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 300_000]],
+        ], $bpp->id);
+
+        $editResponse = $this->actingAs($bpp)->get(route('pengembalian.edit', $pengembalian));
+        $editResponse->assertOk()->assertSee('Rp 1.000.000,00');
+
+        $response = $this->actingAs($bpp)->put(route('pengembalian.update', $pengembalian), [
+            'dokumen_tipe' => 'npd',
+            'dokumen_id' => $npd->id,
+            'tanggal_pengembalian' => '2026-07-20',
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 700_000]],
+            'keterangan' => 'Direvisi',
+        ]);
+
+        $response->assertRedirect(route('pengembalian.index'));
+        $pengembalian->refresh();
+        $this->assertEquals(700_000.0, $pengembalian->totalNominal());
+        $this->assertSame('2026-07-20', $pengembalian->tanggal_pengembalian->format('Y-m-d'));
+        $this->assertSame('Direvisi', $pengembalian->keterangan);
+        $this->assertSame('npd', $pengembalian->dokumen_tipe);
+        $this->assertSame($npd->id, $pengembalian->dokumen_id);
+    }
+
+    public function test_edit_draft_nominal_melebihi_asli_ditolak(): void
+    {
+        $bpp = $this->buatUser('bpp', 'peng-bpp-15');
+        $anggaran = $this->buatMasterAnggaran(10_000_000);
+        $npd = $this->buatNpdSelesai($anggaran, 1_000_000);
+
+        $pengembalian = Pengembalian::buatDraft([
+            'dokumen_tipe' => 'npd', 'dokumen_id' => $npd->id, 'tanggal_pengembalian' => '2026-07-15',
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 300_000]],
+        ], $bpp->id);
+
+        $response = $this->actingAs($bpp)->put(route('pengembalian.update', $pengembalian), [
+            'dokumen_tipe' => 'npd',
+            'dokumen_id' => $npd->id,
+            'tanggal_pengembalian' => '2026-07-20',
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 1_500_000]],
+        ]);
+
+        $response->assertSessionHasErrors(['baris']);
+        $this->assertEquals(300_000.0, $pengembalian->fresh()->totalNominal());
+    }
+
+    public function test_edit_draft_hanya_boleh_pembuat_atau_bendahara_pengeluaran_role_lain_ditolak(): void
+    {
+        $bpp = $this->buatUser('bpp', 'peng-bpp-16');
+        $bppLain = $this->buatUser('bpp', 'peng-bpp-17');
+        $bendahara = $this->buatUser('bendahara_pengeluaran', 'peng-bendahara-11');
+        $anggaran = $this->buatMasterAnggaran(10_000_000);
+        $npd = $this->buatNpdSelesai($anggaran, 1_000_000);
+
+        $pengembalian = Pengembalian::buatDraft([
+            'dokumen_tipe' => 'npd', 'dokumen_id' => $npd->id, 'tanggal_pengembalian' => '2026-07-15',
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 300_000]],
+        ], $bpp->id);
+
+        $this->actingAs($bppLain)->get(route('pengembalian.edit', $pengembalian))->assertForbidden();
+        $this->actingAs($bppLain)->put(route('pengembalian.update', $pengembalian), [
+            'dokumen_tipe' => 'npd', 'dokumen_id' => $npd->id, 'tanggal_pengembalian' => '2026-07-20',
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 400_000]],
+        ])->assertForbidden();
+
+        $this->actingAs($bendahara)->get(route('pengembalian.edit', $pengembalian))->assertOk();
+    }
+
+    public function test_edit_ditolak_jika_pengembalian_sudah_disetujui(): void
+    {
+        $bendahara = $this->buatUser('bendahara_pengeluaran', 'peng-bendahara-12');
+        $anggaran = $this->buatMasterAnggaran(10_000_000);
+        $npd = $this->buatNpdSelesai($anggaran, 1_000_000);
+
+        $pengembalian = Pengembalian::buatDraft([
+            'dokumen_tipe' => 'npd', 'dokumen_id' => $npd->id, 'tanggal_pengembalian' => '2026-07-15',
+            'dokumen_pendukung' => 'pengembalian/uji-bukti-edit.pdf',
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 300_000]],
+        ], $bendahara->id);
+        $pengembalian->setujui($bendahara);
+
+        $this->actingAs($bendahara)->get(route('pengembalian.edit', $pengembalian))->assertStatus(409);
+        $this->actingAs($bendahara)->put(route('pengembalian.update', $pengembalian), [
+            'dokumen_tipe' => 'npd', 'dokumen_id' => $npd->id, 'tanggal_pengembalian' => '2026-07-20',
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 400_000]],
+        ])->assertStatus(409);
+    }
 }

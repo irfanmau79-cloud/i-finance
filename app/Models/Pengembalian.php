@@ -197,6 +197,36 @@ class Pengembalian extends Model
     }
 
     /**
+     * Perbarui draft yang sudah ada (hanya boleh dipanggil selagi status
+     * masih draft - dicek di controller). Dokumen sumber (dokumen_tipe/
+     * dokumen_id) TIDAK BOLEH berubah lewat method ini - kalau dokumen
+     * sumbernya salah, hapus draft ini dan buat yang baru. Baris lama
+     * diganti seluruhnya dengan baris baru, sama seperti Spm::updateLs().
+     *
+     * @param  array{tanggal_pengembalian: string, dokumen_pendukung?: ?string, keterangan?: ?string, baris: array<int, array{master_anggaran_id?: mixed, nominal?: mixed}>}  $data
+     *
+     * @throws RuntimeException
+     */
+    public function updateDraft(array $data): void
+    {
+        DB::transaction(function () use ($data) {
+            $baris = self::validasiBaris($this->dokumen_tipe, (int) $this->dokumen_id, $data['baris'] ?? [], $this->id);
+
+            $this->update([
+                'tanggal_pengembalian' => $data['tanggal_pengembalian'],
+                'dokumen_pendukung' => array_key_exists('dokumen_pendukung', $data) ? $data['dokumen_pendukung'] : $this->dokumen_pendukung,
+                'keterangan' => $data['keterangan'] ?? null,
+            ]);
+
+            $this->detail()->delete();
+
+            foreach ($baris as $item) {
+                $this->detail()->create($item);
+            }
+        });
+    }
+
+    /**
      * Validasi tiap baris: mata anggaran tidak duplikat, nominal > 0, tidak
      * melebihi nominal ASLI dokumen sumber pada mata anggaran itu, dan
      * (kumulatif dengan pengembalian DISETUJUI sebelumnya dari dokumen yang

@@ -4,10 +4,12 @@ namespace App\Http\Controllers;
 
 use App\Helpers\AuditLog;
 use App\Http\Requests\StorePengembalianRequest;
+use App\Models\MasterAnggaran;
 use App\Models\Npd;
 use App\Models\Pengembalian;
 use App\Models\Spm;
 use App\Models\SpmDetail;
+use App\Models\User;
 use App\Services\AnggaranRealisasiService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Collection;
@@ -66,6 +68,110 @@ class PengembalianController extends Controller
             'spmMap' => $spmMap,
             'bolehSetujui' => in_array($request->user()->role, self::ROLE_BOLEH_SETUJUI, true),
         ]);
+    }
+
+    public function show(Pengembalian $pengembalian)
+    {
+        $pengembalian->load(['detail.masterAnggaran', 'dibuatOleh', 'disetujuiOleh']);
+
+        $dokumen = $pengembalian->dokumen();
+        $labelDokumen = $pengembalian->dokumen_tipe === Pengembalian::TIPE_NPD
+            ? ($dokumen?->nomor_lengkap ?? '(Draft #'.$pengembalian->dokumen_id.')')
+            : ($dokumen?->nomor_dokumen ?? '#'.$pengembalian->dokumen_id);
+
+        return view('pengembalian.show', [
+            'pengembalian' => $pengembalian,
+            'labelDokumen' => $labelDokumen,
+        ]);
+    }
+
+    public function edit(Pengembalian $pengembalian)
+    {
+        abort_unless($this->bolehKelolaDraft($pengembalian, request()->user()), 403);
+        abort_unless($pengembalian->status === Pengembalian::STATUS_DRAFT, 409);
+
+        $pengembalian->load('detail');
+
+        $dokumen = $pengembalian->dokumen();
+        $labelDokumen = $pengembalian->dokumen_tipe === Pengembalian::TIPE_NPD
+            ? ($dokumen?->nomor_lengkap ?? '(Draft #'.$pengembalian->dokumen_id.')')
+            : ($dokumen?->nomor_dokumen ?? '#'.$pengembalian->dokumen_id);
+
+        $sudahDikembalikan = Pengembalian::sudahDikembalikanPerMataAnggaran(
+            $pengembalian->dokumen_tipe,
+            $pengembalian->dokumen_id,
+            $pengembalian->id
+        );
+        $nominalAsli = Pengembalian::nominalAsliPerMataAnggaran($pengembalian->dokumen_tipe, $pengembalian->dokumen_id);
+        $nominalLama = $pengembalian->detail->pluck('nominal', 'master_anggaran_id')->map(fn ($v) => (float) $v);
+
+        $breakdown = $nominalAsli === []
+            ? []
+            : collect($nominalAsli)->map(function ($asli, $masterAnggaranId) use ($sudahDikembalikan, $nominalLama) {
+                $masterAnggaran = MasterAnggaran::find($masterAnggaranId);
+                $sudah = (float) ($sudahDikembalikan[$masterAnggaranId] ?? 0);
+
+                return [
+                    'master_anggaran_id' => $masterAnggaranId,
+                    'label' => $this->labelMataAnggaran($masterAnggaran),
+                    'nominal_asli' => $asli,
+                    'sudah_dikembalikan' => $sudah,
+                    'sisa' => max(0, $asli - $sudah) + (float) ($nominalLama[$masterAnggaranId] ?? 0),
+                    'nominal_lama' => (float) ($nominalLama[$masterAnggaranId] ?? 0),
+                ];
+            })->values()->all();
+
+        return view('pengembalian.edit', [
+            'pengembalian' => $pengembalian,
+            'labelDokumen' => $labelDokumen,
+            'breakdown' => $breakdown,
+        ]);
+    }
+
+    public function update(StorePengembalianRequest $request, Pengembalian $pengembalian)
+    {
+        abort_unless($this->bolehKelolaDraft($pengembalian, $request->user()), 403);
+        abort_unless($pengembalian->status === Pengembalian::STATUS_DRAFT, 409);
+
+        $data = $request->validated();
+        $pathLama = $pengembalian->dokumen_pendukung;
+        $pathBaru = null;
+
+        if ($request->hasFile('dokumen_pendukung')) {
+            $file = $request->file('dokumen_pendukung');
+            $ext = strtolower($file->getClientOriginalExtension() ?: 'bin');
+            $pathBaru = $file->storeAs('pengembalian', Str::uuid().'.'.$ext, 'local');
+
+            if (! $pathBaru) {
+                return back()->withInput()->withErrors(['dokumen_pendukung' => 'Dokumen pendukung gagal disimpan pada penyimpanan private.']);
+            }
+
+            $data['dokumen_pendukung'] = $pathBaru;
+        }
+
+        try {
+            $pengembalian->updateDraft($data);
+        } catch (RuntimeException $e) {
+            if ($pathBaru) {
+                Storage::disk('local')->delete($pathBaru);
+            }
+
+            return back()->withInput()->withErrors(['baris' => $e->getMessage()]);
+        }
+
+        if ($pathBaru && $pathLama) {
+            Storage::disk('local')->delete($pathLama);
+        }
+
+        AuditLog::catat('Edit Draft Pengembalian', sprintf(
+            'Pengembalian #%d (%s #%d), Total: Rp %s',
+            $pengembalian->id,
+            strtoupper($pengembalian->dokumen_tipe),
+            $pengembalian->dokumen_id,
+            number_format($pengembalian->totalNominal(), 2, ',', '.')
+        ));
+
+        return redirect()->route('pengembalian.index')->with('success', 'Draft pengembalian berhasil diperbarui.');
     }
 
     public function create()
@@ -147,9 +253,7 @@ class PengembalianController extends Controller
 
     public function destroy(Request $request, Pengembalian $pengembalian)
     {
-        $user = $request->user();
-        $boleh = $pengembalian->dibuat_oleh === $user->id || in_array($user->role, self::ROLE_BOLEH_SETUJUI, true);
-        abort_unless($boleh, 403);
+        abort_unless($this->bolehKelolaDraft($pengembalian, $request->user()), 403);
         abort_unless($pengembalian->status === Pengembalian::STATUS_DRAFT, 409);
 
         $path = $pengembalian->dokumen_pendukung;
@@ -233,6 +337,12 @@ class PengembalianController extends Controller
         });
 
         return $npdRows->concat($spmRows)->values()->all();
+    }
+
+    /** Boleh edit/hapus draft: pembuatnya sendiri atau yang berwenang menyetujui (Bendahara Pengeluaran/superadmin). */
+    private function bolehKelolaDraft(Pengembalian $pengembalian, User $user): bool
+    {
+        return $pengembalian->dibuat_oleh === $user->id || in_array($user->role, self::ROLE_BOLEH_SETUJUI, true);
     }
 
     private function labelMataAnggaran($masterAnggaran): string
