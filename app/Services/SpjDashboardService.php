@@ -8,6 +8,9 @@ use Illuminate\Support\Collection;
 
 class SpjDashboardService
 {
+    /** Hanya dua kode rekening Perjalanan Dinas ini yang masuk Dashboard SPJ Perjalanan Dinas. */
+    public const KODE_REKENING_PERJALANAN_DINAS = ['5.1.02.04.001.00001', '5.1.02.04.001.00003'];
+
     public function ringkasan(array $filters, int $tahun): array
     {
         $rows = Npd::query()
@@ -16,8 +19,8 @@ class SpjDashboardService
             ->whereYear('tanggal_npd', $tahun)
             ->orderByDesc('tanggal_npd')
             ->get()
-            ->filter(fn (Npd $npd) => self::adalahPengawasan($npd))
-            ->map(fn (Npd $npd) => $this->baris($npd))
+            ->filter(fn (Npd $npd) => self::adalahPerjalananDinas($npd))
+            ->map(fn (Npd $npd) => self::baris($npd))
             ->filter(fn (array $row) => $row['bidang'] !== null);
 
         $pilihanBidang = collect(BidangOrganisasi::PENGAWASAN)->filter(fn (string $bidang) => $rows->contains('bidang', $bidang))->values()->all();
@@ -55,11 +58,10 @@ class SpjDashboardService
         ];
     }
 
-    public static function adalahPengawasan(Npd $npd): bool
+    /** Hanya NPD dengan kode rekening Belanja Perjalanan Dinas Biasa/Dalam Kota yang masuk dashboard ini. */
+    public static function adalahPerjalananDinas(Npd $npd): bool
     {
-        $sub = trim((string) $npd->masterAnggaran?->sub_kegiatan);
-
-        return str_starts_with($sub, '6.01.02') || str_starts_with($sub, '6.01.03');
+        return in_array($npd->masterAnggaran?->kode_rekening, self::KODE_REKENING_PERJALANAN_DINAS, true);
     }
 
     public static function bidang(Npd $npd): ?string
@@ -72,7 +74,8 @@ class SpjDashboardService
         return BidangOrganisasi::petakan($sumber, true);
     }
 
-    private function baris(Npd $npd): array
+    /** Public + static: dipakai ulang oleh App\Exports\SpjPerjalananDinasExport supaya rumus tetap satu sumber. */
+    public static function baris(Npd $npd): array
     {
         return [
             'id' => $npd->id,

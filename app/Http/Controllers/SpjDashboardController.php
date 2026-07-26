@@ -36,7 +36,7 @@ class SpjDashboardController extends Controller
 
         DB::transaction(function () use ($request, $npd, $aksi) {
             $npd = Npd::query()->with(['masterAnggaran', 'suratPerintah', 'dibuatOleh.pegawai'])->lockForUpdate()->findOrFail($npd->id);
-            if ($npd->status !== 'Selesai' || ! SpjDashboardService::adalahPengawasan($npd)) {
+            if ($npd->status !== 'Selesai' || ! SpjDashboardService::adalahPerjalananDinas($npd)) {
                 throw ValidationException::withMessages(['aksi' => 'Verifikasi SPJ hanya tersedia untuk NPD Pengawasan berstatus Selesai.']);
             }
 

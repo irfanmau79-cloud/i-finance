@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('activeNav', 'dashspj')
-@section('title', 'Dashboard SPJ Pengawasan')
+@section('title', 'Dashboard SPJ Perjalanan Dinas')
 
 @section('content')
 <style>
@@ -13,8 +13,8 @@
 
 <div class="page-head">
   <div>
-    <div class="ph-crumb">Beranda / <b>Dashboard SPJ Pengawasan</b></div>
-    <div class="ph-title">Dashboard SPJ Pengawasan</div>
+    <div class="ph-crumb">Beranda / <b>Dashboard SPJ Perjalanan Dinas</b></div>
+    <div class="ph-title">Dashboard SPJ Perjalanan Dinas</div>
   </div>
   <div class="ph-actions">
     <a class="btn" href="{{ route('dashboard.spj.index') }}" style="white-space:nowrap;">&#8635; Muat Ulang</a>
@@ -48,7 +48,7 @@
   </div>
 </div>
 
-@if($dashboard['kosong'])<div class="dash-card spj-empty">Belum ada NPD Pengawasan berstatus Selesai untuk filter ini. Status NPD Selesai tidak otomatis berarti SPJ terverifikasi.</div>@else
+@if($dashboard['kosong'])<div class="dash-card spj-empty">Belum ada NPD Perjalanan Dinas berstatus Selesai untuk filter ini. Status NPD Selesai tidak otomatis berarti SPJ terverifikasi.</div>@else
 <div class="spj-grid"><div class="dash-card"><h3 style="margin:0;color:var(--navy)">Rekap per Bidang</h3>@foreach($dashboard['bidang'] as $bidang)<div class="spj-progress"><div class="spj-progress-head"><strong>{{ $bidang['bidang'] }}</strong><span>{{ $bidang['terverifikasi'] }}/{{ $bidang['total'] }} ({{ number_format($bidang['persen'],1,',','.') }}%)</span></div><div class="spj-bar"><span style="width:{{ min(100,$bidang['persen']) }}%"></span></div></div>@endforeach</div>
 <div class="dash-card"><h3 style="margin:0;color:var(--navy)">Daftar Detail SPJ</h3><div class="sub">Verifikasi SPJ tidak mengubah status workflow NPD.</div><div class="spj-table-wrap"><table class="realisasi spj-table"><thead><tr><th>Tanggal / Nomor NPD</th><th>Nomor SP</th><th>Bidang</th><th>Sub Kegiatan / Uraian</th><th class="num">Nominal</th><th>Status SPJ</th><th>Aksi</th></tr></thead><tbody>@foreach($dashboard['rows'] as $row)<tr><td>{{ $row['tanggal']->format('d-m-Y') }}<br><strong>{{ $row['nomor_npd'] }}</strong></td><td>{{ $row['nomor_sp'] }}</td><td>{{ $row['bidang'] }}</td><td>{{ $row['sub_kegiatan'] }}<br><small>{{ $row['uraian'] }}</small></td><td class="num">{{ fmt_rupiah($row['nominal']) }}</td><td>@if($row['status_spj']==='terverifikasi')<span class="badge st-selesai">TERVERIFIKASI</span><small style="display:block;margin-top:4px">{{ $row['verified_at']->format('d-m-Y H:i') }} · {{ $row['verified_by'] }}</small>@else<span class="badge st-verifikasi">BELUM</span>@endif</td><td>@if($bolehVerifikasi)<form method="POST" action="{{ route('dashboard.spj.verify',$row['id']) }}">@csrf<input type="hidden" name="aksi" value="{{ $row['status_spj']==='terverifikasi'?'batalkan':'verifikasi' }}"><button class="btn {{ $row['status_spj']==='terverifikasi'?'':'prim' }}" onclick="return confirm('{{ $row['status_spj']==='terverifikasi'?'Batalkan verifikasi SPJ ini?':'Verifikasi SPJ ini sebagai selesai?' }}')">{{ $row['status_spj']==='terverifikasi'?'Batalkan':'Verifikasi' }}</button></form>@else<span class="sub">Lihat saja</span>@endif</td></tr>@endforeach</tbody></table></div></div></div>
 @endif

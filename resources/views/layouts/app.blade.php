@@ -74,7 +74,7 @@
           @if (in_array('dashboard', $akses)) <a class="sb-item sub{{ $activeNav === 'dashboard' ? ' active' : '' }}" href="{{ $href('dashboard') }}">Dashboard Realisasi Anggaran</a> @endif
           @if (in_array('dashpd', $akses)) <a class="sb-item sub{{ $activeNav === 'dashpd' ? ' active' : '' }}" href="{{ $href('dashpd') }}">Dashboard Perjalanan Dinas</a> @endif
           @if (in_array('dash-tk', $akses)) <a class="sb-item sub{{ $activeNav === 'dash-tk' ? ' active' : '' }}" href="{{ $href('dash-tk') }}">Dashboard Tunjangan Keluarga</a> @endif
-          @if (in_array('dashspj', $akses)) <a class="sb-item sub{{ $activeNav === 'dashspj' ? ' active' : '' }}" href="{{ $href('dashspj') }}">Dashboard SPJ Pengawasan</a> @endif
+          @if (in_array('dashspj', $akses)) <a class="sb-item sub{{ $activeNav === 'dashspj' ? ' active' : '' }}" href="{{ $href('dashspj') }}">Dashboard SPJ Perjalanan Dinas</a> @endif
         </div>
       </div>
       @endif
