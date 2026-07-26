@@ -22,8 +22,6 @@
 @endif
 
 <div class="dash-card wf-card">
-    <div class="sub" style="margin-bottom:14px;">Secara default menampilkan NPD yang memerlukan tindakan BPP. Gunakan filter status untuk melihat arsip proses maupun NPD Selesai.</div>
-
     <form method="GET" action="{{ route('npd.persetujuan') }}" class="tbl-tools" style="margin-bottom:14px;">
         <select name="jenis" style="max-width:220px;">
             <option value="">-- Semua Jenis --</option>
