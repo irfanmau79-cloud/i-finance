@@ -14,6 +14,7 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'golongan',
     'pangkat',
     'rekening',
+    'nomor_handphone',
     'aktif',
 ])]
 class Pegawai extends Model

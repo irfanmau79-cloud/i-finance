@@ -14,6 +14,7 @@ use App\Http\Controllers\NpdKontribusiDiklatController;
 use App\Http\Controllers\NpdNarasumberController;
 use App\Http\Controllers\NpdPdController;
 use App\Http\Controllers\NpdTransportController;
+use App\Http\Controllers\PegawaiDataController;
 use App\Http\Controllers\PegawaiImportController;
 use App\Http\Controllers\PelimpahanController;
 use App\Http\Controllers\PengembalianController;
@@ -96,6 +97,14 @@ Route::middleware('auth.or.guest')->group(function () {
 
         Route::get('/profil', [ProfilController::class, 'show'])->name('profil.show');
         Route::put('/profil', [ProfilController::class, 'update'])->name('profil.update');
+    });
+
+    // Data Pegawai: semua role (termasuk "layanan") boleh melihat - lihat menu 'data-pegawai' di config/akses.php.
+    Route::get('/data-pegawai', [PegawaiDataController::class, 'index'])
+        ->middleware('menu-akses:data-pegawai')->name('data-pegawai.index');
+
+    Route::middleware(['menu-akses:data-pegawai', 'role:superadmin'])->group(function () {
+        Route::put('/data-pegawai/{pegawai}', [PegawaiDataController::class, 'update'])->name('data-pegawai.update');
     });
 
     // Manajemen Users & Pelimpahan: khusus superadmin.

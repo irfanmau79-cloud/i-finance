@@ -40,6 +40,7 @@
             'users' => route('users.index'),
             'pelimpahan' => route('pelimpahan.index'),
             'manajemen-data' => route('manajemen-data.index'),
+            'data-pegawai' => route('data-pegawai.index'),
             'rincian' => route('rincian.index'),
             'analisis' => route('analisis.index'),
             'dashpd' => route('dashboard.perjalanan.index'),
@@ -191,7 +192,7 @@
       </a>
       @endif
 
-      @php($g = $group(['pelimpahan', 'users', 'manajemen-data']))
+      @php($g = $group(['pelimpahan', 'users', 'manajemen-data', 'data-pegawai']))
       @if ($g['visible'])
       <div class="sb-group{{ $g['open'] ? ' open' : '' }}">
         <div class="sb-item sb-parent" id="nav-setting-parent">
@@ -200,9 +201,10 @@
           <svg class="chev" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
         <div class="sb-sub">
+          @if (in_array('data-pegawai', $akses)) <a class="sb-item sub{{ $activeNav === 'data-pegawai' ? ' active' : '' }}" href="{{ $href('data-pegawai') }}">Data Pegawai</a> @endif
           @if (in_array('pelimpahan', $akses)) <a class="sb-item sub{{ $activeNav === 'pelimpahan' ? ' active' : '' }}" href="{{ $href('pelimpahan') }}">Pelimpahan</a> @endif
-          @if (in_array('users', $akses)) <a class="sb-item sub{{ $activeNav === 'users' ? ' active' : '' }}" href="{{ $href('users') }}">Manajemen Users</a> @endif
           @if (in_array('manajemen-data', $akses)) <a class="sb-item sub{{ $activeNav === 'manajemen-data' ? ' active' : '' }}" href="{{ $href('manajemen-data') }}">Manajemen Data</a> @endif
+          @if (in_array('users', $akses)) <a class="sb-item sub{{ $activeNav === 'users' ? ' active' : '' }}" href="{{ $href('users') }}">Manajemen Users</a> @endif
         </div>
       </div>
       @endif
