@@ -5,11 +5,10 @@ namespace App\Http\Controllers;
 use App\Exports\MasterAnggaranExport;
 use App\Exports\NpdExport;
 use App\Exports\PegawaiExport;
-use App\Exports\PejabatExport;
 use App\Exports\RakBulananExport;
 use App\Exports\SpmLsExport;
 use App\Exports\SpmUpGuExport;
-use App\Exports\TaggingExport;
+use App\Exports\TunjanganKeluargaExport;
 use App\Exports\VendorExport;
 use App\Helpers\AuditLog;
 use Illuminate\Http\Request;
@@ -20,20 +19,81 @@ class ManajemenDataController extends Controller
 {
     /** Daftar export yang tersedia di Manajemen Data. Kunci dipakai di URL & di-whitelist juga pada route. */
     private const EXPORTS = [
-        'master-anggaran' => ['label' => 'Pagu / Master Anggaran', 'class' => MasterAnggaranExport::class],
-        'npd' => ['label' => 'NPD', 'class' => NpdExport::class],
-        'spm-up-gu' => ['label' => 'SPM UP/GU', 'class' => SpmUpGuExport::class],
-        'spm-ls' => ['label' => 'SPM LS', 'class' => SpmLsExport::class],
-        'pegawai' => ['label' => 'Pegawai', 'class' => PegawaiExport::class],
-        'vendor' => ['label' => 'Vendor', 'class' => VendorExport::class],
-        'tagging' => ['label' => 'Tagging', 'class' => TaggingExport::class],
-        'pejabat' => ['label' => 'Data Pejabat (PA/Bendahara/KPA/BPP)', 'class' => PejabatExport::class],
-        'rak-bulanan' => ['label' => 'RAK Bulanan', 'class' => RakBulananExport::class],
+        'master-anggaran' => ['label' => 'Data Pagu Anggaran', 'class' => MasterAnggaranExport::class],
+        'rak-bulanan' => ['label' => 'Data Rencana Anggaran Kas (RAK)', 'class' => RakBulananExport::class],
+        'npd' => ['label' => 'Data Nota Pencairan Dana (NPD)', 'class' => NpdExport::class],
+        'spm-up-gu' => ['label' => 'Data Surat Perintah Membayar (SPM) UP/GU/TU', 'class' => SpmUpGuExport::class],
+        'spm-ls' => ['label' => 'Data Surat Perintah Membayar (SPM) LS', 'class' => SpmLsExport::class],
+        'pegawai' => ['label' => 'Data Pegawai', 'class' => PegawaiExport::class],
+        'vendor' => ['label' => 'Data Vendor', 'class' => VendorExport::class],
+        'tunjangan-keluarga' => ['label' => 'Data Tunjangan Keluarga', 'class' => TunjanganKeluargaExport::class],
+    ];
+
+    /**
+     * Susunan 8 tipe data yang ditampilkan di halaman Manajemen Data - satu
+     * kartu per tipe, masing-masing dengan tombol Import + Export (+
+     * Template kalau tersedia). 'import_template' sengaja null untuk RAK
+     * Bulanan - hasil Export-nya sendiri SUDAH berperan sebagai template
+     * (baris Sub Kegiatan/Kode Rekening terisi, kolom bulan kosong siap
+     * diisi), lihat RakBulananExport.
+     */
+    private const TIPE_DATA = [
+        'pagu' => [
+            'label' => 'Data Pagu Anggaran',
+            'export_jenis' => 'master-anggaran',
+            'import_create' => ['manajemen-data.import.master-anggaran.create', null],
+            'import_template' => ['manajemen-data.import.master-anggaran.template', null],
+        ],
+        'rak' => [
+            'label' => 'Data Rencana Anggaran Kas (RAK)',
+            'export_jenis' => 'rak-bulanan',
+            'import_create' => ['manajemen-data.import.rak-bulanan.create', null],
+            'import_template' => null,
+        ],
+        'npd' => [
+            'label' => 'Data Nota Pencairan Dana (NPD)',
+            'export_jenis' => 'npd',
+            'import_create' => ['manajemen-data.import.npd-historis.create', null],
+            'import_template' => ['manajemen-data.import.npd-historis.template', null],
+        ],
+        'spm-up-gu' => [
+            'label' => 'Data Surat Perintah Membayar (SPM) UP/GU/TU',
+            'export_jenis' => 'spm-up-gu',
+            'import_create' => ['manajemen-data.import.spm.create', 'spm-up-gu'],
+            'import_template' => ['manajemen-data.import.spm.template', 'spm-up-gu'],
+        ],
+        'spm-ls' => [
+            'label' => 'Data Surat Perintah Membayar (SPM) LS',
+            'export_jenis' => 'spm-ls',
+            'import_create' => ['manajemen-data.import.spm.create', 'spm-ls'],
+            'import_template' => ['manajemen-data.import.spm.template', 'spm-ls'],
+        ],
+        'pegawai' => [
+            'label' => 'Data Pegawai',
+            'export_jenis' => 'pegawai',
+            'import_create' => ['manajemen-data.import.pegawai.create', null],
+            'import_template' => ['manajemen-data.import.pegawai.template', null],
+        ],
+        'vendor' => [
+            'label' => 'Data Vendor',
+            'export_jenis' => 'vendor',
+            'import_create' => ['manajemen-data.import.vendor.create', null],
+            'import_template' => ['manajemen-data.import.vendor.template', null],
+        ],
+        'tunjangan-keluarga' => [
+            'label' => 'Data Tunjangan Keluarga',
+            'export_jenis' => 'tunjangan-keluarga',
+            'import_create' => ['tunjangan.import.create', null],
+            'import_template' => ['tunjangan.import.template', null],
+        ],
     ];
 
     public function index()
     {
-        return view('manajemen-data.index', ['exports' => self::EXPORTS, 'tahunSekarang' => (int) config('anggaran.tahun_aktif')]);
+        return view('manajemen-data.index', [
+            'tipeData' => self::TIPE_DATA,
+            'tahunSekarang' => (int) config('anggaran.tahun_aktif'),
+        ]);
     }
 
     public function export(string $jenis, Request $request)

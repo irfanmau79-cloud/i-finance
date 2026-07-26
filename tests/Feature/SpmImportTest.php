@@ -115,6 +115,18 @@ class SpmImportTest extends TestCase
         $this->actingAs($pptk)->post(route('manajemen-data.import.spm.store', 'spm-up-gu'), ['file' => $file])->assertForbidden();
     }
 
+    public function test_template_up_gu_dan_ls_dapat_diunduh(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $pptk = $this->buatUser(User::ROLE_PPTK);
+
+        $this->actingAs($superadmin)->get(route('manajemen-data.import.spm.template', 'spm-up-gu'))
+            ->assertOk()->assertDownload('template-import-spm-up-gu.xlsx');
+        $this->actingAs($superadmin)->get(route('manajemen-data.import.spm.template', 'spm-ls'))
+            ->assertOk()->assertDownload('template-import-spm-ls.xlsx');
+        $this->actingAs($pptk)->get(route('manajemen-data.import.spm.template', 'spm-up-gu'))->assertForbidden();
+    }
+
     public function test_jenis_url_yang_tidak_dikenal_tidak_bisa_diakses(): void
     {
         $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);

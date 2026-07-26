@@ -14,11 +14,18 @@ class VendorExport extends DataManagementExport
 
     public function headings(): array
     {
-        return ['Nama', 'Rekening', 'Aktif'];
+        return ['Nama', 'Rekening', 'NPWP', 'Status PKP', 'Jenis Usaha', 'Aktif'];
     }
 
     public function map($row): array
     {
-        return [$row->nama, $row->rekening, $row->aktif ? 'Ya' : 'Tidak'];
+        return [
+            $row->nama,
+            $row->rekening,
+            $row->npwp,
+            $row->pkp ? 'PKP' : 'Non-PKP',
+            $row->jenis_usaha,
+            $row->aktif ? 'Ya' : 'Tidak',
+        ];
     }
 }

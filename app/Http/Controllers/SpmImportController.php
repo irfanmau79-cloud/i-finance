@@ -2,10 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\SpmLsTemplateExport;
+use App\Exports\SpmUpGuTemplateExport;
 use App\Helpers\AuditLog;
 use App\Http\Requests\StoreSpmImportRequest;
 use App\Models\SpmImport;
 use Illuminate\Validation\ValidationException;
+use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
 
 class SpmImportController extends Controller
@@ -21,6 +24,15 @@ class SpmImportController extends Controller
         $jenisSpm = self::resolveJenis($jenis);
 
         return view('manajemen-data.import.spm.create', ['jenis' => $jenis, 'jenisSpm' => $jenisSpm]);
+    }
+
+    public function template(string $jenis)
+    {
+        self::resolveJenis($jenis);
+
+        $export = $jenis === 'spm-ls' ? new SpmLsTemplateExport : new SpmUpGuTemplateExport;
+
+        return Excel::download($export, 'template-import-'.$jenis.'.xlsx');
     }
 
     public function store(StoreSpmImportRequest $request, string $jenis)

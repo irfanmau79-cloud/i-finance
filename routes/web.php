@@ -14,6 +14,7 @@ use App\Http\Controllers\NpdKontribusiDiklatController;
 use App\Http\Controllers\NpdNarasumberController;
 use App\Http\Controllers\NpdPdController;
 use App\Http\Controllers\NpdTransportController;
+use App\Http\Controllers\PegawaiImportController;
 use App\Http\Controllers\PelimpahanController;
 use App\Http\Controllers\PengembalianController;
 use App\Http\Controllers\PengumumanController;
@@ -29,6 +30,7 @@ use App\Http\Controllers\SuratPerintahController;
 use App\Http\Controllers\TunjanganKeluargaController;
 use App\Http\Controllers\TunjanganKeluargaImportController;
 use App\Http\Controllers\UserController;
+use App\Http\Controllers\VendorImportController;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -246,8 +248,14 @@ Route::middleware('auth.or.guest')->group(function () {
             ->middleware('menu-akses:pengembalian-create')->name('pengembalian.store');
         Route::get('/pengembalian/{pengembalian}/dokumen-pendukung', [PengembalianController::class, 'unduhDokumenPendukung'])
             ->middleware('menu-akses:pengembalian')->name('pengembalian.dokumen-pendukung');
+        Route::get('/pengembalian/{pengembalian}/edit', [PengembalianController::class, 'edit'])
+            ->middleware('menu-akses:pengembalian-create')->name('pengembalian.edit');
+        Route::put('/pengembalian/{pengembalian}', [PengembalianController::class, 'update'])
+            ->middleware('menu-akses:pengembalian-create')->name('pengembalian.update');
         Route::delete('/pengembalian/{pengembalian}', [PengembalianController::class, 'destroy'])
             ->middleware('menu-akses:pengembalian')->name('pengembalian.destroy');
+        Route::get('/pengembalian/{pengembalian}', [PengembalianController::class, 'show'])
+            ->middleware('menu-akses:pengembalian')->name('pengembalian.show');
     });
 
     Route::middleware(['menu-akses:pengembalian', 'role:superadmin,bendahara_pengeluaran'])->group(function () {
@@ -258,17 +266,21 @@ Route::middleware('auth.or.guest')->group(function () {
     Route::middleware('role:superadmin,bendahara_pengeluaran')->group(function () {
         Route::get('/manajemen-data', [ManajemenDataController::class, 'index'])->name('manajemen-data.index');
         Route::get('/manajemen-data/export/{jenis}', [ManajemenDataController::class, 'export'])
-            ->whereIn('jenis', ['master-anggaran', 'npd', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'tagging', 'pejabat', 'rak-bulanan'])
+            ->whereIn('jenis', ['master-anggaran', 'rak-bulanan', 'npd', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'tunjangan-keluarga'])
             ->name('manajemen-data.export');
 
         // Import Pagu/Master Anggaran: upload -> staging (preview/dry-run) -> konfirmasi simpan.
         Route::get('/manajemen-data/import/master-anggaran', [MasterAnggaranImportController::class, 'create'])->name('manajemen-data.import.master-anggaran.create');
+        Route::get('/manajemen-data/import/master-anggaran/template', [MasterAnggaranImportController::class, 'template'])->name('manajemen-data.import.master-anggaran.template');
         Route::post('/manajemen-data/import/master-anggaran', [MasterAnggaranImportController::class, 'store'])->name('manajemen-data.import.master-anggaran.store');
         Route::get('/manajemen-data/import/master-anggaran/{import}/preview', [MasterAnggaranImportController::class, 'preview'])->name('manajemen-data.import.master-anggaran.preview');
         Route::post('/manajemen-data/import/master-anggaran/{import}/konfirmasi', [MasterAnggaranImportController::class, 'konfirmasi'])->name('manajemen-data.import.master-anggaran.konfirmasi');
         Route::delete('/manajemen-data/import/master-anggaran/{import}', [MasterAnggaranImportController::class, 'batalkan'])->name('manajemen-data.import.master-anggaran.batalkan');
 
         // Import SPM UP/GU dan LS: upload -> staging (preview/dry-run) -> konfirmasi simpan.
+        Route::get('/manajemen-data/import/spm/{jenis}/template', [SpmImportController::class, 'template'])
+            ->whereIn('jenis', ['spm-up-gu', 'spm-ls'])
+            ->name('manajemen-data.import.spm.template');
         Route::get('/manajemen-data/import/spm/{jenis}', [SpmImportController::class, 'create'])
             ->whereIn('jenis', ['spm-up-gu', 'spm-ls'])
             ->name('manajemen-data.import.spm.create');
@@ -285,6 +297,22 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/manajemen-data/import/rak-bulanan/{import}/preview', [RakBulananImportController::class, 'preview'])->name('manajemen-data.import.rak-bulanan.preview');
         Route::post('/manajemen-data/import/rak-bulanan/{import}/konfirmasi', [RakBulananImportController::class, 'konfirmasi'])->name('manajemen-data.import.rak-bulanan.konfirmasi');
         Route::delete('/manajemen-data/import/rak-bulanan/{import}', [RakBulananImportController::class, 'batalkan'])->name('manajemen-data.import.rak-bulanan.batalkan');
+
+        // Import Pegawai: upload -> staging (preview/dry-run) -> konfirmasi simpan.
+        Route::get('/manajemen-data/import/pegawai', [PegawaiImportController::class, 'create'])->name('manajemen-data.import.pegawai.create');
+        Route::get('/manajemen-data/import/pegawai/template', [PegawaiImportController::class, 'template'])->name('manajemen-data.import.pegawai.template');
+        Route::post('/manajemen-data/import/pegawai', [PegawaiImportController::class, 'store'])->name('manajemen-data.import.pegawai.store');
+        Route::get('/manajemen-data/import/pegawai/{import}/preview', [PegawaiImportController::class, 'preview'])->name('manajemen-data.import.pegawai.preview');
+        Route::post('/manajemen-data/import/pegawai/{import}/konfirmasi', [PegawaiImportController::class, 'konfirmasi'])->name('manajemen-data.import.pegawai.konfirmasi');
+        Route::delete('/manajemen-data/import/pegawai/{import}', [PegawaiImportController::class, 'batalkan'])->name('manajemen-data.import.pegawai.batalkan');
+
+        // Import Vendor: upload -> staging (preview/dry-run) -> konfirmasi simpan.
+        Route::get('/manajemen-data/import/vendor', [VendorImportController::class, 'create'])->name('manajemen-data.import.vendor.create');
+        Route::get('/manajemen-data/import/vendor/template', [VendorImportController::class, 'template'])->name('manajemen-data.import.vendor.template');
+        Route::post('/manajemen-data/import/vendor', [VendorImportController::class, 'store'])->name('manajemen-data.import.vendor.store');
+        Route::get('/manajemen-data/import/vendor/{import}/preview', [VendorImportController::class, 'preview'])->name('manajemen-data.import.vendor.preview');
+        Route::post('/manajemen-data/import/vendor/{import}/konfirmasi', [VendorImportController::class, 'konfirmasi'])->name('manajemen-data.import.vendor.konfirmasi');
+        Route::delete('/manajemen-data/import/vendor/{import}', [VendorImportController::class, 'batalkan'])->name('manajemen-data.import.vendor.batalkan');
     });
 
 });

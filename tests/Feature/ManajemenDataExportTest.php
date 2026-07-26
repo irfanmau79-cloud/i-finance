@@ -2,24 +2,20 @@
 
 namespace Tests\Feature;
 
-use App\Exports\KpaSheetExport;
 use App\Exports\MasterAnggaranExport;
 use App\Exports\NpdExport;
 use App\Exports\PegawaiExport;
-use App\Exports\PejabatExport;
-use App\Exports\PejabatOpdSheetExport;
 use App\Exports\SpmLsExport;
 use App\Exports\SpmUpGuExport;
-use App\Exports\TaggingExport;
+use App\Exports\TunjanganKeluargaExport;
 use App\Exports\VendorExport;
 use App\Models\AuditLog;
-use App\Models\Kpa;
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
 use App\Models\Pegawai;
-use App\Models\PejabatOpd;
 use App\Models\Spm;
 use App\Models\Tagging;
+use App\Models\TunjanganKeluarga;
 use App\Models\User;
 use App\Models\Vendor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -31,7 +27,7 @@ class ManajemenDataExportTest extends TestCase
     use RefreshDatabase;
 
     /** Semua kunci export yang terdaftar di route/controller. */
-    private const JENIS = ['master-anggaran', 'npd', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'tagging', 'pejabat'];
+    private const JENIS = ['master-anggaran', 'rak-bulanan', 'npd', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'tunjangan-keluarga'];
 
     private function buatUser(string $role, string $username = 'penguji'): User
     {
@@ -73,12 +69,12 @@ class ManajemenDataExportTest extends TestCase
 
         foreach ([$superadmin, $bendahara] as $user) {
             $this->actingAs($user)->get(route('manajemen-data.index'))->assertOk();
-            $this->actingAs($user)->get(route('manajemen-data.export', 'tagging'))->assertOk();
+            $this->actingAs($user)->get(route('manajemen-data.export', 'master-anggaran'))->assertOk();
         }
 
         foreach ([$pptk, $bpp, $verifikator] as $user) {
             $this->actingAs($user)->get(route('manajemen-data.index'))->assertForbidden();
-            $this->actingAs($user)->get(route('manajemen-data.export', 'tagging'))->assertForbidden();
+            $this->actingAs($user)->get(route('manajemen-data.export', 'master-anggaran'))->assertForbidden();
         }
     }
 
@@ -203,16 +199,15 @@ class ManajemenDataExportTest extends TestCase
         $this->assertSame(2000000.0, $mappedLs[8]);
     }
 
-    public function test_export_pegawai_vendor_dan_tagging_header_dan_jumlah_baris(): void
+    public function test_export_pegawai_dan_vendor_header_dan_jumlah_baris(): void
     {
         $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
 
         Pegawai::create(['nama' => 'Budi Santoso', 'nip' => '123456789012345678', 'jabatan' => 'Staf', 'bidang' => 'Umum', 'golongan' => 'III', 'pangkat' => 'Penata', 'rekening' => '001-2233', 'aktif' => true]);
-        Vendor::create(['nama' => 'PT Uji Sejahtera', 'rekening' => '009-8877', 'aktif' => true]);
-        Tagging::create(['nama' => 'DAK Fisik', 'aktif' => true]);
+        Vendor::create(['nama' => 'PT Uji Sejahtera', 'rekening' => '009-8877', 'npwp' => '01.234.567.8-901.000', 'pkp' => true, 'jenis_usaha' => 'Percetakan', 'aktif' => true]);
 
         Excel::fake();
-        foreach (['pegawai', 'vendor', 'tagging'] as $jenis) {
+        foreach (['pegawai', 'vendor'] as $jenis) {
             $this->actingAs($superadmin)->get(route('manajemen-data.export', $jenis))->assertOk();
         }
 
@@ -221,39 +216,40 @@ class ManajemenDataExportTest extends TestCase
         $this->assertSame(1, $pegawaiExport->jumlahBaris());
 
         $vendorExport = new VendorExport;
-        $this->assertSame(['Nama', 'Rekening', 'Aktif'], $vendorExport->headings());
+        $this->assertSame(['Nama', 'Rekening', 'NPWP', 'Status PKP', 'Jenis Usaha', 'Aktif'], $vendorExport->headings());
         $this->assertSame(1, $vendorExport->jumlahBaris());
-
-        $taggingExport = new TaggingExport;
-        $this->assertSame(['Nama', 'Aktif'], $taggingExport->headings());
-        $this->assertSame(1, $taggingExport->jumlahBaris());
+        $mappedVendor = $vendorExport->map($vendorExport->query()->first());
+        $this->assertSame('PKP', $mappedVendor[3]);
+        $this->assertSame('Percetakan', $mappedVendor[4]);
     }
 
-    public function test_export_pejabat_gabungan_dua_sheet_dengan_jumlah_baris_benar(): void
+    public function test_export_tunjangan_keluarga_mencakup_semua_pegawai_aktif_termasuk_yang_belum_isi_data(): void
     {
         $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
 
-        $pa = Pegawai::create(['nama' => 'PA Uji', 'nip' => '111', 'jabatan' => 'Inspektur', 'bidang' => 'Umum', 'aktif' => true]);
-        $bendahara = Pegawai::create(['nama' => 'Bendahara Uji', 'nip' => '222', 'jabatan' => 'Bendahara', 'bidang' => 'Umum', 'aktif' => true]);
-        PejabatOpd::create(['pa_pegawai_id' => $pa->id, 'bendahara_pengeluaran_pegawai_id' => $bendahara->id, 'aktif' => true]);
+        $sudahIsi = Pegawai::create(['nama' => 'Sudah Isi', 'nip' => '555', 'jabatan' => 'Staf', 'bidang' => 'Umum', 'aktif' => true]);
+        Pegawai::create(['nama' => 'Belum Isi', 'nip' => '666', 'jabatan' => 'Staf', 'bidang' => 'Umum', 'aktif' => true]);
+        Pegawai::create(['nama' => 'Nonaktif', 'nip' => '777', 'jabatan' => 'Staf', 'bidang' => 'Umum', 'aktif' => false]);
 
-        $kpaPegawai = Pegawai::create(['nama' => 'KPA Uji', 'nip' => '333', 'jabatan' => 'KPA', 'bidang' => 'Umum', 'aktif' => true]);
-        $bppPegawai = Pegawai::create(['nama' => 'BPP Uji', 'nip' => '444', 'jabatan' => 'BPP', 'bidang' => 'Umum', 'aktif' => true]);
-        Kpa::create(['kpa_pegawai_id' => $kpaPegawai->id, 'bpp_pegawai_id' => $bppPegawai->id, 'nama_jabatan' => 'Keu 1', 'aktif' => true]);
+        $tk = TunjanganKeluarga::create(['pegawai_id' => $sudahIsi->id]);
+        $tk->anggota()->create(['hubungan' => 'pasangan', 'nama' => 'Pasangan Uji', 'tanggal_lahir' => '1990-01-01', 'status_tunjangan' => true]);
+        $tk->anggota()->create(['hubungan' => 'anak', 'nama' => 'Anak Uji', 'tanggal_lahir' => '2015-05-05', 'status_tunjangan' => true, 'keterangan' => 'Sekolah']);
 
         Excel::fake();
-        $this->actingAs($superadmin)->get(route('manajemen-data.export', 'pejabat'))->assertOk();
+        $this->actingAs($superadmin)->get(route('manajemen-data.export', 'tunjangan-keluarga'))->assertOk();
 
-        $export = new PejabatExport;
-        $this->assertSame(2, $export->jumlahBaris());
+        $export = new TunjanganKeluargaExport;
+        $this->assertSame(2, $export->jumlahBaris(), 'Hanya pegawai aktif (bukan yang nonaktif) yang masuk export.');
 
-        $sheets = $export->sheets();
-        $this->assertArrayHasKey('Pejabat OPD', $sheets);
-        $this->assertArrayHasKey('KPA & BPP', $sheets);
-        $this->assertInstanceOf(PejabatOpdSheetExport::class, $sheets['Pejabat OPD']);
-        $this->assertInstanceOf(KpaSheetExport::class, $sheets['KPA & BPP']);
-        $this->assertSame(['Pengguna Anggaran (PA)', 'NIP PA', 'Bendahara Pengeluaran', 'NIP Bendahara Pengeluaran', 'Aktif'], $sheets['Pejabat OPD']->headings());
-        $this->assertSame(['Nama Jabatan (KEU)', 'KPA', 'NIP KPA', 'BPP', 'NIP BPP', 'Aktif'], $sheets['KPA & BPP']->headings());
+        $rows = $export->query()->get();
+        $mappedIsi = $export->map($rows->firstWhere('nip', '555'));
+        $this->assertSame('Pasangan Uji', $mappedIsi[2]);
+        $this->assertSame('Anak Uji', $mappedIsi[5]);
+        $this->assertSame('Sekolah', $mappedIsi[8]);
+
+        $mappedKosong = $export->map($rows->firstWhere('nip', '666'));
+        $this->assertNull($mappedKosong[2]);
+        $this->assertNull($mappedKosong[5]);
     }
 
     // ---------------- Tidak ada field rahasia ----------------
@@ -269,9 +265,7 @@ class ManajemenDataExportTest extends TestCase
             new SpmLsExport,
             new PegawaiExport,
             new VendorExport,
-            new TaggingExport,
-            new PejabatOpdSheetExport,
-            new KpaSheetExport,
+            new TunjanganKeluargaExport,
         ];
 
         foreach ($exports as $export) {
@@ -316,17 +310,17 @@ class ManajemenDataExportTest extends TestCase
     public function test_export_mencatat_audit_log_jenis_waktu_user_dan_jumlah_baris(): void
     {
         $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
-        Tagging::create(['nama' => 'Tagging Audit', 'aktif' => true]);
-        Tagging::create(['nama' => 'Tagging Audit 2', 'aktif' => true]);
+        Vendor::create(['nama' => 'Vendor Audit 1', 'aktif' => true]);
+        Vendor::create(['nama' => 'Vendor Audit 2', 'aktif' => true]);
 
         Excel::fake();
-        $this->actingAs($superadmin)->get(route('manajemen-data.export', 'tagging'))->assertOk();
+        $this->actingAs($superadmin)->get(route('manajemen-data.export', 'vendor'))->assertOk();
 
         $log = AuditLog::where('aktivitas', 'Export Data')->latest('id')->first();
 
         $this->assertNotNull($log);
         $this->assertSame($superadmin->username, $log->username);
-        $this->assertStringContainsString('Tagging', $log->keterangan);
+        $this->assertStringContainsString('Vendor', $log->keterangan);
         $this->assertStringContainsString('Baris: 2', $log->keterangan);
     }
 }

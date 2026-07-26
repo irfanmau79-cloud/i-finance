@@ -79,8 +79,10 @@ class NpdHistorisImportTest extends TestCase
         $pptk = User::factory()->create(['role' => User::ROLE_PPTK]);
         $bendahara = User::factory()->create(['role' => User::ROLE_BENDAHARA_PENGELUARAN]);
 
-        $this->actingAs($this->admin)->get(route('manajemen-data.index'))->assertOk()->assertSee('Import NPD Historis');
-        $this->actingAs($bendahara)->get(route('manajemen-data.index'))->assertOk()->assertDontSee('Import NPD Historis');
+        $this->actingAs($this->admin)->get(route('manajemen-data.index'))->assertOk()
+            ->assertSee(route('manajemen-data.import.npd-historis.create'), false);
+        $this->actingAs($bendahara)->get(route('manajemen-data.index'))->assertOk()
+            ->assertDontSee(route('manajemen-data.import.npd-historis.create'), false);
         $this->actingAs($this->admin)->get(route('manajemen-data.import.npd-historis.create'))->assertOk()
             ->assertSee('Unduh Template Import NPD')->assertSee('Tahun Anggaran 2026');
         $this->actingAs($pptk)->get(route('manajemen-data.import.npd-historis.create'))->assertForbidden();

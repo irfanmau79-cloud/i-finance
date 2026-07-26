@@ -8,6 +8,9 @@ use Illuminate\Database\Eloquent\Model;
 #[Fillable([
     'nama',
     'rekening',
+    'npwp',
+    'pkp',
+    'jenis_usaha',
     'aktif',
 ])]
 class Vendor extends Model
@@ -17,6 +20,7 @@ class Vendor extends Model
     protected function casts(): array
     {
         return [
+            'pkp' => 'boolean',
             'aktif' => 'boolean',
         ];
     }

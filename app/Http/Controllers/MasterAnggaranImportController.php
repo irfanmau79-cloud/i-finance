@@ -2,10 +2,12 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\MasterAnggaranTemplateExport;
 use App\Helpers\AuditLog;
 use App\Http\Requests\StoreMasterAnggaranImportRequest;
 use App\Models\MasterAnggaranImport;
 use Illuminate\Validation\ValidationException;
+use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
 
 class MasterAnggaranImportController extends Controller
@@ -13,6 +15,11 @@ class MasterAnggaranImportController extends Controller
     public function create()
     {
         return view('manajemen-data.import.master-anggaran.create');
+    }
+
+    public function template()
+    {
+        return Excel::download(new MasterAnggaranTemplateExport, 'template-import-pagu-master-anggaran.xlsx');
     }
 
     public function store(StoreMasterAnggaranImportRequest $request)

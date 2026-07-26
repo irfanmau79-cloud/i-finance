@@ -25,6 +25,10 @@
         </div>
     @endif
 
+    <div class="tbl-tools">
+        <a href="{{ route('manajemen-data.import.master-anggaran.template') }}" class="btn">Unduh Template</a>
+    </div>
+
     <form method="POST" action="{{ route('manajemen-data.import.master-anggaran.store') }}" enctype="multipart/form-data">
         @csrf
 

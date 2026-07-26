@@ -74,6 +74,16 @@ class MasterAnggaranImportTest extends TestCase
         $this->actingAs($pptk)->post(route('manajemen-data.import.master-anggaran.store'), ['file' => $file])->assertForbidden();
     }
 
+    public function test_template_dapat_diunduh(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $pptk = $this->buatUser(User::ROLE_PPTK);
+
+        $this->actingAs($superadmin)->get(route('manajemen-data.import.master-anggaran.template'))
+            ->assertOk()->assertDownload('template-import-pagu-master-anggaran.xlsx');
+        $this->actingAs($pptk)->get(route('manajemen-data.import.master-anggaran.template'))->assertForbidden();
+    }
+
     public function test_upload_menolak_file_dengan_mime_yang_tidak_didukung(): void
     {
         $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);

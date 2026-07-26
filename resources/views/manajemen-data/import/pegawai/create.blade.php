@@ -1,20 +1,14 @@
 @extends('layouts.app')
 
 @section('activeNav', 'manajemen-data')
-@section('title', 'Import SPM '.strtoupper(str_replace('spm-', '', $jenis)))
-
-@php($labelJenis = $jenisSpm === 'ls' ? 'LS' : 'UP/GU')
+@section('title', 'Import Pegawai')
 
 @section('content')
 <div class="dash-card">
-    <h3>Import SPM {{ $labelJenis }}</h3>
+    <h3>Import Pegawai</h3>
     <div class="sub">
-        Upload file Excel (.xlsx/.xls) dengan header yang sama seperti hasil unduhan export SPM {{ $labelJenis }}.
-        @if ($jenisSpm === 'ls')
-            Kolom Sub Kegiatan + Kode Rekening + Tagging wajib cocok ke mata anggaran yang sudah ada dan aktif - baris yang tidak cocok akan ditolak, bukan membuat mata anggaran baru.
-        @else
-            SPM UP/GU tidak memerlukan mata anggaran.
-        @endif
+        Upload file Excel (.xlsx/.xls) dengan header: Nama, NIP, Jabatan, Bidang, Golongan, Pangkat, Rekening, Aktif.
+        NIP yang sudah terdaftar akan DIPERBARUI (field lain menimpa data lama); NIP baru akan ditambahkan.
         File akan ditampilkan sebagai <strong>preview</strong> dulu - belum ada yang tersimpan sampai Anda menekan Konfirmasi Simpan.
     </div>
 
@@ -30,10 +24,10 @@
     @endif
 
     <div class="tbl-tools">
-        <a href="{{ route('manajemen-data.import.spm.template', $jenis) }}" class="btn">Unduh Template</a>
+        <a href="{{ route('manajemen-data.import.pegawai.template') }}" class="btn">Unduh Template</a>
     </div>
 
-    <form method="POST" action="{{ route('manajemen-data.import.spm.store', $jenis) }}" enctype="multipart/form-data">
+    <form method="POST" action="{{ route('manajemen-data.import.pegawai.store') }}" enctype="multipart/form-data">
         @csrf
 
         <div class="fg">
@@ -42,8 +36,8 @@
         </div>
 
         <div class="sub" style="margin-top:8px;">
-            Batas: 5 MB, maksimum {{ number_format(\App\Models\SpmImport::MAKS_BARIS, 0, ',', '.') }} baris data per file.
-            Sesi preview berlaku {{ \App\Models\SpmImport::MENIT_KEDALUWARSA }} menit sebelum harus upload ulang.
+            Batas: 5 MB, maksimum {{ number_format(\App\Models\PegawaiImport::MAKS_BARIS, 0, ',', '.') }} baris data per file.
+            Sesi preview berlaku {{ \App\Models\PegawaiImport::MENIT_KEDALUWARSA }} menit sebelum harus upload ulang.
         </div>
 
         <div class="nav" style="margin-top:16px;">
