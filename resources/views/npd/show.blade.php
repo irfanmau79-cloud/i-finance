@@ -98,39 +98,6 @@
             <div class="li"><span class="v">{{ $npd->catatan }}</span></div>
         </div>
         @endif
-
-        @php
-            $wfClass = [
-                'ajukan_bpp' => 'wf-teruskan',
-                'teruskan' => 'wf-teruskan',
-                'verifikasi' => 'wf-verif',
-                'kembali_bpp' => 'wf-kembali',
-                'kembali_pptk' => 'wf-kembali',
-                'setuju' => 'wf-setuju',
-                'selesai' => 'wf-selesai',
-                'batal_selesai' => 'wf-kembali',
-            ];
-            $aksiButuhForm = ['verifikasi', 'kembali_bpp', 'kembali_pptk', 'batal_selesai'];
-        @endphp
-        @if (count($aksiTersedia))
-        <div class="grp">
-            <div class="gt">Aksi Workflow</div>
-            <div style="display:flex;flex-wrap:wrap;gap:6px;">
-                @foreach ($aksiTersedia as $aksi)
-                    @php $rule = \App\Models\Npd::TRANSISI[$aksi]; @endphp
-                    @if (in_array($aksi, $aksiButuhForm, true))
-                        <button type="button" class="wf-btn {{ $wfClass[$aksi] }}" data-wf-open="{{ $aksi }}">{{ $rule['label'] }}</button>
-                    @else
-                        <form method="POST" action="{{ route('npd.transisi', $npd) }}" onsubmit="return confirm('Yakin {{ $rule['label'] }}?');" style="display:inline;">
-                            @csrf
-                            <input type="hidden" name="aksi" value="{{ $aksi }}">
-                            <button type="submit" class="wf-btn {{ $wfClass[$aksi] }}">{{ $rule['label'] }}</button>
-                        </form>
-                    @endif
-                @endforeach
-            </div>
-        </div>
-        @endif
     </div>
 
     @if (in_array($npd->jenis, ['pd', 'tr'], true))
@@ -361,120 +328,22 @@
         </div>
     @endif
 
-    @php
-        $bolehBatalkan = $npd->dapatDihapusOleh(auth()->user());
-        $ruteEdit = match ($npd->jenis) {
-            'pd' => 'npd.pd.edit',
-            'ns' => 'npd.ns.edit',
-            'kd' => 'npd.kd.edit',
-            'tr' => 'npd.tr.edit',
-            default => 'npd.bj.edit',
-        };
-    @endphp
-    @if ($npd->dapatDieditOleh(auth()->user()) || $bolehBatalkan)
-        <div class="grp" style="margin-top:22px;">
-            <div class="gt">Kelola Draft</div>
-            <div style="display:flex;gap:8px;align-items:flex-start;flex-wrap:wrap;">
-                @if ($npd->dapatDieditOleh(auth()->user()))
-                    <a class="btn" href="{{ route($ruteEdit, $npd) }}">Edit NPD</a>
-                @endif
-                @if ($bolehBatalkan)
-                    <form method="POST" action="{{ route('npd.destroy', $npd) }}" onsubmit="return confirm('Batalkan NPD ini? Tindakan dicatat dalam histori.');" style="display:flex;gap:6px;align-items:center;">
-                        @csrf
-                        @method('DELETE')
-                        <input type="text" name="alasan" required maxlength="500" placeholder="Alasan pembatalan" style="min-width:240px;">
-                        <button type="submit" class="btn">Batalkan NPD</button>
-                    </form>
-                @endif
-            </div>
-        </div>
-    @endif
-
-    <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:16px;">
+    <h3 style="margin-top:22px;">Dokumen &amp; Cetak</h3>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
         @if (in_array($npd->jenis, ['pd', 'tr'], true))
-            <a class="btn" href="{{ route('npd.cetak-daftar', $npd) }}" target="_blank">Cetak Daftar Pembayaran</a>
-            <a class="btn" href="{{ route('npd.cetak-spd', $npd) }}" target="_blank">Cetak SPD Rampung</a>
+            <a class="btn prim" href="{{ route('npd.cetak-daftar', $npd) }}" target="_blank">Cetak Daftar Pembayaran</a>
+            <a class="btn prim" href="{{ route('npd.cetak-spd', $npd) }}" target="_blank">Cetak SPD Rampung</a>
         @elseif ($npd->jenis === 'ns')
-            <a class="btn" href="{{ route('npd.cetak-daftar-nara', $npd) }}" target="_blank">Cetak Daftar Pembayaran</a>
+            <a class="btn prim" href="{{ route('npd.cetak-daftar-nara', $npd) }}" target="_blank">Cetak Daftar Pembayaran</a>
         @elseif ($npd->jenis === 'kd')
-            <a class="btn" href="{{ route('npd.cetak-daftar-kd', $npd) }}" target="_blank">Cetak Daftar Bayar</a>
+            <a class="btn prim" href="{{ route('npd.cetak-daftar-kd', $npd) }}" target="_blank">Cetak Daftar Bayar</a>
         @endif
-        <a class="btn" href="{{ route('npd.cetak-npd', $npd) }}" target="_blank">Cetak NPD</a>
-        <a class="btn" href="{{ route('npd.cetak-lampiran', $npd) }}" target="_blank">Cetak Lampiran</a>
+        <a class="btn prim" href="{{ route('npd.cetak-npd', $npd) }}" target="_blank">Cetak NPD</a>
+        <a class="btn prim" href="{{ route('npd.cetak-lampiran', $npd) }}" target="_blank">Cetak Lampiran</a>
+    </div>
+
+    <div style="display:flex;justify-content:flex-end;margin-top:16px;">
         <a class="btn" href="{{ route($ruteDaftar) }}">Kembali ke Daftar NPD</a>
     </div>
 </div>
-
-@if (count($aksiTersedia))
-<div class="mdl-ov" id="wf-mdl-ov">
-  <div class="mdl">
-    <div class="mdl-h" id="wf-mdl-title">Aksi</div>
-    <div class="mdl-b">
-      <form method="POST" action="{{ route('npd.transisi', $npd) }}" id="wf-mdl-form">
-        @csrf
-        <input type="hidden" name="aksi" id="wf-mdl-aksi" value="">
-        <div id="wf-mdl-nomor-wrap" style="display:none;">
-          <label class="fl">Nomor Urut NPD (1&ndash;999)</label>
-          <input type="number" name="nomor_urut" id="wf-mdl-nomor" min="1" max="999">
-        </div>
-        <div id="wf-mdl-catatan-wrap">
-          <label class="fl" id="wf-mdl-catatan-label">Catatan</label>
-          <textarea name="catatan" id="wf-mdl-catatan" rows="3" style="width:100%;box-sizing:border-box;"></textarea>
-        </div>
-        <div class="mdl-f" style="padding:14px 0 0;">
-          <button type="button" class="btn" onclick="wfModalClose()">Batal</button>
-          <button type="submit" class="btn prim">Kirim</button>
-        </div>
-      </form>
-    </div>
-  </div>
-</div>
-
-<script>
-(function () {
-    var WF_FORM_META = {
-        verifikasi: { title: 'Verifikasi NPD', nomor: true, catatanLabel: 'Catatan (opsional)', catatanRequired: false },
-        kembali_bpp: { title: 'Kembalikan ke BPP', nomor: false, catatanLabel: 'Catatan Revisi (wajib)', catatanRequired: true },
-        kembali_pptk: { title: 'Kembalikan ke PPTK', nomor: false, catatanLabel: 'Catatan Revisi (wajib)', catatanRequired: true },
-        batal_selesai: { title: 'Batalkan Status Selesai', nomor: false, catatanLabel: 'Alasan Pembatalan (wajib)', catatanRequired: true }
-    };
-
-    var ov = document.getElementById('wf-mdl-ov');
-    var aksiField = document.getElementById('wf-mdl-aksi');
-    var nomorWrap = document.getElementById('wf-mdl-nomor-wrap');
-    var nomorInput = document.getElementById('wf-mdl-nomor');
-    var catatanLabel = document.getElementById('wf-mdl-catatan-label');
-    var catatanInput = document.getElementById('wf-mdl-catatan');
-    var titleEl = document.getElementById('wf-mdl-title');
-
-    function wfModalOpen(aksi) {
-        var meta = WF_FORM_META[aksi];
-        if (! meta) return;
-
-        titleEl.textContent = meta.title;
-        aksiField.value = aksi;
-
-        nomorWrap.style.display = meta.nomor ? 'block' : 'none';
-        nomorInput.required = meta.nomor;
-        nomorInput.value = '';
-
-        catatanLabel.textContent = meta.catatanLabel;
-        catatanInput.required = meta.catatanRequired;
-        catatanInput.value = '';
-
-        ov.classList.add('show');
-    }
-
-    window.wfModalClose = function () {
-        ov.classList.remove('show');
-    };
-
-    document.querySelectorAll('[data-wf-open]').forEach(function (btn) {
-        btn.addEventListener('click', function () {
-            wfModalOpen(btn.getAttribute('data-wf-open'));
-        });
-    });
-})();
-</script>
-@endif
 @endsection

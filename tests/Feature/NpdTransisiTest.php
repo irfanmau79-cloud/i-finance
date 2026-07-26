@@ -323,14 +323,21 @@ class NpdTransisiTest extends TestCase
         $bpp = $this->buatUser('bpp', 'tombol-bpp');
         $npd = $this->buatNpd(); // Draft NPD - PPTK
 
+        // Tombol aksi workflow tampil sebagai ikon di daftar NPD (lihat
+        // _tabel-workflow.blade.php), bukan lagi di halaman detail.
         // PPTK di status Draft NPD - PPTK: tombol Ajukan ke BPP muncul.
-        $this->actingAs($pptk)->get(route('npd.show', $npd))
-            ->assertSee('Ajukan ke BPP')
-            ->assertDontSee('Teruskan ke Verifikator');
+        $this->actingAs($pptk)->get(route('npd.index'))
+            ->assertSee('Ajukan ke BPP', false)
+            ->assertDontSee('Teruskan ke Verifikator', false);
 
         // BPP di status yang sama (belum tahapnya): tidak ada tombol aksi apa pun.
-        $this->actingAs($bpp)->get(route('npd.show', $npd))
-            ->assertDontSee('Teruskan ke Verifikator')
-            ->assertDontSee('Setujui Final');
+        $this->actingAs($bpp)->get(route('npd.persetujuan', ['status' => 'semua']))
+            ->assertDontSee('Teruskan ke Verifikator', false)
+            ->assertDontSee('Setujui Final', false);
+
+        // Halaman detail sendiri tidak lagi menampilkan tombol aksi workflow.
+        $this->actingAs($pptk)->get(route('npd.show', $npd))
+            ->assertDontSee('Ajukan ke BPP', false)
+            ->assertDontSee('Teruskan ke Verifikator', false);
     }
 }

@@ -108,18 +108,21 @@ class NpdAntreanTest extends TestCase
         $this->actingAs($superadmin)->get(route('npd.verifikasi'))->assertOk();
     }
 
-    public function test_bpp_klik_dari_antrean_ke_detail_melihat_tombol_teruskan_ke_verifikator(): void
+    public function test_bpp_klik_dari_antrean_ke_detail_lalu_kembali(): void
     {
         $bpp = $this->buatUser('bpp', 'klik-bpp');
         $npd = $this->buatNpd('Draft NPD - BPP');
 
+        // Aksi workflow (Teruskan ke Verifikator) tampil sebagai ikon di
+        // daftar antrean itu sendiri — bukan lagi di halaman detail, supaya
+        // tidak ada tombol aksi yang terduplikasi di dua tempat.
         $this->actingAs($bpp)->get(route('npd.persetujuan'))
             ->assertOk()
+            ->assertSee('Teruskan ke Verifikator', false)
             ->assertSee(route('npd.show', $npd), false);
 
         $this->actingAs($bpp)->get(route('npd.show', $npd))
             ->assertOk()
-            ->assertSee('Teruskan ke Verifikator')
             ->assertSee(route('npd.persetujuan'), false);
     }
 }
