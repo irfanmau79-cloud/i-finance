@@ -20,7 +20,7 @@ class PerjalananDinasDashboardService
             ->whereYear('tanggal_npd', $tahun)
             ->orderBy('tanggal_npd')
             ->get()
-            ->flatMap(fn (Npd $npd) => $npd->tim->map(fn (NpdTim $tim) => $this->baris($npd, $tim)))
+            ->flatMap(fn (Npd $npd) => $npd->tim->map(fn (NpdTim $tim) => self::baris($npd, $tim)))
             ->filter(fn (array $row) => $row['bidang'] !== null);
 
         $pilihanBidang = collect(BidangOrganisasi::PERJALANAN)
@@ -67,7 +67,8 @@ class PerjalananDinasDashboardService
         ];
     }
 
-    private function baris(Npd $npd, NpdTim $tim): array
+    /** Public + static: dipakai ulang oleh App\Exports\PerjalananDinasExport supaya rumus tetap satu sumber. */
+    public static function baris(Npd $npd, NpdTim $tim): array
     {
         $hasil = $tim->hitung();
         $bidang = BidangOrganisasi::petakan($tim->bidang_snapshot ?: $tim->pegawai?->bidang);

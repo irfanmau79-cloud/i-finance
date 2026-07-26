@@ -270,7 +270,7 @@ Route::middleware('auth.or.guest')->group(function () {
     Route::middleware('role:superadmin,bendahara_pengeluaran')->group(function () {
         Route::get('/manajemen-data', [ManajemenDataController::class, 'index'])->name('manajemen-data.index');
         Route::get('/manajemen-data/export/{jenis}', [ManajemenDataController::class, 'export'])
-            ->whereIn('jenis', ['master-anggaran', 'rak-bulanan', 'npd', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'tunjangan-keluarga'])
+            ->whereIn('jenis', ['master-anggaran', 'rak-bulanan', 'npd', 'perjalanan-dinas', 'spj-perjalanan-dinas', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'tunjangan-keluarga'])
             ->name('manajemen-data.export');
 
         // Import Pagu/Master Anggaran: upload -> staging (preview/dry-run) -> konfirmasi simpan.

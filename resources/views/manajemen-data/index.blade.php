@@ -16,25 +16,34 @@
 <div class="dash-grid">
     @foreach ($tipeData as $key => $meta)
         @php
-            $butuhSuperadmin = in_array($key, ['npd', 'tunjangan-keluarga'], true);
+            $butuhSuperadmin = in_array($key, ['npd', 'perjalanan-dinas', 'spj-perjalanan-dinas', 'tunjangan-keluarga'], true);
             $bolehImport = ! $butuhSuperadmin || auth()->user()->isSuperadmin();
             $exportHref = $meta['export_jenis'] === 'rak-bulanan'
                 ? route('manajemen-data.export', ['jenis' => 'rak-bulanan', 'tahun' => $tahunSekarang])
                 : route('manajemen-data.export', $meta['export_jenis']);
+            // RAK tidak punya template kosong generik - templatenya HARUS mengacu ke Master
+            // Anggaran aktif saat ini (baris Sub Kegiatan/Kode Rekening), jadi tombol Template
+            // mengunduh sumber yang sama dengan tombol Export.
+            $templateHref = $meta['import_template']
+                ? route($meta['import_template'][0], $meta['import_template'][1])
+                : ($key === 'rak' ? $exportHref : null);
         @endphp
         <div class="dash-card">
             <h3 style="margin-bottom:10px;">{{ $meta['label'] }}</h3>
             <div style="display:flex;flex-wrap:wrap;gap:8px;">
-                @if ($meta['import_template'] && $bolehImport)
-                    <a href="{{ route($meta['import_template'][0], $meta['import_template'][1]) }}" class="btn" style="white-space:nowrap;">Unduh Template</a>
+                @if ($templateHref && $bolehImport)
+                    <a href="{{ $templateHref }}" class="btn" style="white-space:nowrap;">Unduh Template</a>
                 @endif
                 @if ($bolehImport)
                     <a href="{{ route($meta['import_create'][0], $meta['import_create'][1]) }}" class="btn" style="white-space:nowrap;">Import Excel</a>
                 @endif
                 <a href="{{ $exportHref }}" class="btn prim" style="white-space:nowrap;">Unduh Excel</a>
             </div>
-            @if (! $meta['import_template'] && $bolehImport)
-                <div class="sub" style="margin-top:8px;margin-bottom:0;">Unduh Excel di atas juga berfungsi sebagai template import (baris Sub Kegiatan/Kode Rekening terisi, kolom bulan kosong siap diisi).</div>
+            @if ($key === 'rak' && $bolehImport)
+                <div class="sub" style="margin-top:8px;margin-bottom:0;">Template RAK sama dengan hasil Export (baris Sub Kegiatan/Kode Rekening terisi otomatis dari Master Anggaran aktif, kolom bulan kosong siap diisi).</div>
+            @endif
+            @if (($meta['import_note'] ?? null) && $bolehImport)
+                <div class="sub" style="margin-top:8px;margin-bottom:0;">{{ $meta['import_note'] }}</div>
             @endif
             @if ($butuhSuperadmin && ! $bolehImport)
                 <div class="sub" style="margin-top:8px;margin-bottom:0;">Import khusus Superadmin.</div>

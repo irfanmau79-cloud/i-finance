@@ -5,7 +5,9 @@ namespace App\Http\Controllers;
 use App\Exports\MasterAnggaranExport;
 use App\Exports\NpdExport;
 use App\Exports\PegawaiExport;
+use App\Exports\PerjalananDinasExport;
 use App\Exports\RakBulananExport;
+use App\Exports\SpjPerjalananDinasExport;
 use App\Exports\SpmLsExport;
 use App\Exports\SpmUpGuExport;
 use App\Exports\TunjanganKeluargaExport;
@@ -22,6 +24,8 @@ class ManajemenDataController extends Controller
         'master-anggaran' => ['label' => 'Data Pagu Anggaran', 'class' => MasterAnggaranExport::class],
         'rak-bulanan' => ['label' => 'Data Rencana Anggaran Kas (RAK)', 'class' => RakBulananExport::class],
         'npd' => ['label' => 'Data Nota Pencairan Dana (NPD)', 'class' => NpdExport::class],
+        'perjalanan-dinas' => ['label' => 'Data Perjalanan Dinas', 'class' => PerjalananDinasExport::class],
+        'spj-perjalanan-dinas' => ['label' => 'Data SPJ Perjalanan Dinas', 'class' => SpjPerjalananDinasExport::class],
         'spm-up-gu' => ['label' => 'Data Surat Perintah Membayar (SPM) UP/GU/TU', 'class' => SpmUpGuExport::class],
         'spm-ls' => ['label' => 'Data Surat Perintah Membayar (SPM) LS', 'class' => SpmLsExport::class],
         'pegawai' => ['label' => 'Data Pegawai', 'class' => PegawaiExport::class],
@@ -30,12 +34,19 @@ class ManajemenDataController extends Controller
     ];
 
     /**
-     * Susunan 8 tipe data yang ditampilkan di halaman Manajemen Data - satu
+     * Susunan 10 tipe data yang ditampilkan di halaman Manajemen Data - satu
      * kartu per tipe, masing-masing dengan tombol Import + Export (+
      * Template kalau tersedia). 'import_template' sengaja null untuk RAK
      * Bulanan - hasil Export-nya sendiri SUDAH berperan sebagai template
      * (baris Sub Kegiatan/Kode Rekening terisi, kolom bulan kosong siap
      * diisi), lihat RakBulananExport.
+     *
+     * Perjalanan Dinas dan SPJ Perjalanan Dinas TIDAK punya tabel sendiri -
+     * keduanya cuma tampilan terkomputasi dari tabel npd (+ npd_tim untuk
+     * Perjalanan Dinas) yang sama dipakai Dashboard Perjalanan Dinas dan
+     * Dashboard SPJ Perjalanan Dinas. Karena itu import-nya diarahkan ke
+     * Import NPD Historis yang sama dipakai kartu Data NPD - lihat
+     * 'import_note' yang ditampilkan di kartu untuk menjelaskan ini ke user.
      */
     private const TIPE_DATA = [
         'pagu' => [
@@ -55,6 +66,20 @@ class ManajemenDataController extends Controller
             'export_jenis' => 'npd',
             'import_create' => ['manajemen-data.import.npd-historis.create', null],
             'import_template' => ['manajemen-data.import.npd-historis.template', null],
+        ],
+        'perjalanan-dinas' => [
+            'label' => 'Data Perjalanan Dinas',
+            'export_jenis' => 'perjalanan-dinas',
+            'import_create' => ['manajemen-data.import.npd-historis.create', null],
+            'import_template' => ['manajemen-data.import.npd-historis.template', null],
+            'import_note' => 'Data ini dihitung dari NPD Perjalanan Dinas/Transport - import lewat Import NPD Historis (sama seperti kartu Data NPD).',
+        ],
+        'spj-perjalanan-dinas' => [
+            'label' => 'Data SPJ Perjalanan Dinas',
+            'export_jenis' => 'spj-perjalanan-dinas',
+            'import_create' => ['manajemen-data.import.npd-historis.create', null],
+            'import_template' => ['manajemen-data.import.npd-historis.template', null],
+            'import_note' => 'Data ini dihitung dari NPD dengan kode rekening Belanja Perjalanan Dinas - import lewat Import NPD Historis (sama seperti kartu Data NPD).',
         ],
         'spm-up-gu' => [
             'label' => 'Data Surat Perintah Membayar (SPM) UP/GU/TU',

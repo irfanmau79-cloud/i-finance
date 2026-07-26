@@ -5,6 +5,8 @@ namespace Tests\Feature;
 use App\Exports\MasterAnggaranExport;
 use App\Exports\NpdExport;
 use App\Exports\PegawaiExport;
+use App\Exports\PerjalananDinasExport;
+use App\Exports\SpjPerjalananDinasExport;
 use App\Exports\SpmLsExport;
 use App\Exports\SpmUpGuExport;
 use App\Exports\TunjanganKeluargaExport;
@@ -27,7 +29,7 @@ class ManajemenDataExportTest extends TestCase
     use RefreshDatabase;
 
     /** Semua kunci export yang terdaftar di route/controller. */
-    private const JENIS = ['master-anggaran', 'rak-bulanan', 'npd', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'tunjangan-keluarga'];
+    private const JENIS = ['master-anggaran', 'rak-bulanan', 'npd', 'perjalanan-dinas', 'spj-perjalanan-dinas', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'tunjangan-keluarga'];
 
     private function buatUser(string $role, string $username = 'penguji'): User
     {
@@ -39,15 +41,15 @@ class ManajemenDataExportTest extends TestCase
         ]);
     }
 
-    private function buatMasterAnggaran(): MasterAnggaran
+    private function buatMasterAnggaran(string $kodeRekening = '5.1.02.05.01.9001'): MasterAnggaran
     {
-        $tagging = Tagging::create(['nama' => 'Tagging Uji', 'aktif' => true]);
+        $tagging = Tagging::create(['nama' => 'Tagging Uji '.$kodeRekening, 'aktif' => true]);
 
         return MasterAnggaran::create([
             'program' => 'Program Uji Manajemen Data',
             'kegiatan' => 'Kegiatan Uji Manajemen Data',
             'sub_kegiatan' => '6.01.01.2.01 Sub Kegiatan Uji Manajemen Data',
-            'kode_rekening' => '5.1.02.05.01.9001',
+            'kode_rekening' => $kodeRekening,
             'uraian_rekening' => 'Belanja Pengujian Manajemen Data',
             'tagging_id' => $tagging->id,
             'pagu' => 25_000_000,
@@ -107,7 +109,7 @@ class ManajemenDataExportTest extends TestCase
         $this->assertSame(2026, $mapped[0]);
         $this->assertSame($anggaran->sub_kegiatan, $mapped[3]);
         $this->assertSame(25_000_000.0, $mapped[7]);
-        $this->assertSame('Tagging Uji', $mapped[6]);
+        $this->assertSame('Tagging Uji 5.1.02.05.01.9001', $mapped[6]);
         $this->assertSame('Ya', $mapped[8]);
     }
 
@@ -151,6 +153,70 @@ class ManajemenDataExportTest extends TestCase
         $this->assertSame('2026-07-20', $mapped[2]);
         $this->assertSame(1500000.0, $mapped[8]);
         $this->assertSame($dibuatOleh->username, $mapped[13]);
+    }
+
+    public function test_export_perjalanan_dinas_satu_baris_per_anggota_tim(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $anggaran = $this->buatMasterAnggaran();
+        $pegawai = Pegawai::create(['nama' => 'Pejalan Uji', 'nip' => 'PD-001', 'jabatan' => 'Auditor', 'bidang' => 'Irban I', 'aktif' => true]);
+
+        $npd = Npd::create([
+            'jenis' => 'pd', 'master_anggaran_id' => $anggaran->id, 'keu' => '2', 'bulan' => 7, 'tahun' => 2026,
+            'nomor_lengkap' => '010/NPD-PD/2026', 'tanggal_npd' => '2026-07-15', 'nominal' => 1_200_000,
+            'terbilang' => 'satu juta dua ratus ribu rupiah', 'status' => 'Selesai', 'detail_json' => ['uraian_sp' => 'Perjalanan uji'],
+        ]);
+        $tim = $npd->tim()->create([
+            'pegawai_id' => $pegawai->id, 'nama' => $pegawai->nama, 'jabatan' => $pegawai->jabatan,
+            'bidang_snapshot' => $pegawai->bidang, 'is_penerima' => true, 'tol' => 50_000, 'tiket' => 0, 'representatif' => 0,
+        ]);
+        $tim->paket()->create(['cluster' => 'A', 'wilayah' => 'Kota Cimahi', 'lama_hari' => 2, 'tarif_uh' => 100_000, 'malam' => 1, 'tarif_akom' => 300_000]);
+
+        Excel::fake();
+        $this->actingAs($superadmin)->get(route('manajemen-data.export', 'perjalanan-dinas'))->assertOk();
+
+        $export = new PerjalananDinasExport;
+        $this->assertSame(
+            ['Tanggal NPD', 'Nomor NPD', 'Sub Kegiatan', 'Bidang', 'Nama', 'Jabatan', 'Jumlah Hari', 'Uang Harian', 'Akomodasi', 'Transport', 'Representatif', 'Diterima'],
+            $export->headings()
+        );
+        $this->assertSame(1, $export->jumlahBaris());
+
+        $mapped = $export->map($export->query()->first());
+        $this->assertSame('2026-07-15', $mapped[0]);
+        $this->assertSame('010/NPD-PD/2026', $mapped[1]);
+        $this->assertSame('Inspektur Pembantu I', $mapped[3]);
+        $this->assertSame('Pejalan Uji', $mapped[4]);
+        $this->assertSame(2.0, $mapped[6]);
+        $this->assertSame(200_000.0, $mapped[7]);
+        $this->assertSame(300_000.0, $mapped[8]);
+    }
+
+    public function test_export_spj_perjalanan_dinas_hanya_kode_rekening_perjalanan_dinas(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $anggaranPd = $this->buatMasterAnggaran(kodeRekening: '5.1.02.04.001.00001');
+        $anggaranLain = $this->buatMasterAnggaran(kodeRekening: '5.1.02.05.01.9999');
+
+        $npdPd = Npd::create([
+            'jenis' => 'pd', 'master_anggaran_id' => $anggaranPd->id, 'keu' => '2', 'bulan' => 7, 'tahun' => 2026,
+            'nomor_lengkap' => '011/NPD-PD/2026', 'tanggal_npd' => '2026-07-16', 'nominal' => 900_000,
+            'terbilang' => 'sembilan ratus ribu rupiah', 'status' => 'Selesai', 'detail_json' => ['uraian_sp' => 'SPJ uji'],
+        ]);
+        Npd::create([
+            'jenis' => 'bj', 'master_anggaran_id' => $anggaranLain->id, 'keu' => '1', 'bulan' => 7, 'tahun' => 2026,
+            'tanggal_npd' => '2026-07-16', 'nominal' => 500_000, 'terbilang' => 'lima ratus ribu rupiah', 'status' => 'Selesai',
+        ]);
+
+        Excel::fake();
+        $this->actingAs($superadmin)->get(route('manajemen-data.export', 'spj-perjalanan-dinas'))->assertOk();
+
+        $export = new SpjPerjalananDinasExport;
+        $this->assertSame(1, $export->jumlahBaris());
+        $mapped = $export->map($export->query()->first());
+        $this->assertSame('011/NPD-PD/2026', $mapped[1]);
+        $this->assertSame(900_000.0, $mapped[6]);
+        $this->assertSame('Belum', $mapped[7]);
     }
 
     public function test_export_spm_up_gu_dan_ls_header_dan_isi_benar(): void
