@@ -24,6 +24,7 @@ use App\Http\Controllers\PerjalananDinasPegawaiController;
 use App\Http\Controllers\ProfilController;
 use App\Http\Controllers\RakBulananImportController;
 use App\Http\Controllers\RincianRealisasiController;
+use App\Http\Controllers\SimulasiAnggaranController;
 use App\Http\Controllers\SpjDashboardController;
 use App\Http\Controllers\SpmController;
 use App\Http\Controllers\SpmImportController;
@@ -64,6 +65,20 @@ Route::middleware('auth.or.guest')->group(function () {
     Route::get('/analisis-tren', AnalisisTrenController::class)
         ->middleware('menu-akses:analisis')
         ->name('analisis.index');
+
+    // Simulasi Pergeseran/Perubahan Anggaran: sub menu ke-2 di Analisis dan
+    // Tren, gerbang akses menumpang key 'analisis' yang sama (bukan key
+    // config/akses.php baru) karena secara peran ini satu modul yang sama.
+    Route::middleware('menu-akses:analisis')->prefix('analisis-tren/simulasi')->name('simulasi-anggaran.')->group(function () {
+        Route::get('/', [SimulasiAnggaranController::class, 'index'])->name('index');
+        Route::get('/create', [SimulasiAnggaranController::class, 'create'])->name('create');
+        Route::post('/', [SimulasiAnggaranController::class, 'store'])->name('store');
+        Route::get('/{simulasiAnggaran}', [SimulasiAnggaranController::class, 'show'])->name('show');
+        Route::put('/{simulasiAnggaran}', [SimulasiAnggaranController::class, 'update'])->name('update');
+        Route::delete('/{simulasiAnggaran}', [SimulasiAnggaranController::class, 'destroy'])->name('destroy');
+        Route::get('/{simulasiAnggaran}/export-excel', [SimulasiAnggaranController::class, 'exportExcel'])->name('export-excel');
+        Route::get('/{simulasiAnggaran}/export-pdf', [SimulasiAnggaranController::class, 'exportPdf'])->name('export-pdf');
+    });
     Route::get('/dashboard/perjalanan-dinas', PerjalananDinasDashboardController::class)
         ->middleware('menu-akses:dashpd')
         ->name('dashboard.perjalanan.index');

@@ -42,7 +42,6 @@
             'manajemen-data' => route('manajemen-data.index'),
             'data-pegawai' => route('data-pegawai.index'),
             'rincian' => route('rincian.index'),
-            'analisis' => route('analisis.index'),
             'dashpd' => route('dashboard.perjalanan.index'),
             'dashspj' => route('dashboard.spj.index'),
             'dash-tk' => route('tunjangan.dashboard'),
@@ -87,11 +86,20 @@
       </a>
       @endif
 
-      @if (in_array('analisis', $akses))
-      <a class="sb-item{{ $activeNav === 'analisis' ? ' active' : '' }}" href="{{ $href('analisis') }}">
-        <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/></svg>
-        Analisis dan Tren
-      </a>
+      @php($analisisVisible = in_array('analisis', $akses, true))
+      @php($analisisOpen = in_array($activeNav, ['tren-realisasi', 'simulasi-pergeseran'], true))
+      @if ($analisisVisible)
+      <div class="sb-group{{ $analisisOpen ? ' open' : '' }}">
+        <div class="sb-item sb-parent" id="nav-analisis-parent">
+          <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/></svg>
+          Analisis dan Tren
+          <svg class="chev" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+        <div class="sb-sub">
+          <a class="sb-item sub{{ $activeNav === 'tren-realisasi' ? ' active' : '' }}" href="{{ route('analisis.index') }}">Tren Realisasi</a>
+          <a class="sb-item sub{{ $activeNav === 'simulasi-pergeseran' ? ' active' : '' }}" href="{{ route('simulasi-anggaran.index') }}">Simulasi Pergeseran/Perubahan</a>
+        </div>
+      </div>
       @endif
 
       @if (in_array('invspj', $akses))

@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('activeNav', 'analisis')
+@section('activeNav', 'tren-realisasi')
 @section('title', 'Analisis dan Tren')
 
 @section('content')
