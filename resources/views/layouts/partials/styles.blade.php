@@ -34,7 +34,7 @@
   .sb-head .t1{color:#fff;font-size:16px;font-weight:800;line-height:1.1;letter-spacing:-.2px;}
   .sb-head .t2{color:#9db8d6;font-size:11px;margin-top:3px;line-height:1.35;}
   .sb-menu{padding:12px 10px;}
-  .sb-item{position:relative;display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:10px;color:#b9cbe0;cursor:pointer;font-size:14px;font-weight:500;margin-bottom:2px;transition:background .15s,color .15s;}
+  .sb-item{position:relative;display:flex;align-items:center;gap:11px;padding:11px 13px;border-radius:10px;color:#b9cbe0;cursor:pointer;font-size:14px;font-weight:500;margin-bottom:2px;transition:background .15s,color .15s;text-decoration:none;}
   .sidebar .sb-menu a.sb-item,
   .sidebar .sb-menu a.sb-item:visited,
   .sidebar .sb-menu a.sb-item:hover,
@@ -71,7 +71,7 @@
   .pager{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:12px;flex-wrap:wrap;}
   .pager-info{font-size:12px;color:var(--mut);}
   .pager-btns{display:flex;gap:8px;}
-  .pg-btn{padding:7px 14px;border:1px solid var(--line);background:#fff;border-radius:50px;font-size:12.5px;font-weight:600;color:var(--navy);cursor:pointer;transition:all .15s;}
+  .pg-btn{padding:7px 14px;border:1px solid var(--line);background:#fff;border-radius:50px;font-size:12.5px;font-weight:600;color:var(--navy);cursor:pointer;transition:all .15s;text-decoration:none;display:inline-block;}
   .pg-btn:hover:not(:disabled){background:var(--navy-l);border-color:var(--navy);}
   .pg-btn:disabled{opacity:.4;cursor:not-allowed;}
   .wf-card{display:flex;flex-direction:column;}
@@ -174,7 +174,7 @@
   .auth-btn .ab-ic svg{width:24px;height:24px;stroke:#fff;stroke-width:2;fill:none;stroke-linecap:round;stroke-linejoin:round;}
   .auth-btn .ab-txt b{display:block;font-size:15px;color:var(--navy);}
   /* Tombol ikon aksi (daftar NPD) */
-  .ic-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;border:1px solid var(--line);background:#fff;cursor:pointer;margin:0 2px;vertical-align:middle;transition:background .15s,border-color .15s;}
+  .ic-btn{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;border-radius:7px;border:1px solid var(--line);background:#fff;cursor:pointer;margin:0 2px;vertical-align:middle;transition:background .15s,border-color .15s;text-decoration:none;}
   .ic-btn svg{width:16px;height:16px;stroke:var(--navy);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
   .ic-btn:hover{background:var(--navy-l);border-color:var(--navy);}
   .ic-btn.danger svg{stroke:#dc2626;}
