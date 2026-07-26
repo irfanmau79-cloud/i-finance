@@ -133,6 +133,7 @@ class SpmController extends Controller
             $cari = $request->string('cari');
             $query->where(function ($q) use ($cari) {
                 $q->where('nomor_dokumen', 'like', "%{$cari}%")
+                    ->orWhere('nomor_sp2d', 'like', "%{$cari}%")
                     ->orWhere('penerima', 'like', "%{$cari}%")
                     ->orWhere('uraian', 'like', "%{$cari}%");
             });

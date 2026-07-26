@@ -146,7 +146,7 @@
           <svg class="chev" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
         <div class="sb-sub">
-          <a class="sb-item sub{{ $activeNav === 'spm-upgu' ? ' active' : '' }}" href="{{ route('spm.up-gu.index') }}">SPM UP/GU</a>
+          <a class="sb-item sub{{ $activeNav === 'spm-upgu' ? ' active' : '' }}" href="{{ route('spm.up-gu.index') }}">SPM UP/GU/TU</a>
           <a class="sb-item sub{{ $activeNav === 'spm-ls' ? ' active' : '' }}" href="{{ route('spm.ls.index') }}">SPM LS</a>
         </div>
       </div>

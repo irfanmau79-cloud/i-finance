@@ -5,8 +5,7 @@
 
 @section('content')
 <div class="dash-card wf-card">
-    <h3>SPM UP/GU</h3>
-    <div class="sub">Pengisian ulang kas Bendahara Pengeluaran Pembantu — tidak mengurangi pagu anggaran.</div>
+    <h3>Data Surat Perintah Membayar (SPM) UP/GU/TU</h3>
 
     @if (session('success'))
         <div class="sumbar ok"><span>{{ session('success') }}</span></div>

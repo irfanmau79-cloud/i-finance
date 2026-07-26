@@ -34,6 +34,16 @@
                 <input type="text" id="nomor_dokumen" name="nomor_dokumen" value="{{ old('nomor_dokumen', $spmEdit?->nomor_dokumen) }}">
             </div>
         </div>
+        <div class="form-grid">
+            <div class="fg">
+                <label class="fl" for="tanggal_sp2d">Tanggal SP2D (opsional)</label>
+                <input type="date" id="tanggal_sp2d" name="tanggal_sp2d" value="{{ old('tanggal_sp2d', $spmEdit?->tanggal_sp2d?->format('Y-m-d')) }}">
+            </div>
+            <div class="fg">
+                <label class="fl" for="nomor_sp2d">Nomor SP2D (opsional)</label>
+                <input type="text" id="nomor_sp2d" name="nomor_sp2d" value="{{ old('nomor_sp2d', $spmEdit?->nomor_sp2d) }}">
+            </div>
+        </div>
 
         <h3 style="margin-top:22px;">Daftar Mata Anggaran</h3>
         <div id="baris-list">
