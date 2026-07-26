@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'status_asal',
     'status_tujuan',
     'catatan',
+    'coretan_json',
     'nomor_urut',
 ])]
 class NpdHistoriStatus extends Model

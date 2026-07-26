@@ -206,6 +206,7 @@ Route::middleware('auth.or.guest')->group(function () {
     // Antrean Verifikasi NPD: Verifikator. Port dari getNPDuntukVerifikator di gas-lama/CodeRevisi.gs.
     Route::middleware('role:verifikator,superadmin')->group(function () {
         Route::get('/npd/verifikasi', [NpdController::class, 'verifikasi'])->name('npd.verifikasi');
+        Route::get('/npd/{npd}/coret', [NpdController::class, 'coret'])->name('npd.coret');
     });
 
     // Detail dan cetak: semua pelaku workflow serta Bendahara Pengeluaran sebagai pemantau.

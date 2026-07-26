@@ -224,6 +224,18 @@ class Npd extends Model
         return $this->hasMany(NpdHistoriStatus::class)->orderBy('nomor_urut');
     }
 
+    /** Coretan Verifikator terkumulatif terbaru (lihat CoretanPdf::overlayHtml). */
+    public function coretanJsonTerbaru(): ?string
+    {
+        // historiStatus() sudah punya orderBy('nomor_urut') bawaan - orderByDesc()
+        // di sini akan MENAMBAH clause itu (bukan menggantinya), jadi harus
+        // reorder() dulu supaya urutan DESC benar-benar berlaku.
+        return $this->historiStatus()
+            ->reorder('nomor_urut', 'desc')
+            ->whereNotNull('coretan_json')
+            ->value('coretan_json');
+    }
+
     public function arsipSpj(): HasMany
     {
         return $this->hasMany(ArsipSpj::class)->orderByDesc('ditetapkan_at');
@@ -297,6 +309,7 @@ class Npd extends Model
         ?string $statusAsal,
         string $statusTujuan,
         ?string $catatan = null,
+        ?string $coretanJson = null,
     ): NpdHistoriStatus {
         $nomorUrut = (int) $this->historiStatus()->max('nomor_urut') + 1;
 
@@ -306,6 +319,7 @@ class Npd extends Model
             'status_asal' => $statusAsal,
             'status_tujuan' => $statusTujuan,
             'catatan' => $catatan,
+            'coretan_json' => $coretanJson,
             'nomor_urut' => $nomorUrut,
         ]);
     }

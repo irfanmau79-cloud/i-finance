@@ -39,6 +39,21 @@
         </div>
     @endif
 
+    @php
+        $bisaKembaliBpp = in_array('kembali_bpp', $npd->aksiTersedia(auth()->user()->role), true);
+        $adaCoretan = $npd->coretanJsonTerbaru() !== null;
+    @endphp
+
+    @if ($bisaKembaliBpp)
+        <div class="sumbar" style="background:var(--warn-bg);color:var(--warn);margin-bottom:14px;">
+            <span>NPD ini menunggu verifikasi Anda. Anda dapat memberi coretan langsung pada dokumen PDF (NPD, Lampiran, Daftar Bayar/SPD) sebelum mengembalikan ke BPP.</span>
+        </div>
+    @elseif ($adaCoretan)
+        <div class="sumbar" style="background:#eef6ff;color:#15314a;margin-bottom:14px;">
+            <span>Dokumen PDF NPD ini memuat coretan dari Verifikator &mdash; buka lewat tombol <b>Cetak NPD</b>, <b>Cetak Lampiran</b>, dsb di bawah (lihat Histori Status untuk catatan revisinya).</span>
+        </div>
+    @endif
+
     <div class="rev">
         <div class="grp">
             <div class="gt">Informasi Umum</div>
@@ -288,6 +303,12 @@
         </div>
     @endif
 
+    @if ($bisaKembaliBpp)
+        <div style="margin-top:10px;">
+            <a class="btn prim" href="{{ route('npd.coret', $npd) }}">Beri Coretan pada Dokumen &amp; Kembalikan ke BPP</a>
+        </div>
+    @endif
+
     <h3 style="margin-top:22px;">Lokasi Arsip SPJ</h3>
     <div class="dash-card" style="box-shadow:none;border:1px solid var(--line);">
         @if ($bolehKelolaArsip && $npd->status === 'Selesai')
@@ -320,7 +341,12 @@
                             <td>{{ str($histori->aksi)->replace('_', ' ')->title() }}</td>
                             <td>{{ $histori->status_asal ?? 'Awal' }} &rarr; {{ $histori->status_tujuan }}</td>
                             <td>{{ $histori->user->nama ?? 'Sistem' }}</td>
-                            <td>{{ $histori->catatan ?? '—' }}</td>
+                            <td>
+                                {{ $histori->catatan ?? '—' }}
+                                @if ($histori->coretan_json)
+                                    <span class="stat-cat-chip" style="margin-left:6px;"><svg viewBox="0 0 24 24"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>Ada Coretan</span>
+                                @endif
+                            </td>
                         </tr>
                     @endforeach
                 </tbody>

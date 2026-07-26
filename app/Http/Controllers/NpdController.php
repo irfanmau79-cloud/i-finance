@@ -10,6 +10,7 @@ use App\Models\NpdPenerima;
 use App\Models\NpdPeserta;
 use App\Models\NpdTim;
 use App\Models\User;
+use App\Support\CoretanPdf;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -122,6 +123,40 @@ class NpdController extends Controller
     }
 
     /**
+     * Halaman coret manual (freehand) untuk Verifikator: menggambar langsung
+     * di atas render semua dokumen cetak NPD (PDF NPD, Lampiran, dan Daftar
+     * Bayar/SPD Rampung sesuai jenis - bukan halaman detail HTML), sebagai
+     * bagian dari aksi 'Kembalikan ke BPP'. Coretan disimpan sebagai
+     * strokes vektor (koordinat relatif terhadap halaman PDF, ditandai
+     * dokumen mana yang dicoret) di npd_histori_status.coretan_json lewat
+     * route npd.transisi yang sama; lihat App\Support\CoretanPdf untuk cara
+     * strokes itu ditulis ulang ke masing-masing file PDF asli saat dibuka.
+     */
+    public function coret(Npd $npd)
+    {
+        abort_unless(in_array('kembali_bpp', $npd->aksiTersedia(auth()->user()->role), true), 403);
+
+        // Urutan dan syarat per jenis sama seperti blok "Dokumen & Cetak" di npd/show.blade.php.
+        $dokumenList = [];
+
+        if (in_array($npd->jenis, ['pd', 'tr'], true)) {
+            $dokumenList[] = ['key' => 'daftar', 'label' => 'Daftar Pembayaran', 'url' => route('npd.cetak-daftar', $npd)];
+            $dokumenList[] = ['key' => 'spd', 'label' => 'SPD Rampung', 'url' => route('npd.cetak-spd', $npd)];
+        } elseif ($npd->jenis === 'ns') {
+            $dokumenList[] = ['key' => 'daftar', 'label' => 'Daftar Pembayaran Narasumber', 'url' => route('npd.cetak-daftar-nara', $npd)];
+        } elseif ($npd->jenis === 'kd') {
+            $dokumenList[] = ['key' => 'daftar', 'label' => 'Daftar Bayar', 'url' => route('npd.cetak-daftar-kd', $npd)];
+        }
+
+        $dokumenList[] = ['key' => 'npd', 'label' => 'NPD', 'url' => route('npd.cetak-npd', $npd)];
+        $dokumenList[] = ['key' => 'lampiran', 'label' => 'Lampiran', 'url' => route('npd.cetak-lampiran', $npd)];
+
+        $strokesSebelumnya = json_decode($npd->coretanJsonTerbaru() ?? '', true)['strokes'] ?? [];
+
+        return view('npd.coret', compact('npd', 'dokumenList', 'strokesSebelumnya'));
+    }
+
+    /**
      * Transisi status workflow NPD (semua jenis). Port dari transisiNPD di
      * gas-lama/CodeRevisi.gs: superadmin boleh aksi apa pun, role lain hanya
      * aksi yang dipetakan di Npd::TRANSISI.
@@ -157,6 +192,24 @@ class NpdController extends Controller
             $pesan = $aksi === 'batal_selesai' ? 'Alasan pembatalan wajib diisi.' : 'Catatan revisi wajib diisi.';
 
             return back()->withErrors(['catatan' => $pesan]);
+        }
+
+        $coretanJson = null;
+        if ($aksi === 'kembali_bpp') {
+            $coretanRaw = trim((string) $request->input('coretan_json', ''));
+
+            if ($coretanRaw !== '') {
+                if (strlen($coretanRaw) > 2_000_000) {
+                    return back()->withErrors(['coretan_json' => 'Coretan terlalu besar, coba hapus sebagian dan ulangi.']);
+                }
+
+                $decoded = json_decode($coretanRaw, true);
+                if (! is_array($decoded) || ! isset($decoded['strokes']) || ! is_array($decoded['strokes'])) {
+                    return back()->withErrors(['coretan_json' => 'Data coretan tidak valid.']);
+                }
+
+                $coretanJson = $coretanRaw;
+            }
         }
 
         // Batalkan status Selesai berarti induk tidak lagi memenuhi syarat "induk wajib
@@ -198,7 +251,7 @@ class NpdController extends Controller
         };
 
         try {
-            DB::transaction(function () use ($request, $npd, $rule, $catatanBaru, $nomorUrut, $aksi) {
+            DB::transaction(function () use ($request, $npd, $rule, $catatanBaru, $nomorUrut, $aksi, $coretanJson) {
                 $npd = Npd::query()->lockForUpdate()->findOrFail($npd->id);
                 if ($npd->status !== $rule['from']) {
                     throw ValidationException::withMessages(['aksi' => 'Status NPD telah berubah. Muat ulang halaman sebelum melanjutkan.']);
@@ -230,7 +283,7 @@ class NpdController extends Controller
                 $npd->status = $rule['to'];
                 $npd->catatan = $catatanBaru;
                 $npd->save();
-                $npd->catatHistoriStatus($request->user(), $aksi, $statusAsal, $rule['to'], $catatanBaru);
+                $npd->catatHistoriStatus($request->user(), $aksi, $statusAsal, $rule['to'], $catatanBaru, $coretanJson);
                 $npd->mirrorStatusKeSuratPerintah();
             });
         } catch (QueryException $e) {
@@ -242,6 +295,14 @@ class NpdController extends Controller
 
         $nomorForLog = $npd->nomor_lengkap ?? "NPD #{$npd->id}";
         AuditLog::catat($rule['label'], "NPD: {$nomorForLog}".($catatanBaru ? " | {$catatanBaru}" : ''));
+
+        // kembali_bpp datang dari halaman npd.coret, yang setelah transisi ini
+        // langsung 403 (npd->aksiTersedia() sudah tidak memuat kembali_bpp lagi
+        // untuk status barunya) - back() akan memantulkan ke sana lagi, jadi
+        // arahkan eksplisit ke halaman detail alih-alih back().
+        if ($aksi === 'kembali_bpp') {
+            return redirect()->route('npd.show', $npd)->with('success', "Status NPD diperbarui: {$rule['label']}.");
+        }
 
         return back()->with('success', "Status NPD diperbarui: {$rule['label']}.");
     }
@@ -312,6 +373,8 @@ class NpdController extends Controller
             'logoPath' => $this->logoKopPath(),
         ])->render();
 
+        $html = $this->sisipkanCoretan($html, $npd, 'npd');
+
         $mpdf = new Mpdf([
             'format' => [215, 330],
             'margin_left' => 15,
@@ -376,6 +439,8 @@ class NpdController extends Controller
             ], $this->bangunLampiranPph($npd->penerima)))->render();
         }
 
+        $html = $this->sisipkanCoretan($html, $npd, 'lampiran');
+
         $mpdf = new Mpdf([
             'format' => [215, 330],
             'margin_left' => 12,
@@ -424,6 +489,8 @@ class NpdController extends Controller
             'bulanNpd' => $npd->tanggal_npd->translatedFormat('F'),
         ])->render();
 
+        $html = $this->sisipkanCoretan($html, $npd, 'daftar');
+
         $mpdf = new Mpdf([
             'format' => [215, 330],
             'margin_left' => 7,
@@ -465,6 +532,8 @@ class NpdController extends Controller
             'bpp' => $pejabat['bpp'],
             'bulanNpd' => $npd->tanggal_npd->translatedFormat('F'),
         ])->render();
+
+        $html = $this->sisipkanCoretan($html, $npd, 'daftar');
 
         $mpdf = new Mpdf([
             'format' => [215, 330],
@@ -516,6 +585,8 @@ class NpdController extends Controller
             'bpp' => $pejabat['bpp'],
             'bulanNpd' => $npd->tanggal_npd->translatedFormat('F'),
         ])->render();
+
+        $html = $this->sisipkanCoretan($html, $npd, 'daftar');
 
         $mpdf = new Mpdf([
             'format' => [215, 330],
@@ -577,6 +648,8 @@ class NpdController extends Controller
             'logoPath' => $this->logoKopPath(),
         ])->render();
 
+        $html = $this->sisipkanCoretan($html, $npd, 'spd');
+
         $mpdf = new Mpdf([
             'format' => [215, 330],
             'margin_left' => 12,
@@ -595,6 +668,23 @@ class NpdController extends Controller
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="'.$fileName.'"',
         ]);
+    }
+
+    /**
+     * Sisipkan overlay coretan Verifikator (App\Support\CoretanPdf) ke HTML
+     * dokumen cetak SEBELUM </body> (bukan ditempel di akhir string, karena
+     * semua view npd.pdf.* adalah dokumen HTML penuh - apa pun setelah
+     * </html> diabaikan mPDF), dan SETELAH konten utama dalam urutan
+     * dokumen supaya tidak memicu mPDF memaksa page-break ketika <div
+     * style="position:absolute"> seukuran halaman penuh muncul duluan.
+     * $dokumen membedakan strokes per jenis dokumen (npd/lampiran/daftar/spd)
+     * dalam satu coretan_json yang sama - lihat CoretanPdf::overlayHtml().
+     */
+    private function sisipkanCoretan(string $html, Npd $npd, string $dokumen): string
+    {
+        $overlay = CoretanPdf::overlayHtml($npd->coretanJsonTerbaru(), 215, 330, $dokumen);
+
+        return $overlay === '' ? $html : str_replace('</body>', $overlay.'</body>', $html);
     }
 
     private function logoKopPath(): ?string
