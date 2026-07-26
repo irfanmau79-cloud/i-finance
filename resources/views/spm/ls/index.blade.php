@@ -12,7 +12,7 @@
     @endif
 
     <div class="tbl-tools">
-        <a href="{{ route('spm.ls.create') }}" class="btn prim" style="white-space:nowrap;">+ SPM LS</a>
+        <a href="{{ route('spm.ls.create') }}" class="btn prim" style="white-space:nowrap;">Tambah SPM LS</a>
     </div>
 
     <form method="GET" action="{{ route('spm.ls.index') }}" class="tbl-tools">

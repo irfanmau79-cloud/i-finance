@@ -12,7 +12,7 @@
     @endif
 
     <div class="tbl-tools">
-        <a href="{{ route('spm.up-gu.create') }}" class="btn prim" style="white-space:nowrap;">+ SPM UP/GU</a>
+        <a href="{{ route('spm.up-gu.create') }}" class="btn prim" style="white-space:nowrap;">Tambah SPM UP/GU/TU</a>
     </div>
 
     <form method="GET" action="{{ route('spm.up-gu.index') }}" class="tbl-tools">
