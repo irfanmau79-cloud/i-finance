@@ -579,6 +579,25 @@
     });
     document.getElementById('wiz-b3').addEventListener('click', () => goStep(2));
 
+    // Jaring pengaman: field wajib yang lolos dari pengecekan manual di atas
+    // (mis. field lain yang required) tapi masih kosong akan membuat submit
+    // browser gagal DIAM-DIAM karena field itu ada di pane tersembunyi
+    // (display:none), dan karena validasi native gagal, event 'submit' bahkan
+    // tidak pernah terpicu (listener di form tidak berguna) - makanya
+    // pengecekan dipasang di 'click' tombol submit, sebelum validasi native
+    // sempat jalan: kalau tidak valid, batalkan submit, pindah ke pane yang
+    // memuat field bermasalah supaya terlihat, baru minta browser tampilkan
+    // pesan validasinya di sana.
+    wizForm.querySelector('button[type="submit"]').addEventListener('click', (e) => {
+        if (wizForm.checkValidity()) return;
+        e.preventDefault();
+        const invalid = wizForm.querySelector(':invalid');
+        if (!invalid) return;
+        const pane = invalid.closest('[data-pane]');
+        if (pane) goStep(Number(pane.dataset.pane));
+        setTimeout(() => wizForm.reportValidity(), 50);
+    });
+
     const wizStartStep = Number(wizForm.dataset.startStep || 1);
     if (wizStartStep > 1) goStep(wizStartStep);
 })();
