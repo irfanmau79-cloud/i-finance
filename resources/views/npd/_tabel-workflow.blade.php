@@ -22,7 +22,7 @@
         'batal_selesai' => '<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><polyline points="3 3 3 8 8 8"/></svg>',
     ];
     $wfDanger = ['kembali_bpp', 'kembali_pptk', 'batal_selesai'];
-    $aksiButuhForm = ['verifikasi', 'kembali_bpp', 'kembali_pptk', 'batal_selesai'];
+    $aksiButuhForm = ['verifikasi', 'kembali_pptk', 'batal_selesai'];
     $role = auth()->user()->role;
 @endphp
 
@@ -33,12 +33,12 @@
 <div class="npd-scroll" style="border:1px solid var(--line);border-radius:8px;overflow:auto;">
     <table class="realisasi npd-table" id="npd-tabel" style="width:100%;table-layout:fixed;">
         <colgroup>
-            <col style="width:19%;"><col style="width:17%;"><col style="width:15%;">
-            <col style="width:15%;"><col style="width:10%;"><col style="width:14%;"><col style="width:10%;">
+            <col style="width:11%;"><col style="width:16%;"><col style="width:14%;"><col style="width:13%;">
+            <col style="width:14%;"><col style="width:9%;"><col style="width:13%;"><col style="width:10%;">
         </colgroup>
         <thead>
             <tr>
-                <th>Sub Kegiatan</th><th>Kode Rekening</th><th>Tagging</th>
+                <th>Nomor NPD</th><th>Sub Kegiatan</th><th>Kode Rekening</th><th>Tagging</th>
                 <th>Penerima</th><th class="num">Nominal</th><th class="st">Status</th>
                 <th style="text-align:center;">Aksi</th>
             </tr>
@@ -51,6 +51,7 @@
                     $bisaHapus = $tampilkanKelola && $npd->dapatDihapusOleh(auth()->user());
                 @endphp
                 <tr>
+                    <td>{{ $npd->nomor_lengkap ?? '-' }}</td>
                     <td>{{ $npd->masterAnggaran->sub_kegiatan }}</td>
                     <td>{{ $npd->masterAnggaran->kode_rekening }}</td>
                     <td>{{ $npd->masterAnggaran->tagging->nama ?? '-' }}</td>
@@ -71,15 +72,15 @@
                         <div class="aksi-wrap">
                             @foreach ($aksiTersedia as $aksi)
                                 @php($rule = \App\Models\Npd::TRANSISI[$aksi])
-                                @if (in_array($aksi, $aksiButuhForm, true))
+                                @if ($aksi === 'kembali_bpp')
+                                    <a class="ic-btn danger" title="{{ $rule['label'] }} (bisa beri coretan pada dokumen PDF)" href="{{ route('npd.coret', $npd) }}">{!! $wfIkon[$aksi] !!}</a>
+                                @elseif (in_array($aksi, $aksiButuhForm, true))
                                     <button type="button" class="ic-btn {{ in_array($aksi, $wfDanger, true) ? 'danger' : '' }}" title="{{ $rule['label'] }}"
                                         data-wf-open="{{ $aksi }}" data-wf-url="{{ route('npd.transisi', $npd) }}">{!! $wfIkon[$aksi] !!}</button>
                                 @else
-                                    <form method="POST" action="{{ route('npd.transisi', $npd) }}" onsubmit="return confirm('Yakin {{ $rule['label'] }}?');" style="display:inline;">
-                                        @csrf
-                                        <input type="hidden" name="aksi" value="{{ $aksi }}">
-                                        <button type="submit" class="ic-btn" title="{{ $rule['label'] }}">{!! $wfIkon[$aksi] !!}</button>
-                                    </form>
+                                    <button type="button" class="ic-btn" title="{{ $rule['label'] }}"
+                                        data-wf-confirm="{{ $aksi }}" data-wf-confirm-url="{{ route('npd.transisi', $npd) }}"
+                                        data-wf-confirm-label="{{ $rule['label'] }}">{!! $wfIkon[$aksi] !!}</button>
                                 @endif
                             @endforeach
                             @if ($bisaEdit)
@@ -89,7 +90,7 @@
                             @if ($bisaHapus)
                                 <details class="npd-hapus-pop">
                                     <summary class="ic-btn danger" title="Hapus NPD"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></summary>
-                                    <form method="POST" action="{{ route('npd.destroy', $npd) }}" class="npd-hapus-form" onsubmit="return confirm('Batalkan NPD ini? Tindakan dicatat dalam histori.');">
+                                    <form method="POST" action="{{ route('npd.destroy', $npd) }}" class="npd-hapus-form">
                                         @csrf
                                         @method('DELETE')
                                         <label class="fl" style="margin-top:0;">Alasan pembatalan</label>
@@ -102,7 +103,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="7" style="text-align:center;color:var(--mut);padding:20px;">Belum ada NPD.</td></tr>
+                <tr><td colspan="8" style="text-align:center;color:var(--mut);padding:20px;">Belum ada NPD.</td></tr>
             @endforelse
         </tbody>
     </table>
@@ -142,6 +143,26 @@
     </div>
 </div>
 
+<div class="mdl-ov" id="wf-confirm-ov">
+    <div class="mdl" style="max-width:380px;">
+        <div class="mdl-b" style="padding:24px 20px 6px;text-align:center;">
+            <div style="width:52px;height:52px;border-radius:50%;background:#eef2ff;color:var(--navy);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+                <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
+            </div>
+            <div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:6px;" id="wf-confirm-title">Konfirmasi</div>
+            <div style="color:var(--mut);font-size:14px;line-height:1.5;" id="wf-confirm-msg">Yakin melanjutkan aksi ini?</div>
+        </div>
+        <form method="POST" id="wf-confirm-form">
+            @csrf
+            <input type="hidden" name="aksi" id="wf-confirm-aksi" value="">
+            <div class="mdl-f" style="padding:18px 20px 20px;justify-content:center;">
+                <button type="button" class="btn" onclick="wfConfirmClose()">Batal</button>
+                <button type="submit" class="btn prim">Ya, Lanjutkan</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <style>
     .npd-hapus-pop{position:relative;display:inline-block;}
     .npd-hapus-pop summary{list-style:none;}
@@ -172,7 +193,6 @@
     // Modal aksi workflow yang butuh input (catatan wajib/opsional, nomor urut verifikasi).
     var WF_FORM_META = {
         verifikasi: { title: 'Verifikasi NPD', nomor: true, catatanLabel: 'Catatan untuk BPP (opsional)', catatanRequired: false },
-        kembali_bpp: { title: 'Kembalikan ke BPP', nomor: false, catatanLabel: 'Catatan Revisi (wajib)', catatanRequired: true },
         kembali_pptk: { title: 'Kembalikan ke PPTK', nomor: false, catatanLabel: 'Catatan Revisi (wajib)', catatanRequired: true },
         batal_selesai: { title: 'Batalkan Status Selesai', nomor: false, catatanLabel: 'Alasan Pembatalan (wajib)', catatanRequired: true },
     };
@@ -212,6 +232,28 @@
     document.querySelectorAll('[data-wf-open]').forEach(function (btn) {
         btn.addEventListener('click', function () {
             wfModalOpen(btn.getAttribute('data-wf-open'), btn.getAttribute('data-wf-url'));
+        });
+    });
+
+    // Modal konfirmasi sederhana (ya/batal) - pengganti confirm() bawaan
+    // browser untuk aksi workflow yang tidak butuh input tambahan (aksi di
+    // luar $aksiButuhForm, mis. maju ke tahap berikutnya tanpa catatan).
+    var confirmOv = document.getElementById('wf-confirm-ov');
+    var confirmForm = document.getElementById('wf-confirm-form');
+    var confirmAksiField = document.getElementById('wf-confirm-aksi');
+    var confirmMsg = document.getElementById('wf-confirm-msg');
+
+    window.wfConfirmClose = function () {
+        confirmOv.classList.remove('show');
+    };
+
+    document.querySelectorAll('[data-wf-confirm]').forEach(function (btn) {
+        btn.addEventListener('click', function () {
+            var label = btn.getAttribute('data-wf-confirm-label');
+            confirmForm.action = btn.getAttribute('data-wf-confirm-url');
+            confirmAksiField.value = btn.getAttribute('data-wf-confirm');
+            confirmMsg.textContent = 'Yakin ' + label + '?';
+            confirmOv.classList.add('show');
         });
     });
 })();
