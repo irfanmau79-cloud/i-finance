@@ -20,96 +20,123 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ $npdEdit ? route('npd.bj.update', $npdEdit) : route('npd.bj.store') }}" id="npd-bj-form">
+    @php($wizStartStep = $errors->any() ? ($errors->has('master_anggaran_id') ? 1 : 2) : 1)
+    <div class="steps" id="wiz-steps">
+        <div class="step active" data-step="1"><span class="n">1</span><span class="lb">Pilih Anggaran</span></div>
+        <div class="step" data-step="2"><span class="n">2</span><span class="lb">Detail NPD</span></div>
+        <div class="step" data-step="3"><span class="n">3</span><span class="lb">Review</span></div>
+    </div>
+
+    <form method="POST" action="{{ $npdEdit ? route('npd.bj.update', $npdEdit) : route('npd.bj.store') }}" id="npd-bj-form" data-start-step="{{ $wizStartStep }}">
         @csrf
         @if ($npdEdit) @method('PUT') @endif
 
-        <div class="fg">
-            <label class="fl" for="maf-program">Program</label>
-            <select id="maf-program"><option value="">Memuat data…</option></select>
-        </div>
-        <div class="fg">
-            <label class="fl" for="maf-kegiatan">Kegiatan</label>
-            <select id="maf-kegiatan" disabled><option value="">Pilih program dulu</option></select>
-        </div>
-        <div class="fg">
-            <label class="fl" for="maf-sub">Sub Kegiatan</label>
-            <select id="maf-sub" disabled><option value="">Pilih kegiatan dulu</option></select>
-        </div>
-        <div class="form-grid">
+        <div class="pane show" data-pane="1">
             <div class="fg">
-                <label class="fl" for="maf-kode">Kode Rekening</label>
-                <select id="maf-kode" disabled><option value="">Pilih sub kegiatan dulu</option></select>
+                <label class="fl" for="maf-program">Program</label>
+                <select id="maf-program"><option value="">Memuat data…</option></select>
             </div>
             <div class="fg">
-                <label class="fl" for="maf-tagging">Tagging</label>
-                <select id="maf-tagging" disabled><option value="">Pilih kode rekening dulu</option></select>
+                <label class="fl" for="maf-kegiatan">Kegiatan</label>
+                <select id="maf-kegiatan" disabled><option value="">Pilih program terlebih dahulu</option></select>
+            </div>
+            <div class="fg">
+                <label class="fl" for="maf-sub">Sub Kegiatan</label>
+                <select id="maf-sub" disabled><option value="">Pilih kegiatan terlebih dahulu</option></select>
+            </div>
+            <div class="form-grid">
+                <div class="fg">
+                    <label class="fl" for="maf-kode">Kode Rekening</label>
+                    <select id="maf-kode" disabled><option value="">Pilih sub kegiatan terlebih dahulu</option></select>
+                </div>
+                <div class="fg">
+                    <label class="fl" for="maf-tagging">Tagging</label>
+                    <select id="maf-tagging" disabled><option value="">Pilih kode rekening terlebih dahulu</option></select>
+                </div>
+            </div>
+            <input type="hidden" name="master_anggaran_id" id="master_anggaran_id" value="{{ old('master_anggaran_id', $npdEdit?->master_anggaran_id) }}">
+
+            <div class="auto" id="ma-detail" style="display:none;">
+                <div class="ai"><span class="k">Program</span><span class="v" id="ma-program"></span></div>
+                <div class="ai"><span class="k">Kegiatan</span><span class="v" id="ma-kegiatan"></span></div>
+                <div class="ai"><span class="k">Sub Kegiatan</span><span class="v" id="ma-sub"></span></div>
+                <div class="ai"><span class="k">Kode Rekening</span><span class="v" id="ma-kode"></span></div>
+                <div class="ai"><span class="k">Tagging</span><span class="v" id="ma-tagging"></span></div>
+                <div class="ai"><span class="k">Pagu Anggaran</span><span class="v" id="ma-pagu"></span></div>
+                <div class="ai"><span class="k">Sisa Anggaran</span><span class="v" id="ma-sisa" style="color:var(--ok);font-weight:800;"></span></div>
+                <div class="ai"><span class="k">KEU</span><span class="v" id="ma-keu"></span></div>
+            </div>
+
+            <div class="err-box" id="err-1"></div>
+            <div class="nav">
+                <a class="btn" href="{{ route('npd.index') }}">Batal</a>
+                <button type="button" class="btn prim" id="wiz-n1">Lanjut &rarr;</button>
             </div>
         </div>
-        <input type="hidden" name="master_anggaran_id" id="master_anggaran_id" value="{{ old('master_anggaran_id', $npdEdit?->master_anggaran_id) }}">
 
-        <div class="auto" id="ma-detail" style="display:none;">
-            <div class="ai"><span class="k">Program</span><span class="v" id="ma-program"></span></div>
-            <div class="ai"><span class="k">Kegiatan</span><span class="v" id="ma-kegiatan"></span></div>
-            <div class="ai"><span class="k">Sub Kegiatan</span><span class="v" id="ma-sub"></span></div>
-            <div class="ai"><span class="k">Kode Rekening</span><span class="v" id="ma-kode"></span></div>
-            <div class="ai"><span class="k">Tagging</span><span class="v" id="ma-tagging"></span></div>
-            <div class="ai"><span class="k">Pagu Anggaran</span><span class="v" id="ma-pagu"></span></div>
-            <div class="ai"><span class="k">Sisa Anggaran</span><span class="v" id="ma-sisa" style="color:var(--ok);font-weight:800;"></span></div>
-            <div class="ai"><span class="k">KEU</span><span class="v" id="ma-keu"></span></div>
-        </div>
+        <div class="pane" data-pane="2">
+            <div class="fg">
+                <label class="fl">Jenis NPD</label>
+                <div class="seg">
+                    @foreach (\App\Models\Npd::JENIS_PANJAR_LIST as $opt)
+                        <label>
+                            <input type="radio" name="jenis_panjar" value="{{ $opt }}" @checked(old('jenis_panjar', $npdEdit?->jenis_panjar ?? 'Panjar') === $opt)>
+                            <span>{{ $opt }}</span>
+                        </label>
+                    @endforeach
+                </div>
+            </div>
 
-        <div class="fg">
-            <label class="fl">Jenis NPD</label>
-            <div class="seg">
-                @foreach (\App\Models\Npd::JENIS_PANJAR_LIST as $opt)
-                    <label>
-                        <input type="radio" name="jenis_panjar" value="{{ $opt }}" @checked(old('jenis_panjar', $npdEdit?->jenis_panjar ?? 'Panjar') === $opt)>
-                        <span>{{ $opt }}</span>
-                    </label>
+            <div class="form-grid">
+                <div class="fg">
+                    <label class="fl" for="tanggal_npd">Tanggal NPD</label>
+                    <input type="date" id="tanggal_npd" name="tanggal_npd" value="{{ old('tanggal_npd', $npdEdit?->tanggal_npd?->format('Y-m-d')) }}">
+                </div>
+                <div class="fg">
+                    <label class="fl" for="bulan">Bulan</label>
+                    <select id="bulan" name="bulan">
+                        <option value="">-- Pilih Bulan --</option>
+                        @foreach ($bulanList as $num => $label)
+                            <option value="{{ $num }}" @selected((string) old('bulan', $npdEdit?->bulan) === (string) $num)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="fg">
+                    <label class="fl" for="tahun">Tahun</label>
+                    <input type="number" id="tahun" name="tahun" min="2000" max="2100" value="{{ old('tahun', $npdEdit?->tahun ?? now()->year) }}">
+                </div>
+            </div>
+
+            <h3 style="margin-top:22px;">Daftar Penerima</h3>
+            <div id="pen-list">
+                <?php
+                    $oldPenerima = old('penerima', $penerimaAwal ?? [[]]);
+                ?>
+                @foreach ($oldPenerima as $i => $row)
+                    @include('npd.bj._penerima-row', ['i' => $i, 'p' => $row])
                 @endforeach
             </div>
-        </div>
+            <button type="button" class="add" id="pen-add">+ Tambah Penerima</button>
 
-        <div class="form-grid">
-            <div class="fg">
-                <label class="fl" for="tanggal_npd">Tanggal NPD</label>
-                <input type="date" id="tanggal_npd" name="tanggal_npd" value="{{ old('tanggal_npd', $npdEdit?->tanggal_npd?->format('Y-m-d')) }}">
+            <div class="sumbar" style="margin-top:16px;">
+                <span>Nominal Total NPD</span>
+                <span class="v" id="total-nominal">Rp 0</span>
             </div>
-            <div class="fg">
-                <label class="fl" for="bulan">Bulan</label>
-                <select id="bulan" name="bulan">
-                    <option value="">-- Pilih Bulan --</option>
-                    @foreach ($bulanList as $num => $label)
-                        <option value="{{ $num }}" @selected((string) old('bulan', $npdEdit?->bulan) === (string) $num)>{{ $label }}</option>
-                    @endforeach
-                </select>
-            </div>
-            <div class="fg">
-                <label class="fl" for="tahun">Tahun</label>
-                <input type="number" id="tahun" name="tahun" min="2000" max="2100" value="{{ old('tahun', $npdEdit?->tahun ?? now()->year) }}">
+
+            <div class="err-box" id="err-2"></div>
+            <div class="nav">
+                <button type="button" class="btn" id="wiz-b2">&larr; Sebelumnya</button>
+                <button type="button" class="btn prim" id="wiz-n2">Lanjut &rarr;</button>
             </div>
         </div>
 
-        <h3 style="margin-top:22px;">Daftar Penerima</h3>
-        <div id="pen-list">
-            <?php
-                $oldPenerima = old('penerima', $penerimaAwal ?? [[]]);
-            ?>
-            @foreach ($oldPenerima as $i => $row)
-                @include('npd.bj._penerima-row', ['i' => $i, 'p' => $row])
-            @endforeach
-        </div>
-        <button type="button" class="add" id="pen-add">+ Tambah Penerima</button>
-
-        <div class="sumbar" style="margin-top:16px;">
-            <span>Nominal Total NPD</span>
-            <span class="v" id="total-nominal">Rp 0</span>
-        </div>
-
-        <div class="nav">
-            <a class="btn" href="{{ route('npd.index') }}">Batal</a>
-            <button type="submit" class="btn prim">{{ $npdEdit ? 'Simpan Perubahan' : 'Simpan sebagai Draft' }}</button>
+        <div class="pane" data-pane="3">
+            <div class="rev" id="rev-box"></div>
+            <div class="err-box" id="err-3"></div>
+            <div class="nav">
+                <button type="button" class="btn" id="wiz-b3">&larr; Sebelumnya</button>
+                <button type="submit" class="btn prim">{{ $npdEdit ? 'Simpan Perubahan' : 'Simpan sebagai Draft' }}</button>
+            </div>
         </div>
     </form>
 </div>
@@ -204,10 +231,10 @@
         MSEL.program = maSel.program.value;
         MSEL.kegiatan = MSEL.sub = MSEL.kode = MSEL.tagging = '';
         const k = uniq(masterAnggaranData.filter(m => m.program === MSEL.program).map(m => m.kegiatan));
-        fillOptions(maSel.kegiatan, k.map(v => ({ value: v, label: v })), k.length ? '— Pilih Kegiatan —' : 'Pilih program dulu');
-        fillOptions(maSel.sub, [], 'Pilih kegiatan dulu');
-        fillOptions(maSel.kode, [], 'Pilih sub kegiatan dulu');
-        fillOptions(maSel.tagging, [], 'Pilih kode rekening dulu');
+        fillOptions(maSel.kegiatan, k.map(v => ({ value: v, label: v })), k.length ? '— Pilih Kegiatan —' : 'Pilih program terlebih dahulu');
+        fillOptions(maSel.sub, [], 'Pilih kegiatan terlebih dahulu');
+        fillOptions(maSel.kode, [], 'Pilih sub kegiatan terlebih dahulu');
+        fillOptions(maSel.tagging, [], 'Pilih kode rekening terlebih dahulu');
         hideMaDetail();
     }
 
@@ -215,9 +242,9 @@
         MSEL.kegiatan = maSel.kegiatan.value;
         MSEL.sub = MSEL.kode = MSEL.tagging = '';
         const s = uniq(masterAnggaranData.filter(m => m.program === MSEL.program && m.kegiatan === MSEL.kegiatan).map(m => m.sub_kegiatan));
-        fillOptions(maSel.sub, s.map(v => ({ value: v, label: v })), s.length ? '— Pilih Sub Kegiatan —' : 'Pilih kegiatan dulu');
-        fillOptions(maSel.kode, [], 'Pilih sub kegiatan dulu');
-        fillOptions(maSel.tagging, [], 'Pilih kode rekening dulu');
+        fillOptions(maSel.sub, s.map(v => ({ value: v, label: v })), s.length ? '— Pilih Sub Kegiatan —' : 'Pilih kegiatan terlebih dahulu');
+        fillOptions(maSel.kode, [], 'Pilih sub kegiatan terlebih dahulu');
+        fillOptions(maSel.tagging, [], 'Pilih kode rekening terlebih dahulu');
         hideMaDetail();
     }
 
@@ -234,8 +261,8 @@
         rows.forEach(m => {
             if (! seen.has(m.kode_rekening)) { seen.add(m.kode_rekening); opts.push({ value: m.kode_rekening, label: kodeLabel(m) }); }
         });
-        fillOptions(maSel.kode, opts, opts.length ? '— Pilih Kode Rekening —' : 'Pilih sub kegiatan dulu');
-        fillOptions(maSel.tagging, [], 'Pilih kode rekening dulu');
+        fillOptions(maSel.kode, opts, opts.length ? '— Pilih Kode Rekening —' : 'Pilih sub kegiatan terlebih dahulu');
+        fillOptions(maSel.tagging, [], 'Pilih kode rekening terlebih dahulu');
         hideMaDetail();
     }
 
@@ -249,7 +276,7 @@
             const val = taggingValue(m);
             if (! seen.has(val)) { seen.add(val); opts.push({ value: val, label: m.tagging }); }
         });
-        fillOptions(maSel.tagging, opts, opts.length ? '— Pilih Tagging —' : 'Pilih kode rekening dulu');
+        fillOptions(maSel.tagging, opts, opts.length ? '— Pilih Tagging —' : 'Pilih kode rekening terlebih dahulu');
         hideMaDetail();
     }
 
@@ -505,6 +532,82 @@
     penList.querySelectorAll('[data-pen-row]').forEach(attachRowEvents);
     renumber();
     recalcTotal();
+
+    // ---- Wizard: stepper + review ----
+    const wizForm = document.getElementById('npd-bj-form');
+    const wizPanes = wizForm.querySelectorAll('[data-pane]');
+    const wizSteps = document.querySelectorAll('#wiz-steps .step');
+
+    function goStep(n) {
+        wizPanes.forEach(p => p.classList.toggle('show', Number(p.dataset.pane) === n));
+        wizSteps.forEach(s => {
+            const sn = Number(s.dataset.step);
+            s.classList.toggle('active', sn === n);
+            s.classList.toggle('done', sn < n);
+        });
+        if (n === 3) renderReview();
+        document.querySelector('.dash-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function showStepErr(id, msg) {
+        const el = document.getElementById(id);
+        el.textContent = msg;
+        el.style.display = msg ? 'block' : 'none';
+    }
+
+    function liRow(k, v) {
+        return '<div class="li"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + v + '</span></div>';
+    }
+
+    function renderReview() {
+        const m = masterAnggaranData.find(x => String(x.id) === String(maIdField.value));
+        const jenis = (wizForm.querySelector('input[name="jenis_panjar"]:checked') || {}).value || '—';
+        const tanggal = tanggalInput.value ? new Date(tanggalInput.value + 'T00:00:00').toLocaleDateString('id-ID', { day: '2-digit', month: 'long', year: 'numeric' }) : '—';
+
+        let html = '<div class="grp"><div class="gt">Anggaran</div>';
+        html += m
+            ? liRow('Program', m.program) + liRow('Kegiatan', m.kegiatan) + liRow('Sub Kegiatan', m.sub_kegiatan)
+                + liRow('Kode Rekening', kodeLabel(m)) + liRow('Tagging', m.tagging)
+                + liRow('Pagu Anggaran', formatRupiah(m.pagu)) + liRow('Sisa Anggaran', formatRupiah(m.sisa))
+            : liRow('Sumber dana', 'Belum dipilih');
+        html += '</div>';
+
+        html += '<div class="grp"><div class="gt">Detail NPD</div>'
+            + liRow('Jenis', jenis) + liRow('Tanggal NPD', tanggal)
+            + liRow('Nominal Total', document.getElementById('total-nominal').textContent) + '</div>';
+
+        const penRows = penList.querySelectorAll('[data-pen-row]');
+        html += '<div class="grp"><div class="gt">Penerima (' + penRows.length + ')</div>';
+        penRows.forEach(row => {
+            const nama = row.querySelector('[data-name-input]').value || '(belum diisi)';
+            const netto = row.querySelector('[data-netto]').value;
+            html += liRow(nama, netto);
+        });
+        html += '</div>';
+
+        document.getElementById('rev-box').innerHTML = html;
+    }
+
+    document.getElementById('wiz-n1').addEventListener('click', () => {
+        if (! maIdField.value) { showStepErr('err-1', 'Pilih sumber dana (Program s.d Tagging) terlebih dahulu.'); return; }
+        showStepErr('err-1', '');
+        goStep(2);
+    });
+    document.getElementById('wiz-b2').addEventListener('click', () => goStep(1));
+    document.getElementById('wiz-n2').addEventListener('click', () => {
+        if (! tanggalInput.value || ! bulanSelect.value || ! tahunInput.value) {
+            showStepErr('err-2', 'Lengkapi tanggal, bulan, dan tahun NPD.');
+            return;
+        }
+        const namaKosong = Array.from(penList.querySelectorAll('[data-name-input]')).some(inp => ! inp.value.trim());
+        if (namaKosong) { showStepErr('err-2', 'Lengkapi nama semua penerima.'); return; }
+        showStepErr('err-2', '');
+        goStep(3);
+    });
+    document.getElementById('wiz-b3').addEventListener('click', () => goStep(2));
+
+    const wizStartStep = Number(wizForm.dataset.startStep || 1);
+    if (wizStartStep > 1) goStep(wizStartStep);
 })();
 </script>
 @endsection

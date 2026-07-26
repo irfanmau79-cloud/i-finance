@@ -20,89 +20,116 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ $npdEdit ? route('npd.tr.update', $npdEdit) : route('npd.tr.store') }}" id="npd-tr-form">
+    @php($wizStartStep = $errors->any() ? ($errors->has('npd_induk_id') ? 1 : 2) : 1)
+    <div class="steps" id="wiz-steps">
+        <div class="step active" data-step="1"><span class="n">1</span><span class="lb">Pilih NPD Induk</span></div>
+        <div class="step" data-step="2"><span class="n">2</span><span class="lb">Detail &amp; Anggota</span></div>
+        <div class="step" data-step="3"><span class="n">3</span><span class="lb">Review</span></div>
+    </div>
+
+    <form method="POST" action="{{ $npdEdit ? route('npd.tr.update', $npdEdit) : route('npd.tr.store') }}" id="npd-tr-form" data-start-step="{{ $wizStartStep }}">
         @csrf
         @if ($npdEdit) @method('PUT') @endif
 
-        <div class="fg">
-            <label class="fl" for="npd_induk_id">NPD Perjalanan Dinas Induk</label>
-            @if ($npdEdit)
-                <input type="text" value="{{ $indukList->first()?->nomor_lengkap ?? '#'.$npdEdit->npd_induk_id }}" disabled style="background:#f8fafc;">
-                <input type="hidden" name="npd_induk_id" value="{{ $npdEdit->npd_induk_id }}">
-                <div class="sub" style="margin-top:4px;">Induk tidak dapat diganti setelah NPD Transport dibuat.</div>
-            @else
-                <select id="npd_induk_id" name="npd_induk_id">
-                    <option value="">— Pilih NPD Perjalanan Dinas —</option>
-                    @foreach ($indukList as $induk)
-                        <option value="{{ $induk->id }}" @selected((string) old('npd_induk_id') === (string) $induk->id)>
-                            {{ $induk->nomor_lengkap ?? '(Draft #'.$induk->id.')' }} — {{ $induk->tanggal_npd->format('d-m-Y') }} — {{ $induk->tim->count() }} anggota
-                        </option>
-                    @endforeach
-                </select>
-                @if ($indukList->isEmpty())
-                    <div class="sub" style="margin-top:4px;color:var(--err);">Belum ada NPD Perjalanan Dinas berstatus Selesai yang tersedia sebagai induk (atau semuanya sudah punya NPD Transport aktif).</div>
+        <div class="pane show" data-pane="1">
+            <div class="fg">
+                <label class="fl" for="npd_induk_id">NPD Perjalanan Dinas Induk</label>
+                @if ($npdEdit)
+                    <input type="text" value="{{ $indukList->first()?->nomor_lengkap ?? '#'.$npdEdit->npd_induk_id }}" disabled style="background:#f8fafc;">
+                    <input type="hidden" id="npd_induk_id" name="npd_induk_id" value="{{ $npdEdit->npd_induk_id }}">
+                    <div class="sub" style="margin-top:4px;">Induk tidak dapat diganti setelah NPD Transport dibuat.</div>
+                @else
+                    <select id="npd_induk_id" name="npd_induk_id">
+                        <option value="">— Pilih NPD Perjalanan Dinas —</option>
+                        @foreach ($indukList as $induk)
+                            <option value="{{ $induk->id }}" @selected((string) old('npd_induk_id') === (string) $induk->id)>
+                                {{ $induk->nomor_lengkap ?? '(Draft #'.$induk->id.')' }} — {{ $induk->tanggal_npd->format('d-m-Y') }} — {{ $induk->tim->count() }} anggota
+                            </option>
+                        @endforeach
+                    </select>
+                    @if ($indukList->isEmpty())
+                        <div class="sub" style="margin-top:4px;color:var(--err);">Belum ada NPD Perjalanan Dinas berstatus Selesai yang tersedia sebagai induk (atau semuanya sudah punya NPD Transport aktif).</div>
+                    @endif
                 @endif
-            @endif
-        </div>
+            </div>
 
-        <div class="fg">
-            <label class="fl">Jenis NPD</label>
-            <div class="seg">
-                @foreach (\App\Models\Npd::JENIS_PANJAR_LIST as $opt)
-                    <label>
-                        <input type="radio" name="jenis_panjar" value="{{ $opt }}" @checked(old('jenis_panjar', $npdEdit?->jenis_panjar ?? 'Tanpa Panjar') === $opt)>
-                        <span>{{ $opt }}</span>
-                    </label>
-                @endforeach
+            <div class="err-box" id="err-1"></div>
+            <div class="nav">
+                <a class="btn" href="{{ route('npd.index') }}">Batal</a>
+                <button type="button" class="btn prim" id="wiz-n1">Lanjut &rarr;</button>
             </div>
         </div>
 
-        <div class="form-grid">
+        <div class="pane" data-pane="2">
             <div class="fg">
-                <label class="fl" for="tanggal_npd">Tanggal NPD</label>
-                <input type="date" id="tanggal_npd" name="tanggal_npd" value="{{ old('tanggal_npd', $npdEdit?->tanggal_npd?->format('Y-m-d')) }}">
-            </div>
-            <div class="fg">
-                <label class="fl" for="bulan">Bulan</label>
-                <select id="bulan" name="bulan">
-                    <option value="">-- Pilih Bulan --</option>
-                    @foreach ($bulanList as $num => $label)
-                        <option value="{{ $num }}" @selected((string) old('bulan', $npdEdit?->bulan) === (string) $num)>{{ $label }}</option>
+                <label class="fl">Jenis NPD</label>
+                <div class="seg">
+                    @foreach (\App\Models\Npd::JENIS_PANJAR_LIST as $opt)
+                        <label>
+                            <input type="radio" name="jenis_panjar" value="{{ $opt }}" @checked(old('jenis_panjar', $npdEdit?->jenis_panjar ?? 'Tanpa Panjar') === $opt)>
+                            <span>{{ $opt }}</span>
+                        </label>
                     @endforeach
-                </select>
+                </div>
             </div>
+
+            <div class="form-grid">
+                <div class="fg">
+                    <label class="fl" for="tanggal_npd">Tanggal NPD</label>
+                    <input type="date" id="tanggal_npd" name="tanggal_npd" value="{{ old('tanggal_npd', $npdEdit?->tanggal_npd?->format('Y-m-d')) }}">
+                </div>
+                <div class="fg">
+                    <label class="fl" for="bulan">Bulan</label>
+                    <select id="bulan" name="bulan">
+                        <option value="">-- Pilih Bulan --</option>
+                        @foreach ($bulanList as $num => $label)
+                            <option value="{{ $num }}" @selected((string) old('bulan', $npdEdit?->bulan) === (string) $num)>{{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="fg">
+                    <label class="fl" for="tahun">Tahun</label>
+                    <input type="number" id="tahun" name="tahun" min="2000" max="2100" value="{{ old('tahun', $npdEdit?->tahun ?? now()->year) }}">
+                </div>
+            </div>
+
+            <h3 style="margin-top:22px;">Anggota &amp; Komponen Transport</h3>
+            <div id="tim-list">
+                @if ($npdEdit)
+                    <?php $indukTimAwal = $indukList->first()?->tim ?? collect(); ?>
+                    @foreach ($indukTimAwal as $i => $t)
+                        @include('npd.tr._tim-row', ['i' => $i, 't' => $t])
+                    @endforeach
+                @else
+                    <div class="sub">Pilih NPD Perjalanan Dinas induk terlebih dahulu untuk menampilkan anggota.</div>
+                @endif
+            </div>
+
             <div class="fg">
-                <label class="fl" for="tahun">Tahun</label>
-                <input type="number" id="tahun" name="tahun" min="2000" max="2100" value="{{ old('tahun', $npdEdit?->tahun ?? now()->year) }}">
+                <label class="fl" for="keterangan_lampiran">Keterangan Lampiran (opsional)</label>
+                <input type="text" id="keterangan_lampiran" name="keterangan_lampiran" placeholder="Kosongkan untuk memakai keterangan induk"
+                       value="{{ old('keterangan_lampiran', $npdEdit?->detail_json['keterangan_lampiran'] ?? '') }}">
+            </div>
+
+            <div class="sumbar" style="margin-top:16px;">
+                <span>Nominal Total NPD</span>
+                <span class="v" id="total-nominal">Rp 0</span>
+            </div>
+
+            <div class="err-box" id="err-2"></div>
+            <div class="nav">
+                <button type="button" class="btn" id="wiz-b2">&larr; Sebelumnya</button>
+                <button type="button" class="btn prim" id="wiz-n2">Lanjut &rarr;</button>
             </div>
         </div>
 
-        <h3 style="margin-top:22px;">Anggota &amp; Komponen Transport</h3>
-        <div id="tim-list">
-            @if ($npdEdit)
-                <?php $indukTimAwal = $indukList->first()?->tim ?? collect(); ?>
-                @foreach ($indukTimAwal as $i => $t)
-                    @include('npd.tr._tim-row', ['i' => $i, 't' => $t])
-                @endforeach
-            @else
-                <div class="sub">Pilih NPD Perjalanan Dinas induk terlebih dahulu untuk menampilkan anggota.</div>
-            @endif
-        </div>
-
-        <div class="fg">
-            <label class="fl" for="keterangan_lampiran">Keterangan Lampiran (opsional)</label>
-            <input type="text" id="keterangan_lampiran" name="keterangan_lampiran" placeholder="Kosongkan untuk memakai keterangan induk"
-                   value="{{ old('keterangan_lampiran', $npdEdit?->detail_json['keterangan_lampiran'] ?? '') }}">
-        </div>
-
-        <div class="sumbar" style="margin-top:16px;">
-            <span>Nominal Total NPD</span>
-            <span class="v" id="total-nominal">Rp 0</span>
-        </div>
-
-        <div class="nav">
-            <a class="btn" href="{{ route('npd.index') }}">Batal</a>
-            <button type="submit" class="btn prim">{{ $npdEdit ? 'Simpan Perubahan' : 'Simpan sebagai Draft' }}</button>
+        <div class="pane" data-pane="3">
+            <div class="rev" id="rev-box"></div>
+            <div class="err-box" id="err-3"></div>
+            <div class="nav">
+                <button type="button" class="btn" id="wiz-b3">&larr; Sebelumnya</button>
+                <button type="submit" class="btn prim">{{ $npdEdit ? 'Simpan Perubahan' : 'Simpan sebagai Draft' }}</button>
+            </div>
         </div>
     </form>
 </div>
@@ -211,6 +238,74 @@
     } else {
         timList.querySelectorAll('[data-tim-row]').forEach(attachRowEvents);
     }
+
+    // ---- Wizard: stepper + review ----
+    const wizForm = document.getElementById('npd-tr-form');
+    const wizPanes = wizForm.querySelectorAll('[data-pane]');
+    const wizSteps = document.querySelectorAll('#wiz-steps .step');
+    const indukIdField = document.getElementById('npd_induk_id');
+
+    function goStep(n) {
+        wizPanes.forEach(p => p.classList.toggle('show', Number(p.dataset.pane) === n));
+        wizSteps.forEach(s => {
+            const sn = Number(s.dataset.step);
+            s.classList.toggle('active', sn === n);
+            s.classList.toggle('done', sn < n);
+        });
+        if (n === 3) renderReview();
+        document.querySelector('.dash-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    }
+
+    function showStepErr(id, msg) {
+        const el = document.getElementById(id);
+        el.textContent = msg;
+        el.style.display = msg ? 'block' : 'none';
+    }
+
+    function liRow(k, v) {
+        return '<div class="li"><span class="k">' + escapeHtml(k) + '</span><span class="v">' + v + '</span></div>';
+    }
+
+    function renderReview() {
+        const jenis = (wizForm.querySelector('input[name="jenis_panjar"]:checked') || {}).value || '—';
+        const indukLabel = indukIdField.tagName === 'SELECT'
+            ? (indukIdField.options[indukIdField.selectedIndex] ? indukIdField.options[indukIdField.selectedIndex].textContent : '—')
+            : (document.querySelector('#npd-tr-form input[type="text"][disabled]') || {}).value || '—';
+
+        let html = '<div class="grp"><div class="gt">NPD Induk</div>'
+            + liRow('NPD Perjalanan Dinas', indukLabel) + '</div>';
+
+        html += '<div class="grp"><div class="gt">Detail NPD</div>'
+            + liRow('Jenis', jenis) + liRow('Tanggal NPD', tanggalInput.value || '—')
+            + liRow('Nominal Total', document.getElementById('total-nominal').textContent) + '</div>';
+
+        const timRows = timList.querySelectorAll('[data-tim-row]');
+        html += '<div class="grp"><div class="gt">Anggota (' + timRows.length + ')</div>';
+        timRows.forEach(row => {
+            const nama = row.querySelector('h4').textContent.trim();
+            const sub = row.querySelector('[data-subtotal]').value;
+            html += liRow(nama, sub);
+        });
+        html += '</div>';
+
+        document.getElementById('rev-box').innerHTML = html;
+    }
+
+    document.getElementById('wiz-n1').addEventListener('click', () => {
+        if (! indukIdField.value) { showStepErr('err-1', 'Pilih NPD Perjalanan Dinas induk terlebih dahulu.'); return; }
+        showStepErr('err-1', '');
+        goStep(2);
+    });
+    document.getElementById('wiz-b2').addEventListener('click', () => goStep(1));
+    document.getElementById('wiz-n2').addEventListener('click', () => {
+        if (! tanggalInput.value) { showStepErr('err-2', 'Lengkapi tanggal NPD.'); return; }
+        showStepErr('err-2', '');
+        goStep(3);
+    });
+    document.getElementById('wiz-b3').addEventListener('click', () => goStep(2));
+
+    const wizStartStep = Number(wizForm.dataset.startStep || 1);
+    if (wizStartStep > 1) goStep(wizStartStep);
 })();
 </script>
 @endsection

@@ -668,7 +668,7 @@
   /* Pemilih jenis NPD */
   .pick{display:grid;grid-auto-flow:column;grid-auto-columns:1fr;gap:14px;margin:18px 0;}
   @media(max-width:720px){.pick{grid-auto-flow:row;grid-template-columns:1fr 1fr;grid-auto-columns:auto;}}
-  .pick .opt{border:1.5px solid var(--line);border-radius:var(--radius);padding:20px 14px;cursor:pointer;text-align:center;transition:.15s;background:#fff;}
+  .pick .opt{border:1.5px solid var(--line);border-radius:var(--radius);padding:20px 14px;cursor:pointer;text-align:center;transition:.15s;background:#fff;text-decoration:none;}
   .pick .opt:hover{border-color:var(--navy);background:var(--navy-l);}
   .pick .opt .ic{width:64px;height:64px;margin:0 auto 12px;background:var(--navy);border-radius:50%;display:flex;align-items:center;justify-content:center;}
   .pick .opt .ic svg{width:32px;height:32px;stroke:#fff;fill:none;stroke-width:1.8;}
