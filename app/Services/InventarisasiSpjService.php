@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Models\Npd;
+use App\Models\SpjDetail;
+use App\Support\BidangOrganisasi;
 use Illuminate\Support\Collection;
 
 class InventarisasiSpjService
@@ -12,7 +14,11 @@ class InventarisasiSpjService
     public function data(array $filters): array
     {
         $npds = Npd::query()
-            ->with(['masterAnggaran.tagging', 'penerima', 'tim', 'narasumber', 'peserta', 'arsipSpjAktif'])
+            ->with([
+                'masterAnggaran.tagging', 'penerima.pegawai', 'penerima.vendor',
+                'tim.pegawai', 'narasumber.pegawai', 'narasumber.vendor', 'peserta.pegawai',
+                'suratPerintah', 'induk.suratPerintah', 'arsipSpj', 'arsipSpjAktif', 'spjDetail',
+            ])
             ->where('status', 'Selesai')
             ->orderByDesc('tanggal_npd')
             ->get()
@@ -60,6 +66,8 @@ class InventarisasiSpjService
 
         $jumlahLokasi = $rows->pluck('lokasi')->unique()->count();
 
+        $detailSpj = $this->detailSpj($npds, $filters);
+
         return [
             'rows' => $rows->all(),
             'lokasi' => $lokasi,
@@ -70,6 +78,8 @@ class InventarisasiSpjService
             'total_nominal' => (float) $rows->unique('npd_id')->sum('nominal'),
             'rata_rata_dokumen_per_bantex' => $jumlahLokasi > 0 ? round($rows->count() / $jumlahLokasi, 1) : 0.0,
             'kosong' => $rows->isEmpty(),
+            'detail_spj' => $detailSpj,
+            'bidang_list' => BidangOrganisasi::SPJ,
         ];
     }
 
@@ -118,5 +128,125 @@ class InventarisasiSpjService
             'lokasi' => $lokasi,
             'catatan_arsip' => $catatan,
         ];
+    }
+
+    /**
+     * "Tabel Detail SPJ": SATU baris per NPD (bukan per jenis dokumen seperti
+     * $rows di atas). Kolom hasil hitung (Bulan/Nomor SP/Nominal/Koordinator/
+     * Bidang/Uraian/Lokasi) bisa ditimpa manual lewat App\Models\SpjDetail -
+     * kalau ada override, dipakai; kalau tidak, dihitung dari data NPD.
+     *
+     * @param  Collection<int, Npd>  $npds
+     */
+    private function detailSpj(Collection $npds, array $filters): array
+    {
+        $rows = $npds->map(fn (Npd $npd) => $this->detailBaris($npd));
+
+        return $rows
+            ->when($filters['bulan'] ?? '', fn (Collection $items, string $value) => $items->where('bulan', (int) $value))
+            ->when($filters['sub_kegiatan'] ?? '', fn (Collection $items, string $value) => $items->where('sub_kegiatan', $value))
+            ->when($filters['kode_rekening'] ?? '', fn (Collection $items, string $value) => $items->where('kode_rekening', $value))
+            ->when($filters['tagging'] ?? '', fn (Collection $items, string $value) => $items->where('tagging', $value))
+            ->when($filters['cari'] ?? '', function (Collection $items, string $value) {
+                $needle = mb_strtolower($value);
+
+                return $items->filter(fn (array $row) => str_contains(mb_strtolower(implode(' ', [
+                    $row['nomor_sp'], $row['nomor_npd'], $row['koordinator'], $row['bidang'], $row['uraian'], $row['lokasi'],
+                ])), $needle));
+            })
+            ->values()
+            ->all();
+    }
+
+    private function detailBaris(Npd $npd): array
+    {
+        $override = $npd->spjDetail;
+        [$koordinatorDefault, $bidangDefault] = $this->koordinatorDanBidang($npd);
+        $uraianDefault = $npd->detail_json['uraian'] ?? $npd->detail_json['uraian_sp'] ?? $npd->detail_json['keterangan_lampiran'] ?? '-';
+
+        $bulan = (int) ($override?->bulan ?? $npd->tanggal_npd->month);
+
+        return [
+            'npd_id' => $npd->id,
+            'bulan' => $bulan,
+            'bulan_label' => now()->setMonth($bulan)->locale('id')->translatedFormat('F'),
+            'nomor_sp' => $override?->nomor_sp ?? $this->nomorSp($npd),
+            'nomor_npd' => $npd->nomor_lengkap ?: 'NPD #'.$npd->id,
+            'nominal' => (float) ($override?->nominal ?? $npd->nominal),
+            'koordinator' => $override?->koordinator ?? $koordinatorDefault ?? '-',
+            'bidang' => $override?->bidang ?? $bidangDefault,
+            'uraian' => $override?->uraian ?? $uraianDefault,
+            'lokasi' => $override?->lokasi ?? $this->lokasiDefault($npd),
+            'status' => $override?->status ?? SpjDetail::STATUS_BELUM_LENGKAP,
+            'catatan' => $override?->catatan,
+            'sub_kegiatan' => $npd->masterAnggaran->subKegiatanNormal(),
+            'kode_rekening' => $npd->masterAnggaran->kode_rekening,
+            'tagging' => $npd->tagging_snapshot ?: ($npd->masterAnggaran->tagging?->nama ?? ''),
+            'ada_override' => $override !== null,
+            'diedit_oleh' => $override?->dieditOleh?->nama,
+            'diedit_at' => $override?->diedit_at?->format('d-m-Y H:i'),
+        ];
+    }
+
+    /**
+     * Koordinator (penerima) dan Bidang default satu NPD. Bidang diambil
+     * dari data Pegawai penerima (dipetakan ke salah satu dari 7 bidang
+     * lewat BidangOrganisasi::petakan()); kalau penerimanya Vendor atau
+     * tidak ada Pegawai yang cocok, Bidang default "Sekretariat".
+     *
+     * @return array{0: ?string, 1: string}
+     */
+    private function koordinatorDanBidang(Npd $npd): array
+    {
+        [$nama, $pegawai, $adaVendor] = match ($npd->jenis) {
+            'bj' => (function () use ($npd) {
+                $p = $npd->penerima->first();
+
+                return [$p?->nama, $p?->pegawai, $p?->vendor_id !== null];
+            })(),
+            'pd', 'tr' => (function () use ($npd) {
+                $t = $npd->tim->firstWhere('is_penerima', true) ?? $npd->tim->first();
+
+                return [$t?->nama, $t?->pegawai, false];
+            })(),
+            'ns' => (function () use ($npd) {
+                $n = $npd->narasumber->first();
+
+                return [$n?->nama, $n?->pegawai, $n?->vendor_id !== null];
+            })(),
+            'kd' => (function () use ($npd) {
+                $p = $npd->peserta->first();
+
+                return [$p?->nama, $p?->pegawai, false];
+            })(),
+            default => [null, null, false],
+        };
+
+        if ($adaVendor) {
+            return [$nama, 'Sekretariat'];
+        }
+
+        $bidang = $pegawai ? BidangOrganisasi::petakan($pegawai->bidang) : null;
+        $bidang = in_array($bidang, BidangOrganisasi::SPJ, true) ? $bidang : 'Sekretariat';
+
+        return [$nama, $bidang];
+    }
+
+    /** NPD Transport ('tr') tidak punya SP sendiri - warisi dari NPD Perjalanan Dinas induknya. */
+    private function nomorSp(Npd $npd): ?string
+    {
+        if ($npd->jenis === 'tr' && $npd->induk) {
+            return $npd->induk->suratPerintah?->nomor_sp ?? ($npd->induk->detail_json['nomor_sp'] ?? null);
+        }
+
+        return $npd->suratPerintah?->nomor_sp ?? ($npd->detail_json['nomor_sp'] ?? null);
+    }
+
+    /** Lokasi default dari arsip_spj aktif (utamakan jenis dokumen "NPD") - lihat NPD show > Lokasi Arsip SPJ. */
+    private function lokasiDefault(Npd $npd): ?string
+    {
+        $aktif = $npd->arsipSpj->where('aktif', true);
+
+        return ($aktif->firstWhere('jenis_dokumen', 'NPD') ?? $aktif->first())?->lokasi;
     }
 }

@@ -77,6 +77,10 @@ Route::middleware('auth.or.guest')->group(function () {
         ->name('dashboard.spj.verify');
     Route::get('/inventarisasi-spj', [InventarisasiSpjController::class, 'index'])
         ->middleware('menu-akses:invspj')->name('inventarisasi-spj.index');
+    Route::middleware(['menu-akses:invspj', 'role:superadmin,bendahara_pengeluaran,bpp'])->group(function () {
+        Route::put('/inventarisasi-spj/{npd}', [InventarisasiSpjController::class, 'updateDetail'])->name('inventarisasi-spj.detail.update');
+        Route::post('/inventarisasi-spj/{npd}/restore', [InventarisasiSpjController::class, 'restoreDetail'])->name('inventarisasi-spj.detail.restore');
+    });
     Route::get('/tunjangan-keluarga/dashboard', [TunjanganKeluargaController::class, 'dashboard'])
         ->middleware('menu-akses:dash-tk')->name('tunjangan.dashboard');
     Route::get('/tunjangan-keluarga/monitoring', [TunjanganKeluargaController::class, 'monitoring'])

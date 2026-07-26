@@ -6,6 +6,7 @@ use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
 #[Fillable([
@@ -236,6 +237,12 @@ class Npd extends Model
     public function importHistoris(): BelongsTo
     {
         return $this->belongsTo(NpdHistorisImport::class, 'import_historis_id');
+    }
+
+    /** Override manual "Tabel Detail SPJ" (Inventarisasi SPJ) - lihat App\Models\SpjDetail. */
+    public function spjDetail(): HasOne
+    {
+        return $this->hasOne(SpjDetail::class);
     }
 
     public function dapatDieditOleh(User $user): bool

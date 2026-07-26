@@ -24,6 +24,17 @@ final class BidangOrganisasi
         'Sekretariat',
     ];
 
+    /** 7 bidang di Inspektorat (dipakai Tabel Detail SPJ - Inventarisasi SPJ) - PERJALANAN tanpa 'Struktural'. */
+    public const SPJ = [
+        'Sekretariat',
+        'Subbagian Tata Usaha',
+        'Inspektur Pembantu I',
+        'Inspektur Pembantu II',
+        'Inspektur Pembantu III',
+        'Inspektur Pembantu IV',
+        'Inspektur Pembantu Investigasi',
+    ];
+
     public static function petakan(?string $nilai, bool $khususPengawasan = false): ?string
     {
         $teks = mb_strtolower(trim(preg_replace('/\s+/', ' ', (string) $nilai)));
