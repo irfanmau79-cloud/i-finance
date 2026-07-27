@@ -298,6 +298,14 @@ Route::middleware('auth.or.guest')->group(function () {
             ->whereIn('jenis', ['master-anggaran', 'rak-bulanan', 'npd', 'perjalanan-dinas', 'spj-perjalanan-dinas', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'tunjangan-keluarga'])
             ->name('manajemen-data.export');
 
+        // Reset Data: hapus massal permanen per tipe data - lebih sensitif
+        // daripada import/export, sengaja dibatasi superadmin saja (bukan
+        // ikut role:superadmin,bendahara_pengeluaran di grup ini).
+        Route::post('/manajemen-data/reset/{jenis}', [ManajemenDataController::class, 'reset'])
+            ->whereIn('jenis', ['pagu', 'rak', 'npd', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'tunjangan-keluarga'])
+            ->middleware('role:superadmin')
+            ->name('manajemen-data.reset');
+
         // Import Pagu/Master Anggaran: upload -> staging (preview/dry-run) -> konfirmasi simpan.
         Route::get('/manajemen-data/import/master-anggaran', [MasterAnggaranImportController::class, 'create'])->name('manajemen-data.import.master-anggaran.create');
         Route::get('/manajemen-data/import/master-anggaran/template', [MasterAnggaranImportController::class, 'template'])->name('manajemen-data.import.master-anggaran.template');

@@ -13,7 +13,9 @@ use App\Exports\SpmUpGuExport;
 use App\Exports\TunjanganKeluargaExport;
 use App\Exports\VendorExport;
 use App\Helpers\AuditLog;
+use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
 
@@ -113,11 +115,30 @@ class ManajemenDataController extends Controller
         ],
     ];
 
+    /**
+     * Kata kunci konfirmasi ketik-ulang untuk Reset Data (hapus massal
+     * permanen) - jenis di sini SENGAJA sama persis dengan kunci
+     * TIPE_DATA/$tipeData di view, minus 'perjalanan-dinas' dan
+     * 'spj-perjalanan-dinas' yang tidak punya tabel sendiri (murni
+     * tampilan terkomputasi dari data NPD - lihat dokumentasi TIPE_DATA).
+     */
+    private const RESET_KEYWORD = [
+        'pagu' => 'PAGU',
+        'rak' => 'RAK',
+        'npd' => 'NPD',
+        'spm-up-gu' => 'SPM UP/GU',
+        'spm-ls' => 'SPM LS',
+        'pegawai' => 'PEGAWAI',
+        'vendor' => 'VENDOR',
+        'tunjangan-keluarga' => 'TUNJANGAN KELUARGA',
+    ];
+
     public function index()
     {
         return view('manajemen-data.index', [
             'tipeData' => self::TIPE_DATA,
             'tahunSekarang' => (int) config('anggaran.tahun_aktif'),
+            'resetKeyword' => self::RESET_KEYWORD,
         ]);
     }
 
@@ -145,5 +166,116 @@ class ManajemenDataController extends Controller
         AuditLog::catat('Export Data', "Jenis: {$meta['label']}, Baris: {$jumlahBaris}, File: {$filename}");
 
         return Excel::download($export, $filename);
+    }
+
+    /**
+     * Reset Data: hapus SEMUA baris tipe data ini secara permanen. Lebih
+     * sensitif daripada import/export (dibatasi superadmin lewat middleware
+     * route), jadi juga wajib konfirmasi ketik-ulang kata kunci persis
+     * (lihat RESET_KEYWORD) sebelum benar-benar dieksekusi.
+     *
+     * Urutan antar tipe data PENTING kalau mau reset lebih dari satu:
+     * 'pagu' (master_anggaran) direstrict FK oleh npd/spm_detail yang masih
+     * memakainya, jadi harus direset PALING TERAKHIR (setelah npd & spm-ls
+     * kosong). Reset 'npd'/'spm-ls' otomatis ikut menghapus data Pengembalian
+     * terkait (dokumen_tipe berpasangan, tidak punya FK sungguhan sehingga
+     * kalau tidak dibersihkan di sini akan jadi baris yatim). Reset 'pegawai'
+     * otomatis CASCADE menghapus Tunjangan Keluarga (FK cascadeOnDelete) dan
+     * bisa gagal kalau pegawai itu masih menjabat KPA/BPP/PPTK.
+     */
+    public function reset(string $jenis, Request $request)
+    {
+        abort_unless(isset(self::RESET_KEYWORD[$jenis]), 404);
+
+        $label = self::TIPE_DATA[$jenis]['label'];
+        $keyword = 'HAPUS '.self::RESET_KEYWORD[$jenis];
+
+        $request->validate(['konfirmasi' => ['required', 'string']]);
+
+        if (trim((string) $request->input('konfirmasi')) !== $keyword) {
+            return back()->withErrors(['konfirmasi' => "Konfirmasi tidak cocok. Ketik persis \"{$keyword}\" untuk reset {$label}."]);
+        }
+
+        try {
+            $jumlah = DB::transaction(fn () => $this->jalankanReset($jenis));
+        } catch (QueryException $e) {
+            return back()->withErrors(['konfirmasi' => "Gagal reset {$label}: masih ada data lain yang bergantung padanya. ".$this->pesanBlokir($jenis)]);
+        }
+
+        AuditLog::catat('Reset Data', "Jenis: {$label}, Baris dihapus: {$jumlah}");
+
+        return redirect()->route('manajemen-data.index')->with('success', "{$label} berhasil direset - {$jumlah} baris dihapus permanen.");
+    }
+
+    private function jalankanReset(string $jenis): int
+    {
+        return match ($jenis) {
+            'pagu' => $this->hapusTabel('master_anggaran'),
+            'rak' => $this->hapusTabel('rak_bulanan'),
+            'npd' => $this->resetNpd(),
+            'spm-up-gu' => $this->resetSpm('up_gu'),
+            'spm-ls' => $this->resetSpm('ls'),
+            'pegawai' => $this->hapusTabel('pegawai'),
+            'vendor' => $this->hapusTabel('vendor'),
+            'tunjangan-keluarga' => $this->hapusTabel('tunjangan_keluarga'),
+        };
+    }
+
+    private function hapusTabel(string $table): int
+    {
+        $jumlah = DB::table($table)->count();
+        DB::table($table)->delete();
+
+        return $jumlah;
+    }
+
+    /**
+     * npd pakai SoftDeletes di Eloquent, tapi DB::table() query builder
+     * TIDAK melalui itu - selalu physical DELETE, memicu cascade FK
+     * sungguhan ke npd_penerima/npd_tim/npd_narasumber/npd_peserta/
+     * npd_histori_status/arsip_spj/spj_detail (semua cascadeOnDelete).
+     * Baris Pengembalian yang menunjuk NPD (dokumen_tipe='npd') tidak
+     * punya FK sungguhan (kolom polymorphic biasa), jadi dibersihkan
+     * manual di sini supaya tidak jadi data yatim.
+     */
+    private function resetNpd(): int
+    {
+        $jumlah = DB::table('npd')->count();
+
+        $pengembalianIds = DB::table('pengembalian')->where('dokumen_tipe', 'npd')->pluck('id');
+        DB::table('pengembalian_detail')->whereIn('pengembalian_id', $pengembalianIds)->delete();
+        DB::table('pengembalian')->where('dokumen_tipe', 'npd')->delete();
+
+        DB::table('npd')->delete();
+
+        return $jumlah;
+    }
+
+    /** Tabel spm dipakai bersama UP/GU dan LS (dibedakan jenis_spm) - hapus per jenis, bukan truncate seluruh tabel. */
+    private function resetSpm(string $jenisSpm): int
+    {
+        $jumlah = DB::table('spm')->where('jenis_spm', $jenisSpm)->count();
+
+        if ($jenisSpm === 'ls') {
+            // spm_detail (baris mata anggaran LS) ikut cascade otomatis lewat
+            // FK spm_id cascadeOnDelete. Pengembalian (dokumen_tipe='spm_ls')
+            // tidak punya FK sungguhan - dibersihkan manual seperti NPD.
+            $pengembalianIds = DB::table('pengembalian')->where('dokumen_tipe', 'spm_ls')->pluck('id');
+            DB::table('pengembalian_detail')->whereIn('pengembalian_id', $pengembalianIds)->delete();
+            DB::table('pengembalian')->where('dokumen_tipe', 'spm_ls')->delete();
+        }
+
+        DB::table('spm')->where('jenis_spm', $jenisSpm)->delete();
+
+        return $jumlah;
+    }
+
+    private function pesanBlokir(string $jenis): string
+    {
+        return match ($jenis) {
+            'pagu' => 'Kemungkinan masih ada NPD atau SPM LS yang memakai mata anggaran ini - reset Data NPD dan Data SPM LS terlebih dahulu.',
+            'pegawai' => 'Kemungkinan masih ada pegawai yang menjabat sebagai KPA/BPP/PPTK - lepas penugasan tersebut terlebih dahulu.',
+            default => 'Periksa data lain yang mungkin masih bergantung pada data ini.',
+        };
     }
 }

@@ -646,6 +646,8 @@
   .btn:hover{background:#f8fafc;}
   .btn.prim{background:var(--navy);color:#fff;border-color:var(--navy);}
   .btn.prim:hover{background:var(--navy-d);}
+  .btn.danger{background:#dc2626;color:#fff;border-color:#dc2626;}
+  .btn.danger:hover{background:#b91c1c;border-color:#b91c1c;}
   .btn:disabled{opacity:.45;cursor:not-allowed;}
 
   .rev{font-size:13.5px;}
