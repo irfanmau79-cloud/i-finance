@@ -17,7 +17,7 @@ class StoreArsipSpjRequest extends FormRequest
     {
         return [
             'jenis_dokumen' => ['required', Rule::in(InventarisasiSpjService::JENIS_DOKUMEN)],
-            'lokasi' => ['required', 'string', 'max:100'],
+            'lokasi' => ['required', 'string', 'max:100', Rule::exists('bantex_spj', 'nama')->where('aktif', true)],
             'catatan' => ['nullable', 'string', 'max:1000'],
         ];
     }

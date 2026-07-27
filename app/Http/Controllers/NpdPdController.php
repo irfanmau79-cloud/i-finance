@@ -32,7 +32,8 @@ class NpdPdController extends Controller
             ->orderBy('kode')
             ->get();
 
-        $suratPerintahList = SuratPerintah::where('status', SuratPerintah::STATUS_DITERIMA_PPTK)
+        $suratPerintahList = SuratPerintah::with('anggota.pegawai')
+            ->where('status', SuratPerintah::STATUS_DITERIMA_PPTK)
             ->orderBy('tanggal_sp', 'desc')
             ->get(['id', 'nomor_sp', 'tanggal_sp', 'keterangan', 'lokasi', 'unit_kerja']);
 
@@ -171,6 +172,7 @@ class NpdPdController extends Controller
         $pegawai = Pegawai::where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'jabatan', 'bidang', 'nip', 'rekening']);
         $clusterList = ClusterUh::with(['wilayah' => fn ($q) => $q->orderBy('nama_wilayah')])->where('aktif', true)->orderBy('kode')->get();
         $suratPerintahList = SuratPerintah::query()
+            ->with('anggota.pegawai')
             ->where(fn ($query) => $query->where('status', SuratPerintah::STATUS_DITERIMA_PPTK)->orWhereKey($npd->surat_perintah_id))
             ->orderBy('tanggal_sp', 'desc')->get(['id', 'nomor_sp', 'tanggal_sp', 'keterangan', 'lokasi', 'unit_kerja']);
         $bulanList = [

@@ -180,8 +180,10 @@ class NpdLifecycleTest extends TestCase
         $npd = Npd::sole();
         $this->assertSame(1_000_000.0, $anggaran->fresh()->danaTerikatNpd());
 
-        $this->actingAs($pptk)->delete(route('npd.destroy', $npd), ['alasan' => 'Duplikat input'])
-            ->assertRedirect(route('npd.index'));
+        $this->actingAs($pptk)->followingRedirects()
+            ->delete(route('npd.destroy', $npd), ['alasan' => 'Duplikat input'])
+            ->assertOk()
+            ->assertSee('NPD berhasil dibatalkan dengan aman.');
 
         $batal = Npd::withTrashed()->findOrFail($npd->id);
         $this->assertTrue($batal->trashed());
@@ -201,13 +203,43 @@ class NpdLifecycleTest extends TestCase
         $npd->update(['status' => 'Selesai', 'nomor_urut' => 3, 'nomor_lengkap' => '03/NPD-Keu.1.IBC/7/2026']);
 
         $this->actingAs($pptk)->delete(route('npd.destroy', $npd), ['alasan' => 'Tidak berwenang'])->assertForbidden();
-        $this->actingAs($superadmin)->delete(route('npd.destroy', $npd), ['alasan' => 'Dokumen dibatalkan'])->assertRedirect(route('npd.index'));
+        $this->actingAs($superadmin)->delete(route('npd.destroy', $npd), ['alasan' => 'Dokumen dibatalkan'])->assertRedirect('/npd');
 
         $npd->refresh();
         $this->assertFalse($npd->trashed());
         $this->assertSame('Dibatalkan', $npd->status);
         $this->assertNull($npd->nomor_urut);
         $this->assertSame('batalkan', $npd->historiStatus()->reorder('nomor_urut', 'desc')->value('aksi'));
+
+        $this->actingAs($superadmin)->followingRedirects()
+            ->delete(route('npd.destroy', $npd), ['alasan' => 'Klik ulang'])
+            ->assertOk()
+            ->assertSee('sudah dibatalkan sebelumnya');
+    }
+
+    public function test_hanya_superadmin_dapat_menghapus_npd_secara_permanen(): void
+    {
+        $pptk = $this->user('pptk');
+        $superadmin = $this->user('superadmin');
+        $anggaran = $this->anggaran();
+        $npd = Npd::create([
+            'jenis' => 'bj', 'master_anggaran_id' => $anggaran->id, 'keu' => 'KEU1', 'bulan' => 7, 'tahun' => 2026,
+            'tanggal_npd' => '2026-07-27', 'jenis_panjar' => 'Tanpa Panjar',
+            'nominal' => 100_000, 'terbilang' => 'Seratus ribu rupiah',
+            'status' => 'Dibatalkan', 'dibuat_oleh' => $superadmin->id,
+        ]);
+        $npd->catatHistoriStatus($superadmin, 'buat', null, 'Dibatalkan');
+
+        $this->actingAs($pptk)->delete(route('npd.destroy-permanent', $npd), [
+            'alasan_permanen' => 'Tidak berwenang',
+        ])->assertForbidden();
+
+        $this->actingAs($superadmin)->delete(route('npd.destroy-permanent', $npd), [
+            'alasan_permanen' => 'Data uji harus dibersihkan',
+        ])->assertRedirect('/npd');
+
+        $this->assertNull(Npd::withTrashed()->find($npd->id));
+        $this->assertDatabaseHas('audit_log', ['aktivitas' => 'Hapus Permanen NPD']);
     }
 
     public function test_konflik_nomor_tahunan_ditolak_dengan_pesan_ramah(): void

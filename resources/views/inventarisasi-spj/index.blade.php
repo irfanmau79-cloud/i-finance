@@ -2,7 +2,57 @@
 @section('activeNav', 'invspj')
 @section('title', 'Inventarisasi SPJ')
 @section('content')
-<style>.inv-filter-grp.inv-filter-bulan{flex:0.5 1 0;min-width:110px;}</style>
+<style>
+  .inv-filter-grp.inv-filter-bulan{flex:0.5 1 0;min-width:110px;}
+  #inv-table{min-width:1180px;}
+  #inv-table .spj-catatan{display:block;padding:6px 8px;border-radius:7px;background:#f7f9fc;color:var(--mut);white-space:normal;overflow-wrap:anywhere;line-height:1.4;}
+  #inv-table .spj-lokasi{display:inline-flex;align-items:center;gap:5px;background:#fff5e2;color:#8a6113;border:1px solid #f2dfb3;border-radius:20px;padding:4px 9px;font-size:11px;font-weight:700;white-space:normal;}
+  #inv-table .spj-lokasi svg{width:12px;height:12px;flex:0 0 12px;fill:none;stroke:currentColor;stroke-width:2;}
+  #inv-table .spj-edit-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid #cdd9e5;border-radius:8px;background:#fff;color:var(--navy);cursor:pointer;transition:.15s;}
+  #inv-table .spj-edit-btn:hover{background:var(--navy);border-color:var(--navy);color:#fff;transform:translateY(-1px);box-shadow:0 4px 10px rgba(21,49,74,.18);}
+  #inv-table .spj-edit-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;}
+  #inv-table .spj-actions{display:flex;align-items:center;justify-content:center;gap:6px;flex-wrap:wrap;}
+  #inv-table .spj-view-btn{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;padding:0;border:1px solid var(--navy);border-radius:8px;background:var(--navy);color:#fff;cursor:pointer;transition:.15s;}
+  #inv-table .spj-view-btn:hover{background:var(--navy-d);transform:translateY(-1px);box-shadow:0 4px 10px rgba(21,49,74,.2);}
+  #inv-table .spj-view-btn svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;}
+  .spj-detail-modal{max-width:920px;background:#f8fafc;}
+  .spj-detail-modal .mdl-h{padding:20px 24px 16px;background:linear-gradient(135deg,var(--navy),#24527a);color:#fff;border-radius:14px 14px 0 0;}
+  .spj-detail-modal .mdl-b{padding:20px 24px;}
+  .spj-edit-modal{max-width:820px;background:#f8fafc;}
+  .spj-edit-modal .mdl-h{padding:20px 24px 16px;background:linear-gradient(135deg,var(--navy),#24527a);color:#fff;border-radius:14px 14px 0 0;}
+  .spj-edit-modal .mdl-b{padding:20px 24px;}
+  .spj-edit-modal .form-grid{gap:12px 18px;margin:0;}
+  .spj-edit-modal .fg label.fl{margin-top:0;}
+  .spj-edit-section{padding:16px;border:1px solid #e1e8ef;border-radius:12px;background:#fff;margin-bottom:14px;}
+  .spj-edit-section-title{display:flex;align-items:center;gap:8px;margin-bottom:13px;color:var(--navy);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;}
+  .spj-edit-section-title::before{content:"";width:4px;height:15px;border-radius:4px;background:var(--gold);}
+  .spj-edit-section .fg+.fg{margin-top:12px;}
+  .spj-edit-section textarea{width:100%;box-sizing:border-box;resize:vertical;}
+  .spj-edit-actions{display:flex;align-items:center;justify-content:space-between;gap:12px;padding-top:2px;}
+  .spj-edit-actions .right{display:flex;gap:8px;}
+  .bantex-create{display:flex;align-items:flex-end;gap:12px;margin:18px 0;padding:16px 18px;border:1px solid #dce6ef;border-radius:14px;background:linear-gradient(135deg,#fff,#f5f8fb);}
+  .bantex-create .fg{flex:1;min-width:180px}.bantex-create label.fl{margin-top:0}
+  .inv-rak{gap:28px 24px;}
+  .inv-rak .bantex{width:92px;height:216px;border-radius:10px 10px 5px 5px;padding-top:14px;}
+  .inv-rak .bantex .bx-label{width:72px;padding:7px 4px 8px;}
+  .inv-rak .bantex .bx-no{font-size:21px;margin:3px 0;}
+  .inv-rak .bantex .bx-name{font-size:10px;min-height:30px;}
+  .inv-rak .bantex .bx-count{font-size:9px;margin-top:3px;}
+  .inv-rak .bantex .bx-meta{font-size:8px;}
+  .inv-rak .bantex.kosong{opacity:.75;filter:saturate(.45);border-style:dashed;}
+  .inv-rak .bantex.kosong::after{content:"KOSONG";position:absolute;left:50%;bottom:48px;transform:translateX(-50%);font-size:8px;font-weight:800;letter-spacing:1px;color:#dbe8f7;}
+  .spj-detail-head-sub{display:block;margin-top:3px;color:#c9d9e8;font-size:11.5px;font-weight:400;}
+  .spj-detail-section{margin-bottom:16px;}
+  .spj-detail-section:last-child{margin-bottom:0;}
+  .spj-detail-section-title{display:flex;align-items:center;gap:8px;margin-bottom:8px;color:var(--navy);font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;}
+  .spj-detail-section-title::before{content:"";width:4px;height:15px;border-radius:4px;background:var(--gold);}
+  .spj-detail-grid{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px 12px;}
+  .spj-detail-item{padding:10px 12px;border-radius:9px;background:#f7f9fc;border:1px solid #edf1f5;min-width:0;}
+  .spj-detail-item.span2{grid-column:1/-1;}
+  .spj-detail-item .k{font-size:10px;text-transform:uppercase;letter-spacing:.5px;color:var(--mut);font-weight:700;margin-bottom:3px;}
+  .spj-detail-item .v{color:var(--ink);font-weight:600;overflow-wrap:anywhere;white-space:pre-wrap;}
+  @media(max-width:640px){.spj-detail-modal .mdl-b,.spj-edit-modal .mdl-b{padding:16px}.spj-detail-grid{grid-template-columns:1fr}.spj-detail-item.span2{grid-column:auto}.spj-edit-actions{align-items:stretch;flex-direction:column}.spj-edit-actions .right{display:grid;grid-template-columns:1fr 1fr}.spj-edit-actions .btn{width:100%;text-align:center}}
+</style>
 
 @php
     $ringkasRp = function (float $n): string {
@@ -25,6 +75,7 @@
     $subOptionsJs = collect([['value' => '', 'label' => 'Semua Sub Kegiatan']])->concat($inventaris['pilihan_berlabel']['sub_kegiatan']);
     $kodeOptionsJs = collect([['value' => '', 'label' => 'Semua Kode Rekening']])->concat($inventaris['pilihan_berlabel']['kode_rekening']);
     $taggingOptionsJs = collect([['value' => '', 'label' => 'Semua Tagging']])->concat($inventaris['pilihan_berlabel']['tagging']);
+    $filterHierarchyJs = $inventaris['filter_hierarchy'];
 @endphp
 
 <div class="page-head">
@@ -101,8 +152,17 @@
   </div>
 </form>
 
-@if($inventaris['kosong'])
-  <div class="dash-card" style="text-align:center;padding:45px;color:var(--mut)">Tidak ada dokumen sesuai filter.</div>
+@if($bolehEditDetail)
+<form method="POST" action="{{ route('inventarisasi-spj.bantex.store') }}" class="bantex-create">
+  @csrf
+  <div class="fg"><label class="fl" for="bantex-nama">Nama Bantex/Box</label><input id="bantex-nama" name="nama" maxlength="100" required placeholder="Contoh: Bantex A-01"></div>
+  <div class="fg"><label class="fl" for="bantex-keterangan">Keterangan</label><input id="bantex-keterangan" name="keterangan" maxlength="500" placeholder="Contoh: Arsip Bidang Sekretariat"></div>
+  <button class="btn prim" type="submit">+ Tambah Bantex/Box</button>
+</form>
+@endif
+
+@if($inventaris['kosong'] && count($inventaris['lokasi']) === 0)
+  <div class="dash-card" style="text-align:center;padding:45px;color:var(--mut)">Belum ada Bantex/Box. Tambahkan Bantex/Box pertama untuk mulai menata arsip.</div>
 @else
 
 <div class="inv-rak-wrap" id="inv-level1">
@@ -153,16 +213,12 @@
       <div class="inv-tbl-scroll">
         <table class="inv-modtable" id="inv-table" style="table-layout:fixed;">
           <colgroup>
-            <col style="width:6%;"><col style="width:10%;"><col style="width:10%;"><col style="width:8%;">
-            <col style="width:11%;"><col style="width:10%;"><col style="width:15%;"><col style="width:8%;">
-            <col style="width:8%;"><col style="width:9%;">
-            @if ($bolehEditDetail)<col style="width:5%;">@endif
+            <col style="width:11%;"><col style="width:11%;"><col style="width:12%;"><col style="width:9%;">
+            <col style="width:10%;"><col style="width:9%;"><col style="width:31%;"><col style="width:7%;">
           </colgroup>
           <thead><tr>
-            <th>Bulan</th><th>Nomor Surat Perintah</th><th>Nomor NPD</th><th class="ta-r">Nominal</th>
-            <th>Koordinator</th><th>Bidang</th><th>Uraian</th><th>Lokasi</th>
-            <th>Status</th><th>Catatan</th>
-            @if ($bolehEditDetail)<th style="text-align:center;">Aksi</th>@endif
+            <th>Nomor SP</th><th>Nomor NPD</th><th>Koordinator</th><th>Bidang</th><th>Lokasi</th>
+            <th>Status</th><th>Catatan</th><th style="text-align:center;">Aksi</th>
           </tr></thead>
           <tbody id="inv-table-tbody"></tbody>
         </table>
@@ -172,14 +228,28 @@
   </div>
 </div>
 
+<div class="mdl-ov" id="spj-detail-ov">
+  <div class="mdl spj-detail-modal">
+    <div class="mdl-h">Rincian Detail SPJ<span class="spj-detail-head-sub">Informasi lengkap dokumen, anggaran, dan status inventarisasi</span></div>
+    <div class="mdl-b">
+      <div class="spj-detail-grid" id="spj-detail-content"></div>
+      <div class="mdl-f" style="padding:16px 0 0;display:flex;justify-content:flex-end;">
+        <button type="button" class="btn prim" id="spj-detail-close">Tutup</button>
+      </div>
+    </div>
+  </div>
+</div>
+
 @if ($bolehEditDetail)
 <div class="mdl-ov" id="spj-mdl-ov">
-  <div class="mdl">
-    <div class="mdl-h">Edit Detail SPJ</div>
+  <div class="mdl spj-edit-modal">
+    <div class="mdl-h">Edit Detail SPJ<span class="spj-detail-head-sub">Perbarui informasi dokumen dan status inventarisasi</span></div>
     <div class="mdl-b">
       <form method="POST" id="spj-edit-form">
         @csrf
         @method('PUT')
+        <div class="spj-edit-section">
+          <div class="spj-edit-section-title">Data Utama</div>
         <div class="form-grid">
           <div class="fg">
             <label class="fl">Bulan</label>
@@ -209,18 +279,29 @@
             </select>
           </div>
         </div>
+        </div>
+        <div class="spj-edit-section">
+          <div class="spj-edit-section-title">Pelaksana dan Uraian</div>
         <div class="fg">
           <label class="fl">Koordinator (Penerima di NPD)</label>
           <input type="text" name="koordinator" id="spj-f-koordinator">
         </div>
         <div class="fg">
           <label class="fl">Uraian</label>
-          <input type="text" name="uraian" id="spj-f-uraian">
+          <textarea name="uraian" id="spj-f-uraian" rows="3"></textarea>
         </div>
+        </div>
+        <div class="spj-edit-section">
+          <div class="spj-edit-section-title">Informasi Inventarisasi</div>
         <div class="form-grid">
           <div class="fg">
             <label class="fl">Lokasi</label>
-            <input type="text" name="lokasi" id="spj-f-lokasi" placeholder="mis. Bantex A-01">
+            <select name="lokasi" id="spj-f-lokasi">
+              <option value="">— Belum Ditetapkan —</option>
+              @foreach($inventaris['bantex'] as $bantex)
+                <option value="{{ $bantex->nama }}">{{ $bantex->nama }}{{ $bantex->keterangan ? ' — '.$bantex->keterangan : '' }}</option>
+              @endforeach
+            </select>
           </div>
           <div class="fg">
             <label class="fl">Status</label>
@@ -234,14 +315,17 @@
           <label class="fl">Catatan</label>
           <textarea name="catatan" id="spj-f-catatan" rows="3"></textarea>
         </div>
+        </div>
       </form>
-      <form method="POST" id="spj-restore-form" style="margin-top:12px;" onsubmit="return confirm('Kembalikan Bulan/Nomor SP/Nominal/Koordinator/Bidang/Uraian/Lokasi ke nilai default hasil hitung? Status dan Catatan tidak ikut berubah.');">
-        @csrf
-        <button type="submit" class="btn" style="width:100%;">&#8635; Restore ke Default</button>
-      </form>
-      <div class="mdl-f" style="padding:14px 0 0;display:flex;justify-content:flex-end;gap:8px;">
-        <button type="button" class="btn" onclick="spjModalClose()">Batal</button>
-        <button type="submit" form="spj-edit-form" class="btn prim">Simpan</button>
+      <div class="spj-edit-actions">
+        <form method="POST" id="spj-restore-form" onsubmit="return confirm('Kembalikan Bulan/Nomor SP/Nominal/Koordinator/Bidang/Uraian/Lokasi ke nilai default hasil hitung? Status dan Catatan tidak ikut berubah.');">
+          @csrf
+          <button type="submit" class="btn">&#8635; Restore ke Default</button>
+        </form>
+        <div class="right">
+          <button type="button" class="btn" onclick="spjModalClose()">Batal</button>
+          <button type="submit" form="spj-edit-form" class="btn prim">Simpan Perubahan</button>
+        </div>
       </div>
     </div>
   </div>
@@ -397,20 +481,19 @@ document.addEventListener('DOMContentLoaded', function () {
     const start = (page - 1) * perPage;
     const slice = rowsAll.slice(start, start + perPage);
     tbody.innerHTML = slice.length ? slice.map(r => (
-      '<tr>' +
-        '<td><span class="badge-bulan">' + esc(r.bulan_label) + '</span></td>' +
+      '<tr class="spj-row-' + (r.status === 'lengkap' ? 'lengkap' : 'belum') + '">' +
         '<td class="cell-clip" title="' + esc(r.nomor_sp || '') + '">' + esc(r.nomor_sp || '-') + '</td>' +
         '<td class="cell-npd">' + esc(r.nomor_npd) + '</td>' +
-        '<td class="ta-r">' + rp(r.nominal) + '</td>' +
         '<td class="cell-clip" title="' + esc(r.koordinator) + '">' + esc(r.koordinator) + '</td>' +
         '<td class="cell-clip" title="' + esc(r.bidang || '') + '">' + esc(r.bidang || '-') + '</td>' +
-        '<td class="cell-clip" title="' + esc(r.uraian) + '">' + esc(r.uraian) + '</td>' +
-        '<td><span class="badge-lok">' + esc(r.lokasi || '(Belum Ditetapkan)') + '</span></td>' +
+        '<td><span class="spj-lokasi"><svg viewBox="0 0 24 24"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>' + esc(r.lokasi || 'Belum Ditetapkan') + '</span></td>' +
         '<td>' + statusBadge(r.status) + '</td>' +
-        '<td class="cell-clip" title="' + esc(r.catatan || '') + '">' + esc(r.catatan || '-') + '</td>' +
-        (bolehEditDetail ? '<td style="text-align:center;"><button type="button" class="ic-btn" data-spj-edit="' + r.npd_id + '" title="Edit"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button></td>' : '') +
+        '<td><span class="spj-catatan" title="' + esc(r.catatan || '') + '">' + esc(r.catatan || 'Tidak ada catatan') + '</span></td>' +
+        '<td><div class="spj-actions"><button type="button" class="spj-view-btn" data-spj-view="' + r.npd_id + '" title="Lihat Rincian" aria-label="Lihat Rincian"><svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></button>' +
+        (bolehEditDetail ? '<button type="button" class="spj-edit-btn" data-spj-edit="' + r.npd_id + '" title="Edit Detail SPJ" aria-label="Edit Detail SPJ"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></button>' : '') +
+        '</div></td>' +
       '</tr>'
-    )).join('') : '<tr><td colspan="' + (bolehEditDetail ? 11 : 10) + '" style="text-align:center;color:var(--mut);padding:22px;">Tidak ada data.</td></tr>';
+    )).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--mut);padding:22px;">Tidak ada data.</td></tr>';
     renderPager(total, pages, start, slice.length);
   }
   function renderPager(total, pages, start, shown) {
@@ -435,6 +518,42 @@ document.addEventListener('DOMContentLoaded', function () {
     }));
   }
   renderTable();
+
+  const detailOv = document.getElementById('spj-detail-ov');
+  const detailContent = document.getElementById('spj-detail-content');
+  const detailItem = (label, value, span2) => '<div class="spj-detail-item' + (span2 ? ' span2' : '') + '"><div class="k">' + label + '</div><div class="v">' + esc(value || '-') + '</div></div>';
+  const detailSection = (title, content) => '<section class="spj-detail-section"><div class="spj-detail-section-title">' + title + '</div><div class="spj-detail-grid">' + content + '</div></section>';
+  function spjOpenDetail(npdId) {
+    const r = rowsAll.find(x => x.npd_id === npdId);
+    if (!r) return;
+    detailContent.innerHTML = detailSection('Identitas Dokumen',
+      detailItem('Nomor SP', r.nomor_sp) +
+      detailItem('Nomor NPD', r.nomor_npd) +
+      detailItem('Bulan', r.bulan_label) +
+      detailItem('Nominal', rp(r.nominal)) +
+      detailItem('Koordinator', r.koordinator) +
+      detailItem('Bidang', r.bidang)
+    ) + detailSection('Struktur Anggaran',
+      detailItem('Sub Kegiatan', r.sub_kegiatan, true) +
+      detailItem('Kode Rekening', r.kode_rekening, true) +
+      detailItem('Tagging', r.tagging || 'Tanpa Tagging') +
+      detailItem('Uraian', r.uraian, true)
+    ) + detailSection('Informasi Inventarisasi SPJ',
+      detailItem('Lokasi', r.lokasi || 'Belum Ditetapkan') +
+      detailItem('Status', r.status === 'lengkap' ? 'Lengkap' : 'Belum Lengkap') +
+      detailItem('Sumber Data', r.ada_override ? 'Sudah disesuaikan manual' : 'Nilai default dari NPD') +
+      detailItem('Catatan', r.catatan || 'Tidak ada catatan', true)
+    ) +
+      (r.ada_override ? detailItem('Terakhir Diedit', (r.diedit_oleh || '-') + (r.diedit_at ? ' · ' + r.diedit_at : ''), true) : '');
+    detailOv.classList.add('show');
+  }
+  function spjCloseDetail() { detailOv.classList.remove('show'); }
+  document.getElementById('spj-detail-close').addEventListener('click', spjCloseDetail);
+  detailOv.addEventListener('click', e => { if (e.target === detailOv) spjCloseDetail(); });
+  document.getElementById('inv-table-tbody').addEventListener('click', function (e) {
+    const btn = e.target.closest('[data-spj-view]');
+    if (btn) spjOpenDetail(Number(btn.dataset.spjView));
+  });
 
   if (bolehEditDetail) {
     const spjOv = document.getElementById('spj-mdl-ov');
@@ -486,15 +605,16 @@ document.addEventListener('DOMContentLoaded', function () {
     this.classList.toggle('open', show);
   });
 
-  function initSearchSelect(inputId, hiddenId, dropId, options) {
+  function initSearchSelect(inputId, hiddenId, dropId, options, onSelect) {
     const input = document.getElementById(inputId);
     const hidden = document.getElementById(hiddenId);
     const drop = document.getElementById(dropId);
     let selectedLabel = input.value;
+    let currentOptions = options;
 
     function renderList(query) {
       const q = (query || '').toLowerCase().trim();
-      const items = options.filter(o => !q || o.label.toLowerCase().includes(q));
+      const items = currentOptions.filter(o => !q || o.label.toLowerCase().includes(q));
       drop.innerHTML = items.length
         ? items.map(o => '<div class="ns-item" data-value="' + String(o.value).replace(/"/g, '&quot;') + '">' + o.label.replace(/</g, '&lt;') + '</div>').join('')
         : '<div class="ns-empty">Tidak ditemukan</div>';
@@ -513,12 +633,65 @@ document.addEventListener('DOMContentLoaded', function () {
       selectedLabel = item.textContent;
       input.value = selectedLabel;
       hide();
+      if (onSelect) onSelect(item.dataset.value);
     });
+
+    return {
+      setOptions(newOptions, reset) {
+        currentOptions = newOptions;
+        if (reset) {
+          hidden.value = '';
+          selectedLabel = newOptions[0]?.label || '';
+          input.value = selectedLabel;
+        }
+      },
+      value() { return hidden.value; }
+    };
   }
 
-  initSearchSelect('inv-sub-inp', 'inv-sub', 'inv-sub-drop', {{ Illuminate\Support\Js::from($subOptionsJs) }});
-  initSearchSelect('inv-kode-inp', 'inv-kode', 'inv-kode-drop', {{ Illuminate\Support\Js::from($kodeOptionsJs) }});
-  initSearchSelect('inv-tagging-inp', 'inv-tagging', 'inv-tagging-drop', {{ Illuminate\Support\Js::from($taggingOptionsJs) }});
+  const hierarchy = {{ Illuminate\Support\Js::from($filterHierarchyJs) }};
+  const uniqueOptions = (rows, valueKey, labelKey, allLabel) => {
+    const seen = new Set();
+    const result = [{value:'', label:allLabel}];
+    rows.forEach(row => {
+      const value = row[valueKey] || '';
+      if (!value || seen.has(value)) return;
+      seen.add(value);
+      result.push({value:value, label:row[labelKey] || value});
+    });
+    return result.sort((a, b) => a.value === '' ? -1 : (b.value === '' ? 1 : a.label.localeCompare(b.label, 'id', {numeric:true})));
+  };
+
+  let kodeSearch;
+  let taggingSearch;
+  const refreshTagging = reset => {
+    const sub = document.getElementById('inv-sub').value;
+    const kode = document.getElementById('inv-kode').value;
+    const rows = hierarchy.filter(row => (!sub || row.sub_kegiatan === sub) && (!kode || row.kode_rekening === kode));
+    taggingSearch.setOptions(uniqueOptions(rows, 'tagging', 'tagging', 'Semua Tagging'), reset);
+  };
+  const refreshKode = reset => {
+    const sub = document.getElementById('inv-sub').value;
+    const rows = hierarchy.filter(row => !sub || row.sub_kegiatan === sub);
+    kodeSearch.setOptions(uniqueOptions(rows, 'kode_rekening', 'kode_label', 'Semua Kode Rekening'), reset);
+    refreshTagging(reset);
+  };
+
+  const subSearch = initSearchSelect(
+    'inv-sub-inp', 'inv-sub', 'inv-sub-drop',
+    {{ Illuminate\Support\Js::from($subOptionsJs) }},
+    () => refreshKode(true)
+  );
+  kodeSearch = initSearchSelect(
+    'inv-kode-inp', 'inv-kode', 'inv-kode-drop',
+    {{ Illuminate\Support\Js::from($kodeOptionsJs) }},
+    () => refreshTagging(true)
+  );
+  taggingSearch = initSearchSelect(
+    'inv-tagging-inp', 'inv-tagging', 'inv-tagging-drop',
+    {{ Illuminate\Support\Js::from($taggingOptionsJs) }}
+  );
+  refreshKode(false);
 });
 </script>
 @endif

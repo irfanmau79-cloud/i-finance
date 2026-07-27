@@ -23,7 +23,7 @@ class UpdateSpjDetailRequest extends FormRequest
             'koordinator' => ['nullable', 'string', 'max:255'],
             'bidang' => ['nullable', Rule::in(BidangOrganisasi::SPJ)],
             'uraian' => ['nullable', 'string', 'max:2000'],
-            'lokasi' => ['nullable', 'string', 'max:100'],
+            'lokasi' => ['nullable', 'string', 'max:100', Rule::exists('bantex_spj', 'nama')->where('aktif', true)],
             'status' => ['required', Rule::in([SpjDetail::STATUS_LENGKAP, SpjDetail::STATUS_BELUM_LENGKAP])],
             'catatan' => ['nullable', 'string', 'max:1000'],
         ];

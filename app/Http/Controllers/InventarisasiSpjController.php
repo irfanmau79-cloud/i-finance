@@ -6,6 +6,7 @@ use App\Http\Requests\StoreArsipSpjRequest;
 use App\Http\Requests\UpdateSpjDetailRequest;
 use App\Models\ArsipSpj;
 use App\Models\AuditLog;
+use App\Models\BantexSpj;
 use App\Models\Npd;
 use App\Models\SpjDetail;
 use App\Services\InventarisasiSpjService;
@@ -16,6 +17,19 @@ use Illuminate\View\View;
 
 class InventarisasiSpjController extends Controller
 {
+    public function storeBantex(Request $request): RedirectResponse
+    {
+        $data = $request->validate([
+            'nama' => ['required', 'string', 'max:100', 'unique:bantex_spj,nama'],
+            'keterangan' => ['nullable', 'string', 'max:500'],
+        ]);
+
+        $bantex = BantexSpj::create($data + ['aktif' => true, 'dibuat_oleh' => $request->user()->id]);
+        AuditLog::catat('Tambah Bantex/Box SPJ', $bantex->nama);
+
+        return back()->with('success', "Bantex/Box {$bantex->nama} berhasil ditambahkan.");
+    }
+
     public function index(Request $request, InventarisasiSpjService $service): View
     {
         $filters = array_merge(['bulan' => '', 'sub_kegiatan' => '', 'kode_rekening' => '', 'tagging' => '', 'cari' => ''], $request->validate([
@@ -61,6 +75,22 @@ class InventarisasiSpjController extends Controller
             $detail->fill($data + ['diedit_oleh' => $request->user()->id, 'diedit_at' => now()]);
             $detail->npd_id = $npd->id;
             $detail->save();
+
+            if (! empty($data['lokasi'])) {
+                $aktif = ArsipSpj::query()->where('npd_id', $npd->id)->where('jenis_dokumen', 'NPD')
+                    ->where('aktif', true)->lockForUpdate()->get();
+                if ($aktif->first()?->lokasi !== $data['lokasi']) {
+                    $aktif->each->update(['aktif' => false]);
+                    ArsipSpj::create([
+                        'npd_id' => $npd->id,
+                        'jenis_dokumen' => 'NPD',
+                        'lokasi' => $data['lokasi'],
+                        'ditetapkan_oleh' => $request->user()->id,
+                        'ditetapkan_at' => now(),
+                        'aktif' => true,
+                    ]);
+                }
+            }
 
             AuditLog::create([
                 'user_id' => $request->user()->id, 'username' => $request->user()->username, 'role' => $request->user()->role,

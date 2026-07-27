@@ -4,6 +4,7 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
@@ -32,6 +33,13 @@ class SuratPerintah extends Model
 
     /** Pilihan checkbox kolom Pengajuan (Monitoring SP), disimpan sebagai teks dipisah koma. */
     public const PENGAJUAN_OPTIONS = ['Uang Harian', 'Akomodasi', 'Transport'];
+
+    public const JABATAN_ANGGOTA = [
+        'Penanggung Jawab',
+        'Pengendali Teknis',
+        'Ketua Tim',
+        'Anggota',
+    ];
 
     protected function casts(): array
     {
@@ -63,5 +71,10 @@ class SuratPerintah extends Model
     public function pengajuanArray(): array
     {
         return array_filter(array_map('trim', explode(',', (string) $this->pengajuan)));
+    }
+
+    public function anggota(): HasMany
+    {
+        return $this->hasMany(SuratPerintahAnggota::class)->orderBy('urutan');
     }
 }

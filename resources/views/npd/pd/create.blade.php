@@ -223,6 +223,13 @@
         'tanggal_sp' => $sp->tanggal_sp->format('Y-m-d'),
         'uraian_sp' => $sp->keterangan,
         'tujuan' => $sp->lokasi,
+        'anggota' => $sp->anggota->map(fn ($item) => [
+            'pegawai_id' => $item->pegawai_id,
+            'nama' => $item->pegawai?->nama ?? '',
+            'jabatan' => $item->jabatan_sp,
+            'nip' => $item->pegawai?->nip ?? '',
+            'rekening' => $item->pegawai?->rekening ?? '',
+        ])->values()->all(),
     ]);
 
     $timTersimpan = $npdEdit?->tim->map(fn ($tim) => [
@@ -418,6 +425,7 @@
             document.getElementById('tanggal_sp').value = sp.tanggal_sp;
             document.getElementById('uraian_sp').value = sp.uraian_sp || '';
             document.getElementById('tujuan').value = sp.tujuan || '';
+            importSpAnggota(sp.anggota || []);
         }
     });
     document.getElementById('sp-taut').value = document.getElementById('surat_perintah_id').value;
@@ -454,7 +462,18 @@
     function timRowHtml(idx) {
         return '<div class="anggota" data-tim-row data-idx="' + idx + '">'
             + '<button type="button" class="del" data-tim-remove title="Hapus anggota">&times;</button>'
-            + '<h4>Anggota <span data-tim-number>#' + (idx + 1) + '</span></h4>'
+            + '<div class="tim-member-head">'
+            + '<span class="tim-member-number" data-tim-number>' + (idx + 1) + '</span>'
+            + '<div><span class="tim-member-eyebrow">Anggota Tim</span>'
+            + '<strong data-tim-name-label>Belum dipilih</strong></div>'
+            + '</div>'
+            + '<div class="tim-copy" data-copy-panel hidden>'
+            + '<div class="tim-copy-icon" aria-hidden="true">&#8646;</div>'
+            + '<div class="tim-copy-field"><label class="fl">Data perjalanan sama dengan</label>'
+            + '<select data-copy-source><option value="">Pilih anggota yang sudah diinput</option></select>'
+            + '<span class="mini" data-copy-feedback>Pilih sumber untuk menyalin paket tujuan dan biaya perjalanan.</span></div>'
+            + '<button type="button" class="btn tim-copy-btn" data-copy-apply disabled>Salin Data Perjalanan</button>'
+            + '</div>'
             + '<div class="form-grid">'
             + '<div class="fg span2">'
             + '<label class="fl">Nama</label>'
@@ -494,9 +513,69 @@
     function renumber() {
         const rows = timList.querySelectorAll('[data-tim-row]');
         rows.forEach((row, i) => {
-            row.querySelector('[data-tim-number]').textContent = '#' + (i + 1);
+            row.querySelector('[data-tim-number]').textContent = i + 1;
+            row.querySelector('[data-tim-name-label]').textContent =
+                row.querySelector('[data-name-input]').value.trim() || 'Belum dipilih';
             row.querySelector('[data-tim-remove]').disabled = rows.length <= 1;
         });
+        refreshCopySources();
+    }
+
+    function refreshCopySources() {
+        const rows = Array.from(timList.querySelectorAll('[data-tim-row]'));
+        rows.forEach((row, rowIndex) => {
+            const panel = row.querySelector('[data-copy-panel]');
+            const select = row.querySelector('[data-copy-source]');
+            const applyButton = row.querySelector('[data-copy-apply]');
+            const selected = select.value;
+            const precedingRows = rows.slice(0, rowIndex);
+
+            panel.hidden = precedingRows.length === 0;
+            select.innerHTML = '<option value="">Pilih anggota yang sudah diinput</option>'
+                + precedingRows.map((sourceRow, sourceIndex) => {
+                    const sourceName = sourceRow.querySelector('[data-name-input]').value.trim();
+                    const label = 'Anggota #' + (sourceIndex + 1) + (sourceName ? ' — ' + sourceName : '');
+                    return '<option value="' + sourceRow.dataset.idx + '">' + escapeHtml(label) + '</option>';
+                }).join('');
+
+            if (precedingRows.some(sourceRow => sourceRow.dataset.idx === selected)) select.value = selected;
+            applyButton.disabled = ! select.value;
+        });
+    }
+
+    function perjalananData(timRow) {
+        return {
+            paket: Array.from(timRow.querySelectorAll('[data-paket-row]')).map(paketRow => ({
+                cluster: paketRow.querySelector('[data-p-cluster]').value,
+                wilayah: paketRow.querySelector('[data-p-wilayah]')?.value || '',
+                lama_hari: paketRow.querySelector('[data-p-hari]').value,
+                tarif_uh: paketRow.querySelector('[data-p-tarifuh]').value,
+                malam: paketRow.querySelector('[data-p-malam]').value,
+                tarif_akom: paketRow.querySelector('[data-p-tarifak]').value,
+            })),
+            bbm_liter: timRow.querySelector('[data-bbm-liter]').value,
+            bbm_tarif: timRow.querySelector('[data-bbm-tarif]').value,
+            tol: timRow.querySelector('[data-tol]').value,
+            tiket: timRow.querySelector('[data-tiket]').value,
+            representatif: timRow.querySelector('[data-representatif]').value,
+        };
+    }
+
+    function copyPerjalanan(sourceRow, targetRow) {
+        const data = perjalananData(sourceRow);
+        targetRow.querySelector('[data-paket-list]').innerHTML = '';
+
+        (data.paket.length ? data.paket : [{}]).forEach(item => {
+            addPaket(targetRow);
+            isiPaket(targetRow.querySelector('[data-paket-row]:last-child'), item, targetRow);
+        });
+
+        targetRow.querySelector('[data-bbm-liter]').value = data.bbm_liter;
+        targetRow.querySelector('[data-bbm-tarif]').value = data.bbm_tarif;
+        targetRow.querySelector('[data-tol]').value = data.tol;
+        targetRow.querySelector('[data-tiket]').value = data.tiket;
+        targetRow.querySelector('[data-representatif]').value = data.representatif;
+        recalcTim(targetRow);
     }
 
     function recalcPaket(paketRow) {
@@ -608,6 +687,7 @@
                         nipInput.value = n.nip || '';
                         rekeningInput.value = n.rekening || '';
                         nameDrop.classList.remove('show');
+                        refreshCopySources();
                     });
                     nameDrop.appendChild(el);
                 });
@@ -615,8 +695,38 @@
             nameDrop.classList.add('show');
         }
 
-        nameInput.addEventListener('input', () => { pegawaiIdField.value = ''; renderNameDrop(nameInput.value); });
+        nameInput.addEventListener('input', () => {
+            pegawaiIdField.value = '';
+            renderNameDrop(nameInput.value);
+            refreshCopySources();
+        });
         nameInput.addEventListener('focus', () => renderNameDrop(nameInput.value));
+
+        const copySource = timRow.querySelector('[data-copy-source]');
+        const copyButton = timRow.querySelector('[data-copy-apply]');
+        const copyFeedback = timRow.querySelector('[data-copy-feedback]');
+        copySource.addEventListener('change', () => {
+            copyButton.disabled = ! copySource.value;
+            copyFeedback.textContent = copySource.value
+                ? 'Siap menyalin paket tujuan dan seluruh biaya perjalanan.'
+                : 'Pilih sumber untuk menyalin paket tujuan dan biaya perjalanan.';
+        });
+        copyButton.addEventListener('click', () => {
+            const rows = Array.from(timList.querySelectorAll('[data-tim-row]'));
+            const targetPosition = rows.indexOf(timRow);
+            const sourceRow = rows.slice(0, targetPosition).find(row => row.dataset.idx === copySource.value);
+            if (! sourceRow) {
+                refreshCopySources();
+                copyFeedback.textContent = 'Anggota sumber sudah tidak tersedia.';
+                return;
+            }
+
+            copyPerjalanan(sourceRow, timRow);
+            const sourceName = sourceRow.querySelector('[data-name-input]').value.trim();
+            const sourceNumber = sourceRow.querySelector('[data-tim-number]').textContent;
+            copyFeedback.textContent = 'Data perjalanan berhasil disalin dari '
+                + (sourceName || 'Anggota #' + sourceNumber) + '.';
+        });
 
         timRow.querySelectorAll('[data-bbm-liter],[data-bbm-tarif],[data-tol],[data-tiket],[data-representatif]').forEach(el => {
             el.addEventListener('input', () => recalcTim(timRow));
@@ -679,6 +789,29 @@
         timIndex++;
         renumber();
         recalcTim(row);
+        return row;
+    }
+
+    function importSpAnggota(anggota) {
+        if (! anggota.length) return;
+
+        timList.innerHTML = '';
+        const importedRows = anggota.map(item => tambahTim({
+            pegawai_id: item.pegawai_id,
+            nama: item.nama,
+            jabatan: item.jabatan,
+            nip: item.nip,
+            rekening: item.rekening,
+            bbm_liter: '',
+            bbm_tarif: '',
+            tol: '',
+            tiket: '',
+            representatif: '',
+            paket: [],
+        }));
+        importedRows[0]?.querySelector('[data-penerima-radio]')?.click();
+        renumber();
+        recalcTotal();
     }
 
     document.addEventListener('click', (e) => {

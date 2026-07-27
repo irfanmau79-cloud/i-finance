@@ -265,7 +265,7 @@ class Npd extends Model
 
     public function dapatDihapusOleh(User $user): bool
     {
-        return $user->isSuperadmin()
+        return ($user->isSuperadmin() && $this->status !== 'Dibatalkan')
             || ($user->role === User::ROLE_PPTK && $this->status === 'Draft NPD - PPTK');
     }
 

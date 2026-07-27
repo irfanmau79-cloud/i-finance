@@ -2,6 +2,7 @@
 
 namespace App\Services;
 
+use App\Models\BantexSpj;
 use App\Models\Npd;
 use App\Models\SpjDetail;
 use App\Support\BidangOrganisasi;
@@ -40,6 +41,16 @@ class InventarisasiSpjService
             })->sortBy('value', SORT_NATURAL)->values()->all(),
             'tagging' => collect($pilihan['tagging'])->map(fn (string $v) => ['value' => $v, 'label' => $v])->all(),
         ];
+        $filterHierarchy = $semua->map(fn (array $row) => [
+            'sub_kegiatan' => $row['sub_kegiatan'],
+            'kode_rekening' => $row['kode_rekening'],
+            'kode_label' => $row['uraian_rekening']
+                ? "{$row['kode_rekening']} — {$row['uraian_rekening']}"
+                : $row['kode_rekening'],
+            'tagging' => $row['tagging'],
+        ])->unique(fn (array $row) => implode('|', [
+            $row['sub_kegiatan'], $row['kode_rekening'], $row['tagging'],
+        ]))->values()->all();
 
         $rows = $semua
             ->when($filters['bulan'] ?? '', fn (Collection $items, string $value) => $items->where('bulan', (int) $value))
@@ -54,25 +65,48 @@ class InventarisasiSpjService
                 ])), $needle));
             })->values();
 
-        $lokasi = $rows->groupBy('lokasi')->map(function (Collection $items, string $lokasi) {
+        $dokumenPerLokasi = $rows->groupBy('lokasi');
+        $lokasi = BantexSpj::query()->where('aktif', true)->orderBy('nama')->get()
+            ->map(function (BantexSpj $bantex) use ($dokumenPerLokasi) {
+                $items = $dokumenPerLokasi->get($bantex->nama, collect());
+
+                return [
+                    'id' => $bantex->id,
+                    'lokasi' => $bantex->nama,
+                    'keterangan' => $bantex->keterangan,
+                    'jumlah_dokumen' => $items->count(),
+                    'jumlah_npd' => $items->pluck('npd_id')->unique()->count(),
+                    'nominal' => (float) $items->unique('npd_id')->sum('nominal'),
+                    'dokumen' => $items->values()->all(),
+                ];
+            });
+
+        $namaMaster = $lokasi->pluck('lokasi');
+        $lokasiLegacy = $dokumenPerLokasi->reject(fn (Collection $items, string $nama) => $namaMaster->contains($nama))
+            ->map(function (Collection $items, string $lokasi) {
             return [
+                'id' => null,
                 'lokasi' => $lokasi,
+                'keterangan' => null,
                 'jumlah_dokumen' => $items->count(),
                 'jumlah_npd' => $items->pluck('npd_id')->unique()->count(),
                 'nominal' => (float) $items->unique('npd_id')->sum('nominal'),
                 'dokumen' => $items->values()->all(),
             ];
-        })->sortKeys()->values()->all();
+        })->values();
+        $lokasi = $lokasi->concat($lokasiLegacy)->values();
 
-        $jumlahLokasi = $rows->pluck('lokasi')->unique()->count();
+        $jumlahLokasi = $lokasi->count();
 
         $detailSpj = $this->detailSpj($npds, $filters);
 
         return [
             'rows' => $rows->all(),
-            'lokasi' => $lokasi,
+            'lokasi' => $lokasi->all(),
+            'bantex' => BantexSpj::query()->where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'keterangan'])->all(),
             'pilihan' => $pilihan,
             'pilihan_berlabel' => $pilihanBerlabel,
+            'filter_hierarchy' => $filterHierarchy,
             'jumlah_dokumen' => $rows->count(),
             'jumlah_lokasi' => $jumlahLokasi,
             'total_nominal' => (float) $rows->unique('npd_id')->sum('nominal'),
@@ -180,7 +214,7 @@ class InventarisasiSpjService
             'status' => $override?->status ?? SpjDetail::STATUS_BELUM_LENGKAP,
             'catatan' => $override?->catatan,
             'sub_kegiatan' => $npd->masterAnggaran->subKegiatanNormal(),
-            'kode_rekening' => $npd->masterAnggaran->kode_rekening,
+            'kode_rekening' => $npd->masterAnggaran->kode_rekening_bersih,
             'tagging' => $npd->tagging_snapshot ?: ($npd->masterAnggaran->tagging?->nama ?? ''),
             'ada_override' => $override !== null,
             'diedit_oleh' => $override?->dieditOleh?->nama,

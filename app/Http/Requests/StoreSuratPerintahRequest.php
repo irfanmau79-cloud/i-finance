@@ -26,6 +26,9 @@ class StoreSuratPerintahRequest extends FormRequest
             'keterangan' => ['required', 'string'],
             'status_sp' => ['required', 'in:Baru,Revisi'],
             'file_url' => ['required', 'file', 'mimes:pdf', 'mimetypes:application/pdf', 'max:10240'],
+            'anggota' => ['nullable', 'array'],
+            'anggota.*.pegawai_id' => ['required', 'integer', 'distinct', 'exists:pegawai,id'],
+            'anggota.*.jabatan_sp' => ['required', 'string', 'in:'.implode(',', \App\Models\SuratPerintah::JABATAN_ANGGOTA)],
         ];
     }
 
@@ -43,6 +46,8 @@ class StoreSuratPerintahRequest extends FormRequest
             'keterangan' => 'Keterangan',
             'status_sp' => 'Status SP',
             'file_url' => 'File PDF',
+            'anggota.*.pegawai_id' => 'Nama Pegawai',
+            'anggota.*.jabatan_sp' => 'Jabatan dalam SP',
         ];
     }
 }

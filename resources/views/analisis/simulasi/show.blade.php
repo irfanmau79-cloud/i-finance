@@ -15,6 +15,29 @@
     .sim-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0}
     @media(max-width:900px){.sim-kpis{grid-template-columns:1fr}}
     .sim-rek-input{width:100%;max-width:170px;text-align:right;box-sizing:border-box;font-variant-numeric:tabular-nums;}
+    .sim-summary{border:1px solid #dbe5ee;border-radius:14px;margin-bottom:16px;overflow:hidden;background:#fff}
+    .sim-summary-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 18px;background:linear-gradient(135deg,#f4f8fc,#eef4f8);border-bottom:1px solid #dbe5ee}
+    .sim-summary-title{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--navy)}
+    .sim-summary-icon{width:34px;height:34px;border-radius:10px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center}
+    .sim-summary-icon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2}
+    .sim-summary-count{font-size:11px;font-weight:700;color:var(--navy);background:#fff;border:1px solid #dbe5ee;border-radius:20px;padding:4px 10px}
+    .sim-summary-body{padding:14px}
+    .sim-summary-empty{text-align:center;color:var(--mut);padding:24px 12px}
+    .sim-sum-node{border-left:2px solid #dbe5ee;margin-left:10px;padding-left:12px}
+    .sim-sum-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 10px;border-radius:8px}
+    .sim-sum-row:hover{background:#f7f9fc}
+    .sim-sum-label{min-width:0;overflow-wrap:anywhere}
+    .sim-sum-level{display:inline-block;margin-right:7px;color:var(--mut);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px}
+    .sim-sum-name{font-size:12.5px;color:var(--ink);font-weight:600}
+    .sim-sum-value{text-align:right;white-space:nowrap;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
+    .sim-sum-program>.sim-sum-row{background:#eef3f8}.sim-sum-program>.sim-sum-row .sim-sum-name{color:var(--navy);font-size:13.5px;font-weight:800}
+    .sim-sum-kegiatan>.sim-sum-row .sim-sum-name{color:var(--navy);font-weight:700}
+    .sim-sum-rekening>.sim-sum-row{background:#fafbfd}
+    .sim-sum-tagging{margin-left:22px;border-left:2px solid #e8edf3}
+    .sim-sum-tagging .sim-sum-row{grid-template-columns:minmax(0,1fr) minmax(230px,auto)}
+    .sim-sum-flow{display:flex;align-items:center;justify-content:flex-end;gap:7px;color:var(--mut);font-size:11px;font-weight:500}
+    .sim-sum-flow b{color:var(--ink);font-variant-numeric:tabular-nums}.sim-sum-flow .arrow{color:var(--mut)}
+    @media(max-width:720px){.sim-sum-tagging .sim-sum-row{grid-template-columns:1fr}.sim-sum-flow{justify-content:flex-start;flex-wrap:wrap}.sim-summary-head{align-items:flex-start}}
 
     .rr-head{display:flex;justify-content:space-between;align-items:flex-start;gap:16px;flex-wrap:wrap;margin-bottom:16px}
     .rr-actions{display:flex;gap:8px;flex-wrap:wrap}.rr-actions .btn{padding:8px 14px}
@@ -110,10 +133,16 @@
             </div>
         </div>
 
-        <div class="dash-card" style="box-shadow:none;border:1px solid var(--line);margin-bottom:16px;">
-            <div class="gt" style="font-weight:700;color:var(--navy);margin-bottom:8px;">Ringkasan Perubahan</div>
-            <div id="sim-summary-list">
-                <div class="sub" style="margin:0;">Belum ada perubahan.</div>
+        <div class="sim-summary">
+            <div class="sim-summary-head">
+                <div class="sim-summary-title">
+                    <span class="sim-summary-icon"><svg viewBox="0 0 24 24"><path d="M4 19V9"/><path d="M10 19V5"/><path d="M16 19v-7"/><path d="M22 19H2"/></svg></span>
+                    <span>Ringkasan Perubahan</span>
+                </div>
+                <span class="sim-summary-count" id="sim-summary-count">0 tagging berubah</span>
+            </div>
+            <div class="sim-summary-body" id="sim-summary-list">
+                <div class="sim-summary-empty">Belum ada perubahan pagu pada simulasi ini.</div>
             </div>
         </div>
 
@@ -214,7 +243,11 @@
                                                     data-keg="{{ $kegKey }}"
                                                     data-sub="{{ $subKey }}"
                                                     data-rek="{{ $rekKey }}"
-                                                    data-label="{{ $rekening['kode'] }} {{ $rekening['uraian'] }} ({{ $row->tagging_nama ?? 'Tanpa Tagging' }})"
+                                                    data-program-label="{{ $prog['nama'] }}"
+                                                    data-kegiatan-label="{{ $keg['nama'] }}"
+                                                    data-sub-label="{{ $sub['nama'] }}"
+                                                    data-rekening-label="{{ $rekening['kode'] }} {{ $rekening['uraian'] }}"
+                                                    data-tagging-label="{{ $row->tagging_nama ?? 'Tanpa Tagging' }}"
                                                     value="{{ number_format((float) $rawSimulasi, 2, ',', '.') }}">
                                                 <input type="hidden" name="rows[{{ $row->id }}]" data-raw-for="{{ $row->id }}" value="{{ $rawSimulasi }}">
                                             </td>
@@ -368,7 +401,15 @@
             if (rawInput) rawInput.value = simulasi.toFixed(2);
 
             if (Math.abs(selisih) > 0.004) {
-                changed.push({ label: input.dataset.label, eksisting: eksisting, simulasi: simulasi, selisih: selisih });
+                changed.push({
+                    progKey: progIdx, kegKey: kegKey, subKey: subKey, rekKey: rekKey,
+                    program: input.dataset.programLabel,
+                    kegiatan: input.dataset.kegiatanLabel,
+                    sub: input.dataset.subLabel,
+                    rekening: input.dataset.rekeningLabel,
+                    tagging: input.dataset.taggingLabel,
+                    eksisting: eksisting, simulasi: simulasi, selisih: selisih
+                });
             }
         });
 
@@ -397,15 +438,53 @@
         kpiSelisih.style.setProperty('--kbg', grandSelisih > 0 ? '#0f6e5614' : (grandSelisih < 0 ? '#b3261e14' : '#64748b14'));
 
         const listEl = document.getElementById('sim-summary-list');
+        const countEl = document.getElementById('sim-summary-count');
+        countEl.textContent = changed.length + ' tagging berubah';
+
         if (changed.length === 0) {
-            listEl.innerHTML = '<div class="sub" style="margin:0;">Belum ada perubahan.</div>';
+            listEl.innerHTML = '<div class="sim-summary-empty">Belum ada perubahan pagu pada simulasi ini.</div>';
         } else {
-            listEl.innerHTML = changed.map(function (c) {
-                const warna = warnaSelisih(c.selisih);
-                return '<div class="li"><span class="k">' + escapeHtml(c.label) + '</span>'
-                    + '<span class="v" style="color:' + warna + ';font-weight:600;">'
-                    + (c.selisih > 0 ? '+' : '') + formatRupiah(c.selisih)
-                    + ' <span style="color:var(--mut);font-weight:400;">(' + formatRupiah(c.eksisting) + ' &rarr; ' + formatRupiah(c.simulasi) + ')</span></span></div>';
+            const tree = {};
+            changed.forEach(function (c) {
+                const prog = tree[c.progKey] ||= { label:c.program, total:0, children:{} };
+                const keg = prog.children[c.kegKey] ||= { label:c.kegiatan, total:0, children:{} };
+                const sub = keg.children[c.subKey] ||= { label:c.sub, total:0, children:{} };
+                const rek = sub.children[c.rekKey] ||= { label:c.rekening, total:0, children:[] };
+                prog.total += c.selisih;
+                keg.total += c.selisih;
+                sub.total += c.selisih;
+                rek.total += c.selisih;
+                rek.children.push(c);
+            });
+
+            function nilaiPerubahan(total) {
+                return '<span class="sim-sum-value" style="color:' + warnaSelisih(total) + '">'
+                    + (total > 0 ? '+' : '') + formatRupiah(total) + '</span>';
+            }
+            function barisLevel(level, label, total) {
+                return '<div class="sim-sum-row"><div class="sim-sum-label"><span class="sim-sum-level">'
+                    + level + '</span><span class="sim-sum-name">' + escapeHtml(label) + '</span></div>'
+                    + nilaiPerubahan(total) + '</div>';
+            }
+            function taggingHtml(c) {
+                return '<div class="sim-sum-tagging"><div class="sim-sum-row">'
+                    + '<div class="sim-sum-label"><span class="sim-sum-level">Tagging</span><span class="sim-sum-name">' + escapeHtml(c.tagging) + '</span></div>'
+                    + '<div class="sim-sum-flow"><b>' + formatRupiah(c.eksisting) + '</b><span class="arrow">&rarr;</span><b>' + formatRupiah(c.simulasi) + '</b>'
+                    + nilaiPerubahan(c.selisih) + '</div></div></div>';
+            }
+
+            listEl.innerHTML = Object.values(tree).map(function (prog) {
+                return '<div class="sim-sum-node sim-sum-program">' + barisLevel('Program', prog.label, prog.total)
+                    + Object.values(prog.children).map(function (keg) {
+                        return '<div class="sim-sum-node sim-sum-kegiatan">' + barisLevel('Kegiatan', keg.label, keg.total)
+                            + Object.values(keg.children).map(function (sub) {
+                                return '<div class="sim-sum-node sim-sum-sub">' + barisLevel('Sub Kegiatan', sub.label, sub.total)
+                                    + Object.values(sub.children).map(function (rek) {
+                                        return '<div class="sim-sum-node sim-sum-rekening">' + barisLevel('Kode Rekening', rek.label, rek.total)
+                                            + rek.children.map(taggingHtml).join('') + '</div>';
+                                    }).join('') + '</div>';
+                            }).join('') + '</div>';
+                    }).join('') + '</div>';
             }).join('');
         }
     }

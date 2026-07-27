@@ -6,6 +6,7 @@ use App\Helpers\AuditLog;
 use App\Helpers\GuestSession;
 use App\Http\Requests\StoreSuratPerintahRequest;
 use App\Http\Requests\UpdateSuratPerintahRequest;
+use App\Models\Pegawai;
 use App\Models\SuratPerintah;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Storage;
@@ -90,7 +91,7 @@ class SuratPerintahController extends Controller
 
     public function create()
     {
-        return view('surat-perintah.create');
+        return view('surat-perintah.create', ['pegawaiList' => $this->pegawaiList()]);
     }
 
     public function store(StoreSuratPerintahRequest $request)
@@ -107,7 +108,10 @@ class SuratPerintahController extends Controller
     {
         GuestSession::login();
 
-        return view('surat-perintah.create', ['isPublicForm' => true]);
+        return view('surat-perintah.create', [
+            'isPublicForm' => true,
+            'pegawaiList' => $this->pegawaiList(),
+        ]);
     }
 
     /**
@@ -130,6 +134,8 @@ class SuratPerintahController extends Controller
     private function simpanSuratPerintah(StoreSuratPerintahRequest $request): SuratPerintah
     {
         $data = $request->validated();
+        $anggota = $data['anggota'] ?? [];
+        unset($data['anggota']);
         unset($data['website']);
         $path = 'sp/'.Str::uuid().'.pdf';
         $stored = $request->file('file_url')->storeAs('sp', basename($path), 'local');
@@ -142,6 +148,7 @@ class SuratPerintahController extends Controller
 
         try {
             $suratPerintah = SuratPerintah::create($data);
+            $this->simpanAnggota($suratPerintah, $anggota);
         } catch (Throwable $e) {
             Storage::disk('local')->delete($stored);
             throw $e;
@@ -154,12 +161,17 @@ class SuratPerintahController extends Controller
 
     public function edit(SuratPerintah $suratPerintah)
     {
-        return view('surat-perintah.edit', compact('suratPerintah'));
+        $suratPerintah->load('anggota.pegawai');
+        $pegawaiList = $this->pegawaiList();
+
+        return view('surat-perintah.edit', compact('suratPerintah', 'pegawaiList'));
     }
 
     public function update(UpdateSuratPerintahRequest $request, SuratPerintah $suratPerintah)
     {
         $data = $request->validated();
+        $anggota = $data['anggota'] ?? [];
+        unset($data['anggota']);
         unset($data['website']);
 
         if ($request->hasFile('file_url')) {
@@ -176,6 +188,7 @@ class SuratPerintahController extends Controller
 
         try {
             $suratPerintah->update($data);
+            $this->simpanAnggota($suratPerintah, $anggota);
         } catch (Throwable $e) {
             if (isset($pathBaru)) {
                 Storage::disk('local')->delete($pathBaru);
@@ -220,5 +233,26 @@ class SuratPerintahController extends Controller
             'surat-perintah-'.$suratPerintah->id.'.pdf',
             ['Content-Type' => 'application/pdf']
         );
+    }
+
+    private function pegawaiList()
+    {
+        return Pegawai::query()
+            ->where('aktif', true)
+            ->orderBy('nama')
+            ->get(['id', 'nama', 'jabatan', 'bidang']);
+    }
+
+    private function simpanAnggota(SuratPerintah $suratPerintah, array $anggota): void
+    {
+        $suratPerintah->anggota()->delete();
+
+        foreach (array_values($anggota) as $urutan => $item) {
+            $suratPerintah->anggota()->create([
+                'pegawai_id' => $item['pegawai_id'],
+                'jabatan_sp' => $item['jabatan_sp'],
+                'urutan' => $urutan,
+            ]);
+        }
     }
 }

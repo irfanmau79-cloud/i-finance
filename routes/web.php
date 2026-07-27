@@ -94,6 +94,7 @@ Route::middleware('auth.or.guest')->group(function () {
     Route::get('/inventarisasi-spj', [InventarisasiSpjController::class, 'index'])
         ->middleware('menu-akses:invspj')->name('inventarisasi-spj.index');
     Route::middleware(['menu-akses:invspj', 'role:superadmin,bendahara_pengeluaran,bpp'])->group(function () {
+        Route::post('/inventarisasi-spj/bantex', [InventarisasiSpjController::class, 'storeBantex'])->name('inventarisasi-spj.bantex.store');
         Route::put('/inventarisasi-spj/{npd}', [InventarisasiSpjController::class, 'updateDetail'])->name('inventarisasi-spj.detail.update');
         Route::post('/inventarisasi-spj/{npd}/restore', [InventarisasiSpjController::class, 'restoreDetail'])->name('inventarisasi-spj.detail.restore');
     });
@@ -212,6 +213,8 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::put('/npd/tr/{npd}', [NpdTransportController::class, 'update'])->name('npd.tr.update');
         Route::delete('/npd/{npd}', [NpdController::class, 'destroy'])->name('npd.destroy');
     });
+    Route::delete('/npd/{npd}/permanen', [NpdController::class, 'destroyPermanent'])
+        ->middleware('role:superadmin')->name('npd.destroy-permanent');
 
     // Antrean Persetujuan NPD: BPP. Port dari getNPDuntukBPP di gas-lama/CodeRevisi.gs.
     Route::middleware('role:bpp,superadmin')->group(function () {

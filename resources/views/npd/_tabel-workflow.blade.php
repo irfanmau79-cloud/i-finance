@@ -99,6 +99,19 @@
                                     </form>
                                 </details>
                             @endif
+                            @if (auth()->user()->isSuperadmin())
+                                <details class="npd-hapus-pop">
+                                    <summary class="ic-btn danger" title="Hapus Permanen NPD"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 15H6L5 6"/><path d="M10 11v5M14 11v5"/></svg></summary>
+                                    <form method="POST" action="{{ route('npd.destroy-permanent', $npd) }}" class="npd-hapus-form"
+                                        onsubmit="return confirm('Hapus permanen NPD ini beserta seluruh data turunannya? Tindakan ini TIDAK DAPAT dibatalkan.');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <label class="fl" style="margin-top:0;color:var(--err);">Alasan hapus permanen</label>
+                                        <input type="text" name="alasan_permanen" required minlength="5" maxlength="500" placeholder="Minimal 5 karakter">
+                                        <button type="submit" class="btn danger" style="margin-top:8px;width:100%;">Hapus Permanen</button>
+                                    </form>
+                                </details>
+                            @endif
                         </div>
                     </td>
                 </tr>

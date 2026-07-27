@@ -1,5 +1,15 @@
 @php
     $sp = $suratPerintah ?? null;
+    $anggotaAwal = old('anggota', $sp?->anggota?->map(fn ($item) => [
+        'pegawai_id' => $item->pegawai_id,
+        'jabatan_sp' => $item->jabatan_sp,
+    ])->values()->all() ?? []);
+    $pegawaiAnggotaJs = $pegawaiList->map(fn ($item) => [
+        'id' => $item->id,
+        'nama' => $item->nama,
+        'detail' => trim($item->jabatan.' — '.$item->bidang, ' —'),
+    ])->values()->all();
+    $jabatanSpJs = \App\Models\SuratPerintah::JABATAN_ANGGOTA;
 @endphp
 
 <div aria-hidden="true" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;">
@@ -97,3 +107,72 @@
         <input type="file" id="file_url" name="file_url" accept="application/pdf">
     </div>
 </div>
+
+<section class="sp-anggota-card">
+    <div class="sp-anggota-head">
+        <div>
+            <h3>Anggota Surat Perintah</h3>
+            <p>Pilih pegawai dan tentukan perannya dalam Surat Perintah. Data identitasnya akan otomatis dibawa saat SP ditautkan ke NPD Perjalanan Dinas.</p>
+        </div>
+        <button type="button" class="btn prim" id="sp-anggota-add">+ Tambah Anggota</button>
+    </div>
+    <div id="sp-anggota-list"></div>
+    <div class="sp-anggota-empty" id="sp-anggota-empty">Belum ada anggota yang ditambahkan.</div>
+</section>
+
+<script>
+(function () {
+    const list = document.getElementById('sp-anggota-list');
+    const empty = document.getElementById('sp-anggota-empty');
+    const pegawai = @json($pegawaiAnggotaJs);
+    const jabatan = @json($jabatanSpJs);
+    const initial = @json($anggotaAwal);
+    let sequence = 0;
+
+    function escapeHtml(value) {
+        return String(value ?? '').replace(/[&<>"']/g, char => ({
+            '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+        }[char]));
+    }
+
+    function refresh() {
+        const rows = Array.from(list.querySelectorAll('[data-sp-anggota]'));
+        rows.forEach((row, index) => {
+            row.querySelector('[data-sp-number]').textContent = index + 1;
+        });
+        empty.hidden = rows.length > 0;
+    }
+
+    function addAnggota(data = {}) {
+        const index = sequence++;
+        const pegawaiOptions = pegawai.map(item =>
+            '<option value="' + item.id + '"' + (String(item.id) === String(data.pegawai_id ?? '') ? ' selected' : '') + '>'
+            + escapeHtml(item.nama + (item.detail ? ' — ' + item.detail : '')) + '</option>'
+        ).join('');
+        const jabatanOptions = jabatan.map(item =>
+            '<option value="' + escapeHtml(item) + '"' + (item === (data.jabatan_sp ?? '') ? ' selected' : '') + '>'
+            + escapeHtml(item) + '</option>'
+        ).join('');
+
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = '<div class="sp-anggota-row" data-sp-anggota>'
+            + '<div class="sp-anggota-no" data-sp-number></div>'
+            + '<div class="fg"><label class="fl">Nama Pegawai</label><select name="anggota[' + index + '][pegawai_id]" required>'
+            + '<option value="">— Pilih dari Data Pegawai —</option>' + pegawaiOptions + '</select></div>'
+            + '<div class="fg"><label class="fl">Jabatan dalam SP</label><select name="anggota[' + index + '][jabatan_sp]" required>'
+            + '<option value="">— Pilih Jabatan —</option>' + jabatanOptions + '</select></div>'
+            + '<button type="button" class="ic-btn danger" data-sp-remove title="Hapus anggota" aria-label="Hapus anggota">&times;</button>'
+            + '</div>';
+        const row = wrapper.firstElementChild;
+        row.querySelector('[data-sp-remove]').addEventListener('click', () => {
+            row.remove();
+            refresh();
+        });
+        list.appendChild(row);
+        refresh();
+    }
+
+    document.getElementById('sp-anggota-add').addEventListener('click', () => addAnggota());
+    initial.forEach(item => addAnggota(item));
+})();
+</script>

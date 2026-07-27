@@ -315,7 +315,7 @@
         <form method="POST" action="{{ route('npd.arsip-spj.store', $npd) }}" class="row" style="align-items:end;margin-bottom:16px;">
             @csrf
             <div><label class="fl">Jenis Dokumen</label><select name="jenis_dokumen" required>@foreach(\App\Services\InventarisasiSpjService::JENIS_DOKUMEN as $jenis)<option>{{ $jenis }}</option>@endforeach</select></div>
-            <div><label class="fl">Lokasi Bantex/Box</label><input name="lokasi" maxlength="100" required placeholder="Contoh: Bantex A-01"></div>
+            <div><label class="fl">Lokasi Bantex/Box</label><select name="lokasi" required><option value="">— Pilih Bantex/Box —</option>@foreach($bantexList as $bantex)<option value="{{ $bantex->nama }}">{{ $bantex->nama }}{{ $bantex->keterangan ? ' — '.$bantex->keterangan : '' }}</option>@endforeach</select></div>
             <div><label class="fl">Catatan</label><input name="catatan" maxlength="1000" placeholder="Opsional"></div>
             <div><button class="btn prim" type="submit">Tetapkan / Pindahkan</button></div>
         </form>

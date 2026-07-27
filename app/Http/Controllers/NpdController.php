@@ -5,10 +5,12 @@ namespace App\Http\Controllers;
 use App\Helpers\AuditLog;
 use App\Helpers\PejabatResolver;
 use App\Models\Npd;
+use App\Models\BantexSpj;
 use App\Models\NpdNarasumber;
 use App\Models\NpdPenerima;
 use App\Models\NpdPeserta;
 use App\Models\NpdTim;
+use App\Models\Pengembalian;
 use App\Models\User;
 use App\Support\CoretanPdf;
 use Illuminate\Database\QueryException;
@@ -118,8 +120,9 @@ class NpdController extends Controller
 
         $peringatanPelimpahan = PejabatResolver::untukNpd($npd)['peringatan'];
         $bolehKelolaArsip = in_array($role, ['superadmin', 'bendahara_pengeluaran', 'pptk', 'bpp', 'verifikator'], true);
+        $bantexList = BantexSpj::query()->where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'keterangan']);
 
-        return view('npd.show', compact('npd', 'aksiTersedia', 'ruteDaftar', 'activeNav', 'peringatanPelimpahan', 'bolehKelolaArsip'));
+        return view('npd.show', compact('npd', 'aksiTersedia', 'ruteDaftar', 'activeNav', 'peringatanPelimpahan', 'bolehKelolaArsip', 'bantexList'));
     }
 
     /**
@@ -319,6 +322,11 @@ class NpdController extends Controller
             || ($user->role === 'pptk' && $npd->status === 'Draft NPD - PPTK');
         abort_unless($boleh, 403);
 
+        if ($npd->status === 'Dibatalkan') {
+            return redirect(route('npd.index', [], false))
+                ->with('success', 'NPD tersebut sudah dibatalkan sebelumnya.');
+        }
+
         if ($npd->punyaTurunanTransportAktif()) {
             return back()->withErrors(['alasan' => 'NPD ini masih menjadi induk NPD Transport yang aktif. Batalkan NPD Transport tersebut terlebih dahulu.']);
         }
@@ -327,7 +335,12 @@ class NpdController extends Controller
             $npd = Npd::query()->lockForUpdate()->findOrFail($npd->id);
             $boleh = $user->isSuperadmin()
                 || ($user->role === 'pptk' && $npd->status === 'Draft NPD - PPTK');
-            abort_unless($boleh && $npd->status !== 'Dibatalkan', 403);
+            abort_unless($boleh, 403);
+
+            // Aman bila dua request pembatalan terkirim hampir bersamaan.
+            if ($npd->status === 'Dibatalkan') {
+                return;
+            }
 
             if ($npd->punyaTurunanTransportAktif()) {
                 throw ValidationException::withMessages([
@@ -351,7 +364,46 @@ class NpdController extends Controller
 
         AuditLog::catat('Batalkan NPD', 'NPD #'.$npd->id.' | '.$alasan);
 
-        return redirect()->route('npd.index')->with('success', 'NPD berhasil dibatalkan dengan aman.');
+        // Gunakan URL relatif agar redirect tetap berada pada host yang sedang
+        // dipakai pengguna (mis. domain Laragon), bukan APP_URL dari .env.
+        // Redirect lintas host membuat cookie sesi tidak ikut terbawa dan
+        // middleware role kemudian merespons 403 walaupun pembatalan sukses.
+        return redirect(route('npd.index', [], false))->with('success', 'NPD berhasil dibatalkan dengan aman.');
+    }
+
+    public function destroyPermanent(Request $request, Npd $npd)
+    {
+        abort_unless($request->user()->isSuperadmin(), 403);
+
+        $data = $request->validate([
+            'alasan_permanen' => ['required', 'string', 'min:5', 'max:500'],
+        ], [
+            'alasan_permanen.required' => 'Alasan hapus permanen wajib diisi.',
+            'alasan_permanen.min' => 'Alasan hapus permanen minimal 5 karakter.',
+        ]);
+
+        $identitas = $npd->nomor_lengkap ?: "NPD #{$npd->id}";
+        $id = $npd->id;
+
+        DB::transaction(function () use ($npd) {
+            $npd = Npd::query()->lockForUpdate()->findOrFail($npd->id);
+            $npd->lepaskanSuratPerintah();
+
+            // Pengembalian memakai referensi polimorfik tanpa foreign key,
+            // sehingga harus dibersihkan eksplisit sebelum NPD dihapus.
+            Pengembalian::query()
+                ->where('dokumen_tipe', Pengembalian::TIPE_NPD)
+                ->where('dokumen_id', $npd->id)
+                ->get()
+                ->each->delete();
+
+            $npd->forceDelete();
+        });
+
+        AuditLog::catat('Hapus Permanen NPD', "{$identitas} (ID {$id}) | {$data['alasan_permanen']}");
+
+        return redirect(route('npd.index', [], false))
+            ->with('success', 'NPD berhasil dihapus permanen.');
     }
 
     /**

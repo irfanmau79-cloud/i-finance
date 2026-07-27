@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\ArsipSpj;
+use App\Models\BantexSpj;
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
 use App\Models\Pegawai;
@@ -19,10 +20,27 @@ class InventarisasiSpjTest extends TestCase
 {
     use RefreshDatabase;
 
+    public function test_bantex_dapat_dibuat_dan_tetap_muncul_saat_kosong(): void
+    {
+        $user = $this->user('superadmin');
+
+        $this->actingAs($user)->post(route('inventarisasi-spj.bantex.store'), [
+            'nama' => 'Bantex Kosong A-01',
+            'keterangan' => 'Arsip baru',
+        ])->assertSessionHasNoErrors();
+
+        $data = app(InventarisasiSpjService::class)->data([]);
+        $this->assertSame(1, $data['jumlah_lokasi']);
+        $this->assertSame('Bantex Kosong A-01', $data['lokasi'][0]['lokasi']);
+        $this->assertSame(0, $data['lokasi'][0]['jumlah_dokumen']);
+    }
+
     public function test_lokasi_dapat_ditetapkan_dan_dipindahkan_tanpa_menghapus_histori(): void
     {
         $user = $this->user('superadmin');
         $npd = $this->npd('6.01.02.1.01 Pengawasan', '5.1.02.01', 'Tag A');
+        BantexSpj::create(['nama' => 'Bantex A-01', 'aktif' => true]);
+        BantexSpj::create(['nama' => 'Bantex B-02', 'aktif' => true]);
 
         $this->actingAs($user)->post(route('npd.arsip-spj.store', $npd), ['jenis_dokumen' => 'NPD', 'lokasi' => 'Bantex A-01', 'catatan' => 'Awal'])->assertSessionHasNoErrors();
         $this->actingAs($user)->post(route('npd.arsip-spj.store', $npd), ['jenis_dokumen' => 'NPD', 'lokasi' => 'Bantex B-02', 'catatan' => 'Pindah'])->assertSessionHasNoErrors();
@@ -37,6 +55,7 @@ class InventarisasiSpjTest extends TestCase
     {
         $user = $this->user('superadmin');
         $npd = $this->npd('6.01.02.1.01 Pengawasan', '5.1.02.01', 'Tag A', 1_500_000);
+        foreach (['Rak A', 'Rak B'] as $nama) BantexSpj::create(['nama' => $nama, 'aktif' => true]);
         foreach ([['NPD', 'Rak A'], ['Lampiran NPD', 'Rak A'], ['SPD Rampung', 'Rak B']] as [$jenis, $lokasi]) {
             $this->actingAs($user)->post(route('npd.arsip-spj.store', $npd), ['jenis_dokumen' => $jenis, 'lokasi' => $lokasi]);
         }
@@ -120,6 +139,7 @@ class InventarisasiSpjTest extends TestCase
     {
         $bendahara = $this->user('bendahara_pengeluaran');
         $npd = $this->npd('6.01.02.1.01 Pengawasan', '5.1.02.01', null);
+        BantexSpj::create(['nama' => 'Bantex C-03', 'aktif' => true]);
 
         $response = $this->actingAs($bendahara)->put(route('inventarisasi-spj.detail.update', $npd), [
             'bulan' => 5, 'nomor_sp' => 'SP-MANUAL-1', 'nominal' => 2_500_000, 'koordinator' => 'Koordinator Manual',
