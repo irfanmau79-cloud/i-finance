@@ -103,7 +103,7 @@
       <td class="right">
         <table class="rowkv"><tr><td class="k">Nomor BKU</td><td>:</td></tr></table>
         <table class="rowkv"><tr><td class="k">Tanggal BKU</td><td>:</td></tr></table>
-        <table class="rowkv"><tr><td class="k">Kodering</td><td>: {{ $npd->masterAnggaran->kode_rekening }}</td></tr></table>
+        <table class="rowkv"><tr><td class="k">Kodering</td><td>: {{ $npd->masterAnggaran->kode_rekening_bersih }}</td></tr></table>
       </td>
     </tr>
   </table>

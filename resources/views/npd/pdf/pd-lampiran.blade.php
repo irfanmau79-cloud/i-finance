@@ -69,7 +69,7 @@
         <td class="num vtop"></td>
         <td class="num vtop">{{ fmt_rupiah(0) }}</td>
         <td class="num vtop">{{ fmt_rupiah($npd->nominal) }}</td>
-        <td class="vtop ket"><b>{{ $npd->masterAnggaran->kode_rekening }}</b><br>{{ $keterangan }}</td>
+        <td class="vtop ket"><b>{{ $npd->masterAnggaran->kode_rekening_bersih }}</b><br>{{ $keterangan }}</td>
       </tr>
       <tr class="jml">
         <td colspan="2" class="center bold">J u m l a h</td>

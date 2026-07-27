@@ -142,14 +142,14 @@ class MasterAnggaranImport extends Model
                     'kegiatan' => $row['kegiatan'] ?? null,
                     'sub_kegiatan' => $row['sub_kegiatan'] ?? null,
                     'kode_rekening' => $row['kode_rekening'] ?? null,
-                    'uraian_rekening' => $row['uraian_rekening'] ?? null,
                     'tagging' => $row['tagging'] ?? null,
                     'pagu' => $row['pagu'] ?? null,
                     'aktif' => $row['aktif'] ?? null,
                 ]);
 
                 if ($hasil['aksi'] !== MasterAnggaranImportRow::AKSI_DITOLAK) {
-                    $kunci = mb_strtolower($hasil['sub_kegiatan']).'|'.mb_strtolower($hasil['kode_rekening']).'|'.mb_strtolower((string) $hasil['tagging_nama']);
+                    $kodeBersih = MasterAnggaran::pisahKodeUraian($hasil['kode_rekening'])[0];
+                    $kunci = mb_strtolower($hasil['sub_kegiatan']).'|'.mb_strtolower($kodeBersih).'|'.mb_strtolower((string) $hasil['tagging_nama']);
 
                     if (isset($kunciTerlihat[$kunci])) {
                         $hasil['aksi'] = MasterAnggaranImportRow::AKSI_DITOLAK;
@@ -173,7 +173,6 @@ class MasterAnggaranImport extends Model
                     'kegiatan' => $hasil['kegiatan'],
                     'sub_kegiatan' => $hasil['sub_kegiatan'],
                     'kode_rekening' => $hasil['kode_rekening'],
-                    'uraian_rekening' => $hasil['uraian_rekening'],
                     'tagging_nama' => $hasil['tagging_nama'],
                     'aktif' => $hasil['aktif'],
                     'pagu_baru' => $hasil['pagu_baru'],
@@ -223,7 +222,6 @@ class MasterAnggaranImport extends Model
                     'kegiatan' => $baris->kegiatan,
                     'sub_kegiatan' => $baris->sub_kegiatan,
                     'kode_rekening' => $baris->kode_rekening,
-                    'uraian_rekening' => $baris->uraian_rekening,
                     'tagging' => $baris->tagging_nama,
                     'pagu' => (float) $baris->pagu_baru,
                     'aktif' => $baris->aktif ? 'ya' : 'tidak',
@@ -243,12 +241,14 @@ class MasterAnggaranImport extends Model
                         $taggingId = Tagging::firstOrCreate(['nama' => $hasil['tagging_nama']])->id;
                     }
 
+                    $kodeBersih = MasterAnggaran::pisahKodeUraian($hasil['kode_rekening'])[0];
+
                     $model = MasterAnggaran::updateOrCreate(
-                        ['sub_kegiatan' => $hasil['sub_kegiatan'], 'kode_rekening' => $hasil['kode_rekening'], 'tagging_id' => $taggingId],
+                        ['sub_kegiatan' => $hasil['sub_kegiatan'], 'kode_rekening_bersih' => $kodeBersih, 'tagging_id' => $taggingId],
                         [
                             'program' => $hasil['program'],
                             'kegiatan' => $hasil['kegiatan'],
-                            'uraian_rekening' => $hasil['uraian_rekening'],
+                            'kode_rekening' => $hasil['kode_rekening'],
                             'pagu' => $hasil['pagu_baru'],
                             'aktif' => $hasil['aktif'],
                         ]
@@ -291,8 +291,12 @@ class MasterAnggaranImport extends Model
         $program = trim((string) ($mentah['program'] ?? ''));
         $kegiatan = trim((string) ($mentah['kegiatan'] ?? ''));
         $subKegiatan = trim((string) ($mentah['sub_kegiatan'] ?? ''));
-        $kodeRekening = trim((string) ($mentah['kode_rekening'] ?? ''));
-        $uraianRekening = trim((string) ($mentah['uraian_rekening'] ?? ''));
+        // Kolom "Kode Rekening" di file berisi kode+uraian gabungan (satu
+        // kolom, sama seperti Program/Kegiatan/Sub Kegiatan) - lihat
+        // MasterAnggaran::pisahKodeUraian(). kode_rekening_bersih (bagian
+        // kode saja) adalah kunci matching/upsert yang sesungguhnya.
+        [$kodeBersih, $uraianRekening] = MasterAnggaran::pisahKodeUraian((string) ($mentah['kode_rekening'] ?? ''));
+        $kodeRekening = MasterAnggaran::gabungKodeUraian($kodeBersih, $uraianRekening);
         $taggingNama = trim((string) ($mentah['tagging'] ?? ''));
         $taggingNama = $taggingNama === '' ? null : $taggingNama;
         $aktif = mb_strtolower(trim((string) ($mentah['aktif'] ?? ''))) !== 'tidak';
@@ -302,7 +306,6 @@ class MasterAnggaranImport extends Model
             'kegiatan' => $kegiatan,
             'sub_kegiatan' => $subKegiatan,
             'kode_rekening' => $kodeRekening,
-            'uraian_rekening' => $uraianRekening !== '' ? $uraianRekening : null,
             'tagging_nama' => $taggingNama,
             'aktif' => $aktif,
             'pagu_baru' => null,
@@ -310,12 +313,16 @@ class MasterAnggaranImport extends Model
             'master_anggaran_id' => null,
         ];
 
-        if ($subKegiatan === '' || $kodeRekening === '') {
+        if ($subKegiatan === '' || $kodeBersih === '') {
             return $dasar + ['aksi' => MasterAnggaranImportRow::AKSI_DITOLAK, 'alasan' => 'Sub Kegiatan atau Kode Rekening kosong.'];
         }
 
-        if (mb_strlen($kodeRekening) > 50) {
-            return $dasar + ['aksi' => MasterAnggaranImportRow::AKSI_DITOLAK, 'alasan' => 'Kode Rekening melebihi 50 karakter.'];
+        if (mb_strlen($kodeBersih) > 50) {
+            return $dasar + ['aksi' => MasterAnggaranImportRow::AKSI_DITOLAK, 'alasan' => 'Kode Rekening (bagian kode sebelum uraian) melebihi 50 karakter.'];
+        }
+
+        if (mb_strlen($kodeRekening) > 500) {
+            return $dasar + ['aksi' => MasterAnggaranImportRow::AKSI_DITOLAK, 'alasan' => 'Kode Rekening (kode + uraian digabung) melebihi 500 karakter.'];
         }
 
         $pagu = self::normalisasiAngka($mentah['pagu'] ?? null);
@@ -328,7 +335,7 @@ class MasterAnggaranImport extends Model
         $taggingId = $taggingNama !== null ? Tagging::where('nama', $taggingNama)->value('id') : null;
 
         $existing = MasterAnggaran::where('sub_kegiatan', $subKegiatan)
-            ->where('kode_rekening', $kodeRekening)
+            ->where('kode_rekening_bersih', $kodeBersih)
             ->where('tagging_id', $taggingId)
             ->lockForUpdate()
             ->first();

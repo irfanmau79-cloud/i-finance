@@ -20,7 +20,7 @@ class MasterAnggaranImportTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const HEADER = ['Program', 'Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Uraian Rekening', 'Tagging', 'Pagu', 'Aktif'];
+    private const HEADER = ['Program', 'Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Tagging', 'Pagu', 'Aktif'];
 
     private function buatUser(string $role, string $username = 'penguji'): User
     {
@@ -52,8 +52,7 @@ class MasterAnggaranImportTest extends TestCase
             'program' => 'Program Uji Import',
             'kegiatan' => 'Kegiatan Uji Import',
             'sub_kegiatan' => '6.01.01.2.01 Sub Kegiatan Uji Import',
-            'kode_rekening' => '5.1.02.05.01.7001',
-            'uraian_rekening' => 'Belanja Pengujian Import',
+            'kode_rekening' => '5.1.02.05.01.7001 Belanja Pengujian Import',
             'tagging' => '',
             'pagu' => 10_000_000,
             'aktif' => 'Ya',
@@ -195,8 +194,7 @@ class MasterAnggaranImportTest extends TestCase
             'program' => 'Program Lama',
             'kegiatan' => 'Kegiatan Lama',
             'sub_kegiatan' => '6.01.01.2.01 Sub Kegiatan Update',
-            'kode_rekening' => '5.1.02.05.01.8001',
-            'uraian_rekening' => 'Belanja Lama',
+            'kode_rekening' => '5.1.02.05.01.8001 Belanja Lama',
             'pagu' => 5_000_000,
             'aktif' => true,
         ]);
@@ -328,8 +326,7 @@ class MasterAnggaranImportTest extends TestCase
             'program' => 'Program Uji Pagu Kecil',
             'kegiatan' => 'Kegiatan Uji Pagu Kecil',
             'sub_kegiatan' => '6.01.01.2.01 Sub Kegiatan Pagu Kecil',
-            'kode_rekening' => '5.1.02.05.01.9101',
-            'uraian_rekening' => 'Belanja Pengujian Pagu Kecil',
+            'kode_rekening' => '5.1.02.05.01.9101 Belanja Pengujian Pagu Kecil',
             'pagu' => 20_000_000,
             'aktif' => true,
         ]);

@@ -356,7 +356,10 @@ class SpmImport extends Model
         }
 
         $subKegiatan = trim((string) ($mentah['sub_kegiatan'] ?? ''));
-        $kodeRekening = trim((string) ($mentah['kode_rekening'] ?? ''));
+        // File sumber kadang berisi kode+uraian gabungan di kolom Kode
+        // Rekening - ambil bagian kode saja untuk matching & penyimpanan
+        // (kolom staging kode_rekening tetap varchar pendek).
+        $kodeRekening = MasterAnggaran::pisahKodeUraian(trim((string) ($mentah['kode_rekening'] ?? '')))[0];
         $taggingNama = trim((string) ($mentah['tagging'] ?? ''));
         $taggingNama = $taggingNama === '' ? null : $taggingNama;
 
@@ -375,7 +378,7 @@ class SpmImport extends Model
         }
 
         $masterAnggaran = MasterAnggaran::where('sub_kegiatan', $subKegiatan)
-            ->where('kode_rekening', $kodeRekening)
+            ->where('kode_rekening_bersih', $kodeRekening)
             ->where('tagging_id', $taggingId)
             ->where('aktif', true)
             ->lockForUpdate()

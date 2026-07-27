@@ -29,7 +29,7 @@ class AnggaranRealisasiService
             ->with('tagging:id,nama')
             ->orderBy('sub_kegiatan_normal')
             ->orderBy('kode_rekening')
-            ->get(['id', 'sub_kegiatan', 'sub_kegiatan_kunci', 'kode_rekening', 'uraian_rekening', 'tagging_id']);
+            ->get(['id', 'sub_kegiatan', 'sub_kegiatan_kunci', 'kode_rekening', 'kode_rekening_bersih', 'tagging_id']);
 
         $kodeScope = $subKegiatanKunci
             ? $masters->where('sub_kegiatan_kunci', $subKegiatanKunci)
@@ -42,22 +42,18 @@ class AnggaranRealisasiService
                     'value' => $item->sub_kegiatan_kunci,
                     'label' => $item->subKegiatanNormal(),
                 ])->values(),
-            'kode_rekening' => $kodeScope->pluck('kode_rekening')->unique()->sort()->values(),
+            'kode_rekening' => $kodeScope->pluck('kode_rekening_bersih')->unique()->sort()->values(),
             /**
-             * Sama seperti 'kode_rekening' di atas, tapi berlabel "kode —
-             * uraian" untuk dropdown yang perlu menampilkan uraian rekening
-             * (Dashboard Realisasi Anggaran). Kunci TAMBAHAN, sengaja tidak
-             * menggantikan 'kode_rekening' supaya Rincian Realisasi & Analisis
-             * Tren yang sudah memakai bentuk lama (daftar string polos) tidak
-             * ikut berubah.
+             * Sama seperti 'kode_rekening' di atas (nilainya kode_rekening_bersih,
+             * tetap pendek untuk filter), tapi berlabel kode+uraian gabungan
+             * untuk dropdown yang perlu menampilkan uraian rekening (Dashboard
+             * Realisasi Anggaran). Kunci TAMBAHAN, sengaja tidak menggantikan
+             * 'kode_rekening' supaya Rincian Realisasi & Analisis Tren yang
+             * sudah memakai bentuk lama (daftar string polos) tidak ikut berubah.
              */
             'kode_rekening_berlabel' => $kodeScope
-                ->groupBy('kode_rekening')
-                ->map(function (Collection $items, string $kode) {
-                    $uraian = $items->first()->uraian_rekening;
-
-                    return ['value' => $kode, 'label' => $uraian ? "{$kode} — {$uraian}" : $kode];
-                })
+                ->groupBy('kode_rekening_bersih')
+                ->map(fn (Collection $items, string $kode) => ['value' => $kode, 'label' => $items->first()->kode_rekening])
                 ->sortBy('value', SORT_NATURAL)
                 ->values(),
             'tagging' => $masters->whereNotNull('tagging_id')
@@ -95,14 +91,14 @@ class AnggaranRealisasiService
 
         $masters = $query
             ->orderBy('sub_kegiatan_normal')
-            ->orderBy('kode_rekening')
+            ->orderBy('kode_rekening_bersih')
             ->orderBy('tagging_id')
             ->get();
 
         $tree = $masters
             ->groupBy('sub_kegiatan_kunci')
             ->map(function (Collection $subItems) {
-                $rekening = $subItems->groupBy('kode_rekening')->map(function (Collection $rekeningItems, string $kode) {
+                $rekening = $subItems->groupBy('kode_rekening_bersih')->map(function (Collection $rekeningItems, string $kode) {
                     $tagging = $rekeningItems->map(fn (MasterAnggaran $master) => [
                         'id' => $master->id,
                         'nama' => $master->tagging?->nama ?? 'Tanpa Tagging',
@@ -439,7 +435,6 @@ class AnggaranRealisasiService
                     ->orWhere('kegiatan', 'like', $cari)
                     ->orWhere('sub_kegiatan', 'like', $cari)
                     ->orWhere('kode_rekening', 'like', $cari)
-                    ->orWhere('uraian_rekening', 'like', $cari)
                     ->orWhereHas('tagging', fn (Builder $query) => $query->where('nama', 'like', $cari));
             });
         }
@@ -453,7 +448,7 @@ class AnggaranRealisasiService
             ->when(($filters['sub_kegiatan'] ?? '') !== '', fn (Builder $query) => $query
                 ->where('sub_kegiatan_kunci', $filters['sub_kegiatan']))
             ->when(($filters['kode_rekening'] ?? '') !== '', fn (Builder $query) => $query
-                ->where('kode_rekening', $filters['kode_rekening']));
+                ->where('kode_rekening_bersih', $filters['kode_rekening']));
     }
 
     private function rakQuery(array $filters, int $tahun): Builder
@@ -464,12 +459,12 @@ class AnggaranRealisasiService
                 $query->selectRaw('1')
                     ->from('master_anggaran')
                     ->whereColumn('master_anggaran.sub_kegiatan_kunci', 'rak_bulanan.sub_kegiatan_kunci')
-                    ->whereColumn('master_anggaran.kode_rekening', 'rak_bulanan.kode_rekening')
+                    ->whereColumn('master_anggaran.kode_rekening_bersih', 'rak_bulanan.kode_rekening')
                     ->where('master_anggaran.aktif', true)
                     ->when(($filters['sub_kegiatan'] ?? '') !== '', fn ($query) => $query
                         ->where('master_anggaran.sub_kegiatan_kunci', $filters['sub_kegiatan']))
                     ->when(($filters['kode_rekening'] ?? '') !== '', fn ($query) => $query
-                        ->where('master_anggaran.kode_rekening', $filters['kode_rekening']));
+                        ->where('master_anggaran.kode_rekening_bersih', $filters['kode_rekening']));
             });
     }
 

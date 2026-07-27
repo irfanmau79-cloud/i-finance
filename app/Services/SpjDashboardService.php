@@ -61,7 +61,7 @@ class SpjDashboardService
     /** Hanya NPD dengan kode rekening Belanja Perjalanan Dinas Biasa/Dalam Kota yang masuk dashboard ini. */
     public static function adalahPerjalananDinas(Npd $npd): bool
     {
-        return in_array($npd->masterAnggaran?->kode_rekening, self::KODE_REKENING_PERJALANAN_DINAS, true);
+        return in_array($npd->masterAnggaran?->kode_rekening_bersih, self::KODE_REKENING_PERJALANAN_DINAS, true);
     }
 
     public static function bidang(Npd $npd): ?string

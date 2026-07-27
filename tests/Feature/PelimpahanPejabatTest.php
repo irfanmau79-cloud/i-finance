@@ -51,8 +51,7 @@ class PelimpahanPejabatTest extends TestCase
             'program' => $program,
             'kegiatan' => 'Kegiatan '.$program,
             'sub_kegiatan' => $subKegiatan,
-            'kode_rekening' => $kode,
-            'uraian_rekening' => 'Belanja Pengujian',
+            'kode_rekening' => MasterAnggaran::gabungKodeUraian($kode, 'Belanja Pengujian'),
             'pagu' => 100_000_000,
             'aktif' => true,
         ]);

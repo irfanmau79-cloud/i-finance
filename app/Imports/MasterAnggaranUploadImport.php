@@ -8,11 +8,12 @@ use Maatwebsite\Excel\Concerns\WithHeadingRow;
 
 /**
  * Baca file upload Manajemen Data > Import Pagu/Master Anggaran. Header
- * kolom mengikuti persis output MasterAnggaranExport (Prompt 09): Program,
- * Kegiatan, Sub Kegiatan, Kode Rekening, Uraian Rekening, Tagging, Pagu,
- * Aktif - supaya export bisa dipakai langsung sebagai template import.
- * WithHeadingRow men-slug header ("Kode Rekening" -> "kode_rekening") jadi
- * key array yang bisa langsung dipakai tanpa peta kolom manual.
+ * kolom mengikuti persis output MasterAnggaranExport: Program, Kegiatan,
+ * Sub Kegiatan, Kode Rekening (kode+uraian gabungan satu kolom, lihat
+ * MasterAnggaran::pisahKodeUraian()), Tagging, Pagu, Aktif - supaya export
+ * bisa dipakai langsung sebagai template import. WithHeadingRow men-slug
+ * header ("Kode Rekening" -> "kode_rekening") jadi key array yang bisa
+ * langsung dipakai tanpa peta kolom manual.
  */
 class MasterAnggaranUploadImport implements ToCollection, WithHeadingRow
 {

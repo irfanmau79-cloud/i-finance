@@ -149,7 +149,12 @@ class RakBulananImport extends Model
                 $nomorBaris = $indeksAsli + $barisDataMulai;
 
                 $subKegiatan = trim((string) ($row['sub_kegiatan'] ?? ''));
-                $kodeRekening = trim((string) ($row['kode_rekening'] ?? ''));
+                // File sumber (termasuk hasil export lama) kadang berisi
+                // kode+uraian gabungan di kolom Kode Rekening - ambil bagian
+                // kode saja untuk matching & penyimpanan (kolom staging
+                // kode_rekening tetap varchar pendek, sama format dengan
+                // rak_bulanan.kode_rekening).
+                $kodeRekening = MasterAnggaran::pisahKodeUraian(trim((string) ($row['kode_rekening'] ?? '')))[0];
                 $tahunFile = trim((string) ($row['tahun_anggaran'] ?? ''));
 
                 // Kolom Tagging (kalau ada, format lama) dibaca murni untuk
@@ -386,7 +391,7 @@ class RakBulananImport extends Model
         $subKegiatanKunci = MasterAnggaran::normalisasiKunci($subKegiatan);
 
         $ada = MasterAnggaran::where('sub_kegiatan_kunci', $subKegiatanKunci)
-            ->where('kode_rekening', $kodeRekening)
+            ->where('kode_rekening_bersih', $kodeRekening)
             ->where('aktif', true)
             ->lockForUpdate()
             ->exists();

@@ -32,8 +32,7 @@ class PengembalianTest extends TestCase
             'program' => 'Program Uji Pengembalian',
             'kegiatan' => 'Kegiatan Uji Pengembalian',
             'sub_kegiatan' => '6.01.01.2.01 Sub Kegiatan Uji Pengembalian',
-            'kode_rekening' => $kodeRekening,
-            'uraian_rekening' => 'Belanja Pengujian Pengembalian',
+            'kode_rekening' => MasterAnggaran::gabungKodeUraian($kodeRekening, 'Belanja Pengujian Pengembalian'),
             'pagu' => $pagu,
             'aktif' => true,
         ]);
@@ -461,7 +460,7 @@ class PengembalianTest extends TestCase
         $this->actingAs($bpp)->get(route('pengembalian.show', $pengembalian))
             ->assertOk()
             ->assertSee($npd->nomor_lengkap ?? '(Draft #'.$npd->id.')')
-            ->assertSee($anggaran->kode_rekening)
+            ->assertSee($anggaran->kode_rekening_bersih)
             ->assertSee('Rp 300.000,00');
     }
 

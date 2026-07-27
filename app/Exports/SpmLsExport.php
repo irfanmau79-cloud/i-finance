@@ -49,7 +49,7 @@ class SpmLsExport extends DataManagementExport
             $spm->nomor_sp2d,
             optional($spm->tanggal_sp2d)->format('Y-m-d'),
             $row->masterAnggaran?->sub_kegiatan,
-            $row->masterAnggaran?->kode_rekening,
+            $row->masterAnggaran?->kode_rekening_bersih,
             $row->masterAnggaran?->uraian_rekening,
             $row->masterAnggaran?->tagging?->nama,
             (float) $row->nominal,

@@ -21,9 +21,10 @@
     .rr-wrap{overflow:auto;border:1px solid var(--line);border-radius:11px;margin-top:16px}
     table.rr-tree{min-width:1060px;margin:0;table-layout:fixed;width:100%;}
     table.rr-tree th{white-space:nowrap}
-    table.rr-tree col.c-uraian{width:60%}
-    table.rr-tree col.c-eksisting{width:15%}
-    table.rr-tree col.c-simulasi{width:15%}
+    table.rr-tree col.c-uraian{width:48%}
+    table.rr-tree col.c-eksisting{width:13%}
+    table.rr-tree col.c-realisasi{width:13%}
+    table.rr-tree col.c-simulasi{width:16%}
     table.rr-tree col.c-selisih{width:10%}
     table.rr-tree .rr-label{overflow-wrap:anywhere;}
     table.rr-tree .rr-num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
@@ -126,6 +127,7 @@
                 <colgroup>
                     <col class="c-uraian">
                     <col class="c-eksisting">
+                    <col class="c-realisasi">
                     <col class="c-simulasi">
                     <col class="c-selisih">
                 </colgroup>
@@ -133,6 +135,7 @@
                     <tr>
                         <th class="rr-label">Uraian</th>
                         <th class="rr-num">Anggaran (Eksisting)</th>
+                        <th class="rr-num">Realisasi</th>
                         <th class="rr-num">Anggaran (Simulasi)</th>
                         <th class="rr-num">Selisih</th>
                     </tr>
@@ -148,6 +151,7 @@
                                 </div>
                             </td>
                             <td class="rr-num">{{ $rupiah($prog['eksisting']) }}</td>
+                            <td class="rr-num">{{ $rupiah($prog['realisasi']) }}</td>
                             <td class="rr-num" id="sim-agg-simulasi-p-{{ $progIndex }}">{{ $rupiah($prog['simulasi']) }}</td>
                             <td class="rr-num" id="sim-agg-selisih-p-{{ $progIndex }}">{{ $prog['selisih'] > 0 ? '+' : '' }}{{ $rupiah($prog['selisih']) }}</td>
                         </tr>
@@ -162,6 +166,7 @@
                                     </div>
                                 </td>
                                 <td class="rr-num">{{ $rupiah($keg['eksisting']) }}</td>
+                                <td class="rr-num">{{ $rupiah($keg['realisasi']) }}</td>
                                 <td class="rr-num" id="sim-agg-simulasi-k-{{ $kegKey }}">{{ $rupiah($keg['simulasi']) }}</td>
                                 <td class="rr-num" id="sim-agg-selisih-k-{{ $kegKey }}">{{ $keg['selisih'] > 0 ? '+' : '' }}{{ $rupiah($keg['selisih']) }}</td>
                             </tr>
@@ -176,6 +181,7 @@
                                         </div>
                                     </td>
                                     <td class="rr-num">{{ $rupiah($sub['eksisting']) }}</td>
+                                    <td class="rr-num">{{ $rupiah($sub['realisasi']) }}</td>
                                     <td class="rr-num" id="sim-agg-simulasi-s-{{ $subKey }}">{{ $rupiah($sub['simulasi']) }}</td>
                                     <td class="rr-num" id="sim-agg-selisih-s-{{ $subKey }}">{{ $sub['selisih'] > 0 ? '+' : '' }}{{ $rupiah($sub['selisih']) }}</td>
                                 </tr>
@@ -190,6 +196,7 @@
                                             </div>
                                         </td>
                                         <td class="rr-num">{{ $rupiah($rekening['eksisting']) }}</td>
+                                        <td class="rr-num">{{ $rupiah($rekening['realisasi']) }}</td>
                                         <td class="rr-num" id="sim-agg-simulasi-r-{{ $rekKey }}">{{ $rupiah($rekening['simulasi']) }}</td>
                                         <td class="rr-num" id="sim-agg-selisih-r-{{ $rekKey }}">{{ $rekening['selisih'] > 0 ? '+' : '' }}{{ $rupiah($rekening['selisih']) }}</td>
                                     </tr>
@@ -198,6 +205,7 @@
                                         <tr class="row-lvl4" data-rr-ancestors="{{ $progNode }} {{ $kegNode }} {{ $subNode }} {{ $rekeningNode }}">
                                             <td class="rr-label ind4"><div class="uraian"><span class="spacer"></span><span>{{ $row->tagging_nama ?? 'Tanpa Tagging' }}</span></div></td>
                                             <td class="rr-num">{{ $rupiah((float) $row->pagu_eksisting) }}</td>
+                                            <td class="rr-num">{{ $rupiah((float) $row->realisasi) }}</td>
                                             <td class="rr-num">
                                                 <input type="text" inputmode="decimal" autocomplete="off" class="sim-rek-input"
                                                     data-row-id="{{ $row->id }}"
@@ -217,7 +225,7 @@
                             @endforeach
                         @endforeach
                     @empty
-                        <tr><td colspan="4" class="rr-empty">Simulasi ini belum memiliki baris mata anggaran.</td></tr>
+                        <tr><td colspan="5" class="rr-empty">Simulasi ini belum memiliki baris mata anggaran.</td></tr>
                     @endforelse
                 </tbody>
             </table>

@@ -55,8 +55,7 @@ class SubKegiatanDistributionTest extends TestCase
             'program' => $program,
             'kegiatan' => 'Kegiatan '.$program,
             'sub_kegiatan' => $sub,
-            'kode_rekening' => $kode ?? sprintf('5.1.%02d', $this->sequence),
-            'uraian_rekening' => 'Belanja Pengujian',
+            'kode_rekening' => MasterAnggaran::gabungKodeUraian($kode ?? sprintf('5.1.%02d', $this->sequence), 'Belanja Pengujian'),
             'pagu' => 1_000_000,
             'aktif' => true,
         ]);

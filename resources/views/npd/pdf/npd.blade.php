@@ -116,7 +116,7 @@
     </thead>
     <tbody>
       <tr>
-        <td style="border-bottom:none;white-space:nowrap;">{{ $npd->masterAnggaran->kode_rekening }}</td>
+        <td style="border-bottom:none;white-space:nowrap;">{{ $npd->masterAnggaran->kode_rekening_bersih }}</td>
         <td class="muted" style="border-bottom:none;">{{ $npd->masterAnggaran->uraian_rekening }}</td>
         <td class="num" style="border-bottom:none;">{{ fmt_rupiah($npd->masterAnggaran->pagu) }}</td>
         <td class="num" style="border-bottom:none;">{{ fmt_rupiah($sisaSebelum) }}</td>

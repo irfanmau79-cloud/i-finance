@@ -16,7 +16,7 @@ class SpjPerjalananDinasExport extends DataManagementExport
     public function query(): Builder
     {
         return Npd::query()
-            ->whereHas('masterAnggaran', fn ($q) => $q->whereIn('kode_rekening', SpjDashboardService::KODE_REKENING_PERJALANAN_DINAS))
+            ->whereHas('masterAnggaran', fn ($q) => $q->whereIn('kode_rekening_bersih', SpjDashboardService::KODE_REKENING_PERJALANAN_DINAS))
             ->where('status', 'Selesai')
             ->with(['masterAnggaran', 'suratPerintah', 'dibuatOleh.pegawai', 'spjVerifiedBy'])
             ->orderBy('tanggal_npd');

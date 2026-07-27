@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -12,7 +13,6 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'kegiatan',
     'sub_kegiatan',
     'kode_rekening',
-    'uraian_rekening',
     'tagging_id',
     'pagu',
     'aktif',
@@ -21,6 +21,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'sub_kegiatan_normal',
     'program_kunci',
     'sub_kegiatan_kunci',
+    'kode_rekening_bersih',
 ])]
 class MasterAnggaran extends Model
 {
@@ -42,7 +43,45 @@ class MasterAnggaran extends Model
             $anggaran->sub_kegiatan_normal = self::normalisasiTeks($anggaran->sub_kegiatan);
             $anggaran->program_kunci = self::normalisasiKunci($anggaran->program);
             $anggaran->sub_kegiatan_kunci = self::normalisasiKunci($anggaran->sub_kegiatan);
+            $anggaran->kode_rekening_bersih = self::pisahKodeUraian($anggaran->kode_rekening)[0];
         });
+    }
+
+    /**
+     * kode_rekening menyimpan kode+uraian gabungan ("{kode} {uraian}",
+     * dipisah spasi pertama - sama seperti program/kegiatan/sub_kegiatan
+     * yang juga satu kolom teks bebas). kode_rekening_bersih (kolom
+     * turunan, lihat booted()) adalah kunci pendek yang dipakai di semua
+     * tempat yang butuh exact-match (RAK Bulanan, import SPM LS/NPD
+     * Historis, whitelist SPJ, dsb) - lihat catatan migrasi
+     * 2026_07_27_090014_merge_kode_rekening_uraian_master_anggaran.
+     *
+     * @return array{0: string, 1: string} [kode, uraian]
+     */
+    public static function pisahKodeUraian(?string $gabungan): array
+    {
+        $gabungan = trim((string) $gabungan);
+        $spasi = strpos($gabungan, ' ');
+
+        if ($spasi === false) {
+            return [$gabungan, ''];
+        }
+
+        return [substr($gabungan, 0, $spasi), trim(substr($gabungan, $spasi + 1))];
+    }
+
+    public static function gabungKodeUraian(string $kode, ?string $uraian): string
+    {
+        $kode = trim($kode);
+        $uraian = trim((string) $uraian);
+
+        return $uraian !== '' ? "{$kode} {$uraian}" : $kode;
+    }
+
+    /** Bagian uraian dari kode_rekening gabungan, turunan baca-saja. */
+    protected function uraianRekening(): Attribute
+    {
+        return Attribute::make(get: fn () => self::pisahKodeUraian($this->kode_rekening)[1]);
     }
 
     public function tagging(): BelongsTo
@@ -303,7 +342,7 @@ class MasterAnggaran extends Model
     public function targetRakBulan(int $bulan, int $tahun): ?float
     {
         $target = RakBulanan::where('sub_kegiatan_kunci', $this->sub_kegiatan_kunci)
-            ->where('kode_rekening', $this->kode_rekening)
+            ->where('kode_rekening', $this->kode_rekening_bersih)
             ->where('tahun', $tahun)
             ->where('bulan', $bulan)
             ->value('target');
@@ -321,7 +360,7 @@ class MasterAnggaran extends Model
     public function targetRakKumulatifSampai(int $bulan, int $tahun): ?float
     {
         $query = fn () => RakBulanan::where('sub_kegiatan_kunci', $this->sub_kegiatan_kunci)
-            ->where('kode_rekening', $this->kode_rekening)
+            ->where('kode_rekening', $this->kode_rekening_bersih)
             ->where('tahun', $tahun);
 
         if (! $query()->exists()) {

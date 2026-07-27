@@ -39,8 +39,7 @@ class SpmImportTest extends TestCase
             'program' => 'Program Uji Import SPM',
             'kegiatan' => 'Kegiatan Uji Import SPM',
             'sub_kegiatan' => '6.01.01.2.01 Sub Kegiatan Uji Import SPM',
-            'kode_rekening' => '5.1.02.05.02.6001',
-            'uraian_rekening' => 'Belanja Pengujian Import SPM',
+            'kode_rekening' => '5.1.02.05.02.6001 Belanja Pengujian Import SPM',
             'pagu' => 10_000_000,
             'aktif' => true,
         ], $override));
@@ -86,7 +85,7 @@ class SpmImportTest extends TestCase
             'nomor_sp2d' => '',
             'tanggal_sp2d' => '',
             'sub_kegiatan' => $anggaran->sub_kegiatan,
-            'kode_rekening' => $anggaran->kode_rekening,
+            'kode_rekening' => $anggaran->kode_rekening_bersih,
             'uraian_rekening' => $anggaran->uraian_rekening,
             'tagging' => '',
             'nominal' => 4_000_000,

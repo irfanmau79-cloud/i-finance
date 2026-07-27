@@ -30,8 +30,7 @@ class RoleAccessMatrixTest extends TestCase
             'program' => 'Program Matriks Role',
             'kegiatan' => 'Kegiatan Matriks Role',
             'sub_kegiatan' => '6.01.01.2.01 Sub Kegiatan Matriks Role',
-            'kode_rekening' => '5.1.02.01.01.0999',
-            'uraian_rekening' => 'Belanja Pengujian Role',
+            'kode_rekening' => '5.1.02.01.01.0999 Belanja Pengujian Role',
             'pagu' => 100_000_000,
             'aktif' => true,
         ]);

@@ -15,7 +15,6 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'kegiatan',
     'sub_kegiatan',
     'kode_rekening',
-    'uraian_rekening',
     'tagging_nama',
     'aktif',
     'pagu_baru',

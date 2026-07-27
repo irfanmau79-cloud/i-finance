@@ -14,8 +14,8 @@
   table.detail { width:100%; border-collapse:collapse; }
   table.detail th, table.detail td { border: 0.5pt solid #999; padding: 3pt 5pt; }
   table.detail th { background:#e9eef3; text-align:left; }
-  table.detail col.c-uraian { width:60%; }
-  table.detail col.c-num { width:13.34%; }
+  table.detail col.c-uraian { width:48%; }
+  table.detail col.c-num { width:13%; }
   .num { text-align:right; white-space:nowrap; }
   .naik { color: #0f6e56; font-weight:bold; }
   .turun { color: #b3261e; font-weight:bold; }
@@ -67,11 +67,13 @@
         <col class="c-num">
         <col class="c-num">
         <col class="c-num">
+        <col class="c-num">
     </colgroup>
     <thead>
         <tr>
             <th>Uraian</th>
             <th class="num">Anggaran (Eksisting)</th>
+            <th class="num">Realisasi</th>
             <th class="num">Anggaran (Simulasi)</th>
             <th class="num">Selisih</th>
         </tr>
@@ -81,6 +83,7 @@
             <tr class="prog-row">
                 <td>{{ $prog['nama'] }}</td>
                 <td class="num">Rp {{ $rupiah($prog['eksisting']) }}</td>
+                <td class="num">Rp {{ $rupiah($prog['realisasi']) }}</td>
                 <td class="num">Rp {{ $rupiah($prog['simulasi']) }}</td>
                 <td class="num {{ $prog['selisih'] > 0 ? 'naik' : ($prog['selisih'] < 0 ? 'turun' : '') }}">{{ $prog['selisih'] > 0 ? '+' : '' }}Rp {{ $rupiah($prog['selisih']) }}</td>
             </tr>
@@ -88,6 +91,7 @@
                 <tr class="keg-row">
                     <td class="ind1">{{ $keg['nama'] }}</td>
                     <td class="num">Rp {{ $rupiah($keg['eksisting']) }}</td>
+                    <td class="num">Rp {{ $rupiah($keg['realisasi']) }}</td>
                     <td class="num">Rp {{ $rupiah($keg['simulasi']) }}</td>
                     <td class="num {{ $keg['selisih'] > 0 ? 'naik' : ($keg['selisih'] < 0 ? 'turun' : '') }}">{{ $keg['selisih'] > 0 ? '+' : '' }}Rp {{ $rupiah($keg['selisih']) }}</td>
                 </tr>
@@ -95,6 +99,7 @@
                     <tr class="sub-row">
                         <td class="ind2">{{ $sub['nama'] }}</td>
                         <td class="num">Rp {{ $rupiah($sub['eksisting']) }}</td>
+                        <td class="num">Rp {{ $rupiah($sub['realisasi']) }}</td>
                         <td class="num">Rp {{ $rupiah($sub['simulasi']) }}</td>
                         <td class="num {{ $sub['selisih'] > 0 ? 'naik' : ($sub['selisih'] < 0 ? 'turun' : '') }}">{{ $sub['selisih'] > 0 ? '+' : '' }}Rp {{ $rupiah($sub['selisih']) }}</td>
                     </tr>
@@ -102,6 +107,7 @@
                         <tr class="rek-row">
                             <td class="ind3">{{ $rekening['kode'] }} {{ $rekening['uraian'] }}</td>
                             <td class="num">Rp {{ $rupiah($rekening['eksisting']) }}</td>
+                            <td class="num">Rp {{ $rupiah($rekening['realisasi']) }}</td>
                             <td class="num">Rp {{ $rupiah($rekening['simulasi']) }}</td>
                             <td class="num {{ $rekening['selisih'] > 0 ? 'naik' : ($rekening['selisih'] < 0 ? 'turun' : '') }}">{{ $rekening['selisih'] > 0 ? '+' : '' }}Rp {{ $rupiah($rekening['selisih']) }}</td>
                         </tr>
@@ -109,6 +115,7 @@
                             <tr>
                                 <td class="ind4">{{ $row->tagging_nama ?? 'Tanpa Tagging' }}</td>
                                 <td class="num">Rp {{ $rupiah((float) $row->pagu_eksisting) }}</td>
+                                <td class="num">Rp {{ $rupiah((float) $row->realisasi) }}</td>
                                 <td class="num">Rp {{ $rupiah((float) $row->pagu_simulasi) }}</td>
                                 <td class="num {{ (float) $row->selisih > 0 ? 'naik' : ((float) $row->selisih < 0 ? 'turun' : '') }}">{{ (float) $row->selisih > 0 ? '+' : '' }}Rp {{ $rupiah((float) $row->selisih) }}</td>
                             </tr>
@@ -117,7 +124,7 @@
                 @endforeach
             @endforeach
         @empty
-            <tr><td colspan="4" style="text-align:center;padding:16pt;color:#777;">Simulasi ini belum memiliki baris mata anggaran.</td></tr>
+            <tr><td colspan="5" style="text-align:center;padding:16pt;color:#777;">Simulasi ini belum memiliki baris mata anggaran.</td></tr>
         @endforelse
     </tbody>
 </table>

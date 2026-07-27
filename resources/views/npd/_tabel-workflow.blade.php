@@ -53,7 +53,7 @@
                 <tr>
                     <td>{{ $npd->nomor_lengkap ?? '-' }}</td>
                     <td>{{ $npd->masterAnggaran->sub_kegiatan }}</td>
-                    <td>{{ $npd->masterAnggaran->kode_rekening }} {{ $npd->masterAnggaran->uraian_rekening }}</td>
+                    <td>{{ $npd->masterAnggaran->kode_rekening }}</td>
                     <td>{{ $npd->masterAnggaran->tagging->nama ?? '-' }}</td>
                     <td>
                         <div class="pen-nm">{{ $npd->ringkasanPenerima() }}</div>

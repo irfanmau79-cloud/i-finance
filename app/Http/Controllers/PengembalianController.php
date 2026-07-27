@@ -347,7 +347,7 @@ class PengembalianController extends Controller
 
     private function labelMataAnggaran($masterAnggaran): string
     {
-        $label = $masterAnggaran->kode_rekening.' — '.$masterAnggaran->sub_kegiatan;
+        $label = $masterAnggaran->kode_rekening_bersih.' — '.$masterAnggaran->sub_kegiatan;
 
         return $masterAnggaran->tagging?->nama ? $label.' — '.$masterAnggaran->tagging->nama : $label;
     }

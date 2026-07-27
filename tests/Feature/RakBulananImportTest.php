@@ -46,8 +46,7 @@ class RakBulananImportTest extends TestCase
             'program' => 'Program Uji RAK',
             'kegiatan' => 'Kegiatan Uji RAK',
             'sub_kegiatan' => '6.01.01.2.01 Sub Kegiatan Uji RAK',
-            'kode_rekening' => '5.1.02.05.03.5001',
-            'uraian_rekening' => 'Belanja Pengujian RAK',
+            'kode_rekening' => '5.1.02.05.03.5001 Belanja Pengujian RAK',
             'pagu' => 24_000_000,
             'aktif' => true,
         ], $override));
@@ -73,7 +72,7 @@ class RakBulananImportTest extends TestCase
 
         return array_values(array_merge([
             $anggaran->sub_kegiatan,
-            $anggaran->kode_rekening,
+            $anggaran->kode_rekening_bersih,
             $anggaran->uraian_rekening,
             (float) $anggaran->pagu,
         ], array_values($bulan)));
@@ -85,7 +84,7 @@ class RakBulananImportTest extends TestCase
 
         return array_values(array_merge([
             $anggaran->sub_kegiatan,
-            $anggaran->kode_rekening,
+            $anggaran->kode_rekening_bersih,
             $anggaran->uraian_rekening,
             $taggingNama ?? '',
             (float) $anggaran->pagu,
@@ -286,7 +285,7 @@ class RakBulananImportTest extends TestCase
         $this->actingAs($superadmin)->post(route('manajemen-data.import.rak-bulanan.konfirmasi', $import));
 
         $this->assertSame(12, RakBulanan::where('sub_kegiatan_kunci', MasterAnggaran::normalisasiKunci($anggaran->sub_kegiatan))
-            ->where('kode_rekening', $anggaran->kode_rekening)->where('tahun', 2026)->count());
+            ->where('kode_rekening', $anggaran->kode_rekening_bersih)->where('tahun', 2026)->count());
 
         for ($b = 1; $b <= 12; $b++) {
             $this->assertSame((float) ($b * 100_000), $anggaran->fresh()->targetRakBulan($b, 2026));

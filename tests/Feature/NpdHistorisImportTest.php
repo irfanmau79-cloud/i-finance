@@ -39,14 +39,14 @@ class NpdHistorisImportTest extends TestCase
         $tagging = Tagging::create(['nama' => 'Tagging Historis', 'aktif' => true]);
         $this->anggaran = MasterAnggaran::create([
             'program' => 'Program Historis', 'kegiatan' => 'Kegiatan Historis',
-            'sub_kegiatan' => '6.01.01.2.01 Sub Historis', 'kode_rekening' => '5.1.02.01.01.0001',
-            'uraian_rekening' => 'Belanja Historis', 'tagging_id' => $tagging->id,
+            'sub_kegiatan' => '6.01.01.2.01 Sub Historis', 'kode_rekening' => '5.1.02.01.01.0001 Belanja Historis',
+            'tagging_id' => $tagging->id,
             'pagu' => 100_000_000, 'aktif' => true,
         ]);
         RakBulanan::create([
             'tahun' => 2026, 'bulan' => 7, 'sub_kegiatan' => $this->anggaran->sub_kegiatan,
             'sub_kegiatan_kunci' => $this->anggaran->sub_kegiatan_kunci,
-            'kode_rekening' => $this->anggaran->kode_rekening, 'target' => 50_000_000,
+            'kode_rekening' => $this->anggaran->kode_rekening_bersih, 'target' => 50_000_000,
         ]);
     }
 
@@ -54,7 +54,7 @@ class NpdHistorisImportTest extends TestCase
     {
         return array_values(array_replace([
             '2026-07-15', '001/NPD/HIST/2026', 'Barang/Jasa', $this->anggaran->sub_kegiatan,
-            $this->anggaran->kode_rekening, 'Tagging Historis', 'Penerima Manual', '1234567890',
+            $this->anggaran->kode_rekening_bersih, 'Tagging Historis', 'Penerima Manual', '1234567890',
             1_000_000, 'Uraian historis', 100_000, 50_000, 'PPh 21', 25_000, 'PPh 22', '',
         ], $override));
     }
@@ -205,8 +205,8 @@ class NpdHistorisImportTest extends TestCase
         // seluruh dokumen SPM LS (20jt + 30jt).
         $anggaranLain = MasterAnggaran::create([
             'program' => 'Program Lain', 'kegiatan' => 'Kegiatan Lain',
-            'sub_kegiatan' => '6.01.01.2.02 Sub Lain', 'kode_rekening' => '5.1.02.01.01.0002',
-            'uraian_rekening' => 'Belanja Lain', 'pagu' => 50_000_000, 'aktif' => true,
+            'sub_kegiatan' => '6.01.01.2.02 Sub Lain', 'kode_rekening' => '5.1.02.01.01.0002 Belanja Lain',
+            'pagu' => 50_000_000, 'aktif' => true,
         ]);
         Spm::buatLs([
             'nomor_dokumen' => '900/SPM-LS/2026', 'tanggal_dokumen' => '2026-07-10',

@@ -49,8 +49,7 @@ class ManajemenDataExportTest extends TestCase
             'program' => 'Program Uji Manajemen Data',
             'kegiatan' => 'Kegiatan Uji Manajemen Data',
             'sub_kegiatan' => '6.01.01.2.01 Sub Kegiatan Uji Manajemen Data',
-            'kode_rekening' => $kodeRekening,
-            'uraian_rekening' => 'Belanja Pengujian Manajemen Data',
+            'kode_rekening' => MasterAnggaran::gabungKodeUraian($kodeRekening, 'Belanja Pengujian Manajemen Data'),
             'tagging_id' => $tagging->id,
             'pagu' => 25_000_000,
             'aktif' => true,
@@ -99,7 +98,7 @@ class ManajemenDataExportTest extends TestCase
 
         $export = new MasterAnggaranExport;
         $this->assertSame(
-            ['Tahun Anggaran', 'Program', 'Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Uraian Rekening', 'Tagging', 'Pagu', 'Aktif'],
+            ['Tahun Anggaran', 'Program', 'Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Tagging', 'Pagu', 'Aktif'],
             $export->headings()
         );
         $this->assertSame(1, $export->jumlahBaris());
@@ -108,9 +107,9 @@ class ManajemenDataExportTest extends TestCase
         $mapped = $export->map($row);
         $this->assertSame(2026, $mapped[0]);
         $this->assertSame($anggaran->sub_kegiatan, $mapped[3]);
-        $this->assertSame(25_000_000.0, $mapped[7]);
-        $this->assertSame('Tagging Uji 5.1.02.05.01.9001', $mapped[6]);
-        $this->assertSame('Ya', $mapped[8]);
+        $this->assertSame(25_000_000.0, $mapped[6]);
+        $this->assertSame('Tagging Uji 5.1.02.05.01.9001', $mapped[5]);
+        $this->assertSame('Ya', $mapped[7]);
     }
 
     public function test_export_npd_header_dan_isi_benar(): void

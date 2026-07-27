@@ -56,7 +56,7 @@ class RakBulananExport extends DataManagementExport implements WithCustomStartCe
         $agregat = MasterAnggaran::query()
             ->selectRaw('MIN(id) as id_wakil, SUM(pagu) as pagu_gabungan')
             ->where('aktif', true)
-            ->groupBy('sub_kegiatan_kunci', 'kode_rekening')
+            ->groupBy('sub_kegiatan_kunci', 'kode_rekening_bersih')
             ->get();
 
         $this->idWakil = $agregat->pluck('id_wakil')->all();
@@ -72,7 +72,7 @@ class RakBulananExport extends DataManagementExport implements WithCustomStartCe
         return MasterAnggaran::query()
             ->whereIn('id', $this->idWakil)
             ->orderBy('sub_kegiatan')
-            ->orderBy('kode_rekening');
+            ->orderBy('kode_rekening_bersih');
     }
 
     public function headings(): array
@@ -109,7 +109,7 @@ class RakBulananExport extends DataManagementExport implements WithCustomStartCe
 
     public function map($row): array
     {
-        $kunci = $row->sub_kegiatan_kunci.'|'.$row->kode_rekening;
+        $kunci = $row->sub_kegiatan_kunci.'|'.$row->kode_rekening_bersih;
         $perBulan = ($this->rakByKunci->get($kunci) ?? collect())->keyBy('bulan');
         $pagu = (float) ($this->paguByIdWakil[$row->id] ?? $row->pagu);
 
@@ -124,7 +124,7 @@ class RakBulananExport extends DataManagementExport implements WithCustomStartCe
             $row->program,
             $row->kegiatan,
             $row->sub_kegiatan,
-            $row->kode_rekening,
+            $row->kode_rekening_bersih,
             $row->uraian_rekening,
             $pagu,
         ], $kolomBulan);

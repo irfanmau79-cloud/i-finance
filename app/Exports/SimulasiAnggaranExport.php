@@ -3,6 +3,7 @@
 namespace App\Exports;
 
 use App\Models\SimulasiAnggaran;
+use App\Models\SimulasiAnggaranRow;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\FromCollection;
 use Maatwebsite\Excel\Concerns\ShouldAutoSize;
@@ -21,12 +22,12 @@ class SimulasiAnggaranExport implements FromCollection, ShouldAutoSize, WithHead
 
     public function collection(): Collection
     {
-        return $this->simulasiAnggaran->rows;
+        return SimulasiAnggaranRow::lampirkanRealisasi($this->simulasiAnggaran->rows);
     }
 
     public function headings(): array
     {
-        return ['Program', 'Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Uraian Rekening', 'Tagging', 'Anggaran (Eksisting)', 'Anggaran (Simulasi)', 'Selisih'];
+        return ['Program', 'Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Uraian Rekening', 'Tagging', 'Anggaran (Eksisting)', 'Realisasi', 'Anggaran (Simulasi)', 'Selisih'];
     }
 
     public function map($row): array
@@ -39,6 +40,7 @@ class SimulasiAnggaranExport implements FromCollection, ShouldAutoSize, WithHead
             $row->uraian_rekening,
             $row->tagging_nama ?? '-',
             (float) $row->pagu_eksisting,
+            (float) $row->realisasi,
             (float) $row->pagu_simulasi,
             (float) $row->selisih,
         ];

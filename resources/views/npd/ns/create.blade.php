@@ -165,7 +165,7 @@
         'kegiatan' => $m->kegiatan,
         'sub_kegiatan' => $m->sub_kegiatan,
         'kode_rekening' => $m->kode_rekening,
-        'uraian_rekening' => $m->uraian_rekening,
+        'kode_rekening_bersih' => $m->kode_rekening_bersih,
         'tagging_id' => $m->tagging_id,
         'tagging' => $m->tagging->nama ?? 'Tanpa Tagging',
         'pagu' => (float) $m->pagu,
@@ -268,7 +268,7 @@
     }
 
     function kodeLabel(m) {
-        return m.uraian_rekening ? (m.kode_rekening + ' — ' + m.uraian_rekening) : m.kode_rekening;
+        return m.kode_rekening;
     }
 
     function onSubChange() {
@@ -278,7 +278,7 @@
         const seen = new Set();
         const opts = [];
         rows.forEach(m => {
-            if (! seen.has(m.kode_rekening)) { seen.add(m.kode_rekening); opts.push({ value: m.kode_rekening, label: kodeLabel(m) }); }
+            if (! seen.has(m.kode_rekening_bersih)) { seen.add(m.kode_rekening_bersih); opts.push({ value: m.kode_rekening_bersih, label: kodeLabel(m) }); }
         });
         fillOptions(maSel.kode, opts, opts.length ? '— Pilih Kode Rekening —' : 'Pilih sub kegiatan terlebih dahulu');
         fillOptions(maSel.tagging, [], 'Pilih kode rekening terlebih dahulu');
@@ -288,7 +288,7 @@
     function onKodeChange() {
         MSEL.kode = maSel.kode.value;
         MSEL.tagging = '';
-        const rows = masterAnggaranData.filter(m => m.program === MSEL.program && m.kegiatan === MSEL.kegiatan && m.sub_kegiatan === MSEL.sub && m.kode_rekening === MSEL.kode);
+        const rows = masterAnggaranData.filter(m => m.program === MSEL.program && m.kegiatan === MSEL.kegiatan && m.sub_kegiatan === MSEL.sub && m.kode_rekening_bersih === MSEL.kode);
         const seen = new Set();
         const opts = [];
         rows.forEach(m => {
@@ -301,7 +301,7 @@
 
     function onTaggingChange() {
         MSEL.tagging = maSel.tagging.value;
-        const row = masterAnggaranData.find(m => m.program === MSEL.program && m.kegiatan === MSEL.kegiatan && m.sub_kegiatan === MSEL.sub && m.kode_rekening === MSEL.kode && taggingValue(m) === MSEL.tagging);
+        const row = masterAnggaranData.find(m => m.program === MSEL.program && m.kegiatan === MSEL.kegiatan && m.sub_kegiatan === MSEL.sub && m.kode_rekening_bersih === MSEL.kode && taggingValue(m) === MSEL.tagging);
         if (row) {
             selectMasterAnggaran(row);
         } else {
@@ -341,7 +341,7 @@
             onKegiatanChange();
             maSel.sub.value = found.sub_kegiatan;
             onSubChange();
-            maSel.kode.value = found.kode_rekening;
+            maSel.kode.value = found.kode_rekening_bersih;
             onKodeChange();
             maSel.tagging.value = taggingValue(found);
             selectMasterAnggaran(found);

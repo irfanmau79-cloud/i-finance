@@ -151,8 +151,7 @@ class AnalisisTrenTest extends TestCase
             'program' => 'Program Analisis',
             'kegiatan' => 'Kegiatan Analisis',
             'sub_kegiatan' => $subKegiatan,
-            'kode_rekening' => $kodeRekening,
-            'uraian_rekening' => 'Belanja Analisis',
+            'kode_rekening' => MasterAnggaran::gabungKodeUraian($kodeRekening, 'Belanja Analisis'),
             'tagging_id' => $tagging?->id,
             'pagu' => $pagu,
             'aktif' => true,
@@ -181,7 +180,7 @@ class AnalisisTrenTest extends TestCase
     {
         return RakBulanan::create([
             'sub_kegiatan' => $anggaran->sub_kegiatan,
-            'kode_rekening' => $anggaran->kode_rekening,
+            'kode_rekening' => $anggaran->kode_rekening_bersih,
             'tahun' => 2026,
             'bulan' => $bulan,
             'target' => $target,

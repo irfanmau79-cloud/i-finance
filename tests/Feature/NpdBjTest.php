@@ -154,8 +154,7 @@ class NpdBjTest extends TestCase
             'program' => 'Program Uji',
             'kegiatan' => 'Kegiatan Uji',
             'sub_kegiatan' => '6.01.01.2.01 Sub Kegiatan Uji',
-            'kode_rekening' => '5.1.02.01.01.0002',
-            'uraian_rekening' => 'Belanja Makanan dan Minuman Rapat',
+            'kode_rekening' => '5.1.02.01.01.0002 Belanja Makanan dan Minuman Rapat',
             'tagging_id' => null,
             'pagu' => 1_000_000,
             'aktif' => true,
@@ -201,8 +200,8 @@ class NpdBjTest extends TestCase
         $response->assertSee('"id":'.$masterAnggaran->id.',"program"', false);
         $response->assertSee('"sisa":700000', false);
 
-        // Kode Rekening + uraiannya (dari kolom D yang sudah dipisah saat import) ikut dikirim ke JS.
-        $response->assertSee('"kode_rekening":"5.1.02.01.01.0002","uraian_rekening":"Belanja Makanan dan Minuman Rapat"', false);
+        // Kode Rekening gabungan (kode+uraian satu kolom) beserta kode bersihnya ikut dikirim ke JS.
+        $response->assertSee('"kode_rekening":"5.1.02.01.01.0002 Belanja Makanan dan Minuman Rapat","kode_rekening_bersih":"5.1.02.01.01.0002"', false);
 
         // Rekening pegawai & vendor ikut dikirim untuk auto-isi No. Rekening.
         $response->assertSee('"nama":"Ani Wijaya"', false);

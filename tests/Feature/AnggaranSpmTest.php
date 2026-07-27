@@ -21,8 +21,7 @@ class AnggaranSpmTest extends TestCase
             'program' => 'Program Uji Anggaran',
             'kegiatan' => 'Kegiatan Uji Anggaran',
             'sub_kegiatan' => '6.01.01.2.01 Sub Kegiatan Uji Anggaran',
-            'kode_rekening' => '5.1.02.99.99.0001',
-            'uraian_rekening' => 'Belanja Pengujian',
+            'kode_rekening' => '5.1.02.99.99.0001 Belanja Pengujian',
             'pagu' => $pagu,
             'aktif' => true,
         ]);

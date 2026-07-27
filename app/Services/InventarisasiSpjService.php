@@ -119,7 +119,7 @@ class InventarisasiSpjService
             'nomor_npd' => $npd->nomor_lengkap ?: 'NPD #'.$npd->id,
             'jenis_dokumen' => $jenis,
             'sub_kegiatan' => $npd->masterAnggaran->subKegiatanNormal(),
-            'kode_rekening' => $npd->masterAnggaran->kode_rekening,
+            'kode_rekening' => $npd->masterAnggaran->kode_rekening_bersih,
             'uraian_rekening' => $npd->masterAnggaran->uraian_rekening,
             'tagging' => $npd->tagging_snapshot ?: ($npd->masterAnggaran->tagging?->nama ?? ''),
             'uraian' => $npd->detail_json['uraian'] ?? $npd->detail_json['uraian_sp'] ?? $npd->detail_json['keterangan_lampiran'] ?? '-',

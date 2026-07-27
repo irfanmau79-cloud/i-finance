@@ -44,7 +44,7 @@ class RakBulanan extends Model
     public static function paguGabungan(string $subKegiatanKunci, string $kodeRekening): float
     {
         return (float) MasterAnggaran::where('sub_kegiatan_kunci', $subKegiatanKunci)
-            ->where('kode_rekening', $kodeRekening)
+            ->where('kode_rekening_bersih', $kodeRekening)
             ->where('aktif', true)
             ->sum('pagu');
     }

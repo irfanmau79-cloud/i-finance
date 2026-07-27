@@ -101,7 +101,7 @@ class DashboardRealisasiTest extends TestCase
 
         $this->actingAs($this->user)->get(route('dashboard.index', [
             'sub_kegiatan' => $a->sub_kegiatan_kunci,
-            'kode_rekening' => $a->kode_rekening,
+            'kode_rekening' => $a->kode_rekening_bersih,
         ]))->assertOk()
             ->assertViewHas('dashboard', fn (array $data) => $data['rows']->count() === 1
                 && $data['rows']->first()['nama'] === 'Sub Kecil')
@@ -151,7 +151,7 @@ class DashboardRealisasiTest extends TestCase
         // dibagi pagu YANG SUDAH DIFILTER (10jt) = 60%.
         $terfilter = $service->dashboard([
             'sub_kegiatan' => $anggaran->sub_kegiatan_kunci,
-            'kode_rekening' => $anggaran->kode_rekening,
+            'kode_rekening' => $anggaran->kode_rekening_bersih,
         ], 2026, 7);
         $this->assertTrue($terfilter['filter_aktif']);
         $this->assertSame(10_000_000.0, $terfilter['total']['pagu']);
@@ -162,7 +162,7 @@ class DashboardRealisasiTest extends TestCase
 
         $this->actingAs($this->user)->get(route('dashboard.index', [
             'sub_kegiatan' => $anggaran->sub_kegiatan_kunci,
-            'kode_rekening' => $anggaran->kode_rekening,
+            'kode_rekening' => $anggaran->kode_rekening_bersih,
         ]))->assertOk()->assertSee('bersifat nasional');
     }
 
@@ -216,9 +216,9 @@ class DashboardRealisasiTest extends TestCase
             ->assertViewHas('pilihan', function (array $pilihan) {
                 $opsi = $pilihan['kode_rekening_berlabel']->firstWhere('value', '5.1.09');
 
-                return $opsi !== null && $opsi['label'] === '5.1.09 — Belanja Dashboard';
+                return $opsi !== null && $opsi['label'] === '5.1.09 Belanja Dashboard';
             })
-            ->assertSee('5.1.09 — Belanja Dashboard');
+            ->assertSee('5.1.09 Belanja Dashboard');
     }
 
     public function test_route_dashboard_mengikuti_config_akses_menu_di_backend(): void
@@ -240,8 +240,7 @@ class DashboardRealisasiTest extends TestCase
             'program' => 'Program Dashboard',
             'kegiatan' => 'Kegiatan Dashboard',
             'sub_kegiatan' => $subKegiatan,
-            'kode_rekening' => $kodeRekening,
-            'uraian_rekening' => 'Belanja Dashboard',
+            'kode_rekening' => MasterAnggaran::gabungKodeUraian($kodeRekening, 'Belanja Dashboard'),
             'tagging_id' => $tagging?->id,
             'pagu' => $pagu,
             'aktif' => true,
@@ -270,7 +269,7 @@ class DashboardRealisasiTest extends TestCase
     {
         return RakBulanan::create([
             'sub_kegiatan' => $anggaran->sub_kegiatan,
-            'kode_rekening' => $anggaran->kode_rekening,
+            'kode_rekening' => $anggaran->kode_rekening_bersih,
             'tahun' => 2026,
             'bulan' => $bulan,
             'target' => $target,

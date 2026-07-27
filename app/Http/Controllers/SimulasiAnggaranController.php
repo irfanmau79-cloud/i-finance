@@ -55,7 +55,7 @@ class SimulasiAnggaranController extends Controller
             $master = MasterAnggaran::with('tagging:id,nama')
                 ->where('aktif', true)
                 ->orderBy('sub_kegiatan')
-                ->orderBy('kode_rekening')
+                ->orderBy('kode_rekening_bersih')
                 ->get();
 
             $now = now();
@@ -66,7 +66,7 @@ class SimulasiAnggaranController extends Controller
                 'kegiatan' => $m->kegiatan,
                 'sub_kegiatan' => $m->sub_kegiatan,
                 'sub_kegiatan_kunci' => $m->sub_kegiatan_kunci,
-                'kode_rekening' => $m->kode_rekening,
+                'kode_rekening' => $m->kode_rekening_bersih,
                 'uraian_rekening' => $m->uraian_rekening,
                 'tagging_nama' => $m->tagging?->nama,
                 'pagu_eksisting' => $m->pagu,
@@ -98,7 +98,7 @@ class SimulasiAnggaranController extends Controller
 
     public function show(SimulasiAnggaran $simulasiAnggaran)
     {
-        $rows = $simulasiAnggaran->rows;
+        $rows = SimulasiAnggaranRow::lampirkanRealisasi($simulasiAnggaran->rows);
         $tree = $this->bangunTree($rows);
 
         return view('analisis.simulasi.show', [
@@ -188,7 +188,7 @@ class SimulasiAnggaranController extends Controller
 
     public function exportPdf(SimulasiAnggaran $simulasiAnggaran)
     {
-        $rows = $simulasiAnggaran->rows;
+        $rows = SimulasiAnggaranRow::lampirkanRealisasi($simulasiAnggaran->rows);
         $tree = $this->bangunTree($rows);
 
         $html = view('analisis.simulasi.pdf', [
@@ -234,6 +234,7 @@ class SimulasiAnggaranController extends Controller
                                         'uraian' => $rekeningItems->first()->uraian_rekening,
                                         'baris' => $rekeningItems->values(),
                                         'eksisting' => (float) $rekeningItems->sum('pagu_eksisting'),
+                                        'realisasi' => (float) $rekeningItems->sum('realisasi'),
                                         'simulasi' => (float) $rekeningItems->sum('pagu_simulasi'),
                                         'selisih' => (float) $rekeningItems->sum('selisih'),
                                     ];
@@ -243,6 +244,7 @@ class SimulasiAnggaranController extends Controller
                                     'nama' => $subItems->first()->sub_kegiatan,
                                     'rekening' => $rekening,
                                     'eksisting' => (float) $subItems->sum('pagu_eksisting'),
+                                    'realisasi' => (float) $subItems->sum('realisasi'),
                                     'simulasi' => (float) $subItems->sum('pagu_simulasi'),
                                     'selisih' => (float) $subItems->sum('selisih'),
                                 ];
@@ -253,6 +255,7 @@ class SimulasiAnggaranController extends Controller
                             'nama' => $kegiatanNama,
                             'subKegiatan' => $subKegiatan,
                             'eksisting' => (float) $kegiatanItems->sum('pagu_eksisting'),
+                            'realisasi' => (float) $kegiatanItems->sum('realisasi'),
                             'simulasi' => (float) $kegiatanItems->sum('pagu_simulasi'),
                             'selisih' => (float) $kegiatanItems->sum('selisih'),
                         ];
@@ -263,6 +266,7 @@ class SimulasiAnggaranController extends Controller
                     'nama' => $programNama,
                     'kegiatan' => $kegiatan,
                     'eksisting' => (float) $programItems->sum('pagu_eksisting'),
+                    'realisasi' => (float) $programItems->sum('realisasi'),
                     'simulasi' => (float) $programItems->sum('pagu_simulasi'),
                     'selisih' => (float) $programItems->sum('selisih'),
                 ];

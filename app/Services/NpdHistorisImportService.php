@@ -281,10 +281,14 @@ class NpdHistorisImportService
 
         $sub = trim((string) ($raw['sub_kegiatan'] ?? ''));
         $subKey = MasterAnggaran::normalisasiKunci($sub);
-        $kode = trim((string) ($raw['kode_rekening'] ?? ''));
+        // Data historis kadang berisi kode+uraian gabungan di kolom Kode
+        // Rekening (format sumber lama, sama seperti master_anggaran.
+        // kode_rekening sekarang) - ambil bagian kode saja untuk matching &
+        // penyimpanan (kolom staging kode_rekening tetap varchar pendek).
+        $kode = MasterAnggaran::pisahKodeUraian(trim((string) ($raw['kode_rekening'] ?? '')))[0];
         $taggingNama = trim((string) ($raw['tagging'] ?? '')) ?: null;
         $masters = $tahunDalamCakupan
-            ? MasterAnggaran::where('sub_kegiatan_kunci', $subKey)->where('kode_rekening', $kode)->where('aktif', true)->with('tagging')->get()
+            ? MasterAnggaran::where('sub_kegiatan_kunci', $subKey)->where('kode_rekening_bersih', $kode)->where('aktif', true)->with('tagging')->get()
             : collect();
         $master = null;
         $taggingId = null;
