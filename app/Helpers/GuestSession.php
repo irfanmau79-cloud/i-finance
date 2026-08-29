@@ -13,6 +13,12 @@ class GuestSession
 {
     private const SESSION_KEY = 'guest_layanan';
 
+    /** Kunci session-nya, dipakai test untuk melewati gerbang kata sandi. */
+    public static function kunciSesi(): string
+    {
+        return self::SESSION_KEY;
+    }
+
     public static function login(): void
     {
         if (! auth()->check()) {

@@ -45,25 +45,37 @@ Route::get('/login', [AuthController::class, 'showLoginForm'])->name('login')->m
 Route::post('/login', [AuthController::class, 'login'])->middleware('guest');
 Route::post('/logout', [AuthController::class, 'logout'])->name('logout')->middleware('auth.or.guest');
 
-// Publik, tanpa login — dipakai role "layanan" untuk mengisi orderan SP dari luar.
-Route::get('/sp/input', [SuratPerintahController::class, 'publicCreate'])->name('sp.input.create');
-Route::post('/sp/input', [SuratPerintahController::class, 'publicStore'])->middleware('throttle:5,1')->name('sp.input.store');
+// Gerbang Pengguna Layanan: tanpa akun, tanpa pendaftaran, tapi wajib kata
+// sandi bersama (config akses.sandi_layanan). Dibatasi lima percobaan per
+// menit supaya sandinya tidak bisa ditebak beruntun.
+Route::post('/layanan/masuk', [AuthController::class, 'masukLayanan'])
+    ->middleware(['guest', 'throttle:5,1'])
+    ->name('layanan.masuk');
 
-// Publik, tanpa login — Monitoring SP juga dipakai role "layanan" untuk memantau
-// orderan SP miliknya (lihat CodeSuratPerintah.gs: "Monitoring SP = daftar orderan
-// yang diinput orang kantor"). Role yang login tetap melihatnya lewat sidebar biasa.
-Route::get('/surat-perintah/monitoring', [SuratPerintahController::class, 'monitoring'])->name('surat-perintah.monitoring');
+// Halaman Pengguna Layanan — tanpa akun, tetapi di balik gerbang kata sandi.
+// User yang login sungguhan lolos begitu saja lewat middleware yang sama.
+Route::middleware('gerbang-layanan')->group(function () {
+    // Dipakai role "layanan" untuk mengisi orderan SP dari luar.
+    Route::get('/sp/input', [SuratPerintahController::class, 'publicCreate'])->name('sp.input.create');
+    Route::post('/sp/input', [SuratPerintahController::class, 'publicStore'])->middleware('throttle:5,1')->name('sp.input.store');
 
-// Publik, tanpa login — Cetak SPJ Perjalanan Dinas (layanan mandiri pegawai).
-// Port dari cetakSPJPerjalanan() di gas-lama/CodePerjalanan.gs: cukup berbekal
-// Nomor SP, tanpa akun. Dokumennya sendiri hanya dilayani untuk NPD berstatus
-// Selesai yang tertaut ke SP (lihat CetakSpjPerjalananController).
-Route::get('/cetak-spj-perjalanan', [CetakSpjPerjalananController::class, 'index'])->name('cetak-spj.index');
-Route::get('/cetak-spj-perjalanan/{npd}/daftar', [CetakSpjPerjalananController::class, 'cetakDaftar'])->name('cetak-spj.daftar');
-Route::get('/cetak-spj-perjalanan/{npd}/spd', [CetakSpjPerjalananController::class, 'cetakSpd'])->name('cetak-spj.spd');
-Route::get('/pengumuman', [PengumumanController::class, 'show'])->name('pengumuman.show');
-Route::get('/tunjangan-keluarga/perubahan', [TunjanganKeluargaController::class, 'form'])->name('tunjangan.form');
-Route::post('/tunjangan-keluarga/perubahan', [TunjanganKeluargaController::class, 'submit'])->middleware('throttle:5,1')->name('tunjangan.submit');
+    // Monitoring SP juga dipakai role "layanan" untuk memantau orderan SP
+    // miliknya (lihat CodeSuratPerintah.gs: "Monitoring SP = daftar orderan
+    // yang diinput orang kantor"). Role yang login tetap melihatnya lewat
+    // sidebar biasa.
+    Route::get('/surat-perintah/monitoring', [SuratPerintahController::class, 'monitoring'])->name('surat-perintah.monitoring');
+
+    // Cetak SPJ Perjalanan Dinas (layanan mandiri pegawai). Port dari
+    // cetakSPJPerjalanan() di gas-lama/CodePerjalanan.gs: cukup berbekal Nomor
+    // SP, tanpa akun. Dokumennya sendiri hanya dilayani untuk NPD berstatus
+    // Selesai yang tertaut ke SP (lihat CetakSpjPerjalananController).
+    Route::get('/cetak-spj-perjalanan', [CetakSpjPerjalananController::class, 'index'])->name('cetak-spj.index');
+    Route::get('/cetak-spj-perjalanan/{npd}/daftar', [CetakSpjPerjalananController::class, 'cetakDaftar'])->name('cetak-spj.daftar');
+    Route::get('/cetak-spj-perjalanan/{npd}/spd', [CetakSpjPerjalananController::class, 'cetakSpd'])->name('cetak-spj.spd');
+    Route::get('/pengumuman', [PengumumanController::class, 'show'])->name('pengumuman.show');
+    Route::get('/tunjangan-keluarga/perubahan', [TunjanganKeluargaController::class, 'form'])->name('tunjangan.form');
+    Route::post('/tunjangan-keluarga/perubahan', [TunjanganKeluargaController::class, 'submit'])->middleware('throttle:5,1')->name('tunjangan.submit');
+});
 
 Route::middleware('auth.or.guest')->group(function () {
     Route::get('/dashboard', DashboardRealisasiController::class)
@@ -205,18 +217,18 @@ Route::middleware('auth.or.guest')->group(function () {
     // Monitoring seluruh NPD: superadmin, Bendahara Pengeluaran, dan PPTK.
     Route::middleware('role:superadmin,bendahara_pengeluaran,pptk')->group(function () {
         // Menu yang rumahnya sudah ada tetapi isinya belum - lihat
-    // SegeraHadirController::HALAMAN. Tiap kunci tetap melewati menu-akses,
-    // jadi hak aksesnya sudah benar sejak sekarang.
-    foreach (array_keys(SegeraHadirController::HALAMAN) as $menuSegera) {
-        Route::get('/segera/'.$menuSegera, SegeraHadirController::class)
-            ->defaults('menu', $menuSegera)
-            ->middleware('menu-akses:'.$menuSegera)
-            ->name('segera.'.$menuSegera);
-    }
+        // SegeraHadirController::HALAMAN. Tiap kunci tetap melewati menu-akses,
+        // jadi hak aksesnya sudah benar sejak sekarang.
+        foreach (array_keys(SegeraHadirController::HALAMAN) as $menuSegera) {
+            Route::get('/segera/'.$menuSegera, SegeraHadirController::class)
+                ->defaults('menu', $menuSegera)
+                ->middleware('menu-akses:'.$menuSegera)
+                ->name('segera.'.$menuSegera);
+        }
 
-    Route::get('/npd/data', [NpdController::class, 'dataNpd'])
-        ->middleware('menu-akses:npd-data')->name('npd.data');
-    Route::get('/npd', [NpdController::class, 'index'])->name('npd.index');
+        Route::get('/npd/data', [NpdController::class, 'dataNpd'])
+            ->middleware('menu-akses:npd-data')->name('npd.data');
+        Route::get('/npd', [NpdController::class, 'index'])->name('npd.index');
     });
 
     // Pembuatan NPD: hanya superadmin dan PPTK.

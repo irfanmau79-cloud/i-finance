@@ -12,6 +12,14 @@
 
 return [
 
+    /*
+     * Kata sandi bersama untuk Pengguna Layanan. Bukan akun: tidak ada
+     * pendaftaran, tidak ada username - satu kata sandi yang dibagikan ke
+     * pegawai supaya halaman layanan tidak terbuka bebas begitu aplikasi
+     * dihosting. Bisa diganti di server lewat SANDI_LAYANAN pada .env.
+     */
+    'sandi_layanan' => env('SANDI_LAYANAN', 'itprovjabar'),
+
     'menu' => [
         'superadmin' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd-data', 'npd', 'persetujuan', 'verifikasi', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-pegawai', 'tk-data', 'tk-form', 'spm', 'pengembalian-create', 'pengembalian', 'manajemen-data', 'audit-log', 'users', 'pelimpahan', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'gt-daftar', 'profil'],
         'bendahara_pengeluaran' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd-data', 'npd', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'spm', 'pengembalian-create', 'pengembalian', 'manajemen-data', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],

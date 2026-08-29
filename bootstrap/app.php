@@ -1,9 +1,14 @@
 <?php
 
+use App\Http\Middleware\EnsureAuthenticatedOrGuestLayanan;
+use App\Http\Middleware\EnsureGerbangLayanan;
+use App\Http\Middleware\EnsureUserHasMenuAccess;
+use App\Http\Middleware\EnsureUserHasRole;
 use Illuminate\Foundation\Application;
 use Illuminate\Foundation\Configuration\Exceptions;
 use Illuminate\Foundation\Configuration\Middleware;
 use Illuminate\Http\Request;
+use Symfony\Component\HttpKernel\Exception\HttpException;
 
 return Application::configure(basePath: dirname(__DIR__))
     ->withRouting(
@@ -13,9 +18,10 @@ return Application::configure(basePath: dirname(__DIR__))
     )
     ->withMiddleware(function (Middleware $middleware): void {
         $middleware->alias([
-            'role' => \App\Http\Middleware\EnsureUserHasRole::class,
-            'menu-akses' => \App\Http\Middleware\EnsureUserHasMenuAccess::class,
-            'auth.or.guest' => \App\Http\Middleware\EnsureAuthenticatedOrGuestLayanan::class,
+            'role' => EnsureUserHasRole::class,
+            'menu-akses' => EnsureUserHasMenuAccess::class,
+            'auth.or.guest' => EnsureAuthenticatedOrGuestLayanan::class,
+            'gerbang-layanan' => EnsureGerbangLayanan::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {
@@ -31,7 +37,7 @@ return Application::configure(basePath: dirname(__DIR__))
         // custom sempat dicek, jadi type-hint di sini harus HttpException lalu
         // saring lewat status code - bukan TokenMismatchException langsung
         // (sudah dicoba, tidak pernah ke-trigger karena alasan itu).
-        $exceptions->render(function (\Symfony\Component\HttpKernel\Exception\HttpException $e, Request $request) {
+        $exceptions->render(function (HttpException $e, Request $request) {
             if ($e->getStatusCode() !== 419) {
                 return null;
             }

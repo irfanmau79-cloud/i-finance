@@ -14,6 +14,16 @@ class PublicEndpointSecurityTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Halaman layanan kini di balik gerbang kata sandi bersama. Yang diuji
+        // di berkas ini isi halamannya, bukan gerbangnya - gerbangnya punya
+        // GerbangLayananTest sendiri.
+        $this->lolosGerbangLayanan();
+    }
+
     public function test_form_sp_publik_memvalidasi_mime_pdf_dan_mengacak_nama_file(): void
     {
         Storage::fake('local');

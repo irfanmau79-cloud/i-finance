@@ -27,7 +27,33 @@
     .lg-form{padding:28px 24px 30px;}
     .lg-title{font-size:20px;}
   }
-  a.lg-layanan{text-decoration:none;display:inline-block;text-align:center;}
+  .lg-layanan{text-decoration:none;display:inline-block;text-align:center;font-family:inherit;}
+
+  /* ---- Jendela kata sandi Pengguna Layanan ----
+     Muncul dengan fade in: latar meredup, kartunya ikut naik sedikit. Kelas
+     .tampil dipasang lewat JS supaya transisinya sempat berjalan (kalau
+     display langsung diubah dari none, peramban melewati animasinya). */
+  .gl-ov{position:fixed;inset:0;z-index:400;display:none;align-items:center;justify-content:center;padding:18px;
+    background:rgba(8,20,36,.62);backdrop-filter:blur(3px);opacity:0;transition:opacity .28s ease;}
+  .gl-ov.siap{display:flex;}
+  .gl-ov.tampil{opacity:1;}
+  .gl-kartu{width:100%;max-width:392px;background:#fff;border-radius:18px;padding:30px 28px 24px;text-align:center;
+    box-shadow:0 26px 64px rgba(0,0,0,.42);transform:translateY(16px) scale(.965);opacity:0;
+    transition:transform .32s cubic-bezier(.2,.8,.3,1), opacity .28s ease;}
+  .gl-ov.tampil .gl-kartu{transform:none;opacity:1;}
+  .gl-ikon{width:56px;height:56px;margin:0 auto 14px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    background:linear-gradient(140deg,#eef3fa,#dbe6f4);color:var(--navy);}
+  .gl-ikon svg{width:26px;height:26px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .gl-judul{font-size:18px;font-weight:800;color:var(--navy);letter-spacing:-.2px;}
+  .gl-ket{font-size:12.5px;color:var(--mut);margin:6px 0 18px;line-height:1.5;}
+  .gl-kartu input[type="password"]{width:100%;box-sizing:border-box;text-align:center;letter-spacing:2px;font-size:15px;padding:12px 14px;}
+  .gl-salah{display:none;margin-top:10px;font-size:12.5px;font-weight:600;color:var(--err);}
+  .gl-salah.ada{display:block;}
+  .gl-aksi{display:flex;gap:10px;margin-top:18px;}
+  .gl-aksi .btn{flex:1;justify-content:center;padding:11px 16px;}
+  @media (prefers-reduced-motion:reduce){
+    .gl-ov,.gl-kartu{transition:none;}
+  }
 </style>
 </head>
 <body>
@@ -46,7 +72,9 @@
             <label class="fl">Password</label>
             <input type="password" name="password" id="auth-pass" placeholder="password">
             <div class="lg-help"><a href="https://wa.me/6281315763086" target="_blank" rel="noopener">Hubungi Admin</a></div>
-            @if ($errors->any())
+            {{-- Hanya galat formulir login. Galat kata sandi Pengguna Layanan
+                 tampil di jendelanya sendiri, bukan di sini. --}}
+            @if ($errors->has('username') || $errors->has('password'))
               <div class="err-box" id="auth-err" style="display:block;">{{ $errors->first() }}</div>
             @else
               <div class="err-box" id="auth-err"></div>
@@ -57,9 +85,65 @@
       </div>
       <div class="lg-brand"></div>
     </div>
-    <a href="{{ route('sp.input.create') }}" class="lg-layanan">Masuk sebagai Pengguna Layanan</a>
+    <button type="button" class="lg-layanan" id="gl-buka">Masuk sebagai Pengguna Layanan</button>
   </div>
 </div>
+
+{{-- Pengguna Layanan tidak punya akun, tapi tetap harus memasukkan kata sandi
+     bersama. Yang menilai benar/salahnya peladen (AuthController::masukLayanan);
+     jendela ini semata-mata tampilan. --}}
+<div class="gl-ov" id="gl-ov" role="dialog" aria-modal="true" aria-labelledby="gl-judul">
+  <form class="gl-kartu" method="POST" action="{{ route('layanan.masuk') }}">
+    @csrf
+    <div class="gl-ikon">
+      <svg viewBox="0 0 24 24"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+    </div>
+    <div class="gl-judul" id="gl-judul">Masukkan Kata Sandi</div>
+    <div class="gl-ket">Pengguna Layanan tidak perlu mendaftar. Cukup masukkan kata sandi yang dibagikan.</div>
+    <input type="password" name="sandi" id="gl-sandi" placeholder="Kata sandi" autocomplete="off" required>
+    <div class="gl-salah {{ $errors->has('sandi') ? 'ada' : '' }}" id="gl-salah">{{ $errors->first('sandi') ?: 'Kata sandi salah.' }}</div>
+    <div class="gl-aksi">
+      <button type="button" class="btn" id="gl-batal">Batal</button>
+      <button type="submit" class="btn prim">Masuk</button>
+    </div>
+  </form>
+</div>
+
+<script>
+(function () {
+  var ov = document.getElementById('gl-ov');
+  var buka = document.getElementById('gl-buka');
+  var batal = document.getElementById('gl-batal');
+  var sandi = document.getElementById('gl-sandi');
+  var salah = document.getElementById('gl-salah');
+
+  function tampilkan() {
+    ov.classList.add('siap');
+    // Dipaksa reflow dulu supaya peramban mencatat keadaan awal (opacity 0)
+    // dan benar-benar menganimasikan perubahannya, bukan melompat.
+    void ov.offsetWidth;
+    ov.classList.add('tampil');
+    setTimeout(function () { sandi.focus(); }, 60);
+  }
+
+  function sembunyikan() {
+    ov.classList.remove('tampil');
+    salah.classList.remove('ada');
+    setTimeout(function () { ov.classList.remove('siap'); sandi.value = ''; }, 300);
+  }
+
+  buka.addEventListener('click', tampilkan);
+  batal.addEventListener('click', sembunyikan);
+  ov.addEventListener('click', function (e) { if (e.target === ov) sembunyikan(); });
+  document.addEventListener('keydown', function (e) {
+    if (e.key === 'Escape' && ov.classList.contains('tampil')) sembunyikan();
+  });
+
+  @if ($errors->has('sandi') || session('buka_gerbang_layanan'))
+    tampilkan();
+  @endif
+})();
+</script>
 
 </body>
 </html>

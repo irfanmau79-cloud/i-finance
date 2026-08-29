@@ -19,6 +19,16 @@ class SuratPerintahInputTest extends TestCase
 {
     use RefreshDatabase;
 
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        // Halaman layanan kini di balik gerbang kata sandi bersama. Yang diuji
+        // di berkas ini isi halamannya, bukan gerbangnya - gerbangnya punya
+        // GerbangLayananTest sendiri.
+        $this->lolosGerbangLayanan();
+    }
+
     private function user(string $role): User
     {
         return User::create([
