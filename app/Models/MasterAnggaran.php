@@ -3,16 +3,21 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Casts\Attribute;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 
 #[Fillable([
+    'kode_program',
     'program',
+    'kode_kegiatan',
     'kegiatan',
+    'kode_sub_kegiatan',
     'sub_kegiatan',
     'kode_rekening',
+    'rekening',
     'tagging_id',
     'pagu',
     'aktif',
@@ -35,26 +40,39 @@ class MasterAnggaran extends Model
         ];
     }
 
+    /**
+     * Kolom turunan dijaga di sini, bukan di pemanggil.
+     *
+     * PENTING - *_normal dan *_kunci sengaja diturunkan dari string
+     * GABUNGAN "{kode} {nama}", bukan dari nama saja. RAK Bulanan,
+     * Pelimpahan, dan import NPD Historis mencocokkan satu sel Excel
+     * berisi "kode nama" terhadap kunci ini (lihat RakBulananImport::
+     * resolveSubKegiatanKodeRekening); menurunkannya dari nama saja akan
+     * memutus pencocokan tersebut. kode_rekening_bersih dipertahankan
+     * sebagai cermin 1:1 kode_rekening demi 87 pemanggil lama.
+     */
     protected static function booted(): void
     {
         static::saving(function (self $anggaran) {
-            $anggaran->program_normal = self::normalisasiTeks($anggaran->program);
-            $anggaran->kegiatan_normal = self::normalisasiTeks($anggaran->kegiatan);
-            $anggaran->sub_kegiatan_normal = self::normalisasiTeks($anggaran->sub_kegiatan);
-            $anggaran->program_kunci = self::normalisasiKunci($anggaran->program);
-            $anggaran->sub_kegiatan_kunci = self::normalisasiKunci($anggaran->sub_kegiatan);
-            $anggaran->kode_rekening_bersih = self::pisahKodeUraian($anggaran->kode_rekening)[0];
+            self::pecahNilaiGabungan($anggaran);
+
+            $anggaran->program_normal = self::normalisasiTeks($anggaran->program_lengkap);
+            $anggaran->kegiatan_normal = self::normalisasiTeks($anggaran->kegiatan_lengkap);
+            $anggaran->sub_kegiatan_normal = self::normalisasiTeks($anggaran->sub_kegiatan_lengkap);
+            $anggaran->program_kunci = self::normalisasiKunci($anggaran->program_lengkap);
+            $anggaran->sub_kegiatan_kunci = self::normalisasiKunci($anggaran->sub_kegiatan_lengkap);
+            $anggaran->kode_rekening_bersih = trim((string) $anggaran->kode_rekening);
         });
     }
 
     /**
-     * kode_rekening menyimpan kode+uraian gabungan ("{kode} {uraian}",
-     * dipisah spasi pertama - sama seperti program/kegiatan/sub_kegiatan
-     * yang juga satu kolom teks bebas). kode_rekening_bersih (kolom
-     * turunan, lihat booted()) adalah kunci pendek yang dipakai di semua
-     * tempat yang butuh exact-match (RAK Bulanan, import SPM LS/NPD
-     * Historis, whitelist SPJ, dsb) - lihat catatan migrasi
-     * 2026_07_27_090014_merge_kode_rekening_uraian_master_anggaran.
+     * Pecah string gabungan "{kode} {uraian}" pada spasi pertama.
+     *
+     * Sejak kode dan uraian punya kolom sendiri (migrasi
+     * 2026_08_28_090000_split_kode_uraian_master_anggaran), ini TIDAK lagi
+     * dipakai untuk membaca data tersimpan - hanya sebagai toleransi saat
+     * import menerima file lama yang masih menggabungkan keduanya dalam
+     * satu sel, dan oleh migrasi saat backfill.
      *
      * @return array{0: string, 1: string} [kode, uraian]
      */
@@ -75,18 +93,167 @@ class MasterAnggaran extends Model
         $kode = trim($kode);
         $uraian = trim((string) $uraian);
 
-        return $uraian !== '' ? "{$kode} {$uraian}" : $kode;
+        if ($kode === '') {
+            return $uraian;
+        }
+
+        if ($uraian === '') {
+            return $kode;
+        }
+
+        // Sub kegiatan/rekening tanpa kode memakai nilainya sendiri sebagai
+        // kode (lihat pecahNilaiGabungan) - jangan digandakan jadi "X X".
+        // Dibandingkan setelah dinormalisasi karena kolom kode menyimpan
+        // bentuk rapi sementara kolom nama menyimpan teks aslinya (bisa
+        // berspasi ganda atau ber-newline dari hasil impor).
+        if (self::normalisasiKunci($kode) === self::normalisasiKunci($uraian)) {
+            return $uraian;
+        }
+
+        return "{$kode} {$uraian}";
     }
 
-    /** Bagian uraian dari kode_rekening gabungan, turunan baca-saja. */
+    /**
+     * Terima data bentuk LAMA yang masih menaruh kode dan nama dalam satu
+     * kolom ("6.01.01.2.01 Penyusunan Dokumen ..."), lalu pecah ke kolom
+     * kode/nama masing-masing.
+     *
+     * Dibutuhkan karena masih ada pemanggil yang menulis bentuk gabungan:
+     * command app/Console/Commands/ImportMaster.php dan sebagian besar
+     * test suite. Tanpa ini semua pemanggil tersebut harus diubah serentak
+     * hanya untuk mengganti bentuk penulisan yang sama artinya.
+     *
+     * Pemecahan hanya dilakukan kalau token pertama benar-benar BERBENTUK
+     * KODE (lihat tampakKode) - tanpa syarat itu, "Sub Kegiatan Pengawasan"
+     * akan terpecah jadi kode "Sub" + nama "Kegiatan Pengawasan", dan dua
+     * sub kegiatan berbeda yang kebetulan berawalan kata sama akan bertabrakan
+     * di unique key. Nilai yang tidak berkode dipakai utuh sebagai kode untuk
+     * kolom yang wajib berisi (sub kegiatan & rekening) - sejalan dengan
+     * backfill di migrasi split_kode_uraian_master_anggaran.
+     */
+    private static function pecahNilaiGabungan(self $anggaran): void
+    {
+        foreach (['program' => 'kode_program', 'kegiatan' => 'kode_kegiatan'] as $nama => $kode) {
+            if (trim((string) $anggaran->{$kode}) !== '') {
+                continue;
+            }
+
+            [$bagianKode, $bagianNama] = self::pisahKodeUraian($anggaran->{$nama});
+
+            if ($bagianNama === '' || ! self::tampakKode($bagianKode)) {
+                continue;
+            }
+
+            $anggaran->{$kode} = $bagianKode;
+            $anggaran->{$nama} = $bagianNama;
+        }
+
+        if (trim((string) $anggaran->kode_sub_kegiatan) === '') {
+            [$kodeSub, $namaSub] = self::pisahKodeUraian($anggaran->sub_kegiatan);
+
+            if ($namaSub !== '' && self::tampakKode($kodeSub)) {
+                $anggaran->kode_sub_kegiatan = $kodeSub;
+                $anggaran->sub_kegiatan = $namaSub;
+            } else {
+                // Tidak berkode: nilai utuh jadi kunci, namanya dibiarkan.
+                $anggaran->kode_sub_kegiatan = self::normalisasiTeks($anggaran->sub_kegiatan);
+            }
+        }
+
+        if (trim((string) $anggaran->rekening) === '' && str_contains((string) $anggaran->kode_rekening, ' ')) {
+            [$kodeRek, $uraianRek] = self::pisahKodeUraian($anggaran->kode_rekening);
+
+            if ($uraianRek !== '' && self::tampakKode($kodeRek)) {
+                $anggaran->kode_rekening = $kodeRek;
+                $anggaran->rekening = $uraianRek;
+            }
+        }
+    }
+
+    /** Kode rekening/kegiatan selalu berupa angka bertitik, mis. "6.01.01.2.01". */
+    private static function tampakKode(string $token): bool
+    {
+        return preg_match('/^\d[\d.]*$/', $token) === 1;
+    }
+
+    /**
+     * Alias baca-saja untuk kolom rekening. Dipertahankan karena sudah
+     * dipakai di NpdExport, SpmLsExport, InventarisasiSpjService, dan PDF
+     * NPD - PDF wajib identik visual dengan GAS, jadi nama atribut ini
+     * jangan diganti.
+     */
     protected function uraianRekening(): Attribute
     {
-        return Attribute::make(get: fn () => self::pisahKodeUraian($this->kode_rekening)[1]);
+        return Attribute::make(get: fn () => (string) $this->rekening);
+    }
+
+    /** Label tampilan "{kode} {nama}" - bentuk yang dikenal pengguna di dokumen DPA. */
+    protected function programLengkap(): Attribute
+    {
+        return Attribute::make(get: fn () => self::gabungKodeUraian((string) $this->kode_program, $this->program));
+    }
+
+    protected function kegiatanLengkap(): Attribute
+    {
+        return Attribute::make(get: fn () => self::gabungKodeUraian((string) $this->kode_kegiatan, $this->kegiatan));
+    }
+
+    protected function subKegiatanLengkap(): Attribute
+    {
+        return Attribute::make(get: fn () => self::gabungKodeUraian((string) $this->kode_sub_kegiatan, $this->sub_kegiatan));
+    }
+
+    protected function rekeningLengkap(): Attribute
+    {
+        return Attribute::make(get: fn () => self::gabungKodeUraian((string) $this->kode_rekening, $this->rekening));
     }
 
     public function tagging(): BelongsTo
     {
         return $this->belongsTo(Tagging::class);
+    }
+
+    /** Nominal pagu mata anggaran ini pada tiap versi DPA (lihat VersiPagu). */
+    public function versiPaguDetail(): HasMany
+    {
+        return $this->hasMany(VersiPaguDetail::class);
+    }
+
+    /**
+     * Muat sekaligus semua agregat yang dibaca danaTerikatNpd(),
+     * realisasiNpd(), dan realisasiLs() lewat $this->attributes, supaya
+     * pemeriksaan massal (mis. VersiPagu::konflikAktivasi()) tidak menembak
+     * satu query per mata anggaran.
+     */
+    public function scopeWithAngkaRealisasi(EloquentBuilder $query): EloquentBuilder
+    {
+        return $query
+            ->withSum([
+                'npd as dana_terikat_npd_total' => fn (EloquentBuilder $q) => $q->where('status', 'not like', '%batal%'),
+            ], 'nominal')
+            ->withSum([
+                'npd as realisasi_npd_total' => fn (EloquentBuilder $q) => $q->where('status', 'Selesai'),
+            ], 'nominal')
+            ->withSum('spmDetail as realisasi_ls_total', 'nominal')
+            ->withSum([
+                'pengembalianDetail as pengembalian_disetujui_npd_total' => fn (EloquentBuilder $q) => $q
+                    ->whereHas('pengembalian', fn (EloquentBuilder $p) => $p->where('status', 'disetujui')->where('dokumen_tipe', 'npd')),
+            ], 'nominal')
+            ->withSum([
+                'pengembalianDetail as pengembalian_disetujui_ls_total' => fn (EloquentBuilder $q) => $q
+                    ->whereHas('pengembalian', fn (EloquentBuilder $p) => $p->where('status', 'disetujui')->where('dokumen_tipe', 'spm_ls')),
+            ], 'nominal');
+    }
+
+    /**
+     * Nilai minimum yang boleh ditetapkan sebagai pagu mata anggaran ini:
+     * pagu tidak boleh turun di bawah uang yang sudah terikat NPD ditambah
+     * yang sudah cair lewat SPM LS. Dipakai baik oleh import maupun oleh
+     * aktivasi versi pagu.
+     */
+    public function paguMinimum(): float
+    {
+        return $this->danaTerikatNpd() + $this->realisasiLs();
     }
 
     public function npd(): HasMany
@@ -132,29 +299,30 @@ class MasterAnggaran extends Model
 
     public function subKegiatanNormal(): string
     {
-        return self::normalisasiTeks($this->sub_kegiatan);
+        return self::normalisasiTeks($this->sub_kegiatan_lengkap);
     }
 
     public function programNormal(): string
     {
-        return self::normalisasiTeks($this->program);
+        return self::normalisasiTeks($this->program_lengkap);
     }
 
     public function kegiatanNormal(): string
     {
-        return self::normalisasiTeks($this->kegiatan);
+        return self::normalisasiTeks($this->kegiatan_lengkap);
     }
 
     /**
-     * KEU ditentukan dari prefix sub_kegiatan: 6.01.01 -> KEU 1,
-     * 6.01.02/6.01.03 -> KEU 2. Null kalau tidak dikenali.
+     * KEU ditentukan dari prefix kode sub kegiatan: 6.01.01 -> KEU 1,
+     * 6.01.02/6.01.03 -> KEU 2. Null kalau tidak dikenali. Membaca
+     * kode_sub_kegiatan langsung, bukan menebak prefix dari teks gabungan.
      */
     public function tentukanKeu(): ?string
     {
         return match (true) {
-            str_starts_with($this->sub_kegiatan, '6.01.01') => '1',
-            str_starts_with($this->sub_kegiatan, '6.01.02'),
-            str_starts_with($this->sub_kegiatan, '6.01.03') => '2',
+            str_starts_with((string) $this->kode_sub_kegiatan, '6.01.01') => '1',
+            str_starts_with((string) $this->kode_sub_kegiatan, '6.01.02'),
+            str_starts_with((string) $this->kode_sub_kegiatan, '6.01.03') => '2',
             default => null,
         };
     }

@@ -6,7 +6,7 @@
 @section('content')
 <div class="dash-card">
     <h3>Ubah User</h3>
-    <div class="sub">Perbarui data user {{ $user->username }}.</div>
+    <div class="sub">Memperbarui data akun {{ $user->username }}.</div>
 
     @if ($errors->any())
         <div class="err-box" style="display:block;">
@@ -24,7 +24,7 @@
             @csrf
             @method('PATCH')
             <h4 style="margin:0 0 6px;">Ubah Username</h4>
-            <div class="sub">Username disimpan dalam huruf kecil. Konfirmasi password Superadmin yang sedang login diperlukan.</div>
+            <div class="sub">Nama pengguna disimpan dalam huruf kecil. Perubahan perlu dikonfirmasi dengan kata sandi Superadmin yang sedang masuk.</div>
             <div class="form-grid" style="margin-top:12px;">
                 <div class="fg">
                     <label class="fl" for="username_baru">Username Baru</label>

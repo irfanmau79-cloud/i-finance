@@ -44,18 +44,62 @@ class NpdHistorisImportTest extends TestCase
             'pagu' => 100_000_000, 'aktif' => true,
         ]);
         RakBulanan::create([
-            'tahun' => 2026, 'bulan' => 7, 'sub_kegiatan' => $this->anggaran->sub_kegiatan,
+            'tahun' => 2026, 'bulan' => 7, 'sub_kegiatan' => $this->anggaran->sub_kegiatan_lengkap,
             'sub_kegiatan_kunci' => $this->anggaran->sub_kegiatan_kunci,
             'kode_rekening' => $this->anggaran->kode_rekening_bersih, 'target' => 50_000_000,
         ]);
     }
 
+    /**
+     * Satu baris data template. Override memakai NAMA kolom, bukan indeks
+     * angka - urutan kolom sudah pernah bergeser saat kode dipisah dari
+     * namanya, dan indeks angka membuat pergeseran itu tidak terdeteksi
+     * (nilai diam-diam mendarat di kolom sebelahnya).
+     */
     private function row(array $override = []): array
     {
         return array_values(array_replace([
-            '2026-07-15', '001/NPD/HIST/2026', 'Barang/Jasa', $this->anggaran->sub_kegiatan,
-            $this->anggaran->kode_rekening_bersih, 'Tagging Historis', 'Penerima Manual', '1234567890',
-            1_000_000, 'Uraian historis', 100_000, 50_000, 'PPh 21', 25_000, 'PPh 22', '',
+            'tanggal_npd' => '2026-07-15',
+            'nomor_npd' => '001/NPD/HIST/2026',
+            'jenis_npd' => 'Barang/Jasa',
+            'kode_sub_kegiatan' => $this->anggaran->kode_sub_kegiatan,
+            'sub_kegiatan' => $this->anggaran->sub_kegiatan,
+            'kode_rekening' => $this->anggaran->kode_rekening,
+            'rekening' => $this->anggaran->rekening,
+            'tagging' => 'Tagging Historis',
+            'penerima' => 'Penerima Manual',
+            'rekening_penerima' => '1234567890',
+            'nominal_bruto' => 1_000_000,
+            'uraian' => 'Uraian historis',
+            'ppn' => 100_000,
+            'pph1' => 50_000,
+            'jenis_pph1' => 'PPh 21',
+            'pph2' => 25_000,
+            'jenis_pph2' => 'PPh 22',
+            'status_npd' => '',
+        ], $override));
+    }
+
+    /** Baris untuk template LAMA: kode + nama masih tergabung dalam satu sel. */
+    private function rowFormatLama(array $override = []): array
+    {
+        return array_values(array_replace([
+            'tanggal_npd' => '2026-07-15',
+            'nomor_npd' => '001/NPD/HIST/2026',
+            'jenis_npd' => 'Barang/Jasa',
+            'sub_kegiatan' => $this->anggaran->sub_kegiatan_lengkap,
+            'kode_rekening' => $this->anggaran->rekening_lengkap,
+            'tagging' => 'Tagging Historis',
+            'penerima' => 'Penerima Manual',
+            'rekening_penerima' => '1234567890',
+            'nominal_bruto' => 1_000_000,
+            'uraian' => 'Uraian historis',
+            'ppn' => 100_000,
+            'pph1' => 50_000,
+            'jenis_pph1' => 'PPh 21',
+            'pph2' => 25_000,
+            'jenis_pph2' => 'PPh 22',
+            'status_npd' => '',
         ], $override));
     }
 
@@ -74,6 +118,26 @@ class NpdHistorisImportTest extends TestCase
         return new UploadedFile($path, 'npd-historis.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
     }
 
+    /** Workbook memakai header template LAMA (16 kolom, kode + nama tergabung). */
+    private function workbookFormatLama(array $rows): UploadedFile
+    {
+        $spreadsheet = new Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setCellValue('A1', NpdHistorisImportService::FORMAT_MARKER);
+        $sheet->setCellValue('A2', 'Petunjuk');
+        $sheet->setCellValue('A3', 'Nilai bulanan');
+        $sheet->fromArray([
+            'Tanggal NPD', 'Nomor NPD', 'Jenis NPD', 'Sub Kegiatan', 'Kode Rekening', 'Tagging',
+            'Penerima', 'Rekening Penerima', 'Nominal Bruto', 'Uraian', 'PPN', 'PPh1',
+            'Jenis PPh1', 'PPh2', 'Jenis PPh2', 'Status NPD',
+        ], null, 'A4');
+        $sheet->fromArray($rows, null, 'A5');
+        $path = sys_get_temp_dir().'/'.uniqid('npd_hist_lama_', true).'.xlsx';
+        (new Xlsx($spreadsheet))->save($path);
+
+        return new UploadedFile($path, 'npd-historis-lama.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
+    }
+
     public function test_card_route_template_and_backend_authorization(): void
     {
         $pptk = User::factory()->create(['role' => User::ROLE_PPTK]);
@@ -84,7 +148,16 @@ class NpdHistorisImportTest extends TestCase
         $this->actingAs($bendahara)->get(route('manajemen-data.index'))->assertOk()
             ->assertDontSee(route('manajemen-data.import.npd-historis.create'), false);
         $this->actingAs($this->admin)->get(route('manajemen-data.import.npd-historis.create'))->assertOk()
-            ->assertSee('Unduh Template Import NPD')->assertSee('Tahun Anggaran 2026');
+            ->assertSee('Unduh Template Import NPD')->assertSee('Tahun Anggaran 2026')
+            // Contoh isi kolom di layar diambil dari kelas template - kalau
+            // contohnya berubah di template, halaman ini ikut berubah.
+            ->assertSee('Contoh Isi Kolom')
+            ->assertSee('001/NPD/HIST/2026')
+            ->assertSee('5.1.02.01.01.0024');
+
+        $petunjuk = (new NpdHistorisTemplateExport)->petunjukKolom();
+        $this->assertCount(count(NpdHistorisImportService::HEADERS), $petunjuk);
+        $this->assertSame(NpdHistorisImportService::HEADERS, array_column($petunjuk, 0));
         $this->actingAs($pptk)->get(route('manajemen-data.import.npd-historis.create'))->assertForbidden();
         $this->actingAs($bendahara)->get(route('manajemen-data.import.npd-historis.template'))->assertForbidden();
         $this->actingAs($this->admin)->get(route('manajemen-data.import.npd-historis.template'))->assertOk()->assertDownload('template-import-npd-historis-v1.xlsx');
@@ -137,7 +210,7 @@ class NpdHistorisImportTest extends TestCase
         $types = ['Barang/Jasa', 'perjalanan-dinas', 'TRANSPORT', 'Narasumber', 'Kontribusi   Diklat'];
         $rows = [];
         foreach ($types as $i => $type) {
-            $rows[] = $this->row([1 => sprintf('%03d/NPD/HIST/2026', $i + 1), 2 => $type, 8 => ($i + 1) * 1_000_000, 15 => $i === 4 ? 'Batal' : '']);
+            $rows[] = $this->row(['nomor_npd' => sprintf('%03d/NPD/HIST/2026', $i + 1), 'jenis_npd' => $type, 'nominal_bruto' => ($i + 1) * 1_000_000, 'status_npd' => $i === 4 ? 'Batal' : '']);
         }
         $this->actingAs($this->admin)->post(route('manajemen-data.import.npd-historis.store'), ['file' => $this->workbook($rows)]);
         $import = NpdHistorisImport::firstOrFail();
@@ -158,9 +231,9 @@ class NpdHistorisImportTest extends TestCase
     public function test_unknown_type_wrong_status_and_npd_year_2025_atau_2027_are_rejected_without_mapping(): void
     {
         $rows = [
-            $this->row([1 => '101/NPD/HIST/2026', 2 => 'Belanja Lain', 15 => 'Draft']),
-            $this->row([0 => '2025-07-15', 1 => '102/NPD/HIST/2025']),
-            $this->row([0 => '2027-07-15', 1 => '103/NPD/HIST/2027']),
+            $this->row(['nomor_npd' => '101/NPD/HIST/2026', 'jenis_npd' => 'Belanja Lain', 'status_npd' => 'Draft']),
+            $this->row(['tanggal_npd' => '2025-07-15', 'nomor_npd' => '102/NPD/HIST/2025']),
+            $this->row(['tanggal_npd' => '2027-07-15', 'nomor_npd' => '103/NPD/HIST/2027']),
         ];
         $this->actingAs($this->admin)->post(route('manajemen-data.import.npd-historis.store'), ['file' => $this->workbook($rows)]);
         $import = NpdHistorisImport::firstOrFail();
@@ -182,7 +255,7 @@ class NpdHistorisImportTest extends TestCase
 
     public function test_tax_rules_snapshot_and_net_follow_existing_lampiran_rule(): void
     {
-        $this->actingAs($this->admin)->post(route('manajemen-data.import.npd-historis.store'), ['file' => $this->workbook([$this->row([8 => 1_000_000, 10 => 100_000, 11 => 150_000, 12 => 'PPh 21', 13 => 50_000, 14 => 'PPh 22'])])]);
+        $this->actingAs($this->admin)->post(route('manajemen-data.import.npd-historis.store'), ['file' => $this->workbook([$this->row(['nominal_bruto' => 1_000_000, 'ppn' => 100_000, 'pph1' => 150_000, 'jenis_pph1' => 'PPh 21', 'pph2' => 50_000, 'jenis_pph2' => 'PPh 22'])])]);
         $import = NpdHistorisImport::firstOrFail();
         $this->actingAs($this->admin)->post(route('manajemen-data.import.npd-historis.confirm', $import));
         $penerima = Npd::firstOrFail()->penerima()->with('pphList')->firstOrFail();
@@ -248,13 +321,37 @@ class NpdHistorisImportTest extends TestCase
 
     public function test_duplicate_inside_file_and_impossible_tax_total_are_reported(): void
     {
-        $row = $this->row([8 => 100_000, 10 => 80_000, 11 => 30_000, 12 => 'PPh 21']);
+        $row = $this->row(['nominal_bruto' => 100_000, 'ppn' => 80_000, 'pph1' => 30_000, 'jenis_pph1' => 'PPh 21']);
         $this->actingAs($this->admin)->post(route('manajemen-data.import.npd-historis.store'), ['file' => $this->workbook([$row, $row])]);
         $import = NpdHistorisImport::firstOrFail();
 
         $this->assertSame(1, $import->jumlah_duplikat);
         $this->assertStringContainsString('melebihi Nominal Bruto', implode(' ', $import->baris()->first()->pesan));
         $this->assertSame(0, Npd::count());
+    }
+
+    /**
+     * Berkas yang terlanjur diunduh dengan template LAMA (Sub Kegiatan dan
+     * Kode Rekening masih menggabungkan kode + nama) tetap harus terbaca -
+     * kolom Kode Sub Kegiatan dan Rekening sengaja tidak diwajibkan.
+     */
+    public function test_template_lama_tanpa_kolom_kode_terpisah_tetap_terbaca(): void
+    {
+        $this->actingAs($this->admin)->post(route('manajemen-data.import.npd-historis.store'), [
+            'file' => $this->workbookFormatLama([$this->rowFormatLama()]),
+        ]);
+
+        $import = NpdHistorisImport::firstOrFail();
+        $baris = $import->baris()->firstOrFail();
+
+        // Mata anggaran tetap ketemu meski kode dan nama datang tergabung.
+        $this->assertSame($this->anggaran->id, $baris->master_anggaran_id);
+        $this->assertSame($this->anggaran->sub_kegiatan_kunci, $baris->sub_kegiatan_kunci);
+        $this->assertStringNotContainsString('tidak ditemukan', implode(' ', $baris->pesan ?? []));
+
+        // 'warning' berasal dari snapshot penerima manual (sama seperti baris
+        // format baru), bukan dari kegagalan pemetaan mata anggaran.
+        $this->assertSame('warning', $baris->hasil);
     }
 
     public function test_validation_and_final_reports_are_downloadable(): void

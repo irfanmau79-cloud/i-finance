@@ -189,8 +189,9 @@ class TunjanganKeluargaTest extends TestCase
             $this->actingAs($bukanAdmin)->post(route('tunjangan.data.simpan', $pegawai), [])->assertForbidden();
         }
 
+        // Pegawai tanpa data keluarga tetap terdaftar, berstatus TK/0.
         $this->actingAs($admin)->get(route('tunjangan.data.index'))
-            ->assertOk()->assertSee($pegawai->nama)->assertSee('Belum ada');
+            ->assertOk()->assertSee($pegawai->nama)->assertSee('TK/0');
 
         $this->actingAs($admin)->post(route('tunjangan.data.simpan', $pegawai), [
             'pasangan' => ['nama' => 'Pasangan Admin', 'status_tunjangan' => '1'],
@@ -208,8 +209,11 @@ class TunjanganKeluargaTest extends TestCase
         $this->actingAs($admin)->get(route('tunjangan.dashboard'))
             ->assertOk()->assertSee('Pasangan Admin')->assertSee('Anak Satu');
 
+        // Tabel Data Tunjangan Keluarga kini meringkas jadi Status Tunjangan:
+        // K = punya pasangan, 1 = satu anak yang berhak (anak 23 tahun tanpa
+        // surat kuliah tidak dihitung).
         $this->actingAs($admin)->get(route('tunjangan.data.index'))
-            ->assertOk()->assertSee('Pasangan Admin')->assertSee('5 tahun');
+            ->assertOk()->assertSee($pegawai->nama)->assertSee('K/1');
     }
 
     public function test_data_tunjangan_keluarga_maksimal_dua_anak_dan_dokumen_pendukung_tersimpan_privat(): void

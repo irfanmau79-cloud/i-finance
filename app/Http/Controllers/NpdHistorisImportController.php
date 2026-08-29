@@ -17,6 +17,9 @@ class NpdHistorisImportController extends Controller
     {
         return view('manajemen-data.import.npd-historis.create', [
             'riwayat' => NpdHistorisImport::with('user')->latest('id')->paginate(15),
+            // Diambil dari kelas template supaya contoh isian di layar dan di
+            // sheet "Petunjuk Pengisian" tidak pernah berbeda.
+            'petunjukKolom' => (new NpdHistorisTemplateExport)->petunjukKolom(),
         ]);
     }
 

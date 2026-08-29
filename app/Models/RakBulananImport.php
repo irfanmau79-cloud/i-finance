@@ -148,7 +148,15 @@ class RakBulananImport extends Model
             foreach ($barisLebar as $indeksAsli => $row) {
                 $nomorBaris = $indeksAsli + $barisDataMulai;
 
-                $subKegiatan = trim((string) ($row['sub_kegiatan'] ?? ''));
+                // Template sekarang memisahkan Kode Sub Kegiatan dari namanya.
+                // Keduanya digabung kembali di sini supaya baris staging,
+                // tampilan preview, dan pencocokan ke master_anggaran tetap
+                // memakai label utuh "{kode} {nama}" seperti format lama -
+                // tidak ada kolom staging baru dan file lama tetap terbaca.
+                $subKegiatan = MasterAnggaran::gabungKodeUraian(
+                    trim((string) ($row['kode_sub_kegiatan'] ?? '')),
+                    trim((string) ($row['sub_kegiatan'] ?? ''))
+                );
                 // File sumber (termasuk hasil export lama) kadang berisi
                 // kode+uraian gabungan di kolom Kode Rekening - ambil bagian
                 // kode saja untuk matching & penyimpanan (kolom staging
@@ -258,6 +266,8 @@ class RakBulananImport extends Model
         $headerIndex = 0;
 
         if ($marker === RakBulananExport::FORMAT_MARKER) {
+            // Berkas hasil export versi lama: masih ada baris marker &
+            // instruksi di atas header.
             $format = self::FORMAT_MONTHLY_V2;
             $headerIndex = 2;
         } elseif ($marker === 'IFINANCE_RAK_GAS_CUMULATIVE_V1') {
@@ -273,6 +283,16 @@ class RakBulananImport extends Model
         $header = collect($rows->get($headerIndex, []))->map(fn ($value) => self::normalisasiHeader($value))->all();
         if (! in_array('sub_kegiatan', $header, true) || ! in_array('kode_rekening', $header, true)) {
             throw ValidationException::withMessages(['file' => 'Header Sub Kegiatan dan Kode Rekening tidak ditemukan pada format yang dipilih.']);
+        }
+
+        // Export sekarang menaruh header langsung di baris 1 tanpa marker,
+        // jadi format resminya dikenali dari TANDA TANGAN HEADER: dua kolom
+        // ini hanya ada pada template terbaru. Tanpa ini berkas resmi akan
+        // tercatat sebagai "legacy" di log import padahal bukan.
+        if ($headerIndex === 0
+            && in_array('kode_sub_kegiatan', $header, true)
+            && in_array('total_rak', $header, true)) {
+            $format = self::FORMAT_MONTHLY_V2;
         }
 
         $adaTagging = in_array('tagging', $header, true);
@@ -396,11 +416,30 @@ class RakBulananImport extends Model
             ->lockForUpdate()
             ->exists();
 
-        if (! $ada) {
-            return [null, null, 'Kode Rekening tidak ditemukan dalam Sub Kegiatan tersebut, atau mata anggaran tidak aktif.'];
+        if ($ada) {
+            return [$subKegiatanKunci, $kodeRekening, null];
         }
 
-        return [$subKegiatanKunci, $kodeRekening, null];
+        // Cadangan: cocokkan lewat KODE sub kegiatan saja. Menolong kalau nama
+        // sub kegiatan di file sudah tidak persis sama dengan yang tersimpan
+        // (mis. diperbarui di DPA berikutnya) - kodenya yang jadi identitas.
+        // sub_kegiatan_kunci milik master yang cocok tetap dipakai sebagai
+        // kunci RAK supaya identitasnya konsisten dengan baris RAK lama.
+        [$kodeSubKegiatan] = MasterAnggaran::pisahKodeUraian($subKegiatan);
+
+        if ($kodeSubKegiatan !== '') {
+            $kunciMaster = MasterAnggaran::where('kode_sub_kegiatan', $kodeSubKegiatan)
+                ->where('kode_rekening_bersih', $kodeRekening)
+                ->where('aktif', true)
+                ->lockForUpdate()
+                ->value('sub_kegiatan_kunci');
+
+            if ($kunciMaster !== null) {
+                return [$kunciMaster, $kodeRekening, null];
+            }
+        }
+
+        return [null, null, 'Kode Rekening tidak ditemukan dalam Sub Kegiatan tersebut, atau mata anggaran tidak aktif.'];
     }
 
     private static function adaNilai(mixed $nilai): bool

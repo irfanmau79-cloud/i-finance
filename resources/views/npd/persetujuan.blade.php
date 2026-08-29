@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
 @section('activeNav', 'persetujuan')
-@section('title', 'Persetujuan NPD')
+@section('title', 'Persetujuan Nota Pencairan Dana')
 
 @section('content')
 <div class="page-head">
     <div>
         <div class="ph-crumb">Beranda / <b>Persetujuan NPD</b></div>
-        <div class="ph-title">Persetujuan NPD</div>
+        <div class="ph-title">Persetujuan Nota Pencairan Dana</div>
     </div>
 </div>
 

@@ -32,10 +32,15 @@ class NpdPdController extends Controller
             ->orderBy('kode')
             ->get();
 
-        $suratPerintahList = SuratPerintah::with('anggota.pegawai')
-            ->where('status', SuratPerintah::STATUS_DITERIMA_PPTK)
+        // Hanya SP yang masih "Diterima PPTK" DAN flag Sumber NPD-nya menyala.
+        // Toggle Sumber NPD di halaman Data SP-lah yang menyembunyikan sebuah
+        // SP dari sini tanpa menghapusnya dari Monitoring - lihat
+        // SuratPerintah::scopeSumberNpdAktif (port getSPTerinput di GAS).
+        $suratPerintahList = SuratPerintah::query()
+            ->with('anggota')
+            ->sumberNpdPerjalanan()
             ->orderBy('tanggal_sp', 'desc')
-            ->get(['id', 'nomor_sp', 'tanggal_sp', 'keterangan', 'lokasi', 'unit_kerja']);
+            ->get(['id', 'nomor_sp', 'tanggal_sp', 'keterangan', 'lokasi', 'unit_kerja', 'tujuan_transfer', 'jenis_permintaan']);
 
         $bulanList = [
             1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April',
@@ -76,10 +81,14 @@ class NpdPdController extends Controller
         }
 
         $suratPerintahId = $data['surat_perintah_id'] ?? null;
+        $suratPerintah = SuratPerintah::findOrFail($suratPerintahId);
 
         $detailJson = [
-            'nomor_sp' => $data['nomor_sp'],
-            'tanggal_sp' => $data['tanggal_sp'],
+            // Diambil dari Surat Perintah-nya, bukan dari isian formulir:
+            // NPD Perjalanan Dinas selalu berangkat dari SP, jadi nomor dan
+            // tanggalnya harus selalu sama persis dengan SP tersebut.
+            'nomor_sp' => $suratPerintah->nomor_sp,
+            'tanggal_sp' => $suratPerintah->tanggal_sp->format('Y-m-d'),
             'uraian_sp' => $data['uraian_sp'],
             'berangkat_dari' => $data['berangkat_dari'],
             'tujuan' => $data['tujuan'],
@@ -171,10 +180,17 @@ class NpdPdController extends Controller
         $masterAnggaran = MasterAnggaran::with('tagging')->where('aktif', true)->orderBy('sub_kegiatan')->get();
         $pegawai = Pegawai::where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'jabatan', 'bidang', 'nip', 'rekening']);
         $clusterList = ClusterUh::with(['wilayah' => fn ($q) => $q->orderBy('nama_wilayah')])->where('aktif', true)->orderBy('kode')->get();
+        // SP yang sedang tertaut tetap ikut ditampilkan walau flag Sumber NPD
+        // sudah dimatikan, supaya NPD lama masih bisa disunting.
         $suratPerintahList = SuratPerintah::query()
-            ->with('anggota.pegawai')
-            ->where(fn ($query) => $query->where('status', SuratPerintah::STATUS_DITERIMA_PPTK)->orWhereKey($npd->surat_perintah_id))
-            ->orderBy('tanggal_sp', 'desc')->get(['id', 'nomor_sp', 'tanggal_sp', 'keterangan', 'lokasi', 'unit_kerja']);
+            ->with('anggota')
+            // orWhereKey() tidak ada pada Eloquent\Builder - pemakaiannya membuat
+            // halaman Edit NPD Perjalanan Dinas balas 500. Dipakai orWhere('id')
+            // yang setara, dan hanya bila NPD-nya memang sudah tertaut SP.
+            ->where(fn ($query) => $query->sumberNpdPerjalanan()
+                ->when($npd->surat_perintah_id, fn ($q, $id) => $q->orWhere('id', $id)))
+            ->orderBy('tanggal_sp', 'desc')
+            ->get(['id', 'nomor_sp', 'tanggal_sp', 'keterangan', 'lokasi', 'unit_kerja', 'tujuan_transfer', 'jenis_permintaan']);
         $bulanList = [
             1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni',
             7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
@@ -196,9 +212,14 @@ class NpdPdController extends Controller
             return back()->withInput()->withErrors(['tim' => 'Total perjalanan dinas seluruh tim harus lebih dari 0.']);
         }
 
+        $suratPerintah = SuratPerintah::findOrFail($data['surat_perintah_id']);
+
         $detailJson = [
-            'nomor_sp' => $data['nomor_sp'],
-            'tanggal_sp' => $data['tanggal_sp'],
+            // Diambil dari Surat Perintah-nya, bukan dari isian formulir:
+            // NPD Perjalanan Dinas selalu berangkat dari SP, jadi nomor dan
+            // tanggalnya harus selalu sama persis dengan SP tersebut.
+            'nomor_sp' => $suratPerintah->nomor_sp,
+            'tanggal_sp' => $suratPerintah->tanggal_sp->format('Y-m-d'),
             'uraian_sp' => $data['uraian_sp'],
             'berangkat_dari' => $data['berangkat_dari'],
             'tujuan' => $data['tujuan'],

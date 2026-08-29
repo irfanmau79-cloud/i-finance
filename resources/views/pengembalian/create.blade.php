@@ -6,7 +6,7 @@
 @section('content')
 <div class="dash-card">
     <h3>Input Data Pengembalian</h3>
-    <div class="sub">Pilih dokumen sumber (NPD Selesai atau SPM LS), lalu isi nominal yang dikembalikan per mata anggaran. Disimpan sebagai draft — belum memengaruhi realisasi sampai disetujui.</div>
+    <div class="sub">Pilih dokumen sumber (NPD Selesai atau SPM LS), lalu isi nominal yang dikembalikan per mata anggaran. Tersimpan sebagai draf; belum mengurangi realisasi sampai disetujui.</div>
 
     @if ($errors->any())
         <div class="err-box" style="display:block;">
@@ -84,7 +84,7 @@
             <div class="fg">
                 <label class="fl" for="dokumen_pendukung">Dokumen Pendukung (jpg/png/pdf, maks 5MB)</label>
                 <input type="file" id="dokumen_pendukung" name="dokumen_pendukung" accept=".jpg,.jpeg,.png,.pdf">
-                <div class="sub" style="margin-top:4px;">Boleh dikosongkan saat draft, tapi wajib diisi sebelum bendahara pengeluaran dapat menyetujui.</div>
+                <div class="sub" style="margin-top:4px;">Boleh dikosongkan selama masih draf, tetapi wajib diisi sebelum Bendahara Pengeluaran dapat menyetujui.</div>
             </div>
         </div>
         <div class="fg">

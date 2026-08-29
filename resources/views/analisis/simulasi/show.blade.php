@@ -14,7 +14,18 @@
 <style>
     .sim-kpis{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin:16px 0}
     @media(max-width:900px){.sim-kpis{grid-template-columns:1fr}}
-    .sim-rek-input{width:100%;max-width:170px;text-align:right;box-sizing:border-box;font-variant-numeric:tabular-nums;}
+    /* Nilai pada baris Tagging adalah SATU-SATUNYA yang diisi tangan. Yang
+       ditonjolkan cukup kotak isiannya - baris, sel, dan judul kolomnya
+       dibiarkan sama seperti yang lain supaya tabelnya tetap tenang. */
+    .sim-rek-input{
+        width:100%;max-width:190px;text-align:right;box-sizing:border-box;font-variant-numeric:tabular-nums;
+        border:1.5px solid var(--gold);border-radius:9px;padding:8px 11px;background:#fff;
+        font-weight:700;color:var(--navy);transition:border-color .15s,box-shadow .15s;
+    }
+    .sim-rek-input:hover{border-color:var(--gold-d)}
+    .sim-rek-input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(21,49,74,.13)}
+
+    table.pivot .row-lvl4{background:#fff;color:var(--mut);}
     .sim-summary{border:1px solid #dbe5ee;border-radius:14px;margin-bottom:16px;overflow:hidden;background:#fff}
     .sim-summary-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 18px;background:linear-gradient(135deg,#f4f8fc,#eef4f8);border-bottom:1px solid #dbe5ee}
     .sim-summary-title{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--navy)}
@@ -60,7 +71,6 @@
     table.pivot .ind4{padding-left:94px;color:var(--mut);}
     table.pivot .row-lvl3{background:#fff;cursor:pointer;}
     table.pivot .row-lvl3:hover{background:#f6f9fc;}
-    table.pivot .row-lvl4{background:#fff;color:var(--mut);}
 </style>
 
 <div class="dash-card wf-card">

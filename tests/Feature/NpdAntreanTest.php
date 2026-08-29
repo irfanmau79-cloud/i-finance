@@ -61,15 +61,14 @@ class NpdAntreanTest extends TestCase
         $this->actingAs($bpp)->get(route('npd.persetujuan'))
             ->assertOk()
             ->assertSee($draftBpp->status)
-            ->assertViewHas('npds', fn ($npds) => $npds->total() === 1
-                && $npds->perPage() === 30
+            ->assertViewHas('npds', fn ($npds) => $npds->count() === 1
                 && $npds->first()->is($draftBpp));
 
         $this->actingAs($bpp)->get(route('npd.persetujuan', ['status' => 'semua']))
             ->assertOk()
             ->assertSee($draftPptk->status)
             ->assertSee($draftBpp->status)
-            ->assertViewHas('npds', fn ($npds) => $npds->total() === 2);
+            ->assertViewHas('npds', fn ($npds) => $npds->count() === 2);
     }
 
     public function test_verifikasi_default_hanya_menampilkan_npd_yang_memerlukan_tindakan_verifikator(): void
@@ -81,13 +80,13 @@ class NpdAntreanTest extends TestCase
         $this->actingAs($verifikator)->get(route('npd.verifikasi'))
             ->assertOk()
             ->assertSee($verifikasi->status)
-            ->assertViewHas('npds', fn ($npds) => $npds->total() === 1 && $npds->first()->is($verifikasi));
+            ->assertViewHas('npds', fn ($npds) => $npds->count() === 1 && $npds->first()->is($verifikasi));
 
         $this->actingAs($verifikator)->get(route('npd.verifikasi', ['status' => 'semua']))
             ->assertOk()
             ->assertSee($draftPptk->status)
             ->assertSee($verifikasi->status)
-            ->assertViewHas('npds', fn ($npds) => $npds->total() === 2);
+            ->assertViewHas('npds', fn ($npds) => $npds->count() === 2);
     }
 
     public function test_verifikator_ditolak_akses_antrean_persetujuan_dan_sebaliknya(): void

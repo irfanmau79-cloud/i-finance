@@ -1,18 +1,18 @@
 @extends('layouts.app')
 
 @section('activeNav', 'spm-ls')
-@section('title', 'SPM LS')
+@section('title', 'Realisasi SP2D LS')
 
 @section('content')
 <div class="dash-card wf-card">
-    <h3>Surat Perintah Membayar - Langsung (SPM-LS)</h3>
+    <h3>Data Realisasi SP2D LS</h3>
 
     @if (session('success'))
         <div class="sumbar ok"><span>{{ session('success') }}</span></div>
     @endif
 
     <div class="tbl-tools">
-        <a href="{{ route('spm.ls.create') }}" class="btn prim" style="white-space:nowrap;">Tambah SPM LS</a>
+        <a href="{{ route('spm.ls.create') }}" class="btn prim" style="white-space:nowrap;">Tambah Realisasi SP2D LS</a>
     </div>
 
     <form method="GET" action="{{ route('spm.ls.index') }}" class="tbl-tools">
@@ -70,7 +70,7 @@
                                 <table style="width:100%;">
                                     @foreach ($spm->detail as $baris)
                                         <tr>
-                                            <td style="padding:3px 0;">{{ $baris->masterAnggaran?->kode_rekening }} &mdash; {{ $baris->masterAnggaran?->sub_kegiatan }}</td>
+                                            <td style="padding:3px 0;">{{ $baris->masterAnggaran?->rekening_lengkap }} &mdash; {{ $baris->masterAnggaran?->sub_kegiatan_lengkap }}</td>
                                             <td style="padding:3px 0;text-align:right;white-space:nowrap;">Rp {{ number_format((float) $baris->nominal, 2, ',', '.') }}</td>
                                         </tr>
                                     @endforeach

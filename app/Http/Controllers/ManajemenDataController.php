@@ -6,6 +6,7 @@ use App\Exports\MasterAnggaranExport;
 use App\Exports\NpdExport;
 use App\Exports\PegawaiExport;
 use App\Exports\PerjalananDinasExport;
+use App\Exports\PerjalananDinasTemplateExport;
 use App\Exports\RakBulananExport;
 use App\Exports\SpjPerjalananDinasExport;
 use App\Exports\SpmLsExport;
@@ -49,6 +50,9 @@ class ManajemenDataController extends Controller
      * Dashboard SPJ Perjalanan Dinas. Karena itu import-nya diarahkan ke
      * Import NPD Historis yang sama dipakai kartu Data NPD - lihat
      * 'import_note' yang ditampilkan di kartu untuk menjelaskan ini ke user.
+     * Keduanya 'import_template' => null: tidak ada template khusus untuk
+     * mereka, dan menunjuk ke template NPD membuat tombol Template mengunduh
+     * berkas bernama template NPD - menyesatkan dari sisi pengguna.
      */
     private const TIPE_DATA = [
         'pagu' => [
@@ -72,16 +76,18 @@ class ManajemenDataController extends Controller
         'perjalanan-dinas' => [
             'label' => 'Data Perjalanan Dinas',
             'export_jenis' => 'perjalanan-dinas',
-            'import_create' => ['manajemen-data.import.npd-historis.create', null],
-            'import_template' => ['manajemen-data.import.npd-historis.template', null],
-            'import_note' => 'Data ini dihitung dari NPD Perjalanan Dinas/Transport - import lewat Import NPD Historis (sama seperti kartu Data NPD).',
+            // Tidak punya import: datanya dihitung dari NPD, bukan tabel sendiri.
+            'import_create' => null,
+            'import_template' => ['manajemen-data.template.perjalanan-dinas', null],
+            'import_note' => 'Templatenya berupa formulir rekap per pegawai - Nama, NIP, dan Unit Kerja sudah terisi, tinggal melengkapi angka tiap bulan.',
         ],
         'spj-perjalanan-dinas' => [
             'label' => 'Data SPJ Perjalanan Dinas',
             'export_jenis' => 'spj-perjalanan-dinas',
-            'import_create' => ['manajemen-data.import.npd-historis.create', null],
-            'import_template' => ['manajemen-data.import.npd-historis.template', null],
-            'import_note' => 'Data ini dihitung dari NPD dengan kode rekening Belanja Perjalanan Dinas - import lewat Import NPD Historis (sama seperti kartu Data NPD).',
+            // Sama seperti Perjalanan Dinas: tidak punya import maupun template.
+            'import_create' => null,
+            'import_template' => null,
+            'import_note' => 'Datanya berasal dari NPD dengan rekening Belanja Perjalanan Dinas.',
         ],
         'spm-up-gu' => [
             'label' => 'Data Surat Perintah Membayar (SPM) UP/GU/TU',
@@ -140,6 +146,22 @@ class ManajemenDataController extends Controller
             'tahunSekarang' => (int) config('anggaran.tahun_aktif'),
             'resetKeyword' => self::RESET_KEYWORD,
         ]);
+    }
+
+    /**
+     * Formulir rekap Perjalanan Dinas per pegawai: identitas pegawai aktif
+     * sudah terisi, lima kolom per bulan siap diisi tangan, dan lima kolom
+     * Tahunan berisi rumus. Tidak ada pasangan import-nya - Data Perjalanan
+     * Dinas dihitung dari NPD dan npd_tim, bukan tabel tersendiri.
+     */
+    public function templatePerjalananDinas()
+    {
+        $export = new PerjalananDinasTemplateExport;
+        $filename = 'template-perjalanan-dinas-'.config('anggaran.tahun_aktif').'.xlsx';
+
+        AuditLog::catat('Unduh Template', "Jenis: Data Perjalanan Dinas, Baris: {$export->pegawai()->count()}, File: {$filename}");
+
+        return Excel::download($export, $filename);
     }
 
     public function export(string $jenis, Request $request)
@@ -210,7 +232,7 @@ class ManajemenDataController extends Controller
     private function jalankanReset(string $jenis): int
     {
         return match ($jenis) {
-            'pagu' => $this->hapusTabel('master_anggaran'),
+            'pagu' => $this->resetPagu(),
             'rak' => $this->hapusTabel('rak_bulanan'),
             'npd' => $this->resetNpd(),
             'spm-up-gu' => $this->resetSpm('up_gu'),
@@ -225,6 +247,21 @@ class ManajemenDataController extends Controller
     {
         $jumlah = DB::table($table)->count();
         DB::table($table)->delete();
+
+        return $jumlah;
+    }
+
+    /**
+     * Reset pagu ikut menghapus seluruh riwayat VERSI pagu (DPA Murni, DPA
+     * Pergeseran, ...). versi_pagu_detail memang sudah cascade lewat FK ke
+     * master_anggaran, tapi header versinya tidak - kalau dibiarkan, halaman
+     * Versi Pagu akan menampilkan versi bertotal miliaran yang isinya nol
+     * mata anggaran.
+     */
+    private function resetPagu(): int
+    {
+        $jumlah = $this->hapusTabel('master_anggaran');
+        DB::table('versi_pagu')->delete();
 
         return $jumlah;
     }

@@ -2,46 +2,49 @@
 
 namespace App\Exports;
 
+use App\Exports\Concerns\PunyaPetunjukKolom;
 use App\Models\Spm;
 use Illuminate\Database\Eloquent\Builder;
 
-class SpmUpGuExport extends DataManagementExport
+/**
+ * Export SPM UP/GU/TU. Kolomnya identik dengan SpmUpGuTemplateExport supaya
+ * hasil unduhan bisa diedit lalu diunggah kembali sebagai berkas import.
+ * PPN/PPh dan Penerima sengaja tidak ikut - lihat catatan di template.
+ */
+class SpmUpGuExport extends DataManagementExport implements PunyaPetunjukKolom
 {
+    public function petunjukCatatan(): string
+    {
+        return SpmUpGuTemplateExport::CATATAN;
+    }
+
+    public function petunjukKolom(): array
+    {
+        return SpmUpGuTemplateExport::PETUNJUK;
+    }
+
     public function query(): Builder
     {
         return Spm::query()
             ->where('jenis_spm', 'up_gu')
-            ->with('dibuatOleh')
             ->orderByDesc('tanggal_dokumen')
             ->orderByDesc('id');
     }
 
     public function headings(): array
     {
-        return [
-            'Nomor Dokumen', 'Tanggal Dokumen', 'Nomor SP2D', 'Tanggal SP2D', 'Nominal',
-            'PPN', 'PPh 1', 'Jenis PPh 1', 'PPh 2', 'Jenis PPh 2', 'Penerima', 'Uraian',
-            'Dibuat Oleh', 'Dibuat Pada',
-        ];
+        return SpmUpGuTemplateExport::HEADERS;
     }
 
     public function map($row): array
     {
         return [
-            $row->nomor_dokumen,
             optional($row->tanggal_dokumen)->format('Y-m-d'),
-            $row->nomor_sp2d,
+            $row->nomor_dokumen,
             optional($row->tanggal_sp2d)->format('Y-m-d'),
+            $row->nomor_sp2d,
             (float) $row->nominal,
-            (float) $row->ppn,
-            (float) $row->pph1,
-            $row->jenis_pph1,
-            (float) $row->pph2,
-            $row->jenis_pph2,
-            $row->penerima,
             $row->uraian,
-            $row->dibuatOleh?->username,
-            optional($row->created_at)->format('Y-m-d H:i'),
         ];
     }
 }

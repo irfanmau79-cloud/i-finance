@@ -26,21 +26,36 @@
     $role = auth()->user()->role;
 @endphp
 
-<div class="tbl-tools">
-    <input type="text" id="npd-search" placeholder="Cari Sub Kegiatan, Penerima, Status…">
-</div>
 
 <div class="npd-scroll" style="border:1px solid var(--line);border-radius:8px;overflow:auto;">
     <table class="realisasi npd-table" id="npd-tabel" style="width:100%;table-layout:fixed;">
         <colgroup>
             <col style="width:11%;"><col style="width:16%;"><col style="width:14%;"><col style="width:13%;">
-            <col style="width:14%;"><col style="width:9%;"><col style="width:13%;"><col style="width:10%;">
+            <col style="width:14%;"><col style="width:13%;"><col style="width:9%;"><col style="width:10%;">
         </colgroup>
         <thead>
             <tr>
                 <th>Nomor NPD</th><th>Sub Kegiatan</th><th>Kode Rekening</th><th>Tagging</th>
                 <th>Penerima</th><th class="num">Nominal</th><th class="st">Status</th>
                 <th style="text-align:center;">Aksi</th>
+            </tr>
+            {{-- Penyaring ketik-manual per kolom, seperti di Data NPD. Bekerja
+                 seketika tanpa tombol Terapkan dan tanpa memuat ulang halaman. --}}
+            <tr class="kolom-saring">
+                <th><input type="text" data-kolom="0" placeholder="Ketik nomor&hellip;" aria-label="Saring Nomor NPD"></th>
+                <th><input type="text" data-kolom="1" placeholder="Ketik sub kegiatan&hellip;" aria-label="Saring Sub Kegiatan"></th>
+                <th><input type="text" data-kolom="2" placeholder="Ketik kode&hellip;" aria-label="Saring Kode Rekening"></th>
+                <th><input type="text" data-kolom="3" placeholder="Ketik tagging&hellip;" aria-label="Saring Tagging"></th>
+                <th><input type="text" data-kolom="4" placeholder="Ketik penerima&hellip;" aria-label="Saring Penerima"></th>
+                <th><input type="text" data-kolom="5" placeholder="Ketik nominal&hellip;" aria-label="Saring Nominal"></th>
+                <th><input type="text" data-kolom="6" placeholder="Ketik status&hellip;" aria-label="Saring Status"></th>
+                <th>
+                    <div class="saring-kosong">
+                        <button type="button" id="npd-saring-reset" title="Kosongkan penyaring" aria-label="Kosongkan penyaring">
+                            <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                        </button>
+                    </div>
+                </th>
             </tr>
         </thead>
         <tbody id="npd-tabel-body">
@@ -52,8 +67,8 @@
                 @endphp
                 <tr>
                     <td>{{ $npd->nomor_lengkap ?? '-' }}</td>
-                    <td>{{ $npd->masterAnggaran->sub_kegiatan }}</td>
-                    <td>{{ $npd->masterAnggaran->kode_rekening }}</td>
+                    <td>{{ $npd->masterAnggaran->sub_kegiatan_lengkap }}</td>
+                    <td>{{ $npd->masterAnggaran->rekening_lengkap }}</td>
                     <td>{{ $npd->masterAnggaran->tagging->nama ?? '-' }}</td>
                     <td>
                         <div class="pen-nm">{{ $npd->ringkasanPenerima() }}</div>
@@ -122,15 +137,18 @@
     </table>
 </div>
 
-@if ($npds->hasPages())
-    <div class="pager">
-        <div class="pager-info">Menampilkan {{ $npds->firstItem() }}&ndash;{{ $npds->lastItem() }} dari {{ $npds->total() }} data</div>
-        <div class="pager-btns">
-            <a class="pg-btn" href="{{ $npds->previousPageUrl() ?? '#' }}"@if (! $npds->previousPageUrl()) style="pointer-events:none;opacity:.4;" @endif>&larr; Sebelumnya</a>
-            <a class="pg-btn" href="{{ $npds->nextPageUrl() ?? '#' }}"@if (! $npds->nextPageUrl()) style="pointer-events:none;opacity:.4;" @endif>Berikutnya &rarr;</a>
-        </div>
+<div class="dn-kaki">
+    <div class="dn-perpage">
+        <span>Tampilkan</span>
+        <select id="npd-perpage">
+            @foreach ([10, 25, 50, 100, 250] as $n)
+                <option value="{{ $n }}" @selected($n === 25)>{{ $n }}</option>
+            @endforeach
+        </select>
+        <span>data</span>
     </div>
-@endif
+    <div class="inv-pager" id="npd-pager" style="padding:0;"></div>
+</div>
 
 <div class="mdl-ov" id="wf-mdl-ov">
     <div class="mdl">
@@ -186,12 +204,84 @@
 
 <script>
 (function () {
-    document.getElementById('npd-search').addEventListener('input', function (e) {
-        const q = e.target.value.toLowerCase();
-        document.querySelectorAll('#npd-tabel-body > tr').forEach(function (row) {
-            row.style.display = row.textContent.toLowerCase().includes(q) ? '' : 'none';
+    /* ===== Penyaring per kolom + penomoran halaman (sisi peramban) =====
+       Baris tetap digambar peladen karena memuat tombol aksi beserta token
+       formulirnya - yang dikerjakan di sini hanya menyaring dan memilah
+       halaman atas baris-baris tersebut. */
+    (function () {
+        const tbody = document.getElementById('npd-tabel-body');
+        if (!tbody) return;
+
+        const semua = Array.prototype.slice.call(tbody.querySelectorAll('tr')).filter(function (tr) {
+            return tr.children.length > 1;   // lewati baris "Belum ada NPD"
         });
-    });
+        if (!semua.length) return;
+
+        const saring = Array.prototype.slice.call(document.querySelectorAll('tr.kolom-saring input[data-kolom]'));
+        const pilihanPer = document.getElementById('npd-perpage');
+        const pager = document.getElementById('npd-pager');
+
+        let halaman = 1;
+        let perHalaman = 25;
+
+        function lolos(tr) {
+            return saring.every(function (inp) {
+                const q = inp.value.trim().toLowerCase();
+                if (!q) return true;
+                const sel = tr.children[Number(inp.dataset.kolom)];
+
+                return sel ? sel.textContent.toLowerCase().includes(q) : false;
+            });
+        }
+
+        function gambar() {
+            const cocok = semua.filter(lolos);
+            const total = cocok.length;
+            const halamanTotal = Math.max(1, Math.ceil(total / perHalaman));
+            halaman = Math.min(Math.max(halaman, 1), halamanTotal);
+            const mulai = (halaman - 1) * perHalaman;
+
+            semua.forEach(function (tr) { tr.style.display = 'none'; });
+            cocok.slice(mulai, mulai + perHalaman).forEach(function (tr) { tr.style.display = ''; });
+
+            if (!total) { pager.innerHTML = '<div class="pg-info">Tidak ada data.</div>'; return; }
+
+            const tampil = Math.min(perHalaman, total - mulai);
+            let info = '<div class="pg-info">Menampilkan ' + (mulai + 1) + '&ndash;' + (mulai + tampil) + ' dari ' + total + ' NPD</div>';
+            let btns = '<button class="inv-pg" ' + (halaman <= 1 ? 'disabled' : '') + ' data-go="' + (halaman - 1) + '">&lsaquo;</button>';
+            const daftar = [];
+            for (let i = 1; i <= halamanTotal; i++) {
+                if (i === 1 || i === halamanTotal || (i >= halaman - 1 && i <= halaman + 1)) daftar.push(i);
+                else if (daftar[daftar.length - 1] !== '…') daftar.push('…');
+            }
+            daftar.forEach(function (i) {
+                btns += i === '…' ? '<span class="inv-pg dots">…</span>'
+                    : '<button class="inv-pg' + (i === halaman ? ' active' : '') + '" data-go="' + i + '">' + i + '</button>';
+            });
+            btns += '<button class="inv-pg" ' + (halaman >= halamanTotal ? 'disabled' : '') + ' data-go="' + (halaman + 1) + '">&rsaquo;</button>';
+
+            pager.innerHTML = info + '<div class="pg-btns">' + btns + '</div>';
+            pager.querySelectorAll('[data-go]').forEach(function (b) {
+                b.addEventListener('click', function () { halaman = Number(b.dataset.go); gambar(); });
+            });
+        }
+
+        saring.forEach(function (inp) {
+            inp.addEventListener('input', function () { halaman = 1; gambar(); });
+        });
+        document.getElementById('npd-saring-reset').addEventListener('click', function () {
+            saring.forEach(function (inp) { inp.value = ''; });
+            halaman = 1;
+            gambar();
+        });
+        pilihanPer.addEventListener('change', function () {
+            perHalaman = Number(this.value);
+            halaman = 1;
+            gambar();
+        });
+
+        gambar();
+    })();
 
     // Cuma satu popover Hapus yang boleh terbuka sekaligus.
     document.querySelectorAll('.npd-hapus-pop').forEach(function (pop) {

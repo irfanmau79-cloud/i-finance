@@ -68,12 +68,27 @@
 
         <div class="profil-divider"></div>
 
-        <div class="profil-sec-title">Ubah Nama Tampilan</div>
+        <div class="profil-sec-title">Ubah Identitas Tampilan</div>
         <div class="profil-form">
             <div>
-                <label class="fl" for="nama">Nama</label>
+                <label class="fl" for="nama">Nama Lengkap</label>
                 <input type="text" id="nama" name="nama" value="{{ old('nama', $user->nama) }}">
-                <div class="profil-hint">Nama ini muncul di sidebar dan pada riwayat aktivitas Anda.</div>
+                <div class="profil-hint">Dipakai sebagai identitas akun: muncul di menu profil dan pada riwayat aktivitas Anda.</div>
+            </div>
+            <div>
+                <label class="fl" for="nama_panggilan">Nama Panggilan</label>
+                <input type="text" id="nama_panggilan" name="nama_panggilan" maxlength="60" value="{{ old('nama_panggilan', $user->nama_panggilan) }}" placeholder="Contoh: Irfan">
+                <div class="profil-hint">Dipakai untuk sapaan di bilah atas. Bila dikosongkan, yang disapa adalah Nama Lengkap.</div>
+            </div>
+            <div>
+                <label class="fl" for="jenis_kelamin">Jenis Kelamin</label>
+                <select id="jenis_kelamin" name="jenis_kelamin">
+                    <option value="">&mdash; Belum diisi &mdash;</option>
+                    @foreach (\App\Models\User::KELAMIN as $kode => $label)
+                        <option value="{{ $kode }}" @selected(old('jenis_kelamin', $user->jenis_kelamin) === $kode)>{{ $label }}</option>
+                    @endforeach
+                </select>
+                <div class="profil-hint">Menentukan sapaan di bilah atas: <strong>Pak</strong> untuk laki-laki, <strong>Bu</strong> untuk perempuan. Bila dikosongkan, sapaannya "Pak/Bu".</div>
             </div>
         </div>
 

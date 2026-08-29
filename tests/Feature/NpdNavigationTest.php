@@ -49,15 +49,16 @@ class NpdNavigationTest extends TestCase
 
         DB::flushQueryLog();
         DB::enableQueryLog();
-        // Kolom "Nomor" tidak lagi ditampilkan di tabel Pembuatan NPD (port gas-lama tidak
-        // punya kolom itu) — kebenaran filter status dibuktikan lewat total()/count() paginator,
-        // bukan lewat teks nomor_lengkap yang sudah tidak dirender.
+        // Penomoran halaman kini dikerjakan di peramban (lihat _tabel-workflow),
+        // jadi peladen mengirim SELURUH baris yang lolos filter - bukan lagi
+        // 30 baris per halaman. Kebenaran filter status dibuktikan lewat
+        // jumlah baris yang dikirim ke view.
         $this->actingAs($user)->get(route('npd.index', ['status' => 'Draft NPD - PPTK']))
             ->assertOk()
-            ->assertViewHas('npds', fn ($npds) => $npds->total() === 31 && $npds->count() === 30 && $npds->perPage() === 30);
+            ->assertViewHas('npds', fn ($npds) => $npds->count() === 31);
         $listingQueries = collect(DB::getQueryLog())->filter(fn (array $query) => str_contains($query['query'], 'npd') || str_contains($query['query'], 'master_anggaran'));
-        // count + select + masterAnggaran + tagging + (penerima/tim/narasumber/peserta eager loads
-        // untuk kolom Tagging/Penerima gas-lama-style) = 8 query flat, bukan N+1 per baris.
+        // select + masterAnggaran + tagging + (penerima/tim/narasumber/peserta eager
+        // loads untuk kolom Tagging/Penerima) = tetap datar, bukan N+1 per baris.
         $this->assertLessThanOrEqual(8, $listingQueries->count(), 'Daftar NPD melakukan query berlebihan atau N+1.');
         DB::disableQueryLog();
     }
@@ -72,7 +73,7 @@ class NpdNavigationTest extends TestCase
         $this->actingAs($user)->get(route('npd.index', ['jenis' => 'pd', 'status' => 'Selesai']))
             ->assertOk()
             ->assertSee($master->sub_kegiatan)
-            ->assertViewHas('npds', fn ($npds) => $npds->total() === 1);
+            ->assertViewHas('npds', fn ($npds) => $npds->count() === 1);
     }
 
     public function test_daftar_npd_menolak_jenis_tidak_valid(): void

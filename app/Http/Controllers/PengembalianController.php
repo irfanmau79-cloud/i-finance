@@ -213,7 +213,10 @@ class PengembalianController extends Controller
         }
 
         try {
-            $pengembalian = Pengembalian::buatDraft($data + ['dokumen_pendukung' => $path], $request->user()->id);
+            // array_merge, BUKAN operator "+": $data hasil validasi masih memuat
+            // objek UploadedFile pada kunci yang sama, dan "+" mempertahankan
+            // nilai lama sehingga yang tersimpan justru path berkas sementara.
+            $pengembalian = Pengembalian::buatDraft(array_merge($data, ['dokumen_pendukung' => $path]), $request->user()->id);
         } catch (RuntimeException $e) {
             if ($path) {
                 Storage::disk('local')->delete($path);
@@ -295,9 +298,9 @@ class PengembalianController extends Controller
                 'label' => $npd->nomor_lengkap ?? ('(Draft #'.$npd->id.')'),
                 'tanggal' => $npd->tanggal_npd->format('d-m-Y'),
                 'bulan' => (int) $npd->bulan,
-                'program_list' => [$m->program],
-                'kegiatan_list' => [$m->kegiatan],
-                'sub_kegiatan_list' => [$m->sub_kegiatan],
+                'program_list' => [$m->program_lengkap],
+                'kegiatan_list' => [$m->kegiatan_lengkap],
+                'sub_kegiatan_list' => [$m->sub_kegiatan_lengkap],
                 'breakdown' => [[
                     'master_anggaran_id' => $m->id,
                     'label' => $this->labelMataAnggaran($m),
@@ -347,7 +350,7 @@ class PengembalianController extends Controller
 
     private function labelMataAnggaran($masterAnggaran): string
     {
-        $label = $masterAnggaran->kode_rekening_bersih.' — '.$masterAnggaran->sub_kegiatan;
+        $label = $masterAnggaran->kode_rekening.' — '.$masterAnggaran->sub_kegiatan_lengkap;
 
         return $masterAnggaran->tagging?->nama ? $label.' — '.$masterAnggaran->tagging->nama : $label;
     }

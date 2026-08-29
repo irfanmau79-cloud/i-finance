@@ -2,11 +2,22 @@
 
 namespace App\Exports;
 
+use App\Exports\Concerns\PunyaPetunjukKolom;
 use App\Models\Pegawai;
 use Illuminate\Database\Eloquent\Builder;
 
-class PegawaiExport extends DataManagementExport
+class PegawaiExport extends DataManagementExport implements PunyaPetunjukKolom
 {
+    public function petunjukCatatan(): string
+    {
+        return PegawaiTemplateExport::CATATAN;
+    }
+
+    public function petunjukKolom(): array
+    {
+        return PegawaiTemplateExport::PETUNJUK;
+    }
+
     public function query(): Builder
     {
         return Pegawai::query()->orderByDesc('aktif')->orderBy('nama');

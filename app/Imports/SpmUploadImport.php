@@ -2,9 +2,11 @@
 
 namespace App\Imports;
 
+use App\Imports\Concerns\MembacaSheetPertama;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
 use Maatwebsite\Excel\Concerns\WithHeadingRow;
+use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
 /**
  * Baca file upload Manajemen Data > Import SPM UP/GU atau LS. Header kolom
@@ -14,13 +16,15 @@ use Maatwebsite\Excel\Concerns\WithHeadingRow;
  * Kegiatan, Kode Rekening, Uraian Rekening, Tagging) cukup absen untuk
  * upload UP/GU.
  */
-class SpmUploadImport implements ToCollection, WithHeadingRow
+class SpmUploadImport implements ToCollection, WithHeadingRow, WithMultipleSheets
 {
+    use MembacaSheetPertama;
+
     public Collection $rows;
 
     public function __construct()
     {
-        $this->rows = new Collection();
+        $this->rows = new Collection;
     }
 
     public function collection(Collection $rows): void

@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
 @section('activeNav', 'verifikasi')
-@section('title', 'Verifikasi NPD')
+@section('title', 'Verifikasi Nota Pencairan Dana')
 
 @section('content')
 <div class="page-head">
     <div>
         <div class="ph-crumb">Beranda / <b>Verifikasi NPD</b></div>
-        <div class="ph-title">Verifikasi NPD</div>
+        <div class="ph-title">Verifikasi Nota Pencairan Dana</div>
     </div>
 </div>
 
@@ -22,7 +22,7 @@
 @endif
 
 <div class="dash-card wf-card">
-    <div class="sub" style="margin-bottom:14px;">Secara default menampilkan NPD yang memerlukan tindakan Verifikator. Gunakan filter status untuk melihat arsip proses maupun NPD Selesai.</div>
+    <div class="sub" style="margin-bottom:14px;">Menampilkan NPD yang menunggu tindakan Verifikator. Gunakan penyaring status untuk melihat NPD pada tahap lain.</div>
 
     <form method="GET" action="{{ route('npd.verifikasi') }}" class="tbl-tools" style="margin-bottom:14px;">
         <select name="jenis" style="max-width:220px;">

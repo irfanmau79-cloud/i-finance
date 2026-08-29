@@ -6,6 +6,7 @@ use App\Exports\MasterAnggaranTemplateExport;
 use App\Helpers\AuditLog;
 use App\Http\Requests\StoreMasterAnggaranImportRequest;
 use App\Models\MasterAnggaranImport;
+use App\Models\VersiPagu;
 use Illuminate\Validation\ValidationException;
 use Maatwebsite\Excel\Facades\Excel;
 use RuntimeException;
@@ -14,7 +15,13 @@ class MasterAnggaranImportController extends Controller
 {
     public function create()
     {
-        return view('manajemen-data.import.master-anggaran.create');
+        $tahun = (int) config('anggaran.tahun_aktif');
+
+        return view('manajemen-data.import.master-anggaran.create', [
+            'versiAktif' => VersiPagu::aktifTahun($tahun),
+            'jumlahVersi' => VersiPagu::where('tahun', $tahun)->count(),
+            'saranNama' => $this->saranNamaVersi($tahun),
+        ]);
     }
 
     public function template()
@@ -30,10 +37,12 @@ class MasterAnggaranImportController extends Controller
             $import = MasterAnggaranImport::buatDariUpload(
                 $request->file('file'),
                 (int) $request->input('tahun'),
+                (string) $request->input('versi_nama'),
+                $request->input('versi_keterangan'),
                 $request->user()->id
             );
         } catch (ValidationException $e) {
-            return back()->withErrors($e->errors());
+            return back()->withErrors($e->errors())->withInput();
         }
 
         return redirect()->route('manajemen-data.import.master-anggaran.preview', $import);
@@ -48,7 +57,7 @@ class MasterAnggaranImportController extends Controller
                 ->withErrors(['file' => 'Sesi staging sudah kedaluwarsa. Silakan upload ulang berkasnya.']);
         }
 
-        $baris = $import->baris()->orderBy('nomor_baris')->paginate(50);
+        $baris = $import->baris()->orderBy('nomor_baris')->orderBy('id')->paginate(50);
 
         return view('manajemen-data.import.master-anggaran.preview', compact('import', 'baris'));
     }
@@ -63,17 +72,21 @@ class MasterAnggaranImportController extends Controller
         }
 
         AuditLog::catat('Import Master Anggaran', sprintf(
-            'File: %s, Baru: %d, Update: %d, Ditolak: %d',
+            'File: %s, Versi: %s (draft), Baru: %d, Update: %d, Dinolkan: %d, Ditolak: %d',
             $import->nama_file,
+            $import->versi_nama,
             $hasil['baru'],
             $hasil['update'],
+            $hasil['dinolkan'],
             $import->fresh()->jumlah_ditolak
         ));
 
-        return redirect()->route('manajemen-data.index')->with('success', sprintf(
-            'Import Master Anggaran berhasil: %d baru, %d diperbarui, %d ditolak.',
+        return redirect()->route('versi-pagu.index')->with('success', sprintf(
+            'Versi pagu "%s" tersimpan sebagai draft: %d mata anggaran baru, %d diperbarui, %d dinolkan, %d ditolak. Pagu ini BELUM berlaku - tekan Aktifkan untuk memberlakukannya.',
+            $import->versi_nama,
             $hasil['baru'],
             $hasil['update'],
+            $hasil['dinolkan'],
             $import->fresh()->jumlah_ditolak
         ));
     }
@@ -85,5 +98,25 @@ class MasterAnggaranImportController extends Controller
         $import->delete();
 
         return redirect()->route('manajemen-data.import.master-anggaran.create')->with('success', 'Staging import dibatalkan.');
+    }
+
+    /**
+     * Usulkan nama versi berikutnya supaya penamaan konsisten: belum ada
+     * versi sama sekali -> "DPA Murni", selebihnya "DPA Pergeseran N" dengan
+     * N melanjutkan nomor pergeseran tertinggi yang sudah ada.
+     */
+    private function saranNamaVersi(int $tahun): string
+    {
+        $nama = VersiPagu::where('tahun', $tahun)->pluck('nama');
+
+        if ($nama->isEmpty()) {
+            return 'DPA Murni';
+        }
+
+        $tertinggi = $nama
+            ->map(fn (string $n) => preg_match('/pergeseran\s*(\d+)/i', $n, $cocok) === 1 ? (int) $cocok[1] : 0)
+            ->max();
+
+        return 'DPA Pergeseran '.($tertinggi + 1);
     }
 }

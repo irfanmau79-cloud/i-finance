@@ -26,6 +26,8 @@ class SuratPerintahAnggotaTest extends TestCase
         $ketua = Pegawai::create([
             'nama' => 'Ketua Dari SP',
             'nip' => '199001012010011001',
+            'golongan' => 'III/c',
+            'pangkat' => 'Penata',
             'jabatan' => 'Auditor Ahli',
             'bidang' => 'Inspektur Pembantu I',
             'rekening' => '100200300',
@@ -47,6 +49,7 @@ class SuratPerintahAnggotaTest extends TestCase
             ->assertSee('Ketua Dari SP');
 
         $response = $this->actingAs($pptk)->post(route('surat-perintah.store'), [
+            'jenis_permintaan' => SuratPerintah::JENIS_UANG_HARIAN,
             'nomor_sp' => '010/SP/ANGGOTA/2026',
             'tanggal_sp' => '2026-07-27',
             'unit_kerja' => 'Sekretariat',
@@ -57,18 +60,30 @@ class SuratPerintahAnggotaTest extends TestCase
             'rincian_tgl_bayar' => '27 Juli 2026',
             'keterangan' => 'Perjalanan dengan anggota dari SP.',
             'status_sp' => 'Baru',
+            'komponen' => ['Uang Harian', 'Akomodasi'],
             'file_url' => UploadedFile::fake()->create('sp.pdf', 100, 'application/pdf'),
             'anggota' => [
-                ['pegawai_id' => $ketua->id, 'jabatan_sp' => 'Ketua Tim'],
-                ['pegawai_id' => $anggota->id, 'jabatan_sp' => 'Anggota'],
+                ['pegawai_id' => $ketua->id, 'nama' => $ketua->nama, 'jabatan_sp' => 'Ketua Tim'],
+                ['pegawai_id' => $anggota->id, 'nama' => $anggota->nama, 'jabatan_sp' => 'Anggota'],
             ],
         ]);
 
-        $sp = SuratPerintah::with('anggota.pegawai')->sole();
         $response->assertRedirect(route('surat-perintah.index'));
+
+        $sp = SuratPerintah::with('anggota')->sole();
         $this->assertCount(2, $sp->anggota);
         $this->assertSame('Ketua Tim', $sp->anggota[0]->jabatan_sp);
         $this->assertSame($anggota->id, $sp->anggota[1]->pegawai_id);
+
+        // Identitas ikut tersalin sebagai snapshot, bukan sekadar FK.
+        $this->assertSame('Ketua Dari SP', $sp->anggota[0]->nama);
+        $this->assertSame('199001012010011001', $sp->anggota[0]->nip);
+        $this->assertSame('III/c', $sp->anggota[0]->golongan);
+        $this->assertSame('Penata', $sp->anggota[0]->pangkat);
+        $this->assertSame('Auditor Ahli', $sp->anggota[0]->jabatan);
+
+        // Komponen Pembayaran mengisi kolom Pengajuan.
+        $this->assertSame('Uang Harian, Akomodasi', $sp->pengajuan);
 
         $this->actingAs($pptk)
             ->get(route('npd.pd.create'))

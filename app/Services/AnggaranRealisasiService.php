@@ -29,7 +29,10 @@ class AnggaranRealisasiService
             ->with('tagging:id,nama')
             ->orderBy('sub_kegiatan_normal')
             ->orderBy('kode_rekening')
-            ->get(['id', 'sub_kegiatan', 'sub_kegiatan_kunci', 'kode_rekening', 'kode_rekening_bersih', 'tagging_id']);
+            // kode_sub_kegiatan & rekening ikut dimuat karena label dropdown
+            // memakai bentuk gabungan "{kode} {nama}" (subKegiatanNormal(),
+            // rekening_lengkap) - tanpa keduanya labelnya kehilangan kode.
+            ->get(['id', 'kode_sub_kegiatan', 'sub_kegiatan', 'sub_kegiatan_kunci', 'kode_rekening', 'rekening', 'kode_rekening_bersih', 'tagging_id']);
 
         $kodeScope = $subKegiatanKunci
             ? $masters->where('sub_kegiatan_kunci', $subKegiatanKunci)
@@ -53,7 +56,7 @@ class AnggaranRealisasiService
              */
             'kode_rekening_berlabel' => $kodeScope
                 ->groupBy('kode_rekening_bersih')
-                ->map(fn (Collection $items, string $kode) => ['value' => $kode, 'label' => $items->first()->kode_rekening])
+                ->map(fn (Collection $items, string $kode) => ['value' => $kode, 'label' => $items->first()->rekening_lengkap])
                 ->sortBy('value', SORT_NATURAL)
                 ->values(),
             'tagging' => $masters->whereNotNull('tagging_id')
@@ -95,37 +98,74 @@ class AnggaranRealisasiService
             ->orderBy('tagging_id')
             ->get();
 
+        // Susunan sama dengan GAS (lihat pivot di CodeDashboard.gs):
+        // Program > Sub Kegiatan > Kode Rekening > Tagging. Level Kegiatan
+        // sengaja DILEWATI supaya ringkas - namanya tetap dibawa sebagai
+        // keterangan pada baris Sub Kegiatan.
         $tree = $masters
-            ->groupBy('sub_kegiatan_kunci')
-            ->map(function (Collection $subItems) {
-                $rekening = $subItems->groupBy('kode_rekening_bersih')->map(function (Collection $rekeningItems, string $kode) {
-                    $tagging = $rekeningItems->map(fn (MasterAnggaran $master) => [
-                        'id' => $master->id,
-                        'nama' => $master->tagging?->nama ?? 'Tanpa Tagging',
-                        'angka' => $master->ringkasanRealisasi(),
-                    ])->values();
+            ->groupBy('program_kunci')
+            ->map(function (Collection $programItems) {
+                $sub = $programItems
+                    ->groupBy('sub_kegiatan_kunci')
+                    ->map(function (Collection $subItems) {
+                        $rekening = $subItems->groupBy('kode_rekening_bersih')
+                            ->map(function (Collection $rekeningItems, string $kode) {
+                                $tagging = $rekeningItems->map(fn (MasterAnggaran $master) => [
+                                    'id' => $master->id,
+                                    'nama' => $master->tagging?->nama ?? 'Tanpa Tagging',
+                                    'angka' => $master->ringkasanRealisasi(),
+                                ]);
 
-                    return [
-                        'kode' => $kode,
-                        'uraian' => $rekeningItems->first()->uraian_rekening,
-                        'tagging' => $tagging,
-                        'angka' => $this->agregasiRingkasan($tagging->pluck('angka')),
-                    ];
-                })->values();
+                                return [
+                                    'kode' => $kode,
+                                    'uraian' => $rekeningItems->first()->uraian_rekening,
+                                    'tagging' => $this->urutNama($tagging),
+                                    'angka' => $this->agregasiRingkasan($tagging->pluck('angka')),
+                                ];
+                            });
 
-                $first = $subItems->first();
+                        $rekening = $this->urutNama($rekening, 'kode');
+                        $first = $subItems->first();
+
+                        return [
+                            'kunci' => $first->sub_kegiatan_kunci,
+                            'nama' => $first->subKegiatanNormal(),
+                            'program' => $first->programNormal(),
+                            'kegiatan' => $first->kegiatanNormal(),
+                            'rekening' => $rekening,
+                            'angka' => $this->agregasiRingkasan($rekening->pluck('angka')),
+                        ];
+                    });
+
+                $sub = $this->urutNama($sub);
+                $first = $programItems->first();
 
                 return [
-                    'kunci' => $first->sub_kegiatan_kunci,
-                    'nama' => $first->subKegiatanNormal(),
-                    'program' => $first->programNormal(),
-                    'kegiatan' => $first->kegiatanNormal(),
-                    'rekening' => $rekening,
-                    'angka' => $this->agregasiRingkasan($rekening->pluck('angka')),
+                    'kunci' => $first->program_kunci,
+                    'nama' => $first->programNormal(),
+                    'sub' => $sub,
+                    'angka' => $this->agregasiRingkasan($sub->pluck('angka')),
                 ];
-            })->values();
+            });
+
+        $tree = $this->urutNama($tree);
 
         return ['tree' => $tree, 'total' => $this->agregasiRingkasan($tree->pluck('angka'))];
+    }
+
+    /**
+     * Urut alami berdasarkan nama/kode - padanan urutKode di GAS
+     * (localeCompare 'id' dengan numeric:true), sehingga "5.1.2" berada
+     * sebelum "5.1.10" alih-alih sesudahnya.
+     *
+     * @param  Collection<int|string, array<string, mixed>>  $items
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function urutNama(Collection $items, string $kunci = 'nama'): Collection
+    {
+        return $items
+            ->sort(fn (array $a, array $b) => strnatcasecmp((string) $a[$kunci], (string) $b[$kunci]))
+            ->values();
     }
 
     /**
@@ -310,28 +350,32 @@ class AnggaranRealisasiService
             ->get(['sub_kegiatan_kunci', 'bulan', 'target'])
             ->groupBy('sub_kegiatan_kunci');
 
-        $rows = $rincian['tree']->map(function (array $sub) use (
-            $bulanAcuan,
-            $pasanganPerSub,
-            $rakPerSub,
-            $realisasiSdBulan,
-        ) {
-            $jumlahPasangan = $pasanganPerSub->get($sub['kunci'], collect())->count();
-            $rakRows = $rakPerSub->get($sub['kunci'], collect());
-            $rakLengkap = $jumlahPasangan > 0 && $rakRows->count() === $jumlahPasangan * $bulanAcuan;
-            $targetRak = $rakLengkap ? (float) $rakRows->sum('target') : null;
-            $realisasiBerjalan = (float) $realisasiSdBulan->get($sub['kunci'], 0.0);
-            $deviasi = $targetRak !== null ? $realisasiBerjalan - $targetRak : null;
+        // rincian() kini bertingkat Program dulu (mengikuti pivot GAS);
+        // Analisis & Tren bekerja per Sub Kegiatan, jadi diratakan dulu.
+        $rows = $rincian['tree']
+            ->flatMap(fn (array $program) => $program['sub'])
+            ->map(function (array $sub) use (
+                $bulanAcuan,
+                $pasanganPerSub,
+                $rakPerSub,
+                $realisasiSdBulan,
+            ) {
+                $jumlahPasangan = $pasanganPerSub->get($sub['kunci'], collect())->count();
+                $rakRows = $rakPerSub->get($sub['kunci'], collect());
+                $rakLengkap = $jumlahPasangan > 0 && $rakRows->count() === $jumlahPasangan * $bulanAcuan;
+                $targetRak = $rakLengkap ? (float) $rakRows->sum('target') : null;
+                $realisasiBerjalan = (float) $realisasiSdBulan->get($sub['kunci'], 0.0);
+                $deviasi = $targetRak !== null ? $realisasiBerjalan - $targetRak : null;
 
-            return $sub + [
-                'target_rak' => $targetRak,
-                'realisasi_sd_bulan' => $realisasiBerjalan,
-                'deviasi_rupiah' => $deviasi,
-                'deviasi_persen' => $deviasi !== null
-                    ? MasterAnggaran::hitungPersentaseRealisasi($deviasi, $sub['angka']['pagu'])
-                    : null,
-            ];
-        });
+                return $sub + [
+                    'target_rak' => $targetRak,
+                    'realisasi_sd_bulan' => $realisasiBerjalan,
+                    'deviasi_rupiah' => $deviasi,
+                    'deviasi_persen' => $deviasi !== null
+                        ? MasterAnggaran::hitungPersentaseRealisasi($deviasi, $sub['angka']['pagu'])
+                        : null,
+                ];
+            });
 
         $allowedSorts = [
             'nama', 'pagu', 'dana_terikat_npd', 'realisasi_aktual',
@@ -431,10 +475,17 @@ class AnggaranRealisasiService
         if (($filters['q'] ?? '') !== '') {
             $cari = '%'.$filters['q'].'%';
             $query->where(function (Builder $query) use ($cari) {
+                // Kolom kode dan nama dicari terpisah sejak keduanya punya
+                // kolom sendiri - tanpa ini, mencari "Belanja Kertas" atau
+                // "6.01.01" hanya kena separuh datanya.
                 $query->where('program', 'like', $cari)
+                    ->orWhere('kode_program', 'like', $cari)
                     ->orWhere('kegiatan', 'like', $cari)
+                    ->orWhere('kode_kegiatan', 'like', $cari)
                     ->orWhere('sub_kegiatan', 'like', $cari)
+                    ->orWhere('kode_sub_kegiatan', 'like', $cari)
                     ->orWhere('kode_rekening', 'like', $cari)
+                    ->orWhere('rekening', 'like', $cari)
                     ->orWhereHas('tagging', fn (Builder $query) => $query->where('nama', 'like', $cari));
             });
         }

@@ -13,5 +13,4 @@ return [
     */
     'tahun_aktif' => 2026,
 
-    'catatan_scope' => 'Current operational scope is Tahun Anggaran 2026. Before importing master anggaran, RAK, NPD, or SPM for another fiscal year, the application must receive a dedicated multi-year master-data migration and rollover workflow.',
 ];

@@ -120,6 +120,30 @@ class TunjanganKeluargaService
         return ['aktif' => false, 'alasan' => 'Melewati batas usia 25 tahun'];
     }
 
+    /**
+     * Status Tunjangan gaya kepegawaian: TK/K + jumlah anak yang berhak.
+     * K = punya pasangan, TK = tidak. Angkanya dibatasi 2 karena tunjangan
+     * anak memang paling banyak untuk dua anak (lihat penjagaan di
+     * simpanKeluarga). Satu-satunya sumber perhitungan status ini, dipakai
+     * dashboard maupun halaman Data Tunjangan Keluarga.
+     */
+    public function statusTunjangan(?TunjanganKeluarga $keluarga, ?CarbonInterface $acuan = null): string
+    {
+        if (! $keluarga) {
+            return 'TK/0';
+        }
+
+        $anggota = $keluarga->relationLoaded('anggota') ? $keluarga->anggota : $keluarga->anggota()->get();
+        $punyaPasangan = $anggota->contains('hubungan', 'pasangan');
+
+        $anakAktif = $anggota
+            ->where('hubungan', 'anak')
+            ->filter(fn (AnggotaKeluarga $item) => $this->kelayakan($item, $acuan)['aktif'])
+            ->count();
+
+        return ($punyaPasangan ? 'K' : 'TK').'/'.min($anakAktif, 2);
+    }
+
     public static function parseTanggal(mixed $value): ?CarbonImmutable
     {
         if ($value instanceof CarbonInterface) {
@@ -152,7 +176,7 @@ class TunjanganKeluargaService
         return ['pegawai_id' => $keluarga->pegawai_id, 'nama' => $keluarga->pegawai->nama, 'nip' => $keluarga->pegawai->nip,
             'golongan' => $keluarga->pegawai->golongan, 'pangkat' => $keluarga->pegawai->pangkat, 'jabatan' => $keluarga->pegawai->jabatan,
             'pasangan' => $pasangan?->nama, 'anak' => $anak->all(), 'jumlah_anak_aktif' => $anak->where('kelayakan.aktif', true)->count(),
-            'status' => ($pasangan ? 'K' : 'TK').'/'.$anak->where('kelayakan.aktif', true)->count()];
+            'status' => $this->statusTunjangan($keluarga, $acuan)];
     }
 
     private function anggotaData(string $hubungan, array $data): array

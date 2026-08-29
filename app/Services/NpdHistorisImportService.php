@@ -25,9 +25,25 @@ class NpdHistorisImportService
     public const FORMAT_MARKER = 'IFINANCE_NPD_HISTORIS_V1';
 
     public const HEADERS = [
-        'Tanggal NPD', 'Nomor NPD', 'Jenis NPD', 'Sub Kegiatan', 'Kode Rekening', 'Tagging',
-        'Penerima', 'Rekening Penerima', 'Nominal Bruto', 'Uraian', 'PPN', 'PPh1',
-        'Jenis PPh1', 'PPh2', 'Jenis PPh2', 'Status NPD',
+        'Tanggal NPD', 'Nomor NPD', 'Jenis NPD',
+        'Kode Sub Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Rekening',
+        'Tagging', 'Penerima', 'Rekening Penerima', 'Nominal Bruto', 'Uraian',
+        'PPN', 'PPh1', 'Jenis PPh1', 'PPh2', 'Jenis PPh2', 'Status NPD',
+    ];
+
+    /**
+     * Kolom yang HARUS ada di baris header.
+     *
+     * 'Kode Sub Kegiatan' dan 'Rekening' sengaja TIDAK diwajibkan supaya
+     * berkas yang terlanjur diunduh dengan template lama (Sub Kegiatan dan
+     * Kode Rekening masih menggabungkan kode + nama dalam satu sel) tetap
+     * bisa diunggah tanpa diedit - lihat gabungan di validasiBaris().
+     * 'Status NPD' opsional karena kosong berarti Selesai.
+     */
+    public const HEADERS_WAJIB = [
+        'Tanggal NPD', 'Nomor NPD', 'Jenis NPD', 'Sub Kegiatan', 'Kode Rekening',
+        'Tagging', 'Penerima', 'Rekening Penerima', 'Nominal Bruto', 'Uraian',
+        'PPN', 'PPh1', 'Jenis PPh1', 'PPh2', 'Jenis PPh2',
     ];
 
     private const JENIS = [
@@ -181,7 +197,7 @@ class NpdHistorisImportService
             throw ValidationException::withMessages(['file' => 'Marker format IFINANCE_NPD_HISTORIS_V1 tidak ditemukan. Gunakan template resmi Import NPD Historis.']);
         }
         $header = collect($rows->get(3, []))->map(fn ($v) => self::header($v))->all();
-        $required = array_map(fn ($v) => self::header($v), array_slice(self::HEADERS, 0, 15));
+        $required = array_map(fn ($v) => self::header($v), self::HEADERS_WAJIB);
         foreach ($required as $column) {
             if (! in_array($column, $header, true)) {
                 throw ValidationException::withMessages(['file' => "Kolom wajib {$column} tidak ditemukan."]);
@@ -279,7 +295,15 @@ class NpdHistorisImportService
             }
         }
 
-        $sub = trim((string) ($raw['sub_kegiatan'] ?? ''));
+        // Template sekarang memisahkan Kode Sub Kegiatan dari namanya.
+        // Keduanya digabung kembali jadi label utuh "{kode} {nama}" supaya
+        // baris staging, laporan, dan pencocokan ke master_anggaran tetap
+        // memakai bentuk yang sama seperti template lama - berkas lama yang
+        // menggabungkan keduanya dalam satu sel pun tetap terbaca.
+        $sub = MasterAnggaran::gabungKodeUraian(
+            trim((string) ($raw['kode_sub_kegiatan'] ?? '')),
+            trim((string) ($raw['sub_kegiatan'] ?? ''))
+        );
         $subKey = MasterAnggaran::normalisasiKunci($sub);
         // Data historis kadang berisi kode+uraian gabungan di kolom Kode
         // Rekening (format sumber lama, sama seperti master_anggaran.
@@ -413,7 +437,8 @@ class NpdHistorisImportService
         $compact = str_replace('_', '', $normalized);
         $aliases = [
             'tanggalnpd' => 'tanggal_npd', 'nomornpd' => 'nomor_npd', 'jenisnpd' => 'jenis_npd',
-            'subkegiatan' => 'sub_kegiatan', 'koderekening' => 'kode_rekening',
+            'subkegiatan' => 'sub_kegiatan', 'kodesubkegiatan' => 'kode_sub_kegiatan',
+            'koderekening' => 'kode_rekening', 'rekening' => 'rekening',
             'rekeningpenerima' => 'rekening_penerima', 'nominalbruto' => 'nominal_bruto',
             'ppn' => 'ppn', 'pph1' => 'pph1', 'jenispph1' => 'jenis_pph1',
             'pph2' => 'pph2', 'jenispph2' => 'jenis_pph2', 'statusnpd' => 'status_npd',

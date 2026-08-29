@@ -6,7 +6,7 @@
 @section('content')
 <div class="dash-card">
     <h3>Tambah User</h3>
-    <div class="sub">Buat akun baru untuk staf yang login ke sistem.</div>
+    <div class="sub">Membuat akun baru bagi pegawai yang menggunakan aplikasi ini.</div>
 
     @if ($errors->any())
         <div class="err-box" style="display:block;">

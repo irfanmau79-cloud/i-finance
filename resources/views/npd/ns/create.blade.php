@@ -2,11 +2,11 @@
 
 @section('activeNav', 'npd')
 @php($npdEdit = $npd ?? null)
-@section('title', $npdEdit ? 'Edit NPD Narasumber' : 'Buat NPD Narasumber')
+@section('title', $npdEdit ? 'Edit Nota Pencairan Dana Narasumber' : 'Buat Nota Pencairan Dana Narasumber')
 
 @section('content')
 <div class="dash-card">
-    <h3>{{ $npdEdit ? 'Edit' : 'Buat' }} NPD Narasumber</h3>
+    <h3>{{ $npdEdit ? 'Edit' : 'Buat' }} Nota Pencairan Dana Narasumber</h3>
     <div class="sub">Pilih sumber dana, lengkapi data kegiatan, lalu tambahkan narasumber.</div>
 
     @if ($errors->any())
@@ -101,10 +101,10 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="fg">
-                    <label class="fl" for="tahun">Tahun</label>
-                    <input type="number" id="tahun" name="tahun" min="2000" max="2100" value="{{ old('tahun', $npdEdit?->tahun ?? now()->year) }}">
-                </div>
+                {{-- Tahun tidak lagi dipilih: NPD selalu dibuat pada tahun
+                     anggaran berjalan. Tetap dikirim agar aturan validasi dan
+                     penomoran tidak perlu diubah. --}}
+                <input type="hidden" name="tahun" id="tahun" value="{{ old('tahun', $npdEdit?->tahun ?? config('anggaran.tahun_aktif')) }}">
             </div>
 
             @php($detail = $npdEdit?->detail_json ?? [])
@@ -161,10 +161,10 @@
 <?php
     $masterAnggaranJs = $masterAnggaran->map(fn ($m) => [
         'id' => $m->id,
-        'program' => $m->program,
-        'kegiatan' => $m->kegiatan,
-        'sub_kegiatan' => $m->sub_kegiatan,
-        'kode_rekening' => $m->kode_rekening,
+        'program' => $m->program_lengkap,
+        'kegiatan' => $m->kegiatan_lengkap,
+        'sub_kegiatan' => $m->sub_kegiatan_lengkap,
+        'kode_rekening' => $m->rekening_lengkap,
         'kode_rekening_bersih' => $m->kode_rekening_bersih,
         'tagging_id' => $m->tagging_id,
         'tagging' => $m->tagging->nama ?? 'Tanpa Tagging',
@@ -356,7 +356,7 @@
         if (! tanggalInput.value) return;
         const d = new Date(tanggalInput.value + 'T00:00:00');
         bulanSelect.value = String(d.getMonth() + 1);
-        tahunInput.value = d.getFullYear();
+        // Tahun sengaja TIDAK ikut diubah - selalu tahun anggaran berjalan.
     });
 
     // ---- Baris Narasumber ----

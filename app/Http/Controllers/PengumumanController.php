@@ -23,7 +23,7 @@ class PengumumanController extends Controller
             'teks' => ['nullable', 'string', 'max:1000'],
         ]);
 
-        $pengumuman = Pengumuman::query()->first() ?? new Pengumuman();
+        $pengumuman = Pengumuman::query()->first() ?? new Pengumuman;
         $pengumuman->teks = $validated['teks'] ?? null;
         $pengumuman->updated_by = $request->user()->id;
         $pengumuman->save();

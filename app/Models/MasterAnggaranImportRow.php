@@ -11,10 +11,14 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'nomor_baris',
     'aksi',
     'alasan',
+    'kode_program',
     'program',
+    'kode_kegiatan',
     'kegiatan',
+    'kode_sub_kegiatan',
     'sub_kegiatan',
     'kode_rekening',
+    'rekening',
     'tagging_nama',
     'aktif',
     'pagu_baru',
@@ -30,6 +34,14 @@ class MasterAnggaranImportRow extends Model
     public const AKSI_UPDATE = 'update';
 
     public const AKSI_DITOLAK = 'ditolak';
+
+    /**
+     * Mata anggaran yang ada di pagu berlaku tapi TIDAK dicantumkan pada
+     * file versi ini. Bukan baris file - disintesis saat staging dan diberi
+     * nomor_baris 0. File DPA diperlakukan sebagai dokumen utuh, jadi yang
+     * hilang berarti pagunya menjadi 0 dan mata anggarannya dinonaktifkan.
+     */
+    public const AKSI_DINOLKAN = 'dinolkan';
 
     protected function casts(): array
     {
@@ -48,5 +60,11 @@ class MasterAnggaranImportRow extends Model
     public function masterAnggaran(): BelongsTo
     {
         return $this->belongsTo(MasterAnggaran::class);
+    }
+
+    /** Baris yang akan benar-benar ditulis ke master_anggaran saat konfirmasi. */
+    public function akanDisimpan(): bool
+    {
+        return in_array($this->aksi, [self::AKSI_BARU, self::AKSI_UPDATE, self::AKSI_DINOLKAN], true);
     }
 }

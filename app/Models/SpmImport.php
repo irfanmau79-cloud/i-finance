@@ -225,18 +225,30 @@ class SpmImport extends Model
             $nomorBaris = $indeksAsli + 2; // baris 1 = header
 
             $mentah = [
-                'nomor_dokumen' => $row['nomor_dokumen'] ?? null,
-                'tanggal_dokumen' => $row['tanggal_dokumen'] ?? null,
+                // Template UP/GU memakai "Nomor/Tanggal SPM"; template LS dan
+                // berkas lama memakai "Nomor/Tanggal Dokumen". Keduanya
+                // menunjuk kolom yang sama.
+                'nomor_dokumen' => $row['nomor_spm'] ?? $row['nomor_dokumen'] ?? null,
+                'tanggal_dokumen' => $row['tanggal_spm'] ?? $row['tanggal_dokumen'] ?? null,
                 'nomor_sp2d' => $row['nomor_sp2d'] ?? null,
                 'tanggal_sp2d' => $row['tanggal_sp2d'] ?? null,
-                'sub_kegiatan' => $row['sub_kegiatan'] ?? null,
+                // Template LS memisahkan Kode Sub Kegiatan dari namanya;
+                // digabung kembali jadi label utuh supaya baris staging dan
+                // pencocokan ke master_anggaran tetap sama seperti sebelumnya,
+                // dan berkas lama (kode + nama dalam satu sel) tetap terbaca.
+                'sub_kegiatan' => MasterAnggaran::gabungKodeUraian(
+                    trim((string) ($row['kode_sub_kegiatan'] ?? '')),
+                    trim((string) ($row['sub_kegiatan'] ?? ''))
+                ),
                 'kode_rekening' => $row['kode_rekening'] ?? null,
                 'tagging' => $row['tagging'] ?? null,
                 'nominal' => $row['nominal'] ?? null,
                 'ppn' => $row['ppn'] ?? null,
-                'pph_1' => $row['pph_1'] ?? null,
+                // Kolom nominal PPh kini bernama "Nominal PPh 1/2"; nama lama
+                // "PPh 1/2" tetap diterima.
+                'pph_1' => $row['nominal_pph_1'] ?? $row['pph_1'] ?? null,
                 'jenis_pph_1' => $row['jenis_pph_1'] ?? null,
-                'pph_2' => $row['pph_2'] ?? null,
+                'pph_2' => $row['nominal_pph_2'] ?? $row['pph_2'] ?? null,
                 'jenis_pph_2' => $row['jenis_pph_2'] ?? null,
                 'penerima' => $row['penerima'] ?? null,
                 'uraian' => $row['uraian'] ?? null,
@@ -377,7 +389,11 @@ class SpmImport extends Model
             }
         }
 
-        $masterAnggaran = MasterAnggaran::where('sub_kegiatan', $subKegiatan)
+        // Dicocokkan lewat sub_kegiatan_kunci (kode + nama, dinormalisasi)
+        // karena sejak kode dipisah ke kolom sendiri, kolom sub_kegiatan
+        // hanya berisi NAMA - sementara file SPM tetap menuliskan keduanya
+        // dalam satu sel. Lihat MasterAnggaran::booted().
+        $masterAnggaran = MasterAnggaran::where('sub_kegiatan_kunci', MasterAnggaran::normalisasiKunci($subKegiatan))
             ->where('kode_rekening_bersih', $kodeRekening)
             ->where('tagging_id', $taggingId)
             ->where('aktif', true)
@@ -576,27 +592,32 @@ class SpmImport extends Model
                 continue;
             }
 
+            // Hanya kolom yang benar-benar ada di template UP/GU. PPN/PPh dan
+            // Penerima SENGAJA tidak ditulis: berkas UP/GU tidak lagi
+            // membawanya, jadi menulisnya berarti menimpa nilai yang sudah
+            // diisi lewat form SPM dengan nol/null.
             $data = [
                 'tanggal_dokumen' => $hasil['tanggal_dokumen'],
                 'nomor_dokumen' => $hasil['nomor_dokumen'],
                 'tanggal_sp2d' => $hasil['tanggal_sp2d'],
                 'nomor_sp2d' => $hasil['nomor_sp2d'],
                 'nominal' => $hasil['nominal'],
-                'ppn' => $hasil['ppn'],
-                'pph1' => $hasil['pph1'],
-                'jenis_pph1' => $hasil['jenis_pph1'],
-                'pph2' => $hasil['pph2'],
-                'jenis_pph2' => $hasil['jenis_pph2'],
-                'penerima' => $hasil['penerima'],
                 'uraian' => $hasil['uraian'],
             ];
 
             try {
                 if ($hasil['spm_id'] !== null) {
                     $spm = Spm::where('id', $hasil['spm_id'])->lockForUpdate()->firstOrFail();
-                    $spm->update($data + ['jenis_spm' => 'up_gu']);
+                    $spm->update($data);
                 } else {
-                    $spm = Spm::create($data + ['jenis_spm' => 'up_gu']);
+                    // Kolom pajak NOT NULL tanpa default - dokumen baru mulai
+                    // dari nol.
+                    $spm = Spm::create($data + [
+                        'jenis_spm' => 'up_gu',
+                        'ppn' => 0,
+                        'pph1' => 0,
+                        'pph2' => 0,
+                    ]);
                 }
             } catch (Throwable $e) {
                 // Dilempar ulang di DALAM transaction supaya seluruh batch

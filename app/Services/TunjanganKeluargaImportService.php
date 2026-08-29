@@ -8,6 +8,7 @@ use App\Models\Pegawai;
 use App\Models\TunjanganKeluargaImport;
 use App\Models\User;
 use Illuminate\Http\UploadedFile;
+use Illuminate\Support\Collection;
 use Illuminate\Support\Facades\DB;
 use Maatwebsite\Excel\Facades\Excel;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
@@ -25,6 +26,8 @@ class TunjanganKeluargaImportService
         }
 
         $headers = collect($rows->shift())->map(fn ($value) => $this->header($value))->values();
+
+        $this->pastikanCocokDenganDataPegawai($rows, $headers);
 
         return DB::transaction(function () use ($rows, $headers, $file, $userId) {
             $import = TunjanganKeluargaImport::create(['nama_file' => $file->getClientOriginalName(), 'user_id' => $userId, 'status' => 'preview']);
@@ -78,6 +81,87 @@ class TunjanganKeluargaImportService
         });
     }
 
+    /**
+     * Berkas import HARUS memuat pegawai yang sama persis dengan daftar Data
+     * Tunjangan Keluarga: jumlahnya sama dan NIP-nya sama.
+     *
+     * Alur yang dipakai kepegawaian adalah unduh -> isi kolom keluarga ->
+     * unggah lagi untuk MENIMPA data lama. Karena menimpa, selisih satu baris
+     * saja berarti ada pegawai yang datanya diam-diam tidak ikut terbarui,
+     * atau baris asing yang tidak seharusnya ada. Lebih baik ditolak utuh di
+     * awal daripada separuh tersimpan.
+     *
+     * @param  Collection<int, array<int, mixed>>  $rows
+     * @param  Collection<int, string>  $headers
+     */
+    private function pastikanCocokDenganDataPegawai(Collection $rows, Collection $headers): void
+    {
+        $kolomNip = $headers->search('nip');
+
+        if ($kolomNip === false) {
+            throw new RuntimeException('Kolom NIP tidak ditemukan pada berkas import.');
+        }
+
+        $nipBerkas = $rows
+            ->reject(fn ($row) => collect($row)->filter(fn ($v) => filled($v))->isEmpty())
+            ->map(fn ($row) => $this->normalNip($row[$kolomNip] ?? null))
+            ->filter()
+            ->values();
+
+        $ganda = $nipBerkas->duplicates()->unique()->values();
+
+        if ($ganda->isNotEmpty()) {
+            throw new RuntimeException('NIP ganda pada berkas import: '.$ganda->take(5)->implode(', ').'.');
+        }
+
+        $nipSistem = Pegawai::query()->berhakTunjangan()->pluck('nip')
+            ->map(fn ($nip) => $this->normalNip($nip))->filter()->values();
+
+        if ($nipBerkas->count() !== $nipSistem->count()) {
+            throw new RuntimeException(sprintf(
+                'Jumlah pegawai tidak sama: berkas berisi %d baris, sedangkan Data Tunjangan Keluarga berisi %d pegawai. Unduh ulang berkasnya lalu isi tanpa menambah atau menghapus baris.',
+                $nipBerkas->count(),
+                $nipSistem->count()
+            ));
+        }
+
+        $kurang = $nipSistem->diff($nipBerkas)->values();
+        $lebih = $nipBerkas->diff($nipSistem)->values();
+
+        if ($kurang->isNotEmpty() || $lebih->isNotEmpty()) {
+            $pesan = 'Daftar NIP pada berkas tidak sama dengan Data Tunjangan Keluarga.';
+
+            if ($kurang->isNotEmpty()) {
+                $pesan .= ' Tidak ada di berkas: '.$kurang->take(5)->implode(', ').'.';
+            }
+
+            if ($lebih->isNotEmpty()) {
+                $pesan .= ' Tidak dikenal di sistem: '.$lebih->take(5)->implode(', ').'.';
+            }
+
+            throw new RuntimeException($pesan);
+        }
+    }
+
+    /** NIP dibandingkan tanpa karakter non-digit supaya spasi/strip tidak dianggap beda. */
+    private function normalNip(mixed $nip): string
+    {
+        return preg_replace('/\D/', '', (string) $nip) ?? '';
+    }
+
+    /** Cari pegawai berhak tunjangan berdasarkan NIP, dibandingkan per digit. */
+    private function cariPegawai(string $nip): ?Pegawai
+    {
+        $target = $this->normalNip($nip);
+
+        if ($target === '') {
+            return null;
+        }
+
+        return Pegawai::query()->berhakTunjangan()->get(['id', 'nip'])
+            ->first(fn (Pegawai $p) => $this->normalNip($p->nip) === $target);
+    }
+
     private function evaluasi(array $row): array
     {
         $payload = [
@@ -99,8 +183,18 @@ class TunjanganKeluargaImportService
         if ($payload['nama_pegawai'] === '' || $payload['nip'] === '') {
             $pesan[] = 'Nama Pegawai dan NIP wajib diisi.';
         }
-        if ($payload['nip'] !== '' && ! Pegawai::where('nip', $payload['nip'])->exists()) {
-            $pesan[] = 'NIP tidak ditemukan pada master pegawai.';
+        // NIP dicocokkan tanpa karakter non-digit, sama seperti penjagaan
+        // jumlah/NIP di atas - spasi atau strip pada berkas tidak boleh
+        // membuat pegawai yang sama dianggap tidak ditemukan.
+        $pegawai = $payload['nip'] !== '' ? $this->cariPegawai($payload['nip']) : null;
+
+        if ($payload['nip'] !== '' && ! $pegawai) {
+            $pesan[] = 'NIP tidak ditemukan pada master pegawai, atau statusnya tidak berhak tunjangan keluarga.';
+        }
+
+        if ($pegawai) {
+            // Simpan bentuk resmi dari master supaya commit() menemukannya.
+            $payload['nip'] = $pegawai->nip;
         }
         foreach ($payload['anak'] as $index => $anak) {
             if (! $anak['tanggal_lahir']) {

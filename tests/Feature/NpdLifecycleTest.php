@@ -137,7 +137,7 @@ class NpdLifecycleTest extends TestCase
         $this->actingAs($pptk)->post(route('npd.bj.store'), $this->payloadBj($anggaran));
         $npd = Npd::sole();
 
-        $this->actingAs($pptk)->get(route('npd.bj.edit', $npd))->assertOk()->assertSee('Edit NPD Barang/Jasa');
+        $this->actingAs($pptk)->get(route('npd.bj.edit', $npd))->assertOk()->assertSee('Edit Nota Pencairan Dana Barang/Jasa');
         $this->actingAs($pptk)->put(route('npd.bj.update', $npd), $this->payloadBj($anggaran, 1_750_000))
             ->assertRedirect(route('npd.show', $npd));
 

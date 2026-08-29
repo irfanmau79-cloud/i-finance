@@ -79,11 +79,17 @@ class NpdTransportController extends Controller
                 ]);
             }
 
+            // SP Reimburse Transportasi (bila SP induk punya) adalah orderan
+            // yang justru dipenuhi NPD Transport ini, jadi itulah yang ditaut -
+            // di GAS pun entri Reimburse memang khusus dipakai pada alur ini.
+            // Tanpa entri Reimburse, tautannya tetap SP milik NPD induk.
+            $suratPerintahId = $induk->suratPerintah?->reimburse?->id ?? $induk->surat_perintah_id;
+
             $npd = Npd::create([
                 'jenis' => 'tr',
                 'npd_induk_id' => $induk->id,
                 'master_anggaran_id' => $induk->master_anggaran_id,
-                'surat_perintah_id' => $induk->surat_perintah_id,
+                'surat_perintah_id' => $suratPerintahId,
                 'keu' => $induk->keu,
                 'bulan' => $data['bulan'],
                 'tahun' => $data['tahun'],

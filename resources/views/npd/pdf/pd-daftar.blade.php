@@ -17,18 +17,15 @@
   .num { text-align:right; white-space:nowrap; }
   .center { text-align:center; } .bold { font-weight:bold; }
 
-  /* Sel nominal: "Rp" mepet kiri, angka rata kanan — tabel bersarang asli (bukan float, tidak konsisten di mPDF) */
-  td.rp { padding:1.5pt 3pt; white-space:nowrap; }
-  table.rpwrap { width:100%; border-collapse:collapse; }
-  table.rpwrap td { border:none; padding:0; font-size:6.5pt; }
-  table.rpwrap td.rp-l { text-align:left; width:14pt; }
-  table.rpwrap td.rp-a { text-align:right; }
+  /* Sel nominal: label "Rp" DISEMBUNYIKAN supaya kolomnya muat (GAS:
+     td.rp .rp-l { display:none } pada tpl_pd_daftar), angka rata kanan. */
+  td.rp { padding:1.5pt 3pt; white-space:nowrap; text-align:right; }
 
   table.kop-mini { width:116pt; border-collapse:collapse; margin-bottom:0; }
   table.kop-mini td { border:none; border-bottom:1pt solid #000; padding:0 0 2pt; text-align:center; }
-  .kop-mini .l1 { font-size:5.5pt; font-weight:bold; }
-  .kop-mini .l2 { font-size:6pt; font-weight:bold; }
-  .kop-mini .l3 { font-size:4.4pt; }
+  .kopmini-l1 { font-size:5.5pt; font-weight:bold; }
+  .kopmini-l2 { font-size:6pt; font-weight:bold; }
+  .kopmini-l3 { font-size:4.4pt; }
 
   table.daftar-line { width:100%; border-collapse:collapse; margin:8pt 0; }
   table.daftar-line td { border:none; padding:0; vertical-align:top; }
@@ -40,17 +37,21 @@
 
   table.ttd { width:100%; border-collapse:collapse; margin-top:14pt; }
   table.ttd td { border:none; padding:0; width:50%; text-align:center; vertical-align:top; }
-  .ttd .role { margin-bottom:48pt; }
-  .ttd .nama { font-weight:bold; }
+  /* margin-bottom pada div di dalam sel tabel TIDAK dihormati mPDF -
+     jarak tanda tangan dibuat lewat sel setinggi 48pt (.ttd-jarak). */
+  .ttd-role { margin-bottom:0; }
+  table.ttd-jarak { width:100%; border-collapse:collapse; }
+  table.ttd-jarak td { height:48pt; border:none; padding:0; }
+  .ttd-nama { font-weight:bold; }
 </style>
 </head>
 <body>
   <table class="kop-mini">
     <tr><td>
-      <div class="l1">PEMERINTAH PROVINSI JAWA BARAT</div>
-      <div class="l2">INSPEKTORAT DAERAH</div>
-      <div class="l3">Jalan Surapati No. 4 Tlp. 4237174-4231567 Fax. 4231567</div>
-      <div class="l3">BANDUNG 40115</div>
+      <div class="kopmini-l1">PEMERINTAH PROVINSI JAWA BARAT</div>
+      <div class="kopmini-l2">INSPEKTORAT DAERAH</div>
+      <div class="kopmini-l3">Jalan Surapati No. 4 Tlp. 4237174-4231567 Fax. 4231567</div>
+      <div class="kopmini-l3">BANDUNG 40115</div>
     </td></tr>
   </table>
 
@@ -64,28 +65,34 @@
 
   <table>
     <colgroup>
+      {{-- Lebar kolom diukur langsung dari dokumen tertandatangani di
+           storage/app/acuan-pdf, bukan dari tpl_pd_daftar.html yang ternyata
+           sudah tertinggal dari dokumen yang benar-benar dipakai kantor. --}}
       <col style="width:3%;"><col style="width:12%;"><col style="width:8%;"><col style="width:4%;">
-      <col style="width:9.5%;"><col style="width:10%;"><col style="width:4%;"><col style="width:9%;">
-      <col style="width:9%;"><col style="width:8%;"><col style="width:7.5%;"><col style="width:8%;"><col style="width:8%;">
+      <col style="width:9.5%;"><col style="width:10%;"><col style="width:4%;"><col style="width:8%;">
+      <col style="width:9%;"><col style="width:8%;"><col style="width:8.5%;"><col style="width:8%;"><col style="width:8%;">
     </colgroup>
     <thead>
       <tr>
-        <th rowspan="2">NO</th>
-        <th rowspan="2">NAMA</th>
-        <th rowspan="2">JABATAN</th>
+        {{-- Lebar dipasang LANGSUNG pada sel: mPDF mengabaikan <colgroup>,
+             sehingga tabel jatuh ke pelebaran otomatis dan kolomnya meleset
+             jauh dari dokumen aslinya. --}}
+        <th rowspan="2" style="width:3%;">NO</th>
+        <th rowspan="2" style="width:12%;">NAMA</th>
+        <th rowspan="2" style="width:8%;">JABATAN</th>
         <th colspan="6">RINCIAN PERHITUNGAN</th>
-        <th rowspan="2">UANG REPRE-<br>SENTATIF (Rp)</th>
-        <th rowspan="2">TRANSPORT<br>/BBM/TIKET</th>
-        <th rowspan="2">JUMLAH YANG<br>DITERIMA</th>
-        <th rowspan="2">TANDA TANGAN</th>
+        <th rowspan="2" style="width:8%;">UANG REPRE-<br>SENTATIF (Rp)</th>
+        <th rowspan="2" style="width:8.5%;">TRANSPORT<br>/BBM/TIKET</th>
+        <th rowspan="2" style="width:8%;">JUMLAH YANG<br>DITERIMA (Rp)</th>
+        <th rowspan="2" style="width:8%;">TANDA TANGAN</th>
       </tr>
       <tr>
-        <th>JML<br>HARI</th>
-        <th>UANG HARIAN<br>DLM/LUAR<br>DAERAH (Rp)</th>
-        <th>JML UANG<br>HARIAN DLM/<br>LUAR DAERAH (Rp)</th>
-        <th>JML<br>MLM</th>
-        <th>UANG<br>AKOMODASI<br>(Rp)</th>
-        <th>JUMLAH UANG<br>AKOMODASI<br>(Rp)</th>
+        <th style="width:4%;">JML<br>HARI</th>
+        <th style="width:9.5%;">UANG HARIAN<br>DLM/LUAR<br>DAERAH (Rp)</th>
+        <th style="width:10%;">JML UANG<br>HARIAN DLM/<br>LUAR DAERAH<br>(Rp)</th>
+        <th style="width:4%;">JML<br>MLM</th>
+        <th style="width:8%;">UANG<br>AKOMODASI<br>(Rp)</th>
+        <th style="width:9%;">JUMLAH UANG<br>AKOMODASI<br>(Rp)</th>
       </tr>
     </thead>
     <tbody>
@@ -99,15 +106,15 @@
     <tr>
       <td>
         <div style="height:14pt;"></div>
-        <div class="role">Setuju dibayar<br>Kuasa Pengguna Anggaran</div>
-        <div class="nama">{{ $kpa->nama }}</div>
+        <div class="ttd-role">Setuju dibayar<br>Kuasa Pengguna Anggaran</div><table class="ttd-jarak"><tr><td></td></tr></table>
+        <div class="ttd-nama">{{ $kpa->nama }}</div>
         <div>{{ $kpa->pangkat }}</div>
         <div>NIP. {{ $kpa->nip }}</div>
       </td>
       <td>
         <div style="text-align:right;padding-right:20pt;">Bandung, &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {{ $bulanNpd }} {{ $npd->tahun }}</div>
-        <div class="role">Lunas dibayar<br>Bendahara Pengeluaran Pembantu</div>
-        <div class="nama">{{ $bpp->nama }}</div>
+        <div class="ttd-role">Lunas dibayar<br>Bendahara Pengeluaran Pembantu</div><table class="ttd-jarak"><tr><td></td></tr></table>
+        <div class="ttd-nama">{{ $bpp->nama }}</div>
         <div>{{ $bpp->pangkat }}</div>
         <div>NIP. {{ $bpp->nip }}</div>
       </td>

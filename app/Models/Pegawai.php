@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 
@@ -13,6 +14,8 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
     'bidang',
     'golongan',
     'pangkat',
+    'periode_kgb',
+    'status_kepegawaian',
     'rekening',
     'nomor_handphone',
     'aktif',
@@ -20,6 +23,26 @@ use Illuminate\Database\Eloquent\Relations\HasOne;
 class Pegawai extends Model
 {
     protected $table = 'pegawai';
+
+    public const STATUS_PNS = 'PNS';
+
+    public const STATUS_PPPK_PENUH = 'PPPK Penuh Waktu';
+
+    public const STATUS_PPPK_PARUH = 'PPPK Paruh Waktu';
+
+    /** Pilihan Status Kepegawaian, urut sesuai tampilan di form. */
+    public const STATUS_KEPEGAWAIAN = [
+        self::STATUS_PNS,
+        self::STATUS_PPPK_PENUH,
+        self::STATUS_PPPK_PARUH,
+    ];
+
+    /**
+     * Status yang berhak atas Tunjangan Keluarga. PPPK Paruh Waktu TIDAK
+     * termasuk, sehingga tidak ikut muncul di Data Tunjangan Keluarga
+     * maupun di berkas export/import-nya.
+     */
+    public const STATUS_BERHAK_TUNJANGAN = [self::STATUS_PNS, self::STATUS_PPPK_PENUH];
 
     protected function casts(): array
     {
@@ -31,6 +54,21 @@ class Pegawai extends Model
     public function tunjanganKeluarga(): HasOne
     {
         return $this->hasOne(TunjanganKeluarga::class);
+    }
+
+    /** Pegawai aktif yang berhak atas Tunjangan Keluarga (PNS & PPPK Penuh Waktu). */
+    public function scopeBerhakTunjangan(EloquentBuilder $query): EloquentBuilder
+    {
+        return $query->where('aktif', true)->whereIn('status_kepegawaian', self::STATUS_BERHAK_TUNJANGAN);
+    }
+
+    /** "III/c / Penata" - bentuk gabungan untuk kolom Pangkat/Golongan. */
+    public function pangkatGolongan(): string
+    {
+        return collect([$this->golongan, $this->pangkat])
+            ->map(fn ($v) => trim((string) $v))
+            ->filter()
+            ->implode(' / ') ?: '-';
     }
 
     /**

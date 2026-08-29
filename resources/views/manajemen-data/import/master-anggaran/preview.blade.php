@@ -6,8 +6,8 @@
 @section('content')
 <div class="dash-card">
     <h3>Preview Import Pagu / Master Anggaran — Tahun Anggaran {{ config('anggaran.tahun_aktif') }}</h3>
-    <div class="sub">File: {{ $import->nama_file }}</div>
-    <div class="sub">{{ config('anggaran.catatan_scope') }}</div>
+    <div class="sub">Berkas: {{ $import->nama_file }}</div>
+    <div class="sub">Akan disimpan sebagai versi: <strong>{{ $import->versi_nama }}</strong>@if ($import->versi_keterangan) — {{ $import->versi_keterangan }}@endif</div>
 
     @if ($errors->any())
         <div class="err-box" style="display:block;">
@@ -22,70 +22,91 @@
 
     @if ($import->status === \App\Models\MasterAnggaranImport::STATUS_COMMITTED)
         <div class="sub" style="color:var(--ok);font-weight:700;">
-            Sudah dikonfirmasi dan disimpan pada {{ $import->committed_at?->format('d-m-Y H:i:s') }}.
+            Sudah dikonfirmasi pada {{ $import->committed_at?->format('d-m-Y H:i:s') }}
+            @if ($import->versi_pagu_id)
+                — <a href="{{ route('versi-pagu.show', $import->versi_pagu_id) }}">lihat versi &ldquo;{{ $import->versi_nama }}&rdquo;</a>.
+            @endif
         </div>
     @elseif ($import->kedaluwarsa())
-        <div class="err-box" style="display:block;">Sesi preview ini sudah kedaluwarsa. Silakan upload ulang.</div>
+        <div class="err-box" style="display:block;">Masa berlaku pemeriksaan berkas ini sudah habis. Silakan unggah ulang berkasnya.</div>
     @endif
 
     <div class="kpi-grid">
-        <div class="dash-card"><h3>{{ $import->total_baris }}</h3><div class="sub">Total Baris</div></div>
-        <div class="dash-card"><h3 style="color:var(--ok);">{{ $import->jumlah_baru }}</h3><div class="sub">Baru</div></div>
-        <div class="dash-card"><h3 style="color:var(--navy);">{{ $import->jumlah_update }}</h3><div class="sub">Update</div></div>
+        <div class="dash-card"><h3>{{ $import->total_baris }}</h3><div class="sub">Baris di File</div></div>
+        <div class="dash-card"><h3 style="color:var(--ok);">{{ $import->jumlah_baru }}</h3><div class="sub">Mata Anggaran Baru</div></div>
+        <div class="dash-card"><h3 style="color:var(--navy);">{{ $import->jumlah_update }}</h3><div class="sub">Diperbarui</div></div>
+        <div class="dash-card"><h3 style="color:#92400e;">{{ $import->jumlah_dinolkan }}</h3><div class="sub">Dinolkan</div></div>
         <div class="dash-card"><h3 style="color:#b91c1c;">{{ $import->jumlah_ditolak }}</h3><div class="sub">Ditolak</div></div>
     </div>
 
+    @if ($import->jumlah_dinolkan > 0)
+        <div class="sub" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px;">
+            <strong>{{ $import->jumlah_dinolkan }} mata anggaran</strong> ada di data sekarang tapi tidak dicantumkan di file ini.
+            Pagunya akan menjadi 0 dan mata anggarannya dinonaktifkan <em>saat versi ini diaktifkan</em>.
+            Kalau itu tidak disengaja, batalkan dan lengkapi filenya.
+        </div>
+    @endif
+
     @if ($import->status === \App\Models\MasterAnggaranImport::STATUS_STAGED && ! $import->kedaluwarsa())
         <div class="nav" style="margin-top:8px;">
-            <form method="POST" action="{{ route('manajemen-data.import.master-anggaran.batalkan', $import) }}" onsubmit="return confirm('Batalkan staging import ini?');">
+            <form method="POST" action="{{ route('manajemen-data.import.master-anggaran.batalkan', $import) }}" onsubmit="return confirm('Batalkan pemeriksaan berkas ini? Berkas perlu diunggah ulang bila ingin dilanjutkan.');">
                 @csrf
                 @method('DELETE')
                 <button type="submit" class="btn">Batalkan</button>
             </form>
-            <form method="POST" action="{{ route('manajemen-data.import.master-anggaran.konfirmasi', $import) }}" onsubmit="return confirm('Simpan {{ $import->jumlah_baru + $import->jumlah_update }} baris (baru + update) ke Master Anggaran? Baris yang ditolak tidak akan disimpan.');">
+            <form method="POST" action="{{ route('manajemen-data.import.master-anggaran.konfirmasi', $import) }}" onsubmit="return confirm('Simpan sebagai versi pagu draft &quot;{{ $import->versi_nama }}&quot;? Pagu yang berlaku BELUM berubah sampai versi ini diaktifkan.');">
                 @csrf
-                <button type="submit" class="btn prim">Konfirmasi Simpan</button>
+                <button type="submit" class="btn prim">Konfirmasi Simpan sebagai Draft</button>
             </form>
         </div>
+        <div class="sub">Baris yang ditolak tidak ikut disimpan ke dalam versi.</div>
     @endif
 
-    <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;margin-top:16px;">
+    <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;margin-top:16px;overflow-x:auto;">
         <table class="realisasi">
             <thead>
                 <tr>
                     <th>Baris</th>
                     <th>Aksi</th>
+                    <th>Kode Sub Kegiatan</th>
                     <th>Sub Kegiatan</th>
                     <th>Kode Rekening</th>
+                    <th>Rekening</th>
                     <th>Tagging</th>
-                    <th>Pagu Lama</th>
-                    <th>Pagu Baru</th>
-                    <th>Alasan</th>
+                    <th>Status</th>
+                    <th class="num">Pagu Lama</th>
+                    <th class="num">Pagu Versi Ini</th>
+                    <th>Catatan</th>
                 </tr>
             </thead>
             <tbody>
                 @forelse ($baris as $b)
                     <tr>
-                        <td>{{ $b->nomor_baris }}</td>
+                        <td>{{ $b->nomor_baris > 0 ? $b->nomor_baris : '—' }}</td>
                         <td>
-                            @if ($b->aksi === 'baru')
+                            @if ($b->aksi === \App\Models\MasterAnggaranImportRow::AKSI_BARU)
                                 <span class="badge" style="background:#dcfce7;color:#166534;">Baru</span>
-                            @elseif ($b->aksi === 'update')
+                            @elseif ($b->aksi === \App\Models\MasterAnggaranImportRow::AKSI_UPDATE)
                                 <span class="badge" style="background:#dbeafe;color:#1e3a8a;">Update</span>
+                            @elseif ($b->aksi === \App\Models\MasterAnggaranImportRow::AKSI_DINOLKAN)
+                                <span class="badge" style="background:#fef3c7;color:#92400e;">Dinolkan</span>
                             @else
                                 <span class="badge" style="background:#fee2e2;color:#991b1b;">Ditolak</span>
                             @endif
                         </td>
-                        <td>{{ $b->sub_kegiatan }}</td>
-                        <td>{{ $b->kode_rekening }}</td>
+                        <td>{{ $b->kode_sub_kegiatan ?? '—' }}</td>
+                        <td>{{ $b->sub_kegiatan ?? '—' }}</td>
+                        <td>{{ $b->kode_rekening ?? '—' }}</td>
+                        <td>{{ $b->rekening ?? '—' }}</td>
                         <td>{{ $b->tagging_nama ?? '—' }}</td>
-                        <td>{{ $b->pagu_lama !== null ? 'Rp '.fmt_rupiah($b->pagu_lama) : '—' }}</td>
-                        <td>{{ $b->pagu_baru !== null ? 'Rp '.fmt_rupiah($b->pagu_baru) : '—' }}</td>
+                        <td>{{ $b->aktif ? 'Aktif' : 'Non Aktif' }}</td>
+                        <td class="num">{{ $b->pagu_lama !== null ? 'Rp '.fmt_rupiah($b->pagu_lama) : '—' }}</td>
+                        <td class="num">{{ $b->pagu_baru !== null ? 'Rp '.fmt_rupiah($b->pagu_baru) : '—' }}</td>
                         <td>{{ $b->alasan ?? '—' }}</td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" style="text-align:center;color:var(--mut);padding:20px;">Tidak ada baris.</td>
+                        <td colspan="11" style="text-align:center;color:var(--mut);padding:20px;">Tidak ada baris.</td>
                     </tr>
                 @endforelse
             </tbody>

@@ -3,8 +3,10 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\AuditLog;
+use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Hash;
+use Illuminate\Validation\Rule;
 
 class ProfilController extends Controller
 {
@@ -27,6 +29,8 @@ class ProfilController extends Controller
 
         $validated = $request->validate([
             'nama' => ['required', 'string', 'max:150'],
+            'nama_panggilan' => ['nullable', 'string', 'max:60'],
+            'jenis_kelamin' => ['nullable', Rule::in(array_keys(User::KELAMIN))],
             'password_lama' => ['nullable', 'string'],
             'password_baru' => ['nullable', 'string', 'min:6'],
         ]);
@@ -36,6 +40,20 @@ class ProfilController extends Controller
         if ($validated['nama'] !== $user->nama) {
             $user->nama = $validated['nama'];
             $ubah[] = 'nama';
+        }
+
+        $panggilanBaru = trim((string) ($validated['nama_panggilan'] ?? '')) ?: null;
+
+        if ($panggilanBaru !== $user->nama_panggilan) {
+            $user->nama_panggilan = $panggilanBaru;
+            $ubah[] = 'nama panggilan';
+        }
+
+        $kelaminBaru = $validated['jenis_kelamin'] ?? null;
+
+        if ($kelaminBaru !== $user->jenis_kelamin) {
+            $user->jenis_kelamin = $kelaminBaru;
+            $ubah[] = 'jenis kelamin';
         }
 
         if (filled($validated['password_baru'] ?? null)) {

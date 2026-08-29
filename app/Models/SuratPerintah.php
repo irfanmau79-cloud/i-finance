@@ -3,8 +3,12 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
+use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
+use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
@@ -23,6 +27,9 @@ use Illuminate\Support\Facades\Storage;
     'pengajuan',
     'catatan',
     'dipantau',
+    'jenis_permintaan',
+    'sp_induk_id',
+    'sumber_npd',
 ])]
 class SuratPerintah extends Model
 {
@@ -34,12 +41,27 @@ class SuratPerintah extends Model
     /** Pilihan checkbox kolom Pengajuan (Monitoring SP), disimpan sebagai teks dipisah koma. */
     public const PENGAJUAN_OPTIONS = ['Uang Harian', 'Akomodasi', 'Transport'];
 
+    /** Jenis Permintaan Pembayaran (kolom P sheet Monitoring SP di GAS). */
+    public const JENIS_UANG_HARIAN = 'Uang Harian/Akomodasi';
+
+    public const JENIS_REIMBURSE = 'Reimburse Transportasi';
+
+    public const JENIS_PERMINTAAN = [self::JENIS_UANG_HARIAN, self::JENIS_REIMBURSE];
+
+    /** Suffix nomor SP Reimburse, mengikuti penomoran GAS: "{induk} (Reimburse)". */
+    public const SUFFIX_REIMBURSE = ' (Reimburse)';
+
+    /** Sama persis dengan SP_JABATAN_TIM di CodeSuratPerintah.gs, termasuk ejaannya. */
     public const JABATAN_ANGGOTA = [
-        'Penanggung Jawab',
+        'Penanggungjawab',
+        'Wakil Penanggungjawab',
         'Pengendali Teknis',
         'Ketua Tim',
         'Anggota',
     ];
+
+    /** Batas jumlah anggota per SP, mengikuti GAS. */
+    public const MAKS_ANGGOTA = 100;
 
     protected function casts(): array
     {
@@ -47,6 +69,7 @@ class SuratPerintah extends Model
             'tanggal_sp' => 'date',
             'irban_dibayar' => 'boolean',
             'dipantau' => 'boolean',
+            'sumber_npd' => 'boolean',
         ];
     }
 
@@ -76,5 +99,72 @@ class SuratPerintah extends Model
     public function anggota(): HasMany
     {
         return $this->hasMany(SuratPerintahAnggota::class)->orderBy('urutan');
+    }
+
+    /** SP induk berjenis Uang Harian/Akomodasi, hanya terisi pada SP Reimburse. */
+    public function induk(): BelongsTo
+    {
+        return $this->belongsTo(self::class, 'sp_induk_id');
+    }
+
+    /** Entri Reimburse Transportasi milik SP ini (maksimal satu). */
+    public function reimburse(): HasOne
+    {
+        return $this->hasOne(self::class, 'sp_induk_id');
+    }
+
+    public function npd(): HasMany
+    {
+        return $this->hasMany(Npd::class);
+    }
+
+    public function isReimburse(): bool
+    {
+        return $this->jenis_permintaan === self::JENIS_REIMBURSE;
+    }
+
+    /**
+     * SP yang boleh dipakai sebagai sumber data pembuatan NPD: masih
+     * berstatus awal DAN flag Sumber NPD menyala. Port dari getSPTerinput()
+     * di CodeSuratPerintah.gs.
+     */
+    public function scopeSumberNpdAktif(EloquentBuilder $query): EloquentBuilder
+    {
+        return $query->where('status', self::STATUS_DITERIMA_PPTK)->where('sumber_npd', true);
+    }
+
+    /**
+     * SP yang boleh dipilih pada Pembuatan NPD Perjalanan Dinas: sumber NPD
+     * aktif DAN berjenis Uang Harian/Akomodasi. SP Reimburse Transportasi
+     * sengaja tidak ikut - di GAS ia khusus dipakai pada alur NPD Transport
+     * (lihat penyaringan jenis di muatOrderanSP(), gas-lama/index.html).
+     */
+    public function scopeSumberNpdPerjalanan(EloquentBuilder $query): EloquentBuilder
+    {
+        return $query->sumberNpdAktif()->where('jenis_permintaan', self::JENIS_UANG_HARIAN);
+    }
+
+    /** SP yang tampil di halaman Monitoring SP. */
+    public function scopeDipantau(EloquentBuilder $query): EloquentBuilder
+    {
+        return $query->where('dipantau', true);
+    }
+
+    /**
+     * SP induk yang masih boleh dibuatkan entri Reimburse Transportasi:
+     * berjenis Uang Harian/Akomodasi, flag Sumber NPD menyala, punya
+     * anggota, dan belum punya entri Reimburse. Port dari
+     * daftarSPUntukReimburse().
+     */
+    public static function calonIndukReimburse(): EloquentCollection
+    {
+        return self::query()
+            ->where('jenis_permintaan', self::JENIS_UANG_HARIAN)
+            ->where('sumber_npd', true)
+            ->whereDoesntHave('reimburse')
+            ->whereHas('anggota')
+            ->with('anggota')
+            ->orderByDesc('id')
+            ->get();
     }
 }

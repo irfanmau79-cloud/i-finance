@@ -131,7 +131,7 @@ class NpdBjTest extends TestCase
 
         $indexResponse = $this->actingAs($pptk)->get(route('npd.index'));
         $indexResponse->assertStatus(200);
-        $indexResponse->assertSee($masterAnggaran->kode_rekening);
+        $indexResponse->assertSee($masterAnggaran->rekening_lengkap);
 
         $showResponse = $this->actingAs($pptk)->get(route('npd.show', $npd));
         $showResponse->assertStatus(200);

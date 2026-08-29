@@ -26,8 +26,12 @@
   table.ttd td { vertical-align:top; padding:0; border:none; }
   table.ttd td.sp { width:55%; }
   table.ttd td.col { width:45%; text-align:center; }
-  .ttd .role { margin-bottom:56pt; }
-  .ttd .nama { font-weight:bold; }
+  /* margin-bottom pada div di dalam sel tabel TIDAK dihormati mPDF -
+     jarak tanda tangan dibuat lewat sel setinggi 56pt (.ttd-jarak). */
+  .ttd-role { margin-bottom:0; }
+  table.ttd-jarak { width:100%; border-collapse:collapse; }
+  table.ttd-jarak td { height:56pt; border:none; padding:0; }
+  .ttd-nama { font-weight:bold; }
 </style>
 </head>
 <body>
@@ -38,9 +42,9 @@
 
   <div class="detail">
     <table class="drow">
-      <tr><td class="k">Program</td><td class="s">:</td><td>{{ $npd->masterAnggaran->program }}</td></tr>
-      <tr><td class="k">Kegiatan</td><td class="s">:</td><td>{{ $npd->masterAnggaran->kegiatan }}</td></tr>
-      <tr><td class="k">Sub Kegiatan</td><td class="s">:</td><td>{{ $npd->masterAnggaran->sub_kegiatan }}</td></tr>
+      <tr><td class="k">Program</td><td class="s">:</td><td>{{ $npd->masterAnggaran->program_lengkap }}</td></tr>
+      <tr><td class="k">Kegiatan</td><td class="s">:</td><td>{{ $npd->masterAnggaran->kegiatan_lengkap }}</td></tr>
+      <tr><td class="k">Sub Kegiatan</td><td class="s">:</td><td>{{ $npd->masterAnggaran->sub_kegiatan_lengkap }}</td></tr>
     </table>
   </div>
 
@@ -69,7 +73,9 @@
         <td class="num vtop"></td>
         <td class="num vtop">{{ fmt_rupiah(0) }}</td>
         <td class="num vtop">{{ fmt_rupiah($npd->nominal) }}</td>
-        <td class="vtop ket"><b>{{ $npd->masterAnggaran->kode_rekening_bersih }}</b><br>{{ $keterangan }}</td>
+        {{-- GAS mencetak payload.kodeRek, yaitu gabungan kode + uraian rekening
+             ("5.1.02.04.001.00001 Belanja Perjalanan Dinas Biasa") - bukan kodenya saja. --}}
+        <td class="vtop ket"><b>{{ $npd->masterAnggaran->rekening_lengkap }}</b><br>{{ $keterangan }}</td>
       </tr>
       <tr class="jml">
         <td colspan="2" class="center bold">J u m l a h</td>
@@ -87,8 +93,8 @@
     <tr>
       <td class="sp"></td>
       <td class="col">
-        <div class="role">Pejabat Pelaksana Teknis Kegiatan</div>
-        <div class="nama">{{ $pptk->nama }}</div>
+        <div class="ttd-role">Pejabat Pelaksana Teknis Kegiatan</div><table class="ttd-jarak"><tr><td></td></tr></table>
+        <div class="ttd-nama">{{ $pptk->nama }}</div>
         <div>{{ $pptk->pangkat }}</div>
         <div>NIP. {{ $pptk->nip }}</div>
       </td>

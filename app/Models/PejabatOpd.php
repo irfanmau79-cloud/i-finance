@@ -41,7 +41,7 @@ class PejabatOpd extends Model
     {
         return DB::transaction(function () use ($data) {
             $rows = self::query()->lockForUpdate()->orderBy('id')->get();
-            $row = $rows->firstWhere('aktif', true) ?? $rows->first() ?? new self();
+            $row = $rows->firstWhere('aktif', true) ?? $rows->first() ?? new self;
 
             self::query()
                 ->when($row->exists, fn ($query) => $query->whereKeyNot($row->getKey()))

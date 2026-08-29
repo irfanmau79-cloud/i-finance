@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\Pegawai;
 use App\Models\SuratPerintah;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -16,7 +17,7 @@ class PublicEndpointSecurityTest extends TestCase
     public function test_form_sp_publik_memvalidasi_mime_pdf_dan_mengacak_nama_file(): void
     {
         Storage::fake('local');
-        $payload = $this->payload();
+        $payload = $this->payloadForm();
 
         $this->post(route('sp.input.store'), $payload + [
             'website' => 'https://spam.invalid',
@@ -62,6 +63,7 @@ class PublicEndpointSecurityTest extends TestCase
         $this->actingAs($this->user('layanan'))->get(route('surat-perintah.file', $sp))->assertForbidden();
     }
 
+    /** Atribut dasar SP, tanpa field yang khusus milik form. */
     private function payload(): array
     {
         return [
@@ -75,6 +77,35 @@ class PublicEndpointSecurityTest extends TestCase
             'rincian_tgl_bayar' => '21 Juli 2026',
             'keterangan' => 'Pengujian keamanan endpoint publik.',
             'status_sp' => 'Baru',
+        ];
+    }
+
+    /**
+     * Isian form Input SP yang sah. Komponen Pembayaran dan anggota (minimal
+     * satu orang) kini wajib, mengikuti aturan GAS - lihat
+     * StoreSuratPerintahRequest.
+     */
+    private function payloadForm(): array
+    {
+        $pegawai = Pegawai::firstOrCreate(
+            ['nip' => '199001012010011001'],
+            [
+                'nama' => 'Anggota Uji Publik',
+                'jabatan' => 'Auditor Ahli Muda',
+                'bidang' => 'Sekretariat',
+                'rekening' => '100200300',
+                'aktif' => true,
+            ]
+        );
+
+        return $this->payload() + [
+            'jenis_permintaan' => SuratPerintah::JENIS_UANG_HARIAN,
+            'komponen' => ['Uang Harian'],
+            'anggota' => [[
+                'pegawai_id' => $pegawai->id,
+                'nama' => $pegawai->nama,
+                'jabatan_sp' => 'Ketua Tim',
+            ]],
         ];
     }
 

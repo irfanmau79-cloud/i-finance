@@ -41,7 +41,12 @@ class InventarisasiSpjService
             })->sortBy('value', SORT_NATURAL)->values()->all(),
             'tagging' => collect($pilihan['tagging'])->map(fn (string $v) => ['value' => $v, 'label' => $v])->all(),
         ];
+        // Rantai bertingkat untuk dropdown: tiap kombinasi yang benar-benar ada
+        // di data. Dropdown di layar menyaring dirinya sendiri dari daftar ini,
+        // jadi pilihan yang tidak menghasilkan baris tidak pernah muncul.
         $filterHierarchy = $semua->map(fn (array $row) => [
+            'program' => $row['program'],
+            'kegiatan' => $row['kegiatan'],
             'sub_kegiatan' => $row['sub_kegiatan'],
             'kode_rekening' => $row['kode_rekening'],
             'kode_label' => $row['uraian_rekening']
@@ -49,7 +54,7 @@ class InventarisasiSpjService
                 : $row['kode_rekening'],
             'tagging' => $row['tagging'],
         ])->unique(fn (array $row) => implode('|', [
-            $row['sub_kegiatan'], $row['kode_rekening'], $row['tagging'],
+            $row['program'], $row['kegiatan'], $row['sub_kegiatan'], $row['kode_rekening'], $row['tagging'],
         ]))->values()->all();
 
         $rows = $semua
@@ -66,13 +71,24 @@ class InventarisasiSpjService
             })->values();
 
         $dokumenPerLokasi = $rows->groupBy('lokasi');
-        $lokasi = BantexSpj::query()->where('aktif', true)->orderBy('nama')->get()
+        $lokasi = BantexSpj::query()->where('aktif', true)->orderBy('nomor')->orderBy('nama')->get()
             ->map(function (BantexSpj $bantex) use ($dokumenPerLokasi) {
-                $items = $dokumenPerLokasi->get($bantex->nama, collect());
+                // Baris arsip lama tersimpan dengan nama saja; yang baru dengan
+                // label bernomor. Keduanya dikumpulkan ke satu bantex - tetapi
+                // HANYA digabung bila keduanya memang berbeda. Untuk bantex
+                // tanpa nomor, label() sama dengan nama, dan menggabungkannya
+                // akan menghitung dokumen yang sama dua kali.
+                $items = $dokumenPerLokasi->get($bantex->label(), collect());
+
+                if ($bantex->label() !== $bantex->nama) {
+                    $items = $items->concat($dokumenPerLokasi->get($bantex->nama, collect()));
+                }
 
                 return [
                     'id' => $bantex->id,
-                    'lokasi' => $bantex->nama,
+                    'nomor' => $bantex->nomor,
+                    'nama' => $bantex->nama,
+                    'lokasi' => $bantex->label(),
                     'keterangan' => $bantex->keterangan,
                     'jumlah_dokumen' => $items->count(),
                     'jumlah_npd' => $items->pluck('npd_id')->unique()->count(),
@@ -81,29 +97,47 @@ class InventarisasiSpjService
                 ];
             });
 
-        $namaMaster = $lokasi->pluck('lokasi');
+        $namaMaster = $lokasi->pluck('lokasi')->concat($lokasi->pluck('nama'));
         $lokasiLegacy = $dokumenPerLokasi->reject(fn (Collection $items, string $nama) => $namaMaster->contains($nama))
             ->map(function (Collection $items, string $lokasi) {
-            return [
-                'id' => null,
-                'lokasi' => $lokasi,
-                'keterangan' => null,
-                'jumlah_dokumen' => $items->count(),
-                'jumlah_npd' => $items->pluck('npd_id')->unique()->count(),
-                'nominal' => (float) $items->unique('npd_id')->sum('nominal'),
-                'dokumen' => $items->values()->all(),
-            ];
-        })->values();
+                return [
+                    'id' => null,
+                    'nomor' => null,
+                    'nama' => $lokasi,
+                    'lokasi' => $lokasi,
+                    'keterangan' => null,
+                    'jumlah_dokumen' => $items->count(),
+                    'jumlah_npd' => $items->pluck('npd_id')->unique()->count(),
+                    'nominal' => (float) $items->unique('npd_id')->sum('nominal'),
+                    'dokumen' => $items->values()->all(),
+                ];
+            })->values();
         $lokasi = $lokasi->concat($lokasiLegacy)->values();
 
         $jumlahLokasi = $lokasi->count();
 
         $detailSpj = $this->detailSpj($npds, $filters);
 
+        // KPI dihitung dari SATU BARIS PER NPD (bukan per jenis dokumen),
+        // sesuai kartu yang ditampilkan: jumlah NPD, lalu berapa yang SPJ-nya
+        // sudah lengkap dan berapa yang belum.
+        $jumlahNpd = count($detailSpj);
+        $lengkap = collect($detailSpj)->where('status', SpjDetail::STATUS_LENGKAP)->count();
+        $persen = fn (int $bagian) => $jumlahNpd > 0 ? round($bagian / $jumlahNpd * 100, 1) : 0.0;
+
         return [
             'rows' => $rows->all(),
             'lokasi' => $lokasi->all(),
-            'bantex' => BantexSpj::query()->where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'keterangan'])->all(),
+            'kpi' => [
+                'jumlah_npd' => $jumlahNpd,
+                'lengkap' => $lengkap,
+                'lengkap_persen' => $persen($lengkap),
+                'belum_lengkap' => $jumlahNpd - $lengkap,
+                'belum_lengkap_persen' => $persen($jumlahNpd - $lengkap),
+            ],
+            'status_list' => SpjDetail::STATUS,
+            'bantex' => BantexSpj::query()->where('aktif', true)->orderBy('nomor')->get(['id', 'nomor', 'nama', 'keterangan'])
+                ->map(fn (BantexSpj $b) => ['id' => $b->id, 'nomor' => $b->nomor, 'nama' => $b->nama, 'label' => $b->label(), 'keterangan' => $b->keterangan])->all(),
             'pilihan' => $pilihan,
             'pilihan_berlabel' => $pilihanBerlabel,
             'filter_hierarchy' => $filterHierarchy,
@@ -117,9 +151,92 @@ class InventarisasiSpjService
         ];
     }
 
+    /**
+     * Rincian lengkap satu NPD untuk panel Edit - seluruhnya baca saja.
+     * Diambil lewat permintaan tersendiri, bukan ditanam di halaman, supaya
+     * tabel yang memuat ratusan NPD tidak ikut membawa seluruh anggota tim,
+     * penerima, dan data Surat Perintah sekaligus.
+     *
+     * @return array<string, mixed>
+     */
+    public function rincianNpd(Npd $npd): array
+    {
+        $npd->loadMissing([
+            'masterAnggaran.tagging', 'penerima.pegawai', 'penerima.vendor',
+            'tim.pegawai', 'tim.paket', 'narasumber', 'peserta',
+            'suratPerintah.anggota', 'induk.suratPerintah.anggota', 'spjDetail',
+        ]);
+
+        $rupiah = fn ($n) => 'Rp '.number_format((float) $n, 2, ',', '.');
+
+        // NPD Transport tidak punya SP sendiri - Surat Perintahnya diwarisi
+        // dari NPD Perjalanan Dinas induknya.
+        $sp = $npd->jenis === 'tr' && $npd->induk
+            ? $npd->induk->suratPerintah
+            : $npd->suratPerintah;
+
+        $orang = match ($npd->jenis) {
+            'pd', 'tr' => $npd->tim->map(fn ($t) => [
+                'nama' => $t->nama,
+                'nip' => $t->nip,
+                'jabatan' => $t->jabatan,
+                'nominal' => $rupiah($t->hitung()['jumlah'] ?? 0),
+                'penerima' => (bool) $t->is_penerima,
+            ])->values()->all(),
+            'ns' => $npd->narasumber->map(fn ($n) => [
+                'nama' => $n->nama, 'nip' => null, 'jabatan' => $n->jabatan,
+                'nominal' => $rupiah($n->jumlah_jp * $n->tarif_jp), 'penerima' => false,
+            ])->values()->all(),
+            'kd' => $npd->peserta->map(fn ($p) => [
+                'nama' => $p->nama, 'nip' => $p->nip, 'jabatan' => $p->jabatan,
+                'nominal' => $rupiah($p->tarif_kontribusi), 'penerima' => false,
+            ])->values()->all(),
+            default => $npd->penerima->map(fn ($p) => [
+                'nama' => $p->nama, 'nip' => null, 'jabatan' => null,
+                'nominal' => $rupiah($p->bruto), 'penerima' => true,
+            ])->values()->all(),
+        };
+
+        return [
+            'npd_id' => $npd->id,
+            'nomor_npd' => $npd->nomor_lengkap ?: 'NPD #'.$npd->id,
+            'tanggal' => $npd->tanggal_npd->locale('id')->translatedFormat('d F Y'),
+            'jenis' => Npd::JENIS_LABEL[$npd->jenis] ?? $npd->jenis,
+            'status_npd' => $npd->status,
+            'nominal' => $rupiah($npd->nominal),
+            'terbilang' => $npd->terbilang,
+            'program' => $npd->masterAnggaran->programNormal(),
+            'kegiatan' => $npd->masterAnggaran->kegiatanNormal(),
+            'sub_kegiatan' => $npd->masterAnggaran->subKegiatanNormal(),
+            'kode_rekening' => $npd->masterAnggaran->kode_rekening_bersih,
+            'uraian_rekening' => $npd->masterAnggaran->uraian_rekening,
+            'tagging' => $npd->tagging_snapshot ?: ($npd->masterAnggaran->tagging?->nama ?? '-'),
+            'uraian' => $npd->detail_json['uraian'] ?? $npd->detail_json['uraian_sp'] ?? $npd->detail_json['keterangan_lampiran'] ?? '-',
+            'label_orang' => match ($npd->jenis) {
+                'pd', 'tr' => 'Anggota Tim',
+                'ns' => 'Narasumber',
+                'kd' => 'Peserta',
+                default => 'Penerima',
+            },
+            'orang' => $orang,
+            'surat_perintah' => $sp ? [
+                'nomor' => $sp->nomor_sp,
+                'tanggal' => $sp->tanggal_sp?->locale('id')->translatedFormat('d F Y'),
+                'unit_kerja' => $sp->unit_kerja,
+                'lokasi' => $sp->lokasi,
+                'keterangan' => $sp->keterangan,
+                'jumlah_anggota' => $sp->anggota->count(),
+                'diwarisi_dari_induk' => $npd->jenis === 'tr' && $npd->induk !== null,
+            ] : null,
+            'lokasi' => $npd->spjDetail?->lokasi ?? $this->lokasiDefault($npd),
+            'status' => $npd->spjDetail?->status ?? SpjDetail::STATUS_BELUM_LENGKAP,
+            'catatan' => $npd->spjDetail?->catatan,
+        ];
+    }
+
     public static function dikecualikan(Npd $npd): bool
     {
-        $sub = (string) $npd->masterAnggaran?->sub_kegiatan;
+        $sub = (string) $npd->masterAnggaran?->sub_kegiatan_lengkap;
 
         return str_contains($sub, '6.01.01.1.02.0001')
             || (bool) preg_match('/penyediaan\s+gaji\s+dan\s+tunjangan\s+asn/iu', $sub);
@@ -152,6 +269,8 @@ class InventarisasiSpjService
             'bulan_label' => $npd->tanggal_npd->locale('id')->translatedFormat('F'),
             'nomor_npd' => $npd->nomor_lengkap ?: 'NPD #'.$npd->id,
             'jenis_dokumen' => $jenis,
+            'program' => $npd->masterAnggaran->programNormal(),
+            'kegiatan' => $npd->masterAnggaran->kegiatanNormal(),
             'sub_kegiatan' => $npd->masterAnggaran->subKegiatanNormal(),
             'kode_rekening' => $npd->masterAnggaran->kode_rekening_bersih,
             'uraian_rekening' => $npd->masterAnggaran->uraian_rekening,
@@ -213,9 +332,13 @@ class InventarisasiSpjService
             'lokasi' => $override?->lokasi ?? $this->lokasiDefault($npd),
             'status' => $override?->status ?? SpjDetail::STATUS_BELUM_LENGKAP,
             'catatan' => $override?->catatan,
+            'program' => $npd->masterAnggaran->programNormal(),
+            'kegiatan' => $npd->masterAnggaran->kegiatanNormal(),
             'sub_kegiatan' => $npd->masterAnggaran->subKegiatanNormal(),
             'kode_rekening' => $npd->masterAnggaran->kode_rekening_bersih,
             'tagging' => $npd->tagging_snapshot ?: ($npd->masterAnggaran->tagging?->nama ?? ''),
+            'jenis_npd' => $npd->jenis,
+            'status_label' => SpjDetail::labelStatus($override?->status),
             'ada_override' => $override !== null,
             'diedit_oleh' => $override?->dieditOleh?->nama,
             'diedit_at' => $override?->diedit_at?->format('d-m-Y H:i'),

@@ -66,12 +66,38 @@ class RakBulananImportTest extends TestCase
         return new UploadedFile($path, $namaFile ?? 'rak.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true);
     }
 
+    /** Header template resmi terbaru: kode terpisah dari nama, plus Total RAK. */
+    private const HEADER_BARU = [
+        'Tahun', 'Kode Program', 'Program', 'Kode Kegiatan', 'Kegiatan',
+        'Kode Sub Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Rekening', 'Total RAK',
+        'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni',
+        'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember',
+    ];
+
+    private function baseRowBaru(MasterAnggaran $anggaran, array $bulanOverride = []): array
+    {
+        $bulan = array_replace(array_fill(1, 12, 2_000_000), $bulanOverride);
+
+        return array_values(array_merge([
+            2026,
+            $anggaran->kode_program,
+            $anggaran->program,
+            $anggaran->kode_kegiatan,
+            $anggaran->kegiatan,
+            $anggaran->kode_sub_kegiatan,
+            $anggaran->sub_kegiatan,
+            $anggaran->kode_rekening,
+            $anggaran->rekening,
+            24_000_000, // Total RAK - sengaja diabaikan importer
+        ], array_values($bulan)));
+    }
+
     private function baseRow(MasterAnggaran $anggaran, array $bulanOverride = []): array
     {
         $bulan = array_replace(array_fill(1, 12, 2_000_000), $bulanOverride);
 
         return array_values(array_merge([
-            $anggaran->sub_kegiatan,
+            $anggaran->sub_kegiatan_lengkap,
             $anggaran->kode_rekening_bersih,
             $anggaran->uraian_rekening,
             (float) $anggaran->pagu,
@@ -83,7 +109,7 @@ class RakBulananImportTest extends TestCase
         $bulan = array_replace(array_fill(1, 12, 2_000_000), $bulanOverride);
 
         return array_values(array_merge([
-            $anggaran->sub_kegiatan,
+            $anggaran->sub_kegiatan_lengkap,
             $anggaran->kode_rekening_bersih,
             $anggaran->uraian_rekening,
             $taggingNama ?? '',
@@ -118,11 +144,19 @@ class RakBulananImportTest extends TestCase
         $headings = (new RakBulananExport(2026))->headings();
 
         $this->assertNotContains('Tagging', $headings);
-        $this->assertSame(['Tahun Anggaran', 'Program', 'Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Uraian Rekening', 'Pagu'], array_slice($headings, 0, 7));
+        $this->assertSame([
+            'Tahun', 'Kode Program', 'Program', 'Kode Kegiatan', 'Kegiatan',
+            'Kode Sub Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Rekening', 'Total RAK',
+        ], array_slice($headings, 0, 10));
+        $this->assertSame('Januari', $headings[10]);
+        $this->assertSame('Desember', $headings[21]);
     }
 
-    public function test_template_baru_memiliki_marker_dan_instruksi_bulanan(): void
+    /** Header langsung di baris 1 - tidak ada lagi baris marker/instruksi di atasnya. */
+    public function test_template_dimulai_dari_header_tanpa_baris_marker(): void
     {
+        $this->buatMasterAnggaran();
+
         $bytes = LaravelExcel::raw(new RakBulananExport(2026), Excel::XLSX);
         $basePath = tempnam(sys_get_temp_dir(), 'rak_template_');
         $path = $basePath.'.xlsx';
@@ -131,15 +165,65 @@ class RakBulananImportTest extends TestCase
             file_put_contents($path, $bytes);
             $sheet = IOFactory::load($path)->getActiveSheet();
 
-            $this->assertSame(RakBulananExport::FORMAT_MARKER, $sheet->getCell('A1')->getValue());
-            $this->assertStringContainsString('BULANAN', $sheet->getCell('A2')->getValue());
-            $this->assertStringContainsString('TAHUN ANGGARAN 2026', $sheet->getCell('A2')->getValue());
-            $this->assertSame('Tahun Anggaran', $sheet->getCell('A3')->getValue());
-            $this->assertNotContains('Tagging', $sheet->rangeToArray('A3:S3')[0]);
+            $this->assertSame('Tahun', $sheet->getCell('A1')->getValue());
+            $this->assertSame('Kode Sub Kegiatan', $sheet->getCell('F1')->getValue());
+            $this->assertSame('Total RAK', $sheet->getCell('J1')->getValue());
+            $this->assertSame('Januari', $sheet->getCell('K1')->getValue());
+            $this->assertSame('Desember', $sheet->getCell('V1')->getValue());
+            $this->assertNotContains('Tagging', $sheet->rangeToArray('A1:V1')[0]);
+
+            // Data langsung menyusul di baris 2.
+            $this->assertSame(2026, $sheet->getCell('A2')->getValue());
+            $this->assertNotSame(RakBulananExport::FORMAT_MARKER, $sheet->getCell('A1')->getValue());
         } finally {
             @unlink($path);
             @unlink($basePath);
         }
+    }
+
+    /**
+     * Tanpa baris marker, format resmi dikenali dari tanda tangan headernya
+     * (Kode Sub Kegiatan + Total RAK) - bukan dicatat sebagai berkas legacy.
+     */
+    public function test_format_resmi_dikenali_dari_header_meski_tanpa_marker(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $anggaran = $this->buatMasterAnggaran();
+
+        $this->store($superadmin, $this->buatFileExcel(
+            self::HEADER_BARU,
+            [$this->baseRowBaru($anggaran)]
+        ));
+
+        $import = RakBulananImport::latest('id')->firstOrFail();
+        $this->assertSame(RakBulananImport::FORMAT_MONTHLY_V2, $import->format_sumber);
+        $this->assertSame(12, $import->jumlah_baru);
+    }
+
+    /** Berkas yang terlanjur diunduh dengan baris marker tetap harus terbaca. */
+    public function test_berkas_lama_bermarker_tetap_terbaca(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $anggaran = $this->buatMasterAnggaran();
+
+        $spreadsheet = new Spreadsheet;
+        $sheet = $spreadsheet->getActiveSheet();
+        $sheet->setCellValue('A1', RakBulananExport::FORMAT_MARKER);
+        $sheet->setCellValue('A2', 'Instruksi lama: nilai BULANAN, bukan kumulatif.');
+        $sheet->fromArray(self::HEADER, null, 'A3');
+        $sheet->fromArray([$this->baseRow($anggaran)], null, 'A4');
+
+        $basePath = tempnam(sys_get_temp_dir(), 'rak_marker_lama_');
+        $path = $basePath.'.xlsx';
+        (new Xlsx($spreadsheet))->save($path);
+
+        $this->store($superadmin, new UploadedFile($path, 'rak-lama.xlsx', 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', null, true));
+
+        $import = RakBulananImport::latest('id')->firstOrFail();
+        $this->assertSame(RakBulananImport::FORMAT_MONTHLY_V2, $import->format_sumber);
+        $this->assertSame(12, $import->jumlah_baru);
+
+        @unlink($basePath);
     }
 
     public function test_request_tahun_rak_2025_atau_2027_tidak_dapat_melewati_backend_guard(): void
@@ -225,7 +309,7 @@ class RakBulananImportTest extends TestCase
         $this->assertSame('konflik', RakBulananDuplicateAudit::kelompokkan($konflik)->first()['jenis']);
     }
 
-    public function test_export_menggabungkan_pagu_lintas_tagging_untuk_sub_kegiatan_kode_rekening_yang_sama(): void
+    public function test_export_menggabungkan_tagging_jadi_satu_baris_dengan_kode_terpisah(): void
     {
         $t1 = Tagging::create(['nama' => 'Tim A', 'aktif' => true]);
         $t2 = Tagging::create(['nama' => 'Tim B', 'aktif' => true]);
@@ -237,7 +321,63 @@ class RakBulananImportTest extends TestCase
         $this->assertCount(1, $baris, 'Satu Sub Kegiatan+Kode Rekening dengan 2 tagging harus jadi SATU baris export.');
 
         $peta = (new RakBulananExport(2026))->map($baris->first());
-        $this->assertSame(25_000_000.0, $peta[6]); // indeks 6 = kolom Pagu
+
+        // Kode dan nama menempati kolom sendiri-sendiri.
+        $this->assertSame(2026, $peta[0]);
+        $this->assertSame('6.01.01.2.01', $peta[5]);
+        $this->assertSame('Sub Kegiatan Uji RAK', $peta[6]);
+        $this->assertSame('5.1.02.05.03.5001', $peta[7]);
+        $this->assertSame('Belanja Pengujian RAK', $peta[8]);
+
+        // Total RAK diisi sebagai rumus di AfterSheet, bukan lewat map().
+        $this->assertNull($peta[9]);
+        $this->assertCount(22, $peta);
+    }
+
+    /**
+     * Format template BARU: Kode Sub Kegiatan / Kode Rekening berada di kolom
+     * sendiri, terpisah dari namanya, plus kolom Total RAK yang diabaikan
+     * importer. Format lama (kode+nama tergabung, tanpa Total RAK) tetap
+     * dibuktikan oleh test-test lain di kelas ini yang memakai self::HEADER.
+     */
+    public function test_format_template_baru_dengan_kolom_kode_terpisah_terbaca(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $anggaran = $this->buatMasterAnggaran();
+
+        $this->store($superadmin, $this->buatFileExcel(self::HEADER_BARU, [$this->baseRowBaru($anggaran)]));
+        $import = RakBulananImport::latest('id')->firstOrFail();
+
+        $this->assertSame(12, $import->jumlah_baru);
+        $this->assertSame(0, $import->jumlah_ditolak);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.rak-bulanan.konfirmasi', $import));
+
+        // Identitas RAK tetap memakai kunci gabungan seperti format lama,
+        // jadi baris lama dan baru menunjuk ke saldo RAK yang sama.
+        $this->assertSame(12, RakBulanan::where('sub_kegiatan_kunci', $anggaran->sub_kegiatan_kunci)
+            ->where('kode_rekening', $anggaran->kode_rekening)->where('tahun', 2026)->count());
+        $this->assertSame(24_000_000.0, (float) RakBulanan::where('tahun', 2026)->sum('target'));
+    }
+
+    public function test_kolom_total_rak_berisi_rumus_penjumlahan_dua_belas_bulan(): void
+    {
+        $this->buatMasterAnggaran();
+
+        $bytes = LaravelExcel::raw(new RakBulananExport(2026), Excel::XLSX);
+        $basePath = tempnam(sys_get_temp_dir(), 'rak_total_');
+        $path = $basePath.'.xlsx';
+
+        try {
+            file_put_contents($path, $bytes);
+            $sheet = IOFactory::load($path)->getActiveSheet();
+
+            // Header di baris 1, jadi baris data pertama adalah baris 2.
+            $this->assertSame('=SUM(K2:V2)', $sheet->getCell('J2')->getValue());
+        } finally {
+            @unlink($path);
+            @unlink($basePath);
+        }
     }
 
     // ---------------- Import baru tidak butuh Tagging ----------------
@@ -284,7 +424,7 @@ class RakBulananImportTest extends TestCase
 
         $this->actingAs($superadmin)->post(route('manajemen-data.import.rak-bulanan.konfirmasi', $import));
 
-        $this->assertSame(12, RakBulanan::where('sub_kegiatan_kunci', MasterAnggaran::normalisasiKunci($anggaran->sub_kegiatan))
+        $this->assertSame(12, RakBulanan::where('sub_kegiatan_kunci', MasterAnggaran::normalisasiKunci($anggaran->sub_kegiatan_lengkap))
             ->where('kode_rekening', $anggaran->kode_rekening_bersih)->where('tahun', 2026)->count());
 
         for ($b = 1; $b <= 12; $b++) {

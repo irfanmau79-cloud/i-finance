@@ -270,9 +270,34 @@ class NpdCoretanTest extends TestCase
         $lampiranSetelah = $this->actingAs($verifikator)->get(route('npd.cetak-lampiran', $npd))->getContent();
 
         // Cetak NPD tidak berubah - coretan itu bukan miliknya.
-        $this->assertSame($npdKosong, $npdSetelah, 'Cetak NPD tidak boleh ikut tercoret oleh strokes milik dokumen lampiran.');
+        $this->assertSame(
+            $this->tanpaJejakWaktu($npdKosong),
+            $this->tanpaJejakWaktu($npdSetelah),
+            'Cetak NPD tidak boleh ikut tercoret oleh strokes milik dokumen lampiran.'
+        );
         // Cetak Lampiran berubah - coretan itu memang miliknya.
-        $this->assertNotSame($lampiranKosong, $lampiranSetelah, 'Cetak Lampiran harus memuat coretan yang ditandai untuknya.');
+        $this->assertNotSame(
+            $this->tanpaJejakWaktu($lampiranKosong),
+            $this->tanpaJejakWaktu($lampiranSetelah),
+            'Cetak Lampiran harus memuat coretan yang ditandai untuknya.'
+        );
+    }
+
+    /**
+     * Buang CreationDate/ModDate dan /ID dari byte PDF.
+     *
+     * Dua cetakan dokumen yang sama SELALU berbeda pada ketiga nilai itu bila
+     * dirender pada detik yang berlainan, dan itu membuat test ini gagal
+     * secara acak padahal isinya identik. Panjang ketiganya tetap, jadi
+     * membuangnya tidak menggeser offset apa pun di sisa berkas.
+     */
+    private function tanpaJejakWaktu(string $pdf): string
+    {
+        return (string) preg_replace(
+            ['/\/(?:Creation|Mod)Date \([^)]*\)/', '/\/ID \[<[^\]]*\]/'],
+            '',
+            $pdf
+        );
     }
 
     public function test_halaman_coret_menampilkan_daftar_dokumen_sesuai_jenis_npd(): void

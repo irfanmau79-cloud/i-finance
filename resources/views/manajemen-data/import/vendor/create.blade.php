@@ -9,7 +9,7 @@
     <div class="sub">
         Upload file Excel (.xlsx/.xls) dengan header: Nama, Rekening, NPWP, Status PKP (isi "PKP" atau "Non-PKP"), Jenis Usaha, Aktif.
         Nama yang sudah terdaftar akan DIPERBARUI (field lain menimpa data lama); Nama baru akan ditambahkan.
-        File akan ditampilkan sebagai <strong>preview</strong> dulu - belum ada yang tersimpan sampai Anda menekan Konfirmasi Simpan.
+        File akan ditampilkan sebagai diperiksa lebih dulu dulu - belum ada yang tersimpan sampai Anda menekan Konfirmasi Simpan.
     </div>
 
     @if ($errors->any())
@@ -37,7 +37,7 @@
 
         <div class="sub" style="margin-top:8px;">
             Batas: 5 MB, maksimum {{ number_format(\App\Models\VendorImport::MAKS_BARIS, 0, ',', '.') }} baris data per file.
-            Sesi preview berlaku {{ \App\Models\VendorImport::MENIT_KEDALUWARSA }} menit sebelum harus upload ulang.
+            Berkas yang sudah diunggah dapat diperiksa selama {{ \App\Models\VendorImport::MENIT_KEDALUWARSA }} menit sebelum perlu diunggah ulang.
         </div>
 
         <div class="nav" style="margin-top:16px;">

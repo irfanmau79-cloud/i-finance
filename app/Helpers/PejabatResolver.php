@@ -23,7 +23,7 @@ class PejabatResolver
 {
     public static function untukNpd(Npd $npd): array
     {
-        return self::untukSubKegiatan($npd->masterAnggaran->program, $npd->masterAnggaran->sub_kegiatan);
+        return self::untukSubKegiatan($npd->masterAnggaran->program_lengkap, $npd->masterAnggaran->sub_kegiatan_lengkap);
     }
 
     /**

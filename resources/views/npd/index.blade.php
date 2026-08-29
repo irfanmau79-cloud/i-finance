@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('activeNav', 'npd')
-@section('title', 'Pembuatan NPD')
+@section('title', 'Pembuatan Nota Pencairan Dana')
 
 @section('content')
 <div class="page-head">

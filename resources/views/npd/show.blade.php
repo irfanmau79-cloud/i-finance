@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('activeNav', $activeNav)
-@section('title', 'Detail NPD')
+@section('title', 'Detail Nota Pencairan Dana')
 
 @section('content')
 @if($npd->sumber_data === 'import_historis')
@@ -10,7 +10,7 @@
 </div>
 @endif
 <div class="dash-card wf-card">
-    <h3>Detail NPD &mdash; {{ \App\Models\Npd::JENIS_LABEL[$npd->jenis] ?? strtoupper($npd->jenis) }}</h3>
+    <h3>Detail Nota Pencairan Dana &mdash; {{ \App\Models\Npd::JENIS_LABEL[$npd->jenis] ?? strtoupper($npd->jenis) }}</h3>
     <div class="sub">{{ $npd->nomor_lengkap ?? 'Belum bernomor (masih Draft)' }}</div>
 
     @if (session('success'))
@@ -95,8 +95,8 @@
             <div class="gt">Sumber Dana</div>
             <div class="li"><span class="k">Program</span><span class="v">{{ $npd->masterAnggaran->program }}</span></div>
             <div class="li"><span class="k">Kegiatan</span><span class="v">{{ $npd->masterAnggaran->kegiatan }}</span></div>
-            <div class="li"><span class="k">Sub Kegiatan</span><span class="v">{{ $npd->masterAnggaran->sub_kegiatan }}</span></div>
-            <div class="li"><span class="k">Kode Rekening</span><span class="v">{{ $npd->masterAnggaran->kode_rekening }}</span></div>
+            <div class="li"><span class="k">Sub Kegiatan</span><span class="v">{{ $npd->masterAnggaran->sub_kegiatan_lengkap }}</span></div>
+            <div class="li"><span class="k">Kode Rekening</span><span class="v">{{ $npd->masterAnggaran->rekening_lengkap }}</span></div>
             <div class="li"><span class="k">Tagging</span><span class="v">{{ $npd->tagging_snapshot ?: ($npd->masterAnggaran->tagging->nama ?? '-') }}</span></div>
             <div class="li"><span class="k">Pagu</span><span class="v">Rp {{ number_format((float) $npd->masterAnggaran->pagu, 2, ',', '.') }}</span></div>
         </div>

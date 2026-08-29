@@ -2,11 +2,17 @@
 
 namespace App\Http\Requests;
 
+use App\Models\BantexSpj;
 use App\Models\SpjDetail;
-use App\Support\BidangOrganisasi;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
+/**
+ * Yang boleh diubah Pengelola SPJ dari Tabel Rincian SPJ hanya tiga: Lokasi
+ * Penyimpanan, Status SPJ, dan Catatan. Kolom lain (Bulan, Nomor SP, Nominal,
+ * Koordinator, Bidang, Uraian) sekarang MURNI hasil hitung dari data NPD dan
+ * ditampilkan baca-saja, jadi tidak lagi diterima dari formulir.
+ */
 class UpdateSpjDetailRequest extends FormRequest
 {
     public function authorize(): bool
@@ -17,14 +23,12 @@ class UpdateSpjDetailRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'bulan' => ['nullable', 'integer', 'between:1,12'],
-            'nomor_sp' => ['nullable', 'string', 'max:100'],
-            'nominal' => ['nullable', 'numeric', 'min:0'],
-            'koordinator' => ['nullable', 'string', 'max:255'],
-            'bidang' => ['nullable', Rule::in(BidangOrganisasi::SPJ)],
-            'uraian' => ['nullable', 'string', 'max:2000'],
-            'lokasi' => ['nullable', 'string', 'max:100', Rule::exists('bantex_spj', 'nama')->where('aktif', true)],
-            'status' => ['required', Rule::in([SpjDetail::STATUS_LENGKAP, SpjDetail::STATUS_BELUM_LENGKAP])],
+            // Lokasi disimpan sebagai label bernomor ("07 - PDTT Irban II"),
+            // jadi dicocokkan ke daftar label bantex aktif, bukan ke kolom nama.
+            'lokasi' => ['nullable', 'string', 'max:100', Rule::in(
+                BantexSpj::query()->where('aktif', true)->get()->map->label()->all()
+            )],
+            'status' => ['required', Rule::in(array_keys(SpjDetail::STATUS))],
             'catatan' => ['nullable', 'string', 'max:1000'],
         ];
     }
@@ -32,14 +36,8 @@ class UpdateSpjDetailRequest extends FormRequest
     public function attributes(): array
     {
         return [
-            'bulan' => 'Bulan',
-            'nomor_sp' => 'Nomor Surat Perintah',
-            'nominal' => 'Nominal',
-            'koordinator' => 'Koordinator',
-            'bidang' => 'Bidang',
-            'uraian' => 'Uraian',
-            'lokasi' => 'Lokasi',
-            'status' => 'Status',
+            'lokasi' => 'Lokasi Penyimpanan',
+            'status' => 'Status SPJ',
             'catatan' => 'Catatan',
         ];
     }

@@ -10,6 +10,7 @@ use App\Models\BantexSpj;
 use App\Models\Npd;
 use App\Models\SpjDetail;
 use App\Services\InventarisasiSpjService;
+use Illuminate\Http\JsonResponse;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -19,15 +20,19 @@ class InventarisasiSpjController extends Controller
 {
     public function storeBantex(Request $request): RedirectResponse
     {
+        // Nomor diseragamkan jadi dua digit SEBELUM divalidasi, supaya "9" dan
+        // "09" dianggap nomor yang sama dan yang kedua ditolak sebagai duplikat.
+        $request->merge(['nomor' => BantexSpj::normalNomor($request->input('nomor'))]);
+
         $data = $request->validate([
             'nama' => ['required', 'string', 'max:100', 'unique:bantex_spj,nama'],
-            'keterangan' => ['nullable', 'string', 'max:500'],
-        ]);
+            'nomor' => ['required', 'digits:2', 'unique:bantex_spj,nomor'],
+        ], [], ['nomor' => 'Nomor Penyimpanan', 'nama' => 'Nama Bantex/Box']);
 
         $bantex = BantexSpj::create($data + ['aktif' => true, 'dibuat_oleh' => $request->user()->id]);
-        AuditLog::catat('Tambah Bantex/Box SPJ', $bantex->nama);
+        AuditLog::catat('Tambah Bantex/Box SPJ', $bantex->label());
 
-        return back()->with('success', "Bantex/Box {$bantex->nama} berhasil ditambahkan.");
+        return back()->with('success', "Bantex/Box {$bantex->label()} berhasil ditambahkan.");
     }
 
     public function index(Request $request, InventarisasiSpjService $service): View
@@ -42,6 +47,14 @@ class InventarisasiSpjController extends Controller
             'inventaris' => $service->data($filters),
             'bolehEditDetail' => in_array($request->user()?->role, ['superadmin', 'bendahara_pengeluaran', 'bpp'], true),
         ]);
+    }
+
+    /** Rincian lengkap satu NPD untuk panel Edit - dimuat saat panelnya dibuka. */
+    public function rincian(Npd $npd, InventarisasiSpjService $service): JsonResponse
+    {
+        abort_unless($npd->status === 'Selesai', 404);
+
+        return response()->json($service->rincianNpd($npd));
     }
 
     public function store(StoreArsipSpjRequest $request, Npd $npd): RedirectResponse
@@ -66,7 +79,7 @@ class InventarisasiSpjController extends Controller
 
     public function updateDetail(UpdateSpjDetailRequest $request, Npd $npd): RedirectResponse
     {
-        abort_unless($npd->status === 'Selesai', 422, 'Tabel Detail SPJ hanya dapat diedit untuk NPD berstatus Selesai.');
+        abort_unless($npd->status === 'Selesai', 422, 'Tabel Rincian SPJ hanya dapat diedit untuk NPD berstatus Selesai.');
 
         $data = $request->validated();
 

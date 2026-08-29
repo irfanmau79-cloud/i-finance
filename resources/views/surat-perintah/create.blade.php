@@ -6,7 +6,7 @@
 @section('content')
 <div class="dash-card">
     <h3>Input Surat Perintah</h3>
-    <div class="sub">Lengkapi data Surat Perintah lalu unggah file PDF-nya.</div>
+    <div class="sub">Lengkapi data Surat Perintah lalu unggah berkas PDF-nya.</div>
 
     @if ($errors->any())
         <div class="err-box" style="display:block;">

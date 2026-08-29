@@ -11,9 +11,11 @@
   thead { display:table-header-group; }
   tr { page-break-inside:avoid; }
   th, td { border:1pt solid #000; padding:1.5pt 3pt; vertical-align:middle; word-wrap:break-word; overflow-wrap:break-word; }
-  th { background:#fff; text-align:center; font-size:6pt; font-weight:bold; line-height:1.1; }
+  th { background:#fff; text-align:center; font-size:5.6pt; font-weight:bold; line-height:1.1; }
   td { font-size:6.5pt; }
-  tr.drow1 td { height:32pt; }
+  tr.drow1 td { height:40pt; }
+  tr.bold td { height:28pt; }
+  th.rot { padding:1pt 0; text-rotate:90; }
   .num { text-align:right; white-space:nowrap; }
   .center { text-align:center; } .bold { font-weight:bold; }
 
@@ -26,9 +28,9 @@
 
   table.kop-mini { width:116pt; border-collapse:collapse; margin-bottom:0; }
   table.kop-mini td { border:none; border-bottom:1pt solid #000; padding:0 0 2pt; text-align:center; }
-  .kop-mini .l1 { font-size:5.5pt; font-weight:bold; }
-  .kop-mini .l2 { font-size:6pt; font-weight:bold; }
-  .kop-mini .l3 { font-size:4.4pt; }
+  .kopmini-l1 { font-size:5.5pt; font-weight:bold; }
+  .kopmini-l2 { font-size:6pt; font-weight:bold; }
+  .kopmini-l3 { font-size:4.4pt; }
 
   table.daftar-line { width:100%; border-collapse:collapse; margin:8pt 0; }
   table.daftar-line td { border:none; padding:0; vertical-align:top; }
@@ -40,17 +42,21 @@
 
   table.ttd { width:100%; border-collapse:collapse; margin-top:14pt; }
   table.ttd td { border:none; padding:0; width:50%; text-align:center; vertical-align:top; }
-  .ttd .role { margin-bottom:48pt; }
-  .ttd .nama { font-weight:bold; }
+  /* margin-bottom pada div di dalam sel tabel TIDAK dihormati mPDF -
+     jarak tanda tangan dibuat lewat sel setinggi 48pt (.ttd-jarak). */
+  .ttd-role { margin-bottom:0; }
+  table.ttd-jarak { width:100%; border-collapse:collapse; }
+  table.ttd-jarak td { height:48pt; border:none; padding:0; }
+  .ttd-nama { font-weight:bold; }
 </style>
 </head>
 <body>
   <table class="kop-mini">
     <tr><td>
-      <div class="l1">PEMERINTAH PROVINSI JAWA BARAT</div>
-      <div class="l2">INSPEKTORAT DAERAH</div>
-      <div class="l3">Jalan Surapati No. 4 Tlp. 4237174-4231567 Fax. 4231567</div>
-      <div class="l3">BANDUNG 40115</div>
+      <div class="kopmini-l1">PEMERINTAH PROVINSI JAWA BARAT</div>
+      <div class="kopmini-l2">INSPEKTORAT DAERAH</div>
+      <div class="kopmini-l3">Jalan Surapati No. 4 Tlp. 4237174-4231567 Fax. 4231567</div>
+      <div class="kopmini-l3">BANDUNG 40115</div>
     </td></tr>
   </table>
 
@@ -70,20 +76,21 @@
     </colgroup>
     <thead>
       <tr>
-        <th rowspan="2">NO</th>
-        <th rowspan="2">NAMA</th>
-        <th rowspan="2">Gol.</th>
+        {{-- Lebar dipasang LANGSUNG pada sel: mPDF mengabaikan <colgroup>. --}}
+        <th rowspan="2" style="width:5%;">NO</th>
+        <th rowspan="2" style="width:17%;">NAMA</th>
+        <th rowspan="2" style="width:5%;white-space:nowrap;">Gol.</th>
         <th colspan="6">RINCIAN PERHITUNGAN</th>
-        <th rowspan="2">JUMLAH YANG<br>DITERIMA</th>
-        <th rowspan="2">TANDA TANGAN</th>
+        <th rowspan="2" style="width:10%;">JUMLAH YANG<br>DITERIMA</th>
+        <th rowspan="2" style="width:15%;">TANDA TANGAN</th>
       </tr>
       <tr>
-        <th>VOL</th>
-        <th>SATUAN</th>
-        <th>JUMLAH<br>KONTRIBUSI</th>
-        <th>VOL</th>
-        <th>UANG MOOC<br>DIKLAT</th>
-        <th>JUMLAH UANG<br>KONTRIBUSI/<br>UANG MOOC<br>DIKLAT</th>
+        <th class="rot" style="width:4%;"><span>VOL</span></th>
+        <th style="width:10%;">SATUAN</th>
+        <th style="width:10%;">JUMLAH<br>KONTRIBUSI</th>
+        <th class="rot" style="width:4%;"><span>VOL</span></th>
+        <th style="width:10%;">UANG MOOC<br>DIKLAT</th>
+        <th style="width:10%;">JUMLAH UANG<br>KONTRIBUSI/<br>UANG MOOC<br>DIKLAT</th>
       </tr>
     </thead>
     <tbody>
@@ -97,15 +104,15 @@
     <tr>
       <td>
         <div style="height:14pt;"></div>
-        <div class="role">Setuju dibayar<br>Kuasa Pengguna Anggaran</div>
-        <div class="nama">{{ $kpa->nama }}</div>
+        <div class="ttd-role">Setuju dibayar<br>Kuasa Pengguna Anggaran</div><table class="ttd-jarak"><tr><td></td></tr></table>
+        <div class="ttd-nama">{{ $kpa->nama }}</div>
         <div>{{ $kpa->pangkat }}</div>
         <div>NIP. {{ $kpa->nip }}</div>
       </td>
       <td>
         <div style="text-align:right;padding-right:20pt;">Bandung, &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; {{ $bulanNpd }} {{ $npd->tahun }}</div>
-        <div class="role">Lunas dibayar<br>Bendahara Pengeluaran Pembantu</div>
-        <div class="nama">{{ $bpp->nama }}</div>
+        <div class="ttd-role">Lunas dibayar<br>Bendahara Pengeluaran Pembantu</div><table class="ttd-jarak"><tr><td></td></tr></table>
+        <div class="ttd-nama">{{ $bpp->nama }}</div>
         <div>{{ $bpp->pangkat }}</div>
         <div>NIP. {{ $bpp->nip }}</div>
       </td>

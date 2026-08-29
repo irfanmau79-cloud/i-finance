@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Npd;
+use App\Models\SuratPerintah;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -17,14 +18,24 @@ class StoreNpdPdRequest extends FormRequest
     {
         return [
             'master_anggaran_id' => ['required', Rule::exists('master_anggaran', 'id')->where('aktif', true)],
-            'surat_perintah_id' => ['nullable', Rule::exists('surat_perintah', 'id')->where('status', 'Diterima PPTK')],
+            // NPD Perjalanan Dinas WAJIB berangkat dari Surat Perintah - tidak
+            // boleh lagi dibuat lepas. SP-nya pun harus yang benar-benar layak
+            // jadi sumber: berjenis Uang Harian/Akomodasi, masih berstatus
+            // Diterima PPTK, dan penandanya sebagai sumber NPD masih menyala.
+            'surat_perintah_id' => ['required', Rule::exists('surat_perintah', 'id')
+                ->where('status', SuratPerintah::STATUS_DITERIMA_PPTK)
+                ->where('sumber_npd', true)
+                ->where('jenis_permintaan', SuratPerintah::JENIS_UANG_HARIAN)],
             'jenis_panjar' => ['required', Rule::in(Npd::JENIS_PANJAR_LIST)],
             'tanggal_npd' => ['required', 'date'],
             'bulan' => ['required', 'integer', 'between:1,12'],
-            'tahun' => ['required', 'integer', 'digits:4'],
+            // Selalu tahun anggaran berjalan - isiannya sudah dihapus dari
+            // formulir, tetapi tetap ditegakkan di sini.
+            'tahun' => ['required', 'integer', 'in:'.config('anggaran.tahun_aktif')],
 
-            'nomor_sp' => ['required', 'string', 'max:150'],
-            'tanggal_sp' => ['required', 'date'],
+            // 'nomor_sp' dan 'tanggal_sp' sengaja TIDAK divalidasi di sini:
+            // keduanya diambil langsung dari Surat Perintah yang dipilih
+            // (lihat NpdPdController), supaya tidak bisa dikarang lewat form.
             'uraian_sp' => ['required', 'string'],
             'berangkat_dari' => ['required', 'string', 'max:150'],
             'tujuan' => ['required', 'string', 'max:150'],
@@ -60,13 +71,11 @@ class StoreNpdPdRequest extends FormRequest
     {
         return [
             'master_anggaran_id' => 'Sumber Dana',
-            'surat_perintah_id' => 'Surat Perintah tertaut',
+            'surat_perintah_id' => 'Surat Perintah',
             'jenis_panjar' => 'Jenis NPD',
             'tanggal_npd' => 'Tanggal NPD',
             'bulan' => 'Bulan',
             'tahun' => 'Tahun',
-            'nomor_sp' => 'Nomor SP',
-            'tanggal_sp' => 'Tanggal SP',
             'uraian_sp' => 'Uraian/Maksud Perjalanan',
             'berangkat_dari' => 'Berangkat Dari',
             'tujuan' => 'Tujuan',

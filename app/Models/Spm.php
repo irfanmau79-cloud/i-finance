@@ -198,7 +198,7 @@ class Spm extends Model
             $sisaTersedia = $masterAnggaran->sisaTersedia() + ($nominalLama[$masterAnggaranId] ?? 0.0);
 
             if ($nominal > $sisaTersedia) {
-                $labelAnggaran = $masterAnggaran->kode_rekening;
+                $labelAnggaran = $masterAnggaran->rekening_lengkap;
 
                 throw new RuntimeException(sprintf(
                     'SPM LS sebesar %s pada mata anggaran %s melebihi sisa tersedia %s.',

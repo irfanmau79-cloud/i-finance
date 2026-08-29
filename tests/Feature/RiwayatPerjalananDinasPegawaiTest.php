@@ -7,6 +7,7 @@ use App\Models\Npd;
 use App\Models\Pegawai;
 use App\Models\SuratPerintah;
 use App\Models\User;
+use App\Services\RiwayatPerjalananDinasPegawaiService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -42,7 +43,7 @@ class RiwayatPerjalananDinasPegawaiTest extends TestCase
         $kd = $this->npd('kd', '2026-03-20', ['mode_kd' => 'perjalanan']);
         $kd->peserta()->create(['pegawai_id' => $pegawai->id, 'nama' => $pegawai->nama, 'hari_uh' => 2, 'tarif_uh' => 150_000]);
 
-        $riwayat = app(\App\Services\RiwayatPerjalananDinasPegawaiService::class)->riwayat($pegawai, [], 1);
+        $riwayat = app(RiwayatPerjalananDinasPegawaiService::class)->riwayat($pegawai, [], 1);
 
         $this->assertSame(3, $riwayat['ringkasan']['total_npd']);
         $urutan = collect($riwayat['halaman']->items())->pluck('npd_id')->all();
@@ -58,7 +59,7 @@ class RiwayatPerjalananDinasPegawaiTest extends TestCase
         $pd->tim()->create(['pegawai_id' => $satu->id, 'nama' => $satu->nama, 'tiket' => 100_000]);
         $pd->tim()->create(['pegawai_id' => $dua->id, 'nama' => $dua->nama, 'tiket' => 300_000]);
 
-        $riwayat = app(\App\Services\RiwayatPerjalananDinasPegawaiService::class)->riwayat($satu, [], 1);
+        $riwayat = app(RiwayatPerjalananDinasPegawaiService::class)->riwayat($satu, [], 1);
 
         $this->assertSame(100_000.0, $riwayat['halaman']->items()[0]['nominal_bagian']);
         $this->assertNotSame((float) $pd->nominal, $riwayat['halaman']->items()[0]['nominal_bagian']);
@@ -70,7 +71,7 @@ class RiwayatPerjalananDinasPegawaiTest extends TestCase
         $pd = $this->npd('pd', '2026-01-10');
         $pd->tim()->create(['pegawai_id' => null, 'nama' => 'Budi Snapshot', 'tiket' => 100_000]);
 
-        $riwayat = app(\App\Services\RiwayatPerjalananDinasPegawaiService::class)->riwayat($pegawai, [], 1);
+        $riwayat = app(RiwayatPerjalananDinasPegawaiService::class)->riwayat($pegawai, [], 1);
 
         $this->assertSame(1, $riwayat['ringkasan']['total_npd']);
         $this->assertTrue($riwayat['halaman']->items()[0]['kecocokan_nama']);
@@ -90,7 +91,7 @@ class RiwayatPerjalananDinasPegawaiTest extends TestCase
         $pdTanpaSp = $this->npd('pd', '2026-01-11');
         $pdTanpaSp->tim()->create(['pegawai_id' => $pegawai->id, 'nama' => $pegawai->nama, 'tiket' => 100_000]);
 
-        $riwayat = app(\App\Services\RiwayatPerjalananDinasPegawaiService::class)->riwayat($pegawai, [], 1);
+        $riwayat = app(RiwayatPerjalananDinasPegawaiService::class)->riwayat($pegawai, [], 1);
         $items = collect($riwayat['halaman']->items())->keyBy('npd_id');
 
         $this->assertSame('SP-001', $items[$pdDenganSp->id]['nomor_sp']);
@@ -107,7 +108,7 @@ class RiwayatPerjalananDinasPegawaiTest extends TestCase
         $tr = $this->npd('tr', '2026-06-15', ['status' => 'Draft NPD - PPTK']);
         $tr->tim()->create(['pegawai_id' => $pegawai->id, 'nama' => $pegawai->nama, 'tiket' => 50_000]);
 
-        $service = app(\App\Services\RiwayatPerjalananDinasPegawaiService::class);
+        $service = app(RiwayatPerjalananDinasPegawaiService::class);
 
         $hasilJenis = $service->riwayat($pegawai, ['jenis' => 'tr'], 1);
         $this->assertSame(1, $hasilJenis['ringkasan']['total_npd']);
@@ -129,7 +130,7 @@ class RiwayatPerjalananDinasPegawaiTest extends TestCase
             $pd->tim()->create(['pegawai_id' => $pegawai->id, 'nama' => $pegawai->nama, 'tiket' => 10_000]);
         }
 
-        $service = app(\App\Services\RiwayatPerjalananDinasPegawaiService::class);
+        $service = app(RiwayatPerjalananDinasPegawaiService::class);
         $halaman1 = $service->riwayat($pegawai, [], 1);
         $halaman2 = $service->riwayat($pegawai, [], 2);
 

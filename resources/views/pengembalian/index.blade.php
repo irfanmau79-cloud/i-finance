@@ -6,7 +6,7 @@
 @section('content')
 <div class="dash-card wf-card">
     <h3>Daftar Pengembalian</h3>
-    <div class="sub">Pengurang realisasi aktual dari NPD Selesai atau SPM LS. Data SP2D/NPD/SPM sumber tidak pernah diubah — hanya efektif setelah disetujui.</div>
+    <div class="sub">Pencatatan dana yang dikembalikan ke kas daerah. Nilainya mengurangi realisasi setelah disetujui Bendahara Pengeluaran; dokumen sumbernya tetap utuh.</div>
 
     @if (session('success'))
         <div class="sumbar ok"><span>{{ session('success') }}</span></div>
@@ -53,7 +53,7 @@
                         $nomorDokumen = $p->dokumen_tipe === 'npd'
                             ? ($npdMap[$p->dokumen_id]->nomor_lengkap ?? '(Draft #'.$p->dokumen_id.')')
                             : ($spmMap[$p->dokumen_id]->nomor_dokumen ?? '#'.$p->dokumen_id);
-                        $subKegiatan = $p->detail->map(fn ($d) => $d->masterAnggaran?->sub_kegiatan)->filter()->unique()->implode(', ');
+                        $subKegiatan = $p->detail->map(fn ($d) => $d->masterAnggaran?->sub_kegiatan_lengkap)->filter()->unique()->implode(', ');
                         $bolehKelola = $p->dibuat_oleh === auth()->id() || $bolehSetujui;
                     @endphp
                     <tr>

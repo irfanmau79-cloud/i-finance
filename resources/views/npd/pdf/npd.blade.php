@@ -12,8 +12,11 @@
   .kop .logo { width:70pt; text-align:center; }
   .kop .logo img { width:58pt; height:auto; }
   .kop .titles { text-align:left; font-family:'Arial Narrow', Arial, sans-serif; }
-  .kop .titles .l1 { font-size:12pt; font-weight:bold; }
-  .kop .titles .l2 { font-size:11pt; font-weight:bold; margin-top:2pt; }
+  /* Kelas langsung, bukan turunan tiga tingkat: mPDF tidak menerapkan
+     `.kop .titles .l1` pada isi sel tabel, sehingga kopnya tercetak 9pt
+     biasa - bukan 12pt/11pt tebal seperti dokumen aslinya. */
+  .kop-l1 { font-size:12pt; font-weight:bold; }
+  .kop-l2 { font-size:11pt; font-weight:bold; margin-top:2pt; }
   .kop .sp { width:70pt; }
 
   table.head-meta { width:100%; border-collapse:collapse; margin:10pt 0 6pt; }
@@ -27,9 +30,19 @@
   table.drow td.s { width:8pt; }
   table.drow td.v { font-weight:bold; }
 
-  span.box { display:inline-block; width:11pt; height:11pt; border:1pt solid #000; text-align:center; line-height:10pt; margin-right:4pt; font-weight:bold; }
+  /* mPDF tidak menghormati width/height pada span inline-block, sehingga
+     kotaknya tercetak sebagai garis pipih. Dipakai sel tabel kecil yang
+     memang punya ukuran nyata. */
+  table.kotak { display:inline-table; width:11pt; border-collapse:collapse; margin-right:4pt; vertical-align:middle; }
+  /* Tanda centang WAJIB memakai DejaVu: Arial tidak punya U+2713, sehingga
+     dengan font bawaan dokumen kotaknya tercetak sebagai kotak .notdef kosong
+     - bukan centang. Hanya karakter ini yang dikecualikan. */
+  .centang { font-family: dejavusanscondensed, sans-serif; font-weight:bold; font-size:9pt; }
+  table.kotak td { width:11pt; height:11pt; border:1pt solid #000; text-align:center; vertical-align:middle;
+    font-size:8pt; font-weight:bold; line-height:1; padding:0; }
   table.jenis-row { width:100%; border-collapse:collapse; margin:6pt 0; }
-  table.jenis-row td { vertical-align:middle; padding:0; border:none; width:50%; }
+  table.jenis-row { table-layout:fixed; }
+  table.jenis-row td { vertical-align:middle; padding:0; border:none; }
   .jenis-row .jl { display:inline-block; width:130pt; }
   .jenis-row .js { display:inline-block; width:8pt; }
 
@@ -49,8 +62,12 @@
 
   table.ttd { width:100%; border-collapse:collapse; margin-top:30pt; }
   table.ttd td { width:50%; text-align:center; vertical-align:top; padding:0; border:none; }
-  .ttd .role { margin-bottom:56pt; }
-  .ttd .nama { font-weight:bold; }
+  /* margin-bottom pada div di dalam sel tabel TIDAK dihormati mPDF -
+     jarak tanda tangan dibuat lewat sel setinggi 56pt (.ttd-jarak). */
+  .ttd-role { margin-bottom:0; }
+  table.ttd-jarak { width:100%; border-collapse:collapse; }
+  table.ttd-jarak td { height:56pt; border:none; padding:0; }
+  .ttd-nama { font-weight:bold; }
 </style>
 </head>
 <body>
@@ -63,8 +80,8 @@
         @endif
       </td>
       <td class="titles">
-        <div class="l1">INSPEKTORAT DAERAH PROVINSI JAWA BARAT</div>
-        <div class="l2">NOTA PENCAIRAN DANA (NPD)</div>
+        <div class="kop-l1">INSPEKTORAT DAERAH PROVINSI JAWA BARAT</div>
+        <div class="kop-l2">NOTA PENCAIRAN DANA (NPD)</div>
       </td>
       <td class="sp"></td>
     </tr>
@@ -80,19 +97,19 @@
   <div class="detail">
     <table class="jenis-row">
       <tr>
-        <td>
-          <span class="jl">Jenis NPD</span><span class="js">:</span><span class="box">{!! $npd->jenis_panjar === 'Panjar' ? '&#10003;' : '&nbsp;' !!}</span><b>Panjar</b>
-        </td>
-        <td>
-          <span class="box">{!! $npd->jenis_panjar === 'Tanpa Panjar' ? '&#10003;' : '&nbsp;' !!}</span><b>Tanpa Panjar</b>
-        </td>
+        <td style="width:130pt;">Jenis NPD</td>
+        <td style="width:5pt;">:</td>
+        <td style="width:18pt;"><table class="kotak"><tr><td>{!! $npd->jenis_panjar === 'Panjar' ? '<span class="centang">&#10003;</span>' : '&nbsp;' !!}</td></tr></table></td>
+        <td style="width:110pt;"><b>Panjar</b></td>
+        <td style="width:14pt;"><table class="kotak"><tr><td>{!! $npd->jenis_panjar === 'Tanpa Panjar' ? '<span class="centang">&#10003;</span>' : '&nbsp;' !!}</td></tr></table></td>
+        <td><b>Tanpa Panjar</b></td>
       </tr>
     </table>
     <table class="drow">
       <tr><td class="k">PPTK</td><td class="s">:</td><td class="v">{{ $pptk->nama }}</td></tr>
-      <tr><td class="k">Program</td><td class="s">:</td><td class="v">{{ $npd->masterAnggaran->program }}</td></tr>
-      <tr><td class="k">Kegiatan</td><td class="s">:</td><td class="v">{{ $npd->masterAnggaran->kegiatan }}</td></tr>
-      <tr><td class="k">Sub Kegiatan</td><td class="s">:</td><td class="v">{{ $npd->masterAnggaran->sub_kegiatan }}</td></tr>
+      <tr><td class="k">Program</td><td class="s">:</td><td class="v">{{ $npd->masterAnggaran->program_lengkap }}</td></tr>
+      <tr><td class="k">Kegiatan</td><td class="s">:</td><td class="v">{{ $npd->masterAnggaran->kegiatan_lengkap }}</td></tr>
+      <tr><td class="k">Sub Kegiatan</td><td class="s">:</td><td class="v">{{ $npd->masterAnggaran->sub_kegiatan_lengkap }}</td></tr>
       <tr><td class="k">No. DPA</td><td class="s">:</td><td class="v">{{ $noDpa }}</td></tr>
       <tr><td class="k">Tahun Anggaran</td><td class="s">:</td><td class="v">{{ $npd->tahun }}</td></tr>
       <tr><td class="k">Nominal</td><td class="s">:</td><td class="v">Rp{{ fmt_rupiah($npd->nominal) }}</td></tr>
@@ -141,14 +158,14 @@
   <table class="ttd">
     <tr>
       <td>
-        <div class="role">Disetujui oleh,<br>Kuasa Pengguna Anggaran</div>
-        <div class="nama">{{ $kpa->nama }}</div>
+        <div class="ttd-role">Disetujui oleh,<br>Kuasa Pengguna Anggaran</div><table class="ttd-jarak"><tr><td></td></tr></table>
+        <div class="ttd-nama">{{ $kpa->nama }}</div>
         <div>{{ $kpa->pangkat }}</div>
         <div>NIP. {{ $kpa->nip }}</div>
       </td>
       <td>
-        <div class="role">Disiapkan oleh,<br>Pejabat Pelaksana Teknis Kegiatan</div>
-        <div class="nama">{{ $pptk->nama }}</div>
+        <div class="ttd-role">Disiapkan oleh,<br>Pejabat Pelaksana Teknis Kegiatan</div><table class="ttd-jarak"><tr><td></td></tr></table>
+        <div class="ttd-nama">{{ $pptk->nama }}</div>
         <div>{{ $pptk->pangkat }}</div>
         <div>NIP. {{ $pptk->nip }}</div>
       </td>

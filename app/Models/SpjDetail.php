@@ -34,6 +34,23 @@ class SpjDetail extends Model
 
     public const STATUS_BELUM_LENGKAP = 'belum_lengkap';
 
+    public const STATUS_DIKEMBALIKAN = 'dikembalikan';
+
+    public const STATUS_TIDAK_DITEMUKAN = 'tidak_ditemukan';
+
+    /** Nilai status yang sah beserta labelnya. Urutannya = urutan dropdown. */
+    public const STATUS = [
+        self::STATUS_LENGKAP => 'Lengkap',
+        self::STATUS_BELUM_LENGKAP => 'Belum Lengkap',
+        self::STATUS_DIKEMBALIKAN => 'Dikembalikan',
+        self::STATUS_TIDAK_DITEMUKAN => 'Tidak Ditemukan',
+    ];
+
+    public static function labelStatus(?string $status): string
+    {
+        return self::STATUS[$status] ?? self::STATUS[self::STATUS_BELUM_LENGKAP];
+    }
+
     protected function casts(): array
     {
         return [

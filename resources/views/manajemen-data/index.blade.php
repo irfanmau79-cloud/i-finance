@@ -11,7 +11,7 @@
     </div>
 </div>
 
-<div class="sub" style="margin-bottom:16px;">Import dan export data master/transaksi lewat file Excel (.xlsx). Setiap import ditampilkan sebagai preview dulu (baru/update/ditolak) sebelum dikonfirmasi simpan; setiap unduhan/import tercatat di Log Aktivitas.</div>
+<div class="sub" style="margin-bottom:16px;">Mengunduh dan mengunggah data pokok lewat berkas Excel. Setiap unggahan ditampilkan lebih dulu untuk diperiksa sebelum disimpan.</div>
 
 @if (session('success'))
     <div class="sumbar ok" style="margin-bottom:16px;"><span>{{ session('success') }}</span></div>
@@ -42,14 +42,27 @@
                 ? route($meta['import_template'][0], $meta['import_template'][1])
                 : ($key === 'rak' ? $exportHref : null);
             $resetKeywordIni = $resetKeyword[$key] ?? null;
+            // Judul kartu Pagu sekaligus pintu masuk ke riwayat versi pagu
+            // (DPA Murni, DPA Pergeseran, ...). Sengaja lewat judul, bukan
+            // tombol kelima, supaya deretan tombol tetap seragam antar kartu.
+            $judulHref = $key === 'pagu' ? route('versi-pagu.index') : null;
         @endphp
         <div class="dash-card">
-            <h3 style="margin-bottom:10px;">{{ $meta['label'] }}</h3>
+            <h3 style="margin-bottom:{{ $judulHref ? '2px' : '10px' }};">
+                @if ($judulHref)
+                    <a href="{{ $judulHref }}" style="color:inherit;text-decoration:none;">{{ $meta['label'] }}</a>
+                @else
+                    {{ $meta['label'] }}
+                @endif
+            </h3>
+            @if ($judulHref)
+                <div class="sub" style="margin:0 0 10px;">Klik judul untuk melihat rincian dan histori pagu.</div>
+            @endif
             <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;">
-                @if ($templateHref && $bolehImport)
+                @if ($templateHref && ($bolehImport || ! $meta['import_create']))
                     <a href="{{ $templateHref }}" class="btn" style="white-space:nowrap;">Unduh Template</a>
                 @endif
-                @if ($bolehImport)
+                @if ($meta['import_create'] && $bolehImport)
                     <a href="{{ route($meta['import_create'][0], $meta['import_create'][1]) }}" class="btn" style="white-space:nowrap;">Import Excel</a>
                 @endif
                 <a href="{{ $exportHref }}" class="btn prim" style="white-space:nowrap;">Unduh Excel</a>
@@ -60,12 +73,12 @@
                 @endif
             </div>
             @if ($key === 'rak' && $bolehImport)
-                <div class="sub" style="margin-top:8px;margin-bottom:0;">Template RAK sama dengan hasil Export (baris Sub Kegiatan/Kode Rekening terisi otomatis dari Master Anggaran aktif, kolom bulan kosong siap diisi).</div>
+                <div class="sub" style="margin-top:8px;margin-bottom:0;">Templatenya sama dengan hasil unduhan: mata anggarannya sudah terisi, kolom bulanan tinggal dilengkapi.</div>
             @endif
-            @if (($meta['import_note'] ?? null) && $bolehImport)
+            @if (($meta['import_note'] ?? null) && ($bolehImport || ! $meta['import_create']))
                 <div class="sub" style="margin-top:8px;margin-bottom:0;">{{ $meta['import_note'] }}</div>
             @endif
-            @if ($butuhSuperadmin && ! $bolehImport)
+            @if ($butuhSuperadmin && ! $bolehImport && $meta['import_create'])
                 <div class="sub" style="margin-top:8px;margin-bottom:0;">Import khusus Superadmin.</div>
             @endif
 

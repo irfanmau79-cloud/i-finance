@@ -2,11 +2,11 @@
 
 @section('activeNav', 'spm-upgu')
 @php($spmEdit = $spm ?? null)
-@section('title', $spmEdit ? 'Edit SPM UP/GU' : 'Buat SPM UP/GU')
+@section('title', $spmEdit ? 'Edit Realisasi SP2D UP/GU/TU' : 'Buat Realisasi SP2D UP/GU/TU')
 
 @section('content')
 <div class="dash-card">
-    <h3>{{ $spmEdit ? 'Edit' : 'Buat' }} SPM UP/GU</h3>
+    <h3>{{ $spmEdit ? 'Edit' : 'Buat' }} Realisasi SP2D UP/GU/TU</h3>
     <div class="sub">Pengisian ulang kas — tidak memilih mata anggaran dan tidak mengurangi pagu.</div>
 
     @if ($errors->any())

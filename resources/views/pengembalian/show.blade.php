@@ -43,7 +43,7 @@
             <div class="gt">Breakdown Mata Anggaran ({{ $pengembalian->detail->count() }})</div>
             @forelse ($pengembalian->detail as $baris)
                 <div class="li">
-                    <span class="k">{{ $baris->masterAnggaran?->kode_rekening_bersih }} &mdash; {{ $baris->masterAnggaran?->sub_kegiatan }}</span>
+                    <span class="k">{{ $baris->masterAnggaran?->kode_rekening }} &mdash; {{ $baris->masterAnggaran?->sub_kegiatan_lengkap }}</span>
                     <span class="v">Rp {{ number_format((float) $baris->nominal, 2, ',', '.') }}</span>
                 </div>
             @empty

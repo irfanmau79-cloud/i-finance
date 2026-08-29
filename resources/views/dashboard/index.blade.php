@@ -5,7 +5,7 @@
 
 @section('content')
 <style>
-  .dr-filter{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:12px;align-items:end}.dr-filter label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:5px}.dr-filter select{width:100%;max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}.dr-filter-actions{display:flex;gap:8px}.dr-filter-actions .btn{padding:9px 14px;white-space:nowrap}
+  .dr-filter{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:12px;align-items:end}.dr-filter label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:5px}.dr-filter-actions{display:flex;gap:8px}.dr-filter-actions .btn{padding:9px 14px;white-space:nowrap}
   .dr-donut{height:250px}.dr-notice{border-radius:10px;padding:11px 13px;margin:0 0 16px;font-size:13px;background:var(--warn-bg);color:var(--warn);border:1px solid #f0dcae}.dr-danger{background:var(--err-bg);color:var(--err);border-color:#f1b9b5}
   .dr-table-wrap{width:100%;max-width:100%;overflow-x:hidden}.dr-table{width:100%;min-width:0;table-layout:fixed}.dr-table th:first-child{width:28%}.dr-table th:not(:first-child){width:12%}.dr-table th a{display:inline-flex;max-width:100%;gap:4px;color:inherit;text-decoration:none;white-space:normal;overflow-wrap:anywhere}.dr-table th.num,.dr-table td.num{text-align:right;white-space:normal;overflow-wrap:anywhere}.dr-table .sub-name{font-weight:700;color:var(--navy);min-width:0;overflow-wrap:anywhere}.dr-table .program{display:block;color:var(--mut);font-size:11px;font-weight:400;margin-top:2px;overflow-wrap:anywhere}.dr-positive{color:var(--ok);font-weight:700}.dr-negative{color:var(--err);font-weight:700}.dr-empty{text-align:center;color:var(--mut);padding:36px 12px}
   @media(max-width:720px){.dr-filter{grid-template-columns:1fr}}
@@ -44,8 +44,34 @@
 
 <div class="dash-card">
   <form method="GET" action="{{ route('dashboard.index') }}" class="dr-filter" id="dr-filter-form">
-    <div><label for="dr-sub">Sub Kegiatan</label><select name="sub_kegiatan" id="dr-sub"><option value="">Semua Sub Kegiatan</option>@foreach($pilihan['sub_kegiatan'] as $option)<option value="{{ $option['value'] }}" title="{{ $option['label'] }}" @selected($filters['sub_kegiatan'] === $option['value'])>{{ $option['label'] }}</option>@endforeach</select></div>
-    <div><label for="dr-kode">Kode Rekening</label><select name="kode_rekening" id="dr-kode"><option value="">Semua Kode Rekening</option>@foreach($pilihan['kode_rekening_berlabel'] as $opsi)<option value="{{ $opsi['value'] }}" title="{{ $opsi['label'] }}" @selected($filters['kode_rekening'] === $opsi['value'])>{{ $opsi['label'] }}</option>@endforeach</select></div>
+    @php
+      $labelTerpilih = function (array $daftar, string $nilai) {
+          foreach ($daftar as $item) {
+              if ((string) $item['value'] === $nilai) return $item['label'];
+          }
+          return '';
+      };
+    @endphp
+    <div>
+      <label for="dr-sub-inp">Sub Kegiatan</label>
+      <div class="kombo" id="dr-sub-wrap" data-semua="Semua Sub Kegiatan">
+        <input type="text" class="kb-inp" id="dr-sub-inp" autocomplete="off" role="combobox" aria-expanded="false"
+               placeholder="Semua Sub Kegiatan" value="{{ $labelTerpilih($pilihan['sub_kegiatan']->all(), $filters['sub_kegiatan']) }}">
+        <svg class="kb-chev" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        <input type="hidden" name="sub_kegiatan" id="dr-sub" value="{{ $filters['sub_kegiatan'] }}">
+        <div class="kb-drop" id="dr-sub-drop" role="listbox"></div>
+      </div>
+    </div>
+    <div>
+      <label for="dr-kode-inp">Kode Rekening</label>
+      <div class="kombo" id="dr-kode-wrap" data-semua="Semua Kode Rekening">
+        <input type="text" class="kb-inp" id="dr-kode-inp" autocomplete="off" role="combobox" aria-expanded="false"
+               placeholder="Semua Kode Rekening" value="{{ $labelTerpilih($pilihan['kode_rekening_berlabel']->all(), $filters['kode_rekening']) }}">
+        <svg class="kb-chev" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+        <input type="hidden" name="kode_rekening" id="dr-kode" value="{{ $filters['kode_rekening'] }}">
+        <div class="kb-drop" id="dr-kode-drop" role="listbox"></div>
+      </div>
+    </div>
     <div class="dr-filter-actions"><button class="btn prim" type="submit">Terapkan</button><a class="btn" href="{{ route('dashboard.index') }}">Reset</a></div>
   </form>
 </div>
@@ -133,8 +159,78 @@
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
 <script>
 document.addEventListener('DOMContentLoaded', function () {
-  const form=document.getElementById('dr-filter-form'),sub=document.getElementById('dr-sub'),kode=document.getElementById('dr-kode');
-  sub.addEventListener('change',function(){kode.value='';form.submit();}); kode.addEventListener('change',function(){form.submit();});
+  const form=document.getElementById('dr-filter-form');
+
+  /**
+   * Combobox yang bisa diketik. Nilainya disimpan di input tersembunyi;
+   * memilih satu pilihan langsung mengirim formulir, sama seperti perilaku
+   * <select> sebelumnya - jadi tidak perlu menekan Terapkan.
+   */
+  function buatKombo(id, pilihan, saatPilih) {
+    const wrap = document.getElementById('dr-' + id + '-wrap');
+    const inp = document.getElementById('dr-' + id + '-inp');
+    const drop = document.getElementById('dr-' + id + '-drop');
+    const nilai = document.getElementById('dr-' + id);
+    const semua = [{value: '', label: wrap.dataset.semua}].concat(pilihan);
+    const esc = t => { const d = document.createElement('div'); d.textContent = t ?? ''; return d.innerHTML; };
+
+    let label = inp.value;
+    let sorot = -1;
+
+    const tampil = () => {
+      const q = inp.value.trim().toLowerCase();
+
+      return semua.filter(o => !q || q === label.toLowerCase() || o.label.toLowerCase().includes(q));
+    };
+
+    function gambar() {
+      const daftar = tampil();
+      drop.innerHTML = daftar.length
+        ? daftar.map((o, i) => '<div class="kb-item' + (String(o.value) === nilai.value ? ' terpilih' : '') +
+            (i === sorot ? ' sorot' : '') + '" role="option" data-nilai="' + esc(o.value) + '">' + esc(o.label) + '</div>').join('')
+        : '<div class="kb-kosong">Tidak ditemukan</div>';
+    }
+
+    function buka() { sorot = -1; gambar(); wrap.classList.add('buka'); inp.setAttribute('aria-expanded', 'true'); }
+    function tutup() { wrap.classList.remove('buka'); inp.setAttribute('aria-expanded', 'false'); inp.value = label; }
+
+    function pilih(v) {
+      nilai.value = v;
+      if (saatPilih) saatPilih();
+      form.submit();
+    }
+
+    inp.addEventListener('focus', buka);
+    inp.addEventListener('click', buka);
+    inp.addEventListener('input', function () { sorot = -1; gambar(); wrap.classList.add('buka'); });
+    inp.addEventListener('blur', () => setTimeout(tutup, 130));
+    inp.addEventListener('keydown', function (e) {
+      const daftar = tampil();
+      if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+        e.preventDefault();
+        if (!wrap.classList.contains('buka')) buka();
+        sorot = Math.min(Math.max(sorot + (e.key === 'ArrowDown' ? 1 : -1), 0), daftar.length - 1);
+        gambar();
+        const el = drop.querySelector('.kb-item.sorot');
+        if (el) el.scrollIntoView({block: 'nearest'});
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (daftar[sorot]) pilih(daftar[sorot].value);
+      } else if (e.key === 'Escape') { tutup(); inp.blur(); }
+    });
+    drop.addEventListener('mousedown', function (e) {
+      const item = e.target.closest('.kb-item[data-nilai]');
+      if (!item) return;
+      e.preventDefault();
+      pilih(item.dataset.nilai);
+    });
+  }
+
+  // Mengganti Sub Kegiatan mengosongkan Kode Rekening - kodenya menyempit
+  // mengikuti sub kegiatan, jadi pilihan lama belum tentu masih ada.
+  buatKombo('sub', {{ Illuminate\Support\Js::from($pilihan['sub_kegiatan']) }},
+    function () { document.getElementById('dr-kode').value = ''; });
+  buatKombo('kode', {{ Illuminate\Support\Js::from($pilihan['kode_rekening_berlabel']) }});
   if(typeof Chart==='undefined') return;
   const data={{ Illuminate\Support\Js::from($dashboard) }};
   const navy=(getComputedStyle(document.documentElement).getPropertyValue('--navy')||'').trim()||'#15314a';

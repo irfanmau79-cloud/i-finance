@@ -20,7 +20,9 @@ class StoreNpdBjRequest extends FormRequest
             'jenis_panjar' => ['required', Rule::in(Npd::JENIS_PANJAR_LIST)],
             'tanggal_npd' => ['required', 'date'],
             'bulan' => ['required', 'integer', 'between:1,12'],
-            'tahun' => ['required', 'integer', 'digits:4'],
+            // Selalu tahun anggaran berjalan - isiannya sudah dihapus dari
+            // formulir, tetapi tetap ditegakkan di sini.
+            'tahun' => ['required', 'integer', 'in:'.config('anggaran.tahun_aktif')],
 
             'penerima' => ['required', 'array', 'min:1'],
             'penerima.*.pegawai_id' => ['nullable', 'integer', 'exists:pegawai,id'],

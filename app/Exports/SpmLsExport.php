@@ -2,6 +2,7 @@
 
 namespace App\Exports;
 
+use App\Exports\Concerns\PunyaPetunjukKolom;
 use App\Models\SpmDetail;
 use Illuminate\Database\Eloquent\Builder;
 
@@ -14,14 +15,24 @@ use Illuminate\Database\Eloquent\Builder;
  * penjelasan lengkap kenapa format ini dipilih (harus tetap sinkron dengan
  * SpmUploadImport yang membacanya kembali).
  */
-class SpmLsExport extends DataManagementExport
+class SpmLsExport extends DataManagementExport implements PunyaPetunjukKolom
 {
+    public function petunjukCatatan(): string
+    {
+        return SpmLsTemplateExport::CATATAN;
+    }
+
+    public function petunjukKolom(): array
+    {
+        return SpmLsTemplateExport::PETUNJUK;
+    }
+
     public function query(): Builder
     {
         return SpmDetail::query()
             ->join('spm', 'spm.id', '=', 'spm_detail.spm_id')
             ->where('spm.jenis_spm', 'ls')
-            ->with(['spm.dibuatOleh', 'masterAnggaran.tagging'])
+            ->with(['spm', 'masterAnggaran.tagging'])
             ->orderByDesc('spm.tanggal_dokumen')
             ->orderByDesc('spm.id')
             ->orderBy('spm_detail.id')
@@ -30,12 +41,7 @@ class SpmLsExport extends DataManagementExport
 
     public function headings(): array
     {
-        return [
-            'Nomor Dokumen', 'Tanggal Dokumen', 'Nomor SP2D', 'Tanggal SP2D',
-            'Sub Kegiatan', 'Kode Rekening', 'Uraian Rekening', 'Tagging',
-            'Nominal', 'PPN', 'PPh 1', 'Jenis PPh 1', 'PPh 2', 'Jenis PPh 2',
-            'Penerima', 'Uraian', 'Dibuat Oleh', 'Dibuat Pada',
-        ];
+        return SpmLsTemplateExport::HEADERS;
     }
 
     /** @param  SpmDetail  $row */
@@ -44,24 +50,23 @@ class SpmLsExport extends DataManagementExport
         $spm = $row->spm;
 
         return [
-            $spm->nomor_dokumen,
             optional($spm->tanggal_dokumen)->format('Y-m-d'),
-            $spm->nomor_sp2d,
+            $spm->nomor_dokumen,
             optional($spm->tanggal_sp2d)->format('Y-m-d'),
+            $spm->nomor_sp2d,
+            $row->masterAnggaran?->kode_sub_kegiatan,
             $row->masterAnggaran?->sub_kegiatan,
-            $row->masterAnggaran?->kode_rekening_bersih,
-            $row->masterAnggaran?->uraian_rekening,
+            $row->masterAnggaran?->kode_rekening,
+            $row->masterAnggaran?->rekening,
             $row->masterAnggaran?->tagging?->nama,
             (float) $row->nominal,
             (float) $spm->ppn,
-            (float) $spm->pph1,
             $spm->jenis_pph1,
-            (float) $spm->pph2,
+            (float) $spm->pph1,
             $spm->jenis_pph2,
+            (float) $spm->pph2,
             $spm->penerima,
             $spm->uraian,
-            $spm->dibuatOleh?->username,
-            optional($spm->created_at)->format('Y-m-d H:i'),
         ];
     }
 }

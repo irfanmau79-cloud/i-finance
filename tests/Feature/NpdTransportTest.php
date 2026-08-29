@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
+use App\Models\SuratPerintah;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -155,6 +156,71 @@ class NpdTransportTest extends TestCase
         $showResponse->assertOk();
         $showResponse->assertSee('Anggota Pertama');
         $showResponse->assertSee($induk->nomor_lengkap ?? '#'.$induk->id);
+    }
+
+    private function buatSuratPerintah(string $nomor, string $jenis = SuratPerintah::JENIS_UANG_HARIAN, ?SuratPerintah $induk = null): SuratPerintah
+    {
+        return SuratPerintah::create([
+            'nomor_sp' => $nomor,
+            'tanggal_sp' => '2026-07-15',
+            'unit_kerja' => 'Sekretariat',
+            'lokasi' => 'Bandung',
+            'nama_pengirim' => 'Penguji',
+            'tujuan_transfer' => 'Rekening Penguji',
+            'irban_dibayar' => false,
+            'rincian_tgl_bayar' => '20 - 22 Juli 2026',
+            'keterangan' => 'Perjalanan pengujian',
+            'file_url' => 'sp/uji.pdf',
+            'status_sp' => 'Baru',
+            'status' => SuratPerintah::STATUS_DITERIMA_PPTK,
+            'jenis_permintaan' => $jenis,
+            'sp_induk_id' => $induk?->id,
+            'sumber_npd' => true,
+            'dipantau' => true,
+        ]);
+    }
+
+    /**
+     * NPD Transport tidak memilih Surat Perintah sendiri - ia MEWARISI tautan
+     * SP dari NPD Perjalanan Dinas induknya, sama seperti di GAS
+     * (buatNPDTransport: tautanNoSP = _fromSP).
+     */
+    public function test_transport_mewarisi_tautan_surat_perintah_dari_induknya(): void
+    {
+        $pptk = $this->buatUser('pptk', 'tr-warisi-sp');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $sp = $this->buatSuratPerintah('010/SP/INDUK/2026');
+
+        $induk = $this->buatIndukSelesai($masterAnggaran);
+        $induk->forceFill(['surat_perintah_id' => $sp->id])->save();
+
+        $this->actingAs($pptk)->post(route('npd.tr.store'), $this->payload($induk))->assertRedirect();
+
+        $transport = Npd::where('jenis', 'tr')->firstOrFail();
+        $this->assertSame($sp->id, $transport->surat_perintah_id);
+        $this->assertSame($induk->id, $transport->npd_induk_id);
+    }
+
+    /**
+     * Bila SP induk sudah punya entri "Reimburse Transportasi", NPD Transport
+     * ditautkan ke entri itu - bukan ke SP Uang Harian/Akomodasi-nya. Entri
+     * Reimburse memang dibuat khusus untuk pembayaran transportasi.
+     */
+    public function test_transport_menaut_ke_entri_reimburse_bila_ada(): void
+    {
+        $pptk = $this->buatUser('pptk', 'tr-reimburse');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $sp = $this->buatSuratPerintah('011/SP/INDUK/2026');
+        $reimburse = $this->buatSuratPerintah('011/SP/INDUK/2026 (Reimburse)', SuratPerintah::JENIS_REIMBURSE, $sp);
+
+        $induk = $this->buatIndukSelesai($masterAnggaran);
+        $induk->forceFill(['surat_perintah_id' => $sp->id])->save();
+
+        $this->actingAs($pptk)->post(route('npd.tr.store'), $this->payload($induk))->assertRedirect();
+
+        $transport = Npd::where('jenis', 'tr')->firstOrFail();
+        $this->assertSame($reimburse->id, $transport->surat_perintah_id);
+        $this->assertNotSame($sp->id, $transport->surat_perintah_id);
     }
 
     public function test_induk_harus_jenis_pd_dan_status_selesai(): void

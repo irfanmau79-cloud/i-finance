@@ -3,11 +3,13 @@
 namespace Tests\Feature;
 
 use App\Exports\SpmLsExport;
+use App\Exports\SpmLsTemplateExport;
 use App\Models\AuditLog;
 use App\Models\MasterAnggaran;
 use App\Models\Spm;
 use App\Models\SpmImport;
 use App\Models\SpmImportRow;
+use App\Models\Tagging;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
@@ -84,7 +86,7 @@ class SpmImportTest extends TestCase
             'tanggal_dokumen' => '2026-07-01',
             'nomor_sp2d' => '',
             'tanggal_sp2d' => '',
-            'sub_kegiatan' => $anggaran->sub_kegiatan,
+            'sub_kegiatan' => $anggaran->sub_kegiatan_lengkap,
             'kode_rekening' => $anggaran->kode_rekening_bersih,
             'uraian_rekening' => $anggaran->uraian_rekening,
             'tagging' => '',
@@ -398,12 +400,13 @@ class SpmImportTest extends TestCase
             'uraian' => 'Uji roundtrip export-import',
         ]);
 
+        // Header diambil dari export itu sendiri - inti test ini adalah
+        // hasil unduhan bisa diunggah kembali apa adanya, jadi jangan
+        // dipatok ke daftar kolom versi lama.
         $export = new SpmLsExport;
-        $baris = $export->query()->get()
-            ->map(fn ($row) => array_slice($export->map($row), 0, count(self::HEADER_LS)))
-            ->all();
+        $baris = $export->query()->get()->map(fn ($row) => $export->map($row))->all();
 
-        $file = $this->buatFileExcel(self::HEADER_LS, $baris);
+        $file = $this->buatFileExcel($export->headings(), $baris);
 
         $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.store', 'spm-ls'), ['file' => $file]);
         $import = SpmImport::latest('id')->firstOrFail();
@@ -420,5 +423,137 @@ class SpmImportTest extends TestCase
         $spm = Spm::where('nomor_dokumen', '900/SPM-LS/2026')->firstOrFail();
         $this->assertSame(2, $spm->detail()->count());
         $this->assertEquals(3_000_000.0, $spm->totalNominal());
+    }
+
+    // ---------------- Template UP/GU enam kolom ----------------
+
+    /** Template UP/GU sekarang: Tanggal SPM, Nomor SPM, Tanggal SP2D, Nomor SP2D, Nominal, Uraian. */
+    public function test_template_up_gu_enam_kolom_diterima(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+
+        $file = $this->buatFileExcel(
+            ['Tanggal SPM', 'Nomor SPM', 'Tanggal SP2D', 'Nomor SP2D', 'Nominal', 'Uraian'],
+            [['2026-07-01', '001/SPM-UP/2026', '2026-07-02', 'SP2D-001', 3_000_000, 'Pengisian UP']]
+        );
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.store', 'spm-up-gu'), ['file' => $file]);
+        $import = SpmImport::latest('id')->firstOrFail();
+
+        $this->assertSame(1, $import->jumlah_baru);
+        $this->assertSame(0, $import->jumlah_ditolak);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.konfirmasi', $import));
+
+        $spm = Spm::where('jenis_spm', 'up_gu')->firstOrFail();
+        $this->assertSame('001/SPM-UP/2026', $spm->nomor_dokumen);
+        $this->assertSame('2026-07-01', $spm->tanggal_dokumen->format('Y-m-d'));
+        $this->assertSame('SP2D-001', $spm->nomor_sp2d);
+        $this->assertEquals(3_000_000.0, (float) $spm->nominal);
+        $this->assertSame('Pengisian UP', $spm->uraian);
+
+        // Kolom di luar template tidak dibawa berkas - dokumen baru mulai nol.
+        $this->assertEquals(0.0, (float) $spm->ppn);
+        $this->assertNull($spm->penerima);
+    }
+
+    /** Import UP/GU tidak boleh menghapus Penerima/PPN yang diisi lewat form. */
+    public function test_import_up_gu_tidak_menimpa_penerima_dan_pajak_yang_sudah_ada(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+
+        $spm = Spm::buatUpGu([
+            'tanggal_dokumen' => '2026-07-01',
+            'nomor_dokumen' => '001/SPM-UP/2026',
+            'nominal' => 3_000_000,
+            'penerima' => 'BPP Uji',
+            'uraian' => 'Pengisian UP',
+        ]);
+        $spm->update(['ppn' => 250_000]);
+
+        $file = $this->buatFileExcel(
+            ['Tanggal SPM', 'Nomor SPM', 'Tanggal SP2D', 'Nomor SP2D', 'Nominal', 'Uraian'],
+            [['2026-07-01', '001/SPM-UP/2026', '2026-07-02', 'SP2D-009', 4_500_000, 'Pengisian UP tahap 2']]
+        );
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.store', 'spm-up-gu'), ['file' => $file]);
+        $import = SpmImport::latest('id')->firstOrFail();
+        $this->assertSame(1, $import->jumlah_update);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.konfirmasi', $import));
+
+        $spm->refresh();
+        $this->assertEquals(4_500_000.0, (float) $spm->nominal);
+        $this->assertSame('SP2D-009', $spm->nomor_sp2d);
+        $this->assertSame('Pengisian UP tahap 2', $spm->uraian);
+
+        // Tidak ikut tertimpa karena tidak ada di template UP/GU.
+        $this->assertSame('BPP Uji', $spm->penerima);
+        $this->assertEquals(250_000.0, (float) $spm->ppn);
+    }
+
+    // ---------------- Template LS kode terpisah ----------------
+
+    /**
+     * Template LS sekarang memisahkan kode dari namanya dan menamai kolom
+     * pajaknya "Jenis PPh 1 / Nominal PPh 1" (dan seterusnya). Tagging tetap
+     * ada karena identitas mata anggaran memang mencakupnya.
+     */
+    public function test_template_ls_kode_terpisah_diterima(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $tagging = Tagging::create(['nama' => 'Tagging LS Uji', 'aktif' => true]);
+        $anggaran = $this->buatMasterAnggaran(['tagging_id' => $tagging->id]);
+
+        $file = $this->buatFileExcel(SpmLsTemplateExport::HEADERS, [[
+            '2026-07-01', '001/SPM-LS/2026', '2026-07-02', 'SP2D-LS-1',
+            $anggaran->kode_sub_kegiatan, $anggaran->sub_kegiatan,
+            $anggaran->kode_rekening, $anggaran->rekening, $tagging->nama,
+            4_000_000, 100_000, 'PPh Pasal 22', 50_000, 'PPh Pasal 23', 25_000,
+            'Vendor Uji', 'Pembayaran LS',
+        ]]);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.store', 'spm-ls'), ['file' => $file]);
+        $import = SpmImport::latest('id')->firstOrFail();
+
+        $this->assertSame(1, $import->jumlah_baru);
+        $this->assertSame(0, $import->jumlah_ditolak);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.konfirmasi', $import));
+
+        $spm = Spm::where('jenis_spm', 'ls')->firstOrFail();
+        $this->assertSame('001/SPM-LS/2026', $spm->nomor_dokumen);
+        $this->assertSame('2026-07-01', $spm->tanggal_dokumen->format('Y-m-d'));
+        $this->assertEquals(100_000.0, (float) $spm->ppn);
+
+        // Rincian PPh tetap utuh, jenis dan nominalnya berpasangan.
+        $this->assertSame('PPh Pasal 22', $spm->jenis_pph1);
+        $this->assertEquals(50_000.0, (float) $spm->pph1);
+        $this->assertSame('PPh Pasal 23', $spm->jenis_pph2);
+        $this->assertEquals(25_000.0, (float) $spm->pph2);
+
+        // Mata anggaran tetap dipetakan lewat Sub Kegiatan + Kode Rekening + Tagging.
+        $this->assertSame(1, $spm->detail()->count());
+        $this->assertSame($anggaran->id, $spm->detail()->first()->master_anggaran_id);
+    }
+
+    /** Berkas LS format lama (kode + nama tergabung, kolom "PPh 1") tetap terbaca. */
+    public function test_berkas_ls_format_lama_tetap_terbaca(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $anggaran = $this->buatMasterAnggaran();
+
+        $file = $this->buatFileExcel(self::HEADER_LS, [$this->baseRowLs($anggaran)]);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.store', 'spm-ls'), ['file' => $file]);
+        $import = SpmImport::latest('id')->firstOrFail();
+
+        $this->assertSame(1, $import->jumlah_baru);
+        $this->assertSame(0, $import->jumlah_ditolak);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.konfirmasi', $import));
+
+        $spm = Spm::where('jenis_spm', 'ls')->firstOrFail();
+        $this->assertSame($anggaran->id, $spm->detail()->first()->master_anggaran_id);
     }
 }

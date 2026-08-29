@@ -2,8 +2,10 @@
 
 namespace App\Imports;
 
+use App\Imports\Concerns\MembacaSheetPertama;
 use Illuminate\Support\Collection;
 use Maatwebsite\Excel\Concerns\ToCollection;
+use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
 /**
  * Baca file upload Manajemen Data > Import RAK Bulanan. Header mengikuti
@@ -13,8 +15,10 @@ use Maatwebsite\Excel\Concerns\ToCollection;
  * menjadi baris staging per bulan. Kolom Uraian Rekening dan Pagu murni
  * informasi referensi, tidak dibaca untuk pencocokan/validasi.
  */
-class RakBulananUploadImport implements ToCollection
+class RakBulananUploadImport implements ToCollection, WithMultipleSheets
 {
+    use MembacaSheetPertama;
+
     public Collection $rows;
 
     public function __construct()

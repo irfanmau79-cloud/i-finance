@@ -2,22 +2,37 @@
 
 namespace App\Exports;
 
+use App\Exports\Concerns\PunyaPetunjukKolom;
 use App\Models\Pegawai;
 use Illuminate\Database\Eloquent\Builder;
 
 /**
- * Snapshot data Tunjangan Keluarga SEMUA pegawai aktif (bukan hanya yang
- * sudah punya data) - baris kosong untuk pegawai yang belum mengisi data
- * pasangan/anak. Bentuk kolom sama persis dengan
+ * Snapshot data Tunjangan Keluarga seluruh pegawai yang BERHAK (PNS & PPPK
+ * Penuh Waktu), bukan hanya yang sudah punya data - baris kosong untuk
+ * pegawai yang belum mengisi data pasangan/anak. Bentuk kolom sama persis dengan
  * TunjanganKeluargaTemplateExport supaya bisa diedit lalu diupload ulang
  * lewat Import Data Tunjangan Keluarga.
  */
-class TunjanganKeluargaExport extends DataManagementExport
+class TunjanganKeluargaExport extends DataManagementExport implements PunyaPetunjukKolom
 {
+    public function petunjukCatatan(): string
+    {
+        return TunjanganKeluargaTemplateExport::CATATAN;
+    }
+
+    public function petunjukKolom(): array
+    {
+        return TunjanganKeluargaTemplateExport::PETUNJUK;
+    }
+
     public function query(): Builder
     {
+        // Hanya pegawai yang BERHAK tunjangan keluarga (PNS & PPPK Penuh
+        // Waktu) - sama persis dengan daftar di halaman Data Tunjangan
+        // Keluarga, supaya berkas ini bisa diedit lalu diunggah kembali
+        // tanpa selisih jumlah baris.
         return Pegawai::query()
-            ->where('aktif', true)
+            ->berhakTunjangan()
             ->with(['tunjanganKeluarga.anggota'])
             ->orderBy('nama');
     }

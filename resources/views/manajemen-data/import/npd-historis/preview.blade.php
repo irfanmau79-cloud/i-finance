@@ -1,20 +1,21 @@
 @extends('layouts.app')
 
 @section('activeNav', 'manajemen-data')
-@section('title', 'Preview Import NPD Historis')
+@section('title', 'Pemeriksaan Berkas Import Nota Pencairan Dana')
 
 @section('content')
 <div class="dash-card">
     <h3>Batch #{{ $import->id }} — {{ $import->nama_file }}</h3>
     <div class="sub" style="font-weight:700;">Tahun Anggaran {{ config('anggaran.tahun_aktif') }}</div>
-    <div class="sub">Status {{ $import->status }} · Hash {{ $import->file_hash }} · Eksekusi batch bersifat atomik: seluruh baris yang valid/warning berhasil bersama atau transaksi dibatalkan.</div>
+    <div class="sub">Berkas: {{ $import->nama_file }}</div>
+    <div class="sub">Penyimpanan dilakukan sekaligus. Bila ada satu baris yang gagal, tidak ada data yang tersimpan sama sekali &mdash; jadi tidak akan ada data yang masuk separuh.</div>
     @if(session('success'))<div class="sub" style="color:var(--ok);font-weight:700;">{{ session('success') }}</div>@endif
     @if($errors->any())<div class="err-box" style="display:block;"><ul>@foreach($errors->all() as $error)<li>{{ $error }}</li>@endforeach</ul></div>@endif
     <div class="kpi-grid">
         <div class="dash-card"><h3>{{ $import->total_baris }}</h3><div class="sub">Total</div></div>
         <div class="dash-card"><h3>{{ $import->jumlah_valid }}</h3><div class="sub">Valid</div></div>
-        <div class="dash-card"><h3>{{ $import->jumlah_warning }}</h3><div class="sub">Warning</div></div>
-        <div class="dash-card"><h3>{{ $import->jumlah_error }}</h3><div class="sub">Error</div></div>
+        <div class="dash-card"><h3>{{ $import->jumlah_warning }}</h3><div class="sub">Perlu Diperiksa</div></div>
+        <div class="dash-card"><h3>{{ $import->jumlah_error }}</h3><div class="sub">Bermasalah</div></div>
         <div class="dash-card"><h3>{{ $import->jumlah_duplikat }}</h3><div class="sub">Duplikat</div></div>
         <div class="dash-card"><h3>Rp {{ fmt_rupiah($import->total_nominal) }}</h3><div class="sub">Nominal Bruto</div></div>
         <div class="dash-card"><h3>Rp {{ fmt_rupiah($import->total_ppn) }}</h3><div class="sub">PPN</div></div>

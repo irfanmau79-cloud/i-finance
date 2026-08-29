@@ -37,10 +37,10 @@ class NpdPdTest extends TestCase
         ]);
     }
 
-    private function buatSuratPerintah(): SuratPerintah
+    private function buatSuratPerintah(?string $nomor = null): SuratPerintah
     {
         return SuratPerintah::create([
-            'nomor_sp' => '001/SP/TEST/2026',
+            'nomor_sp' => $nomor ?? '001/SP/TEST/2026',
             'tanggal_sp' => '2026-07-15',
             'unit_kerja' => 'Sekretariat',
             'lokasi' => 'Bandung',
@@ -52,20 +52,25 @@ class NpdPdTest extends TestCase
             'file_url' => 'sp/test.pdf',
             'status_sp' => 'Baru',
             'status' => SuratPerintah::STATUS_DITERIMA_PPTK,
+            'jenis_permintaan' => SuratPerintah::JENIS_UANG_HARIAN,
+            'sumber_npd' => true,
+            'dipantau' => true,
         ]);
     }
 
     private function payload(MasterAnggaran $masterAnggaran, ?SuratPerintah $suratPerintah = null): array
     {
+        // NPD Perjalanan Dinas wajib berangkat dari Surat Perintah, jadi
+        // pemanggil yang tidak menyebutkan SP tetap dibuatkan satu.
+        $suratPerintah ??= $this->buatSuratPerintah();
+
         return [
             'master_anggaran_id' => $masterAnggaran->id,
-            'surat_perintah_id' => $suratPerintah?->id,
+            'surat_perintah_id' => $suratPerintah->id,
             'jenis_panjar' => 'Panjar',
             'tanggal_npd' => '2026-07-20',
             'bulan' => 7,
             'tahun' => 2026,
-            'nomor_sp' => $suratPerintah?->nomor_sp ?? '002/SP/TEST/2026',
-            'tanggal_sp' => '2026-07-15',
             'uraian_sp' => 'Perjalanan pengujian',
             'berangkat_dari' => 'Kabupaten Bekasi',
             'tujuan' => 'Bandung',
@@ -127,6 +132,156 @@ class NpdPdTest extends TestCase
         $this->actingAs($bpp)->post(route('npd.pd.store'), [])->assertForbidden();
     }
 
+    /**
+     * NPD Perjalanan Dinas WAJIB berangkat dari Surat Perintah. SP-nya pun
+     * harus benar-benar layak: berjenis Uang Harian/Akomodasi, berstatus
+     * Diterima PPTK, dan penanda Sumber NPD-nya menyala.
+     */
+    public function test_npd_perjalanan_dinas_wajib_berasal_dari_surat_perintah(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-wajib-sp');
+        $master = $this->buatMasterAnggaran();
+
+        $payload = $this->payload($master);
+        unset($payload['surat_perintah_id']);
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload)
+            ->assertSessionHasErrors(['surat_perintah_id']);
+
+        $this->assertSame(0, Npd::where('jenis', 'pd')->count());
+    }
+
+    public function test_surat_perintah_reimburse_atau_tanpa_penanda_sumber_ditolak(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-sp-tidak-layak');
+        $master = $this->buatMasterAnggaran();
+
+        $reimburse = $this->buatSuratPerintah('900/SP/REIMBURSE/2026');
+        $reimburse->update(['jenis_permintaan' => SuratPerintah::JENIS_REIMBURSE]);
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $this->payload($master, $reimburse))
+            ->assertSessionHasErrors(['surat_perintah_id']);
+
+        $dimatikan = $this->buatSuratPerintah('901/SP/MATI/2026');
+        $dimatikan->update(['sumber_npd' => false]);
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $this->payload($master, $dimatikan))
+            ->assertSessionHasErrors(['surat_perintah_id']);
+
+        $this->assertSame(0, Npd::where('jenis', 'pd')->count());
+    }
+
+    /** Nomor & tanggal SP tidak diambil dari formulir, tetapi dari SP-nya. */
+    public function test_nomor_dan_tanggal_sp_selalu_mengikuti_surat_perintah(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-nomor-sp');
+        $master = $this->buatMasterAnggaran();
+        $sp = $this->buatSuratPerintah('777/SP/BENAR/2026');
+
+        $payload = $this->payload($master, $sp);
+        // Kiriman palsu dari formulir harus diabaikan.
+        $payload['nomor_sp'] = '000/SP/PALSU/2026';
+        $payload['tanggal_sp'] = '2020-01-01';
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload)->assertRedirect();
+
+        $npd = Npd::where('jenis', 'pd')->latest('id')->firstOrFail();
+        $this->assertSame('777/SP/BENAR/2026', $npd->detail_json['nomor_sp']);
+        $this->assertSame($sp->tanggal_sp->format('Y-m-d'), $npd->detail_json['tanggal_sp']);
+        $this->assertSame($sp->id, $npd->surat_perintah_id);
+    }
+
+    /**
+     * Kewajiban Surat Perintah TIDAK mengunci data lama. Seluruh NPD
+     * Perjalanan Dinas yang sudah ada berasal dari impor historis dan
+     * berstatus Selesai, dan NPD berstatus Selesai memang tidak pernah bisa
+     * disunting - jadi aturan baru ini tidak menghilangkan kemampuan apa pun
+     * yang tadinya ada.
+     */
+    public function test_npd_lama_hasil_impor_tidak_terpengaruh_kewajiban_sp(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-lama-impor');
+        $master = $this->buatMasterAnggaran();
+
+        $lama = Npd::create([
+            'jenis' => 'pd',
+            'master_anggaran_id' => $master->id,
+            'surat_perintah_id' => null,
+            'sumber_data' => 'import_historis',
+            'keu' => '1',
+            'bulan' => 7,
+            'tahun' => 2026,
+            'tanggal_npd' => '2026-07-20',
+            'jenis_panjar' => 'Panjar',
+            'nominal' => 1_000_000,
+            'terbilang' => 'satu juta rupiah',
+            'status' => 'Selesai',
+            'detail_json' => ['nomor_sp' => '999/SP/LAMA/2026'],
+        ]);
+
+        $this->assertFalse($lama->dapatDieditOleh($pptk));
+        $this->actingAs($pptk)->get(route('npd.pd.edit', $lama))->assertForbidden();
+
+        // Tetap dapat dilihat dan dicetak seperti biasa.
+        $this->actingAs($pptk)->get(route('npd.show', $lama))->assertOk();
+    }
+
+    /**
+     * Kalau toh ada NPD berstatus Draft yang belum tertaut SP, halaman
+     * suntingnya harus menjelaskan sebabnya - bukan membiarkan pengguna
+     * menabrak galat validasi tanpa tahu apa yang kurang.
+     */
+    public function test_npd_draft_tanpa_sp_diberi_penjelasan_saat_disunting(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-draft-tanpa-sp');
+        $master = $this->buatMasterAnggaran();
+
+        $draft = Npd::create([
+            'jenis' => 'pd',
+            'master_anggaran_id' => $master->id,
+            'surat_perintah_id' => null,
+            'keu' => '1',
+            'bulan' => 7,
+            'tahun' => 2026,
+            'tanggal_npd' => '2026-07-20',
+            'jenis_panjar' => 'Panjar',
+            'nominal' => 1_000_000,
+            'terbilang' => 'satu juta rupiah',
+            'status' => 'Draft NPD - PPTK',
+            'detail_json' => ['nomor_sp' => '998/SP/DRAFT/2026'],
+        ]);
+
+        $this->actingAs($pptk)->get(route('npd.pd.edit', $draft))->assertOk()
+            ->assertSee('dibuat sebelum Surat Perintah diwajibkan', false);
+    }
+
+    /**
+     * Tahun tidak lagi dipilih saat membuat NPD - selalu tahun anggaran
+     * berjalan. Isiannya dihapus dari formulir dan tahun di luar itu ditolak,
+     * supaya penomoran dan perhitungan realisasi tidak jatuh ke tahun salah.
+     */
+    public function test_tahun_terkunci_ke_tahun_anggaran_berjalan(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-tahun');
+        $master = $this->buatMasterAnggaran();
+
+        // Tidak ada lagi isian Tahun yang bisa diketik pengguna.
+        $this->actingAs($pptk)->get(route('npd.pd.create'))->assertOk()
+            ->assertDontSee('<label class="fl" for="tahun">Tahun</label>', false)
+            ->assertSee('<input type="hidden" name="tahun"', false);
+
+        $payload = $this->payload($master);
+        $payload['tahun'] = 2025;
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload)
+            ->assertSessionHasErrors(['tahun']);
+
+        $payload['tahun'] = (int) config('anggaran.tahun_aktif');
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload)->assertRedirect();
+
+        $this->assertSame((int) config('anggaran.tahun_aktif'), Npd::where('jenis', 'pd')->firstOrFail()->tahun);
+    }
+
     public function test_input_wajib_dan_tanggal_pulang_divalidasi(): void
     {
         $pptk = $this->buatUser('pptk', 'pd-validasi');
@@ -136,7 +291,7 @@ class NpdPdTest extends TestCase
                 'master_anggaran_id',
                 'jenis_panjar',
                 'tanggal_npd',
-                'nomor_sp',
+                'surat_perintah_id',
                 'tim',
             ]);
 

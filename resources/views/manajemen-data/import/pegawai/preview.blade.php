@@ -6,7 +6,7 @@
 @section('content')
 <div class="dash-card">
     <h3>Preview Import Pegawai</h3>
-    <div class="sub">File: {{ $import->nama_file }}</div>
+    <div class="sub">Berkas: {{ $import->nama_file }}</div>
 
     @if ($errors->any())
         <div class="err-box" style="display:block;">
@@ -24,19 +24,19 @@
             Sudah dikonfirmasi dan disimpan pada {{ $import->committed_at?->format('d-m-Y H:i:s') }}.
         </div>
     @elseif ($import->kedaluwarsa())
-        <div class="err-box" style="display:block;">Sesi preview ini sudah kedaluwarsa. Silakan upload ulang.</div>
+        <div class="err-box" style="display:block;">Masa berlaku pemeriksaan berkas ini sudah habis. Silakan unggah ulang berkasnya.</div>
     @endif
 
     <div class="kpi-grid">
         <div class="dash-card"><h3>{{ $import->total_baris }}</h3><div class="sub">Total Baris</div></div>
-        <div class="dash-card"><h3 style="color:var(--ok);">{{ $import->jumlah_baru }}</h3><div class="sub">Baru</div></div>
-        <div class="dash-card"><h3 style="color:var(--navy);">{{ $import->jumlah_update }}</h3><div class="sub">Update</div></div>
+        <div class="dash-card"><h3 style="color:var(--ok);">{{ $import->jumlah_baru }}</h3><div class="sub">Data Baru</div></div>
+        <div class="dash-card"><h3 style="color:var(--navy);">{{ $import->jumlah_update }}</h3><div class="sub">Diperbarui</div></div>
         <div class="dash-card"><h3 style="color:#b91c1c;">{{ $import->jumlah_ditolak }}</h3><div class="sub">Ditolak</div></div>
     </div>
 
     @if ($import->status === \App\Models\PegawaiImport::STATUS_STAGED && ! $import->kedaluwarsa())
         <div class="nav" style="margin-top:8px;">
-            <form method="POST" action="{{ route('manajemen-data.import.pegawai.batalkan', $import) }}" onsubmit="return confirm('Batalkan staging import ini?');">
+            <form method="POST" action="{{ route('manajemen-data.import.pegawai.batalkan', $import) }}" onsubmit="return confirm('Batalkan pemeriksaan berkas ini? Berkas perlu diunggah ulang bila ingin dilanjutkan.');">
                 @csrf
                 @method('DELETE')
                 <button type="submit" class="btn">Batalkan</button>

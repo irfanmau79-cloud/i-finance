@@ -1,18 +1,18 @@
 @extends('layouts.app')
 
 @section('activeNav', 'spm-upgu')
-@section('title', 'SPM UP/GU')
+@section('title', 'Realisasi SP2D UP/GU/TU')
 
 @section('content')
 <div class="dash-card wf-card">
-    <h3>Data Surat Perintah Membayar (SPM) UP/GU/TU</h3>
+    <h3>Data Realisasi SP2D UP/GU/TU</h3>
 
     @if (session('success'))
         <div class="sumbar ok"><span>{{ session('success') }}</span></div>
     @endif
 
     <div class="tbl-tools">
-        <a href="{{ route('spm.up-gu.create') }}" class="btn prim" style="white-space:nowrap;">Tambah SPM UP/GU/TU</a>
+        <a href="{{ route('spm.up-gu.create') }}" class="btn prim" style="white-space:nowrap;">Tambah Realisasi SP2D UP/GU/TU</a>
     </div>
 
     <form method="GET" action="{{ route('spm.up-gu.index') }}" class="tbl-tools">

@@ -2,11 +2,11 @@
 
 @section('activeNav', 'spm-ls')
 @php($spmEdit = $spm ?? null)
-@section('title', $spmEdit ? 'Edit SPM LS' : 'Buat SPM LS')
+@section('title', $spmEdit ? 'Edit Realisasi SP2D LS' : 'Buat Realisasi SP2D LS')
 
 @section('content')
 <div class="dash-card">
-    <h3>{{ $spmEdit ? 'Edit' : 'Buat' }} SPM LS</h3>
+    <h3>{{ $spmEdit ? 'Edit' : 'Buat' }} Realisasi SP2D LS</h3>
     <div class="sub">Lengkapi data dokumen, lalu tambahkan satu baris per mata anggaran yang dicakup dokumen ini. PPN/PPh/penerima berlaku untuk seluruh dokumen, bukan per baris.</div>
 
     @if ($errors->any())
@@ -107,10 +107,10 @@
 
         return [
             'id' => $m->id,
-            'program' => $m->program,
-            'kegiatan' => $m->kegiatan,
-            'sub_kegiatan' => $m->sub_kegiatan,
-            'kode_rekening' => $m->kode_rekening,
+            'program' => $m->program_lengkap,
+            'kegiatan' => $m->kegiatan_lengkap,
+            'sub_kegiatan' => $m->sub_kegiatan_lengkap,
+            'kode_rekening' => $m->rekening_lengkap,
             'kode_rekening_bersih' => $m->kode_rekening_bersih,
             'tagging_id' => $m->tagging_id,
             'tagging' => $m->tagging->nama ?? 'Tanpa Tagging',

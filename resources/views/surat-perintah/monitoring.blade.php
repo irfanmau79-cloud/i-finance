@@ -12,7 +12,7 @@
 @endphp
 <div class="dash-card wf-card">
     <h3>Monitoring SP</h3>
-    <div class="sub">Status pengajuan SP Pengawasan.</div>
+    <div class="sub">Status pengajuan Surat Perintah Pengawasan. Klik salah satu baris untuk melihat riwayat prosesnya.</div>
 
     @if (session('success'))
         <div class="sumbar ok"><span>{{ session('success') }}</span></div>
@@ -38,7 +38,7 @@
             <tbody>
                 @forelse ($suratPerintahs as $suratPerintah)
                     @php($cariTeks = mb_strtolower($suratPerintah->nomor_sp.' '.$suratPerintah->unit_kerja.' '.$suratPerintah->keterangan))
-                    <tr data-pengajuan-url="{{ route('surat-perintah.pengajuan', $suratPerintah) }}" data-search="{{ $cariTeks }}">
+                    <tr class="sp-baris-klik" data-pengajuan-url="{{ route('surat-perintah.pengajuan', $suratPerintah) }}" data-search="{{ $cariTeks }}" data-tl="tl-{{ $suratPerintah->id }}" title="Klik untuk melihat timeline progres">
                         <td>{{ $suratPerintah->created_at->format('d-m-Y H:i') }}</td>
                         <td style="font-weight:600;">{{ $suratPerintah->nomor_sp }}</td>
                         <td>{{ $suratPerintah->unit_kerja }}</td>
@@ -86,6 +86,14 @@
                             @endif
                         </td>
                     </tr>
+                    {{-- Timeline dihitung server-side sekali untuk seluruh halaman
+                         (lihat SuratPerintahTimelineService::untukBanyak), jadi
+                         membukanya tidak memicu permintaan baru. --}}
+                    <tr class="sp-tl-row" id="tl-{{ $suratPerintah->id }}" data-search="{{ $cariTeks }}" hidden>
+                        <td colspan="7">
+                            @include('surat-perintah._timeline', ['tl' => $timeline[$suratPerintah->id] ?? ['titik' => []]])
+                        </td>
+                    </tr>
                 @empty
                     <tr>
                         <td colspan="7" style="text-align:center;color:var(--mut);padding:20px;">Belum ada SP yang dipantau.</td>
@@ -125,7 +133,23 @@
   document.getElementById('spm-search').addEventListener('input', function () {
     var q = this.value.trim().toLowerCase();
     document.querySelectorAll('#spm-table tbody tr[data-search]').forEach(function (row) {
-      row.style.display = row.dataset.search.indexOf(q) >= 0 ? '' : 'none';
+      var cocok = row.dataset.search.indexOf(q) >= 0;
+      // Baris timeline hanya ikut tampil kalau memang sedang dibuka.
+      var terbuka = ! row.classList.contains('sp-tl-row') || ! row.hidden;
+      row.style.display = (cocok && terbuka) ? '' : 'none';
+    });
+  });
+
+  // Klik baris SP -> buka/tutup timeline progresnya. Klik di dalam sel
+  // Pengajuan diabaikan supaya dropdown-nya tetap bisa dipakai.
+  document.querySelectorAll('#spm-table tbody tr.sp-baris-klik').forEach(function (row) {
+    row.addEventListener('click', function (e) {
+      if (e.target.closest('.peng-cell')) return;
+      var tl = document.getElementById(row.dataset.tl);
+      if (! tl) return;
+      var buka = tl.hidden;
+      tl.hidden = ! buka;
+      tl.style.display = buka ? '' : 'none';
     });
   });
 

@@ -25,14 +25,34 @@ class InventarisasiSpjTest extends TestCase
         $user = $this->user('superadmin');
 
         $this->actingAs($user)->post(route('inventarisasi-spj.bantex.store'), [
-            'nama' => 'Bantex Kosong A-01',
-            'keterangan' => 'Arsip baru',
+            'nomor' => '7',
+            'nama' => 'PDTT Irban II',
         ])->assertSessionHasNoErrors();
+
+        // Nomor disimpan dua digit, dan label lokasinya "07 - PDTT Irban II".
+        $this->assertSame('07', BantexSpj::where('nama', 'PDTT Irban II')->firstOrFail()->nomor);
 
         $data = app(InventarisasiSpjService::class)->data([]);
         $this->assertSame(1, $data['jumlah_lokasi']);
-        $this->assertSame('Bantex Kosong A-01', $data['lokasi'][0]['lokasi']);
+        $this->assertSame('07 - PDTT Irban II', $data['lokasi'][0]['lokasi']);
         $this->assertSame(0, $data['lokasi'][0]['jumlah_dokumen']);
+    }
+
+    /** "9" dan "09" adalah nomor yang sama - yang kedua harus ditolak. */
+    public function test_nomor_penyimpanan_wajib_dan_tidak_boleh_kembar(): void
+    {
+        $user = $this->user('superadmin');
+
+        $this->actingAs($user)->post(route('inventarisasi-spj.bantex.store'), ['nama' => 'Tanpa Nomor'])
+            ->assertSessionHasErrors('nomor');
+
+        $this->actingAs($user)->post(route('inventarisasi-spj.bantex.store'), ['nomor' => '09', 'nama' => 'Box A'])
+            ->assertSessionHasNoErrors();
+
+        $this->actingAs($user)->post(route('inventarisasi-spj.bantex.store'), ['nomor' => '9', 'nama' => 'Box B'])
+            ->assertSessionHasErrors('nomor');
+
+        $this->assertSame(1, BantexSpj::count());
     }
 
     public function test_lokasi_dapat_ditetapkan_dan_dipindahkan_tanpa_menghapus_histori(): void
@@ -55,7 +75,9 @@ class InventarisasiSpjTest extends TestCase
     {
         $user = $this->user('superadmin');
         $npd = $this->npd('6.01.02.1.01 Pengawasan', '5.1.02.01', 'Tag A', 1_500_000);
-        foreach (['Rak A', 'Rak B'] as $nama) BantexSpj::create(['nama' => $nama, 'aktif' => true]);
+        foreach (['Rak A', 'Rak B'] as $nama) {
+            BantexSpj::create(['nama' => $nama, 'aktif' => true]);
+        }
         foreach ([['NPD', 'Rak A'], ['Lampiran NPD', 'Rak A'], ['SPD Rampung', 'Rak B']] as [$jenis, $lokasi]) {
             $this->actingAs($user)->post(route('npd.arsip-spj.store', $npd), ['jenis_dokumen' => $jenis, 'lokasi' => $lokasi]);
         }
@@ -135,41 +157,77 @@ class InventarisasiSpjTest extends TestCase
 
     // ---------------- Edit & Restore ----------------
 
-    public function test_bendahara_dapat_edit_detail_spj_dan_restore_mengembalikan_kolom_hitung_saja(): void
+    /**
+     * Pengelola SPJ hanya boleh mengubah tiga hal: Lokasi Penyimpanan, Status
+     * SPJ, dan Catatan. Kolom lain (Bulan, Nomor SP, Nominal, Koordinator,
+     * Bidang, Uraian) sekarang murni hasil hitung dari NPD - dikirim pun
+     * diabaikan, tidak ikut tersimpan sebagai penimpa.
+     */
+    public function test_pengelola_spj_hanya_dapat_mengubah_lokasi_status_dan_catatan(): void
     {
         $bendahara = $this->user('bendahara_pengeluaran');
         $npd = $this->npd('6.01.02.1.01 Pengawasan', '5.1.02.01', null);
-        BantexSpj::create(['nama' => 'Bantex C-03', 'aktif' => true]);
+        BantexSpj::create(['nomor' => '03', 'nama' => 'Bantex C', 'aktif' => true]);
 
         $response = $this->actingAs($bendahara)->put(route('inventarisasi-spj.detail.update', $npd), [
-            'bulan' => 5, 'nomor_sp' => 'SP-MANUAL-1', 'nominal' => 2_500_000, 'koordinator' => 'Koordinator Manual',
-            'bidang' => 'Subbagian Tata Usaha', 'uraian' => 'Uraian manual', 'lokasi' => 'Bantex C-03',
-            'status' => 'lengkap', 'catatan' => 'Sudah lengkap dokumennya',
+            'bulan' => 5, 'nomor_sp' => 'SP-MANUAL-1', 'koordinator' => 'Koordinator Manual',
+            'lokasi' => '03 - Bantex C', 'status' => 'lengkap', 'catatan' => 'Sudah lengkap dokumennya',
         ]);
         $response->assertRedirect();
         $response->assertSessionHasNoErrors();
 
         $detail = SpjDetail::where('npd_id', $npd->id)->firstOrFail();
-        $this->assertSame(5, $detail->bulan);
-        $this->assertSame('SP-MANUAL-1', $detail->nomor_sp);
+        $this->assertSame('03 - Bantex C', $detail->lokasi);
         $this->assertSame('lengkap', $detail->status);
         $this->assertSame('Sudah lengkap dokumennya', $detail->catatan);
         $this->assertSame($bendahara->id, $detail->diedit_oleh);
 
-        $data = app(InventarisasiSpjService::class)->data([]);
-        $row = collect($data['detail_spj'])->firstWhere('npd_id', $npd->id);
-        $this->assertSame('SP-MANUAL-1', $row['nomor_sp']);
-        $this->assertSame('Bantex C-03', $row['lokasi']);
-        $this->assertSame('lengkap', $row['status']);
-
-        // Restore: kolom hitung kembali null (dipakai lagi nilai default), status & catatan tidak berubah.
-        $this->actingAs($bendahara)->post(route('inventarisasi-spj.detail.restore', $npd))->assertSessionHasNoErrors();
-        $detail->refresh();
+        // Kiriman untuk kolom hitung diabaikan.
+        $this->assertNull($detail->bulan);
         $this->assertNull($detail->nomor_sp);
         $this->assertNull($detail->koordinator);
-        $this->assertNull($detail->lokasi);
-        $this->assertSame('lengkap', $detail->status);
-        $this->assertSame('Sudah lengkap dokumennya', $detail->catatan);
+
+        $data = app(InventarisasiSpjService::class)->data([]);
+        $row = collect($data['detail_spj'])->firstWhere('npd_id', $npd->id);
+        $this->assertSame('03 - Bantex C', $row['lokasi']);
+        $this->assertSame('lengkap', $row['status']);
+        $this->assertSame('Lengkap', $row['status_label']);
+    }
+
+    /** Empat status: Lengkap, Belum Lengkap, Dikembalikan, Tidak Ditemukan. */
+    public function test_empat_status_spj_diterima_dan_selain_itu_ditolak(): void
+    {
+        $bendahara = $this->user('bendahara_pengeluaran');
+        $npd = $this->npd('6.01.02.1.01 Pengawasan', '5.1.02.01', null);
+
+        foreach (array_keys(SpjDetail::STATUS) as $status) {
+            $this->actingAs($bendahara)
+                ->put(route('inventarisasi-spj.detail.update', $npd), ['status' => $status])
+                ->assertSessionHasNoErrors();
+        }
+
+        $this->assertSame('tidak_ditemukan', SpjDetail::where('npd_id', $npd->id)->firstOrFail()->status);
+
+        $this->actingAs($bendahara)
+            ->put(route('inventarisasi-spj.detail.update', $npd), ['status' => 'entah'])
+            ->assertSessionHasErrors('status');
+    }
+
+    public function test_kpi_menghitung_npd_lengkap_dan_belum_lengkap_beserta_persentasenya(): void
+    {
+        $bendahara = $this->user('bendahara_pengeluaran');
+        $a = $this->npd('6.01.02.1.01 Pengawasan', '5.1.02.01', null);
+        $this->npd('6.01.02.1.01 Pengawasan', '5.1.02.02', null);
+
+        $this->actingAs($bendahara)->put(route('inventarisasi-spj.detail.update', $a), ['status' => 'lengkap']);
+
+        $kpi = app(InventarisasiSpjService::class)->data([])['kpi'];
+
+        $this->assertSame(2, $kpi['jumlah_npd']);
+        $this->assertSame(1, $kpi['lengkap']);
+        $this->assertSame(50.0, $kpi['lengkap_persen']);
+        $this->assertSame(1, $kpi['belum_lengkap']);
+        $this->assertSame(50.0, $kpi['belum_lengkap_persen']);
     }
 
     public function test_bpp_boleh_tapi_role_lain_tidak_boleh_edit_detail_spj(): void

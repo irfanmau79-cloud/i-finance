@@ -79,6 +79,29 @@ class ManajemenDataExportTest extends TestCase
         }
     }
 
+    /**
+     * Kartu Perjalanan Dinas dan SPJ Perjalanan Dinas tidak punya template
+     * sendiri. Sebelumnya tombol Template-nya menunjuk ke template NPD,
+     * sehingga yang terunduh adalah berkas template NPD - bukan yang
+     * diharapkan pengguna dari kartu tersebut.
+     */
+    public function test_kartu_perjalanan_dinas_tidak_menawarkan_template_npd(): void
+    {
+        $halaman = $this->actingAs($this->buatUser(User::ROLE_SUPERADMIN))
+            ->get(route('manajemen-data.index'))->assertOk();
+
+        $halaman->assertSee('Data Perjalanan Dinas')
+            ->assertSee('Data SPJ Perjalanan Dinas')
+            ->assertSee(route('manajemen-data.export', 'perjalanan-dinas'), false)
+            ->assertSee(route('manajemen-data.export', 'spj-perjalanan-dinas'), false);
+
+        // Tombol Template NPD hanya boleh muncul satu kali, yaitu di kartu Data NPD.
+        $this->assertSame(
+            1,
+            substr_count($halaman->getContent(), route('manajemen-data.import.npd-historis.template'))
+        );
+    }
+
     public function test_jenis_export_yang_tidak_dikenal_menghasilkan_404(): void
     {
         $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
@@ -98,18 +121,28 @@ class ManajemenDataExportTest extends TestCase
 
         $export = new MasterAnggaranExport;
         $this->assertSame(
-            ['Tahun Anggaran', 'Program', 'Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Tagging', 'Pagu', 'Aktif'],
+            [
+                'Tahun', 'Kode Program', 'Program', 'Kode Kegiatan', 'Kegiatan',
+                'Kode Sub Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Rekening',
+                'Tagging', 'Pagu', 'Aktif/Non Aktif',
+            ],
             $export->headings()
         );
         $this->assertSame(1, $export->jumlahBaris());
 
         $row = $export->query()->first();
         $mapped = $export->map($row);
+
+        // Kode dan uraian berada di kolom terpisah - hasil export harus bisa
+        // dipakai ulang sebagai file import tanpa diedit.
         $this->assertSame(2026, $mapped[0]);
-        $this->assertSame($anggaran->sub_kegiatan, $mapped[3]);
-        $this->assertSame(25_000_000.0, $mapped[6]);
-        $this->assertSame('Tagging Uji 5.1.02.05.01.9001', $mapped[5]);
-        $this->assertSame('Ya', $mapped[7]);
+        $this->assertSame($anggaran->kode_sub_kegiatan, $mapped[5]);
+        $this->assertSame($anggaran->sub_kegiatan, $mapped[6]);
+        $this->assertSame($anggaran->kode_rekening, $mapped[7]);
+        $this->assertSame($anggaran->rekening, $mapped[8]);
+        $this->assertSame('Tagging Uji 5.1.02.05.01.9001', $mapped[9]);
+        $this->assertSame(25_000_000.0, $mapped[10]);
+        $this->assertSame('Aktif', $mapped[11]);
     }
 
     public function test_export_npd_header_dan_isi_benar(): void
@@ -138,7 +171,8 @@ class ManajemenDataExportTest extends TestCase
 
         $export = new NpdExport;
         $this->assertSame(
-            ['Nomor NPD', 'Jenis', 'Tanggal NPD', 'Sub Kegiatan', 'Kode Rekening', 'Uraian Rekening',
+            ['Nomor NPD', 'Jenis', 'Tanggal NPD',
+                'Kode Sub Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Rekening',
                 'Tagging', 'Jenis Panjar', 'Nominal', 'Terbilang', 'Penerima', 'Status', 'Catatan',
                 'Dibuat Oleh', 'Dibuat Pada'],
             $export->headings()
@@ -150,8 +184,15 @@ class ManajemenDataExportTest extends TestCase
         $this->assertSame($npd->nomor_lengkap, $mapped[0]);
         $this->assertSame('Barang/Jasa', $mapped[1]);
         $this->assertSame('2026-07-20', $mapped[2]);
-        $this->assertSame(1500000.0, $mapped[8]);
-        $this->assertSame($dibuatOleh->username, $mapped[13]);
+
+        // Kode dan nama menempati kolom sendiri-sendiri.
+        $this->assertSame($anggaran->kode_sub_kegiatan, $mapped[3]);
+        $this->assertSame($anggaran->sub_kegiatan, $mapped[4]);
+        $this->assertSame($anggaran->kode_rekening, $mapped[5]);
+        $this->assertSame($anggaran->rekening, $mapped[6]);
+
+        $this->assertSame(1500000.0, $mapped[9]);
+        $this->assertSame($dibuatOleh->username, $mapped[14]);
     }
 
     public function test_export_perjalanan_dinas_satu_baris_per_anggota_tim(): void
@@ -244,24 +285,38 @@ class ManajemenDataExportTest extends TestCase
         $this->actingAs($superadmin)->get(route('manajemen-data.export', 'spm-ls'))->assertOk();
 
         $upGuExport = new SpmUpGuExport;
+        $this->assertSame(
+            ['Tanggal SPM', 'Nomor SPM', 'Tanggal SP2D', 'Nomor SP2D', 'Nominal', 'Uraian'],
+            $upGuExport->headings()
+        );
         $this->assertSame(1, $upGuExport->jumlahBaris());
         $mappedUpGu = $upGuExport->map($upGuExport->query()->first());
-        $this->assertSame($upGu->nomor_dokumen, $mappedUpGu[0]);
+        $this->assertSame('2026-07-01', $mappedUpGu[0]);
+        $this->assertSame($upGu->nomor_dokumen, $mappedUpGu[1]);
         $this->assertSame(3000000.0, $mappedUpGu[4]);
+        $this->assertSame('Pengisian UP', $mappedUpGu[5]);
 
         $lsExport = new SpmLsExport;
         $this->assertSame(
-            ['Nomor Dokumen', 'Tanggal Dokumen', 'Nomor SP2D', 'Tanggal SP2D',
-                'Sub Kegiatan', 'Kode Rekening', 'Uraian Rekening', 'Tagging',
-                'Nominal', 'PPN', 'PPh 1', 'Jenis PPh 1', 'PPh 2', 'Jenis PPh 2',
-                'Penerima', 'Uraian', 'Dibuat Oleh', 'Dibuat Pada'],
+            ['Tanggal SPM', 'Nomor SPM', 'Tanggal SP2D', 'Nomor SP2D',
+                'Kode Sub Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Rekening', 'Tagging',
+                'Nominal', 'PPN', 'Jenis PPh 1', 'Nominal PPh 1', 'Jenis PPh 2', 'Nominal PPh 2',
+                'Penerima', 'Uraian'],
             $lsExport->headings()
         );
         $this->assertSame(1, $lsExport->jumlahBaris());
         $mappedLs = $lsExport->map($lsExport->query()->first());
-        $this->assertSame($ls->nomor_dokumen, $mappedLs[0]);
-        $this->assertSame($anggaran->sub_kegiatan, $mappedLs[4]);
-        $this->assertSame(2000000.0, $mappedLs[8]);
+        $this->assertSame('2026-07-05', $mappedLs[0]);
+        $this->assertSame($ls->nomor_dokumen, $mappedLs[1]);
+
+        // Kode dan nama menempati kolom sendiri-sendiri.
+        $this->assertSame($anggaran->kode_sub_kegiatan, $mappedLs[4]);
+        $this->assertSame($anggaran->sub_kegiatan, $mappedLs[5]);
+        $this->assertSame($anggaran->kode_rekening, $mappedLs[6]);
+        $this->assertSame($anggaran->rekening, $mappedLs[7]);
+
+        $this->assertSame(2000000.0, $mappedLs[9]);
+        $this->assertSame('Vendor Uji', $mappedLs[15]);
     }
 
     public function test_export_pegawai_dan_vendor_header_dan_jumlah_baris(): void

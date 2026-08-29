@@ -28,7 +28,8 @@ class SimulasiAnggaranController extends Controller
 {
     public function index()
     {
-        $simulasi = SimulasiAnggaran::with('user')->latest()->paginate(15);
+        // Diurutkan menurut perubahan terakhir, menyamai kolom yang ditampilkan.
+        $simulasi = SimulasiAnggaran::with('user')->latest('updated_at')->paginate(15);
 
         return view('analisis.simulasi.index', compact('simulasi'));
     }
@@ -62,9 +63,9 @@ class SimulasiAnggaranController extends Controller
             $rows = $master->map(fn (MasterAnggaran $m) => [
                 'simulasi_anggaran_id' => $simulasi->id,
                 'master_anggaran_id' => $m->id,
-                'program' => $m->program,
-                'kegiatan' => $m->kegiatan,
-                'sub_kegiatan' => $m->sub_kegiatan,
+                'program' => $m->program_lengkap,
+                'kegiatan' => $m->kegiatan_lengkap,
+                'sub_kegiatan' => $m->sub_kegiatan_lengkap,
                 'sub_kegiatan_kunci' => $m->sub_kegiatan_kunci,
                 'kode_rekening' => $m->kode_rekening_bersih,
                 'uraian_rekening' => $m->uraian_rekening,
@@ -162,6 +163,14 @@ class SimulasiAnggaranController extends Controller
                 'total_pagu_simulasi' => $fresh->sum('pagu_simulasi'),
                 'total_selisih' => $fresh->sum('selisih'),
             ]);
+
+            // Kolom "Terakhir Diubah" membaca updated_at, jadi stempelnya harus
+            // ikut bergerak setiap penyimpanan. update() di atas TIDAK cukup:
+            // bila nama, keterangan, dan ketiga totalnya kebetulan sama - misal
+            // satu rekening naik 1 juta dan rekening lain turun 1 juta -
+            // Eloquent tidak menemukan atribut yang berubah dan tidak menjalankan
+            // query sama sekali, sehingga stempelnya diam padahal isinya berubah.
+            $simulasiAnggaran->touch();
         });
 
         AuditLog::catat('Simpan Simulasi Anggaran', 'Nama: '.$simulasiAnggaran->nama);

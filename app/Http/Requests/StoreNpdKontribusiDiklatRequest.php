@@ -22,7 +22,9 @@ class StoreNpdKontribusiDiklatRequest extends FormRequest
             'jenis_panjar' => ['required', Rule::in(Npd::JENIS_PANJAR_LIST)],
             'tanggal_npd' => ['required', 'date'],
             'bulan' => ['required', 'integer', 'between:1,12'],
-            'tahun' => ['required', 'integer', 'digits:4'],
+            // Selalu tahun anggaran berjalan - isiannya sudah dihapus dari
+            // formulir, tetapi tetap ditegakkan di sini.
+            'tahun' => ['required', 'integer', 'in:'.config('anggaran.tahun_aktif')],
 
             'nama_pelatihan' => ['required', 'string', 'max:255'],
             'tanggal_mulai' => ['required', 'date'],

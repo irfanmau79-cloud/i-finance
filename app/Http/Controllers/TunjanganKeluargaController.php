@@ -16,6 +16,7 @@ use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
+use Illuminate\Validation\Rule;
 use Illuminate\View\View;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 use Throwable;
@@ -81,7 +82,10 @@ class TunjanganKeluargaController extends Controller
     public function data(Request $request, TunjanganKeluargaService $service): View
     {
         $cari = trim((string) $request->query('cari', ''));
+        // Hanya pegawai yang berhak: PNS & PPPK Penuh Waktu. PPPK Paruh Waktu
+        // tidak berhak tunjangan keluarga sehingga tidak perlu didaftar.
         $pegawaiList = Pegawai::query()
+            ->berhakTunjangan()
             ->with('tunjanganKeluarga.anggota')
             ->when($cari !== '', fn ($q) => $q->where(fn ($qq) => $qq->where('nama', 'like', "%{$cari}%")->orWhere('nip', 'like', "%{$cari}%")))
             ->orderBy('nama')
@@ -90,29 +94,83 @@ class TunjanganKeluargaController extends Controller
         return view('tunjangan-keluarga.data', ['pegawaiList' => $pegawaiList, 'cari' => $cari, 'service' => $service]);
     }
 
+    /**
+     * Sub menu "Data Pegawai" pada modul Data Kepegawaian: daftar induk yang
+     * menjadi sumber seluruh halaman lain di modul ini.
+     */
+    public function pegawai(Request $request): View
+    {
+        $cari = trim((string) $request->query('cari', ''));
+        $status = trim((string) $request->query('status', ''));
+
+        $pegawaiList = Pegawai::query()
+            ->when($cari !== '', fn ($q) => $q->where(fn ($qq) => $qq
+                ->where('nama', 'like', "%{$cari}%")
+                ->orWhere('nip', 'like', "%{$cari}%")
+                ->orWhere('jabatan', 'like', "%{$cari}%")
+                ->orWhere('bidang', 'like', "%{$cari}%")))
+            ->when(in_array($status, Pegawai::STATUS_KEPEGAWAIAN, true), fn ($q) => $q->where('status_kepegawaian', $status))
+            ->orderByDesc('aktif')
+            ->orderBy('nama')
+            ->paginate(30)
+            ->withQueryString();
+
+        return view('tunjangan-keluarga.pegawai', compact('pegawaiList', 'cari', 'status'));
+    }
+
     public function createPegawai(): View
     {
         return view('tunjangan-keluarga.pegawai-create');
     }
 
-    public function storePegawai(Request $request): RedirectResponse
+    public function editPegawai(Pegawai $pegawai): View
+    {
+        return view('tunjangan-keluarga.pegawai-edit', compact('pegawai'));
+    }
+
+    public function updatePegawai(Request $request, Pegawai $pegawai): RedirectResponse
+    {
+        $pegawai->update($this->validasiPegawai($request, $pegawai->id));
+
+        AuditHelper::catat('Edit Pegawai', "Pegawai: {$pegawai->nama} (NIP {$pegawai->nip})");
+
+        return redirect()->route('tunjangan.pegawai.index')->with('success', "Data pegawai {$pegawai->nama} berhasil diperbarui.");
+    }
+
+    /**
+     * @return array<string, mixed>
+     */
+    private function validasiPegawai(Request $request, ?int $abaikanId = null): array
     {
         $data = $request->validate([
             'nama' => ['required', 'string', 'max:255'],
-            'nip' => ['required', 'string', 'max:30', 'unique:pegawai,nip'],
+            'nip' => ['required', 'string', 'max:30', Rule::unique('pegawai', 'nip')->ignore($abaikanId)],
             'jabatan' => ['required', 'string', 'max:255'],
             'golongan' => ['nullable', 'string', 'max:20'],
             'pangkat' => ['nullable', 'string', 'max:100'],
+            'periode_kgb' => ['nullable', 'string', 'max:50'],
+            'status_kepegawaian' => ['required', Rule::in(Pegawai::STATUS_KEPEGAWAIAN)],
             'bidang' => ['required', 'string', 'max:100'],
             'rekening' => ['nullable', 'string', 'max:100'],
+        ], [], [
+            'nip' => 'NIP',
+            'periode_kgb' => 'Periode KGB',
+            'status_kepegawaian' => 'Status Kepegawaian',
+            'bidang' => 'Unit Kerja',
         ]);
+
         $data['aktif'] = $request->boolean('aktif', true);
 
-        $pegawai = Pegawai::create($data);
+        return $data;
+    }
+
+    public function storePegawai(Request $request): RedirectResponse
+    {
+        $pegawai = Pegawai::create($this->validasiPegawai($request));
 
         AuditHelper::catat('Tambah Pegawai', "Pegawai: {$pegawai->nama} (NIP {$pegawai->nip})");
 
-        return redirect()->route('tunjangan.data.index')->with('success', "Pegawai {$pegawai->nama} berhasil ditambahkan.");
+        return redirect()->route('tunjangan.pegawai.index')->with('success', "Pegawai {$pegawai->nama} berhasil ditambahkan.");
     }
 
     public function editData(Pegawai $pegawai, TunjanganKeluargaService $service): View
@@ -160,6 +218,29 @@ class TunjanganKeluargaController extends Controller
         AuditHelper::catat('Perbarui Data Tunjangan Keluarga', "Pegawai: {$pegawai->nama}");
 
         return redirect()->route('tunjangan.data.index')->with('success', "Data tunjangan keluarga {$pegawai->nama} berhasil disimpan.");
+    }
+
+    /**
+     * Kosongkan data tunjangan keluarga satu pegawai (status kembali TK/0).
+     * Baris pegawainya TIDAK dihapus - pegawai dikelola di sub menu Data
+     * Pegawai, dan menghapusnya dari sini akan memutus NPD/SP yang memakainya.
+     */
+    public function hapusData(Pegawai $pegawai): RedirectResponse
+    {
+        $keluarga = $pegawai->tunjanganKeluarga;
+
+        if ($keluarga) {
+            if (filled($keluarga->dokumen_pendukung_path)) {
+                Storage::disk('local')->delete($keluarga->dokumen_pendukung_path);
+            }
+
+            $keluarga->anggota()->delete();
+            $keluarga->delete();
+        }
+
+        AuditHelper::catat('Hapus Data Tunjangan Keluarga', "Pegawai: {$pegawai->nama} (NIP {$pegawai->nip})");
+
+        return back()->with('success', "Data tunjangan keluarga {$pegawai->nama} dikosongkan.");
     }
 
     public function unduhDokumenData(TunjanganKeluarga $tunjanganKeluarga): StreamedResponse

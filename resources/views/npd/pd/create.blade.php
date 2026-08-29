@@ -2,11 +2,11 @@
 
 @section('activeNav', 'npd')
 @php($npdEdit = $npd ?? null)
-@section('title', $npdEdit ? 'Edit NPD Perjalanan Dinas' : 'Buat NPD Perjalanan Dinas')
+@section('title', $npdEdit ? 'Edit Nota Pencairan Dana Perjalanan Dinas' : 'Buat Nota Pencairan Dana Perjalanan Dinas')
 
 @section('content')
 <div class="dash-card">
-    <h3>{{ $npdEdit ? 'Edit' : 'Buat' }} NPD Perjalanan Dinas</h3>
+    <h3>{{ $npdEdit ? 'Edit' : 'Buat' }} Nota Pencairan Dana Perjalanan Dinas</h3>
     <div class="sub">Pilih sumber dana, lengkapi data SP &amp; perjalanan, lalu tambahkan anggota tim.</div>
 
     @if ($errors->any())
@@ -76,26 +76,39 @@
 
         <div class="pane" data-pane="2">
             <h3 style="margin-top:0;">Surat Perintah</h3>
+            @php($spTerpilih = $suratPerintahList->firstWhere('id', (int) old('surat_perintah_id', $npdEdit?->surat_perintah_id)))
             <div class="fg">
-                <label class="fl" for="sp-taut">Tautkan ke Data SP (opsional)</label>
-                <select id="sp-taut">
-                    <option value="">— Input manual, tidak ditautkan —</option>
-                    @foreach ($suratPerintahList as $sp)
-                        <option value="{{ $sp->id }}">{{ $sp->nomor_sp }} — {{ $sp->unit_kerja }} ({{ $sp->tanggal_sp->format('d-m-Y') }})</option>
-                    @endforeach
-                </select>
-                <p class="mini">Kalau ditautkan, Nomor SP/Tanggal SP/Uraian/Tujuan otomatis terisi (tetap bisa diedit) dan status NPD ini akan ikut termonitor di Monitoring SP.</p>
+                <label class="fl" for="sp-taut-inp">Pilih Data Surat Perintah <span style="color:var(--err);">*</span></label>
+                <div class="kombo" id="sp-taut-wrap" data-semua="&mdash; belum dipilih &mdash;">
+                    <input type="text" class="kb-inp" id="sp-taut-inp" autocomplete="off" role="combobox" aria-expanded="false"
+                           placeholder="Ketik Nomor SP, unit kerja, atau lokasi&hellip;"
+                           value="{{ $spTerpilih ? $spTerpilih->nomor_sp.' — '.$spTerpilih->unit_kerja.($spTerpilih->lokasi ? ' ('.$spTerpilih->lokasi.')' : '') : '' }}">
+                    <svg class="kb-chev" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                    <div class="kb-drop" id="sp-taut-drop" role="listbox"></div>
+                </div>
+                <p class="mini">Nota Pencairan Dana Perjalanan Dinas selalu berangkat dari Surat Perintah. Memilih SP akan mengisi keterangan di bawah dan memunculkan anggota timnya.</p>
+                @if ($npdEdit && ! $npdEdit->surat_perintah_id)
+                    {{-- NPD lama dibuat sebelum aturan ini berlaku, jadi belum
+                         punya tautan SP. Diberi tahu di sini supaya pengguna
+                         tidak menabrak galat validasi tanpa tahu sebabnya. --}}
+                    <div class="sumbar" style="margin-top:8px;background:var(--warn-bg);color:var(--warn);">
+                        <span>Nota Pencairan Dana ini dibuat sebelum Surat Perintah diwajibkan, sehingga belum tertaut. Silakan pilih Surat Perintah yang sesuai sebelum menyimpan.</span>
+                    </div>
+                @endif
+                @if ($suratPerintahList->isEmpty())
+                    <p class="mini" style="color:var(--err);">Belum ada Surat Perintah yang siap dipakai. Pastikan SP sudah dicatat di Data Surat Perintah, berjenis Uang Harian/Akomodasi, dan penanda Sumber NPD-nya menyala.</p>
+                @endif
             </div>
             <input type="hidden" name="surat_perintah_id" id="surat_perintah_id" value="{{ old('surat_perintah_id', $npdEdit?->surat_perintah_id) }}">
 
             <div class="form-grid">
                 <div class="fg">
                     <label class="fl" for="nomor_sp">Nomor SP</label>
-                    <input type="text" id="nomor_sp" name="nomor_sp" value="{{ old('nomor_sp', $npdEdit?->detail_json['nomor_sp'] ?? null) }}" placeholder="mis. 294/KPG.03.01.01/Sekre">
+                    <input type="text" id="nomor_sp" value="{{ $spTerpilih?->nomor_sp ?? ($npdEdit?->detail_json['nomor_sp'] ?? '') }}" readonly placeholder="Terisi dari Surat Perintah">
                 </div>
                 <div class="fg">
                     <label class="fl" for="tanggal_sp">Tanggal SP</label>
-                    <input type="date" id="tanggal_sp" name="tanggal_sp" value="{{ old('tanggal_sp', $npdEdit?->detail_json['tanggal_sp'] ?? null) }}">
+                    <input type="date" id="tanggal_sp" value="{{ $spTerpilih?->tanggal_sp?->format('Y-m-d') ?? ($npdEdit?->detail_json['tanggal_sp'] ?? '') }}" readonly>
                 </div>
             </div>
             <div class="fg">
@@ -148,10 +161,10 @@
                         @endforeach
                     </select>
                 </div>
-                <div class="fg">
-                    <label class="fl" for="tahun">Tahun</label>
-                    <input type="number" id="tahun" name="tahun" min="2000" max="2100" value="{{ old('tahun', $npdEdit?->tahun ?? now()->year) }}">
-                </div>
+                {{-- Tahun tidak lagi dipilih: NPD selalu dibuat pada tahun
+                     anggaran berjalan. Tetap dikirim agar aturan validasi dan
+                     penomoran tidak perlu diubah. --}}
+                <input type="hidden" name="tahun" id="tahun" value="{{ old('tahun', $npdEdit?->tahun ?? config('anggaran.tahun_aktif')) }}">
             </div>
 
             <h3 style="margin-top:22px;">Anggota Tim</h3>
@@ -189,10 +202,10 @@
 <?php
     $masterAnggaranJs = $masterAnggaran->map(fn ($m) => [
         'id' => $m->id,
-        'program' => $m->program,
-        'kegiatan' => $m->kegiatan,
-        'sub_kegiatan' => $m->sub_kegiatan,
-        'kode_rekening' => $m->kode_rekening,
+        'program' => $m->program_lengkap,
+        'kegiatan' => $m->kegiatan_lengkap,
+        'sub_kegiatan' => $m->sub_kegiatan_lengkap,
+        'kode_rekening' => $m->rekening_lengkap,
         'kode_rekening_bersih' => $m->kode_rekening_bersih,
         'tagging_id' => $m->tagging_id,
         'tagging' => $m->tagging->nama ?? 'Tanpa Tagging',
@@ -223,12 +236,19 @@
         'tanggal_sp' => $sp->tanggal_sp->format('Y-m-d'),
         'uraian_sp' => $sp->keterangan,
         'tujuan' => $sp->lokasi,
+        'unit_kerja' => $sp->unit_kerja,
+        'jumlah_anggota' => $sp->anggota->count(),
+        // Identitas diambil dari SNAPSHOT anggota SP, bukan join ke master
+        // Pegawai: anggota mode manual memang tidak punya baris master, dan
+        // SP lama harus tetap membawa identitas sebagaimana saat ditandatangani.
         'anggota' => $sp->anggota->map(fn ($item) => [
             'pegawai_id' => $item->pegawai_id,
-            'nama' => $item->pegawai?->nama ?? '',
-            'jabatan' => $item->jabatan_sp,
-            'nip' => $item->pegawai?->nip ?? '',
-            'rekening' => $item->pegawai?->rekening ?? '',
+            'nama' => (string) $item->nama,
+            // Jabatan struktural yang tercetak di Daftar Pembayaran; kalau
+            // kosong, jabatan dalam tim dipakai sebagai gantinya.
+            'jabatan' => (string) ($item->jabatan ?: $item->jabatan_sp),
+            'nip' => (string) $item->nip,
+            'rekening' => (string) $item->rekening,
         ])->values()->all(),
     ]);
 
@@ -413,22 +433,85 @@
         if (! tanggalInput.value) return;
         const d = new Date(tanggalInput.value + 'T00:00:00');
         bulanSelect.value = String(d.getMonth() + 1);
-        tahunInput.value = d.getFullYear();
+        // Tahun sengaja TIDAK ikut diubah - selalu tahun anggaran berjalan.
     });
 
-    // ==================== Tautkan SP ====================
-    document.getElementById('sp-taut').addEventListener('change', function () {
-        const sp = spData.find(s => String(s.id) === this.value);
-        document.getElementById('surat_perintah_id').value = sp ? sp.id : '';
-        if (sp) {
+    // ==================== Pilih Surat Perintah ====================
+    // Wajib: NPD Perjalanan Dinas selalu berangkat dari SP. Memilih SP mengisi
+    // keterangannya (baca-saja) dan menyalin anggota tim SP ke daftar anggota,
+    // yang setelah itu masih bisa disunting per orang.
+    (function () {
+        const wrap = document.getElementById('sp-taut-wrap');
+        const inp = document.getElementById('sp-taut-inp');
+        const drop = document.getElementById('sp-taut-drop');
+        const nilai = document.getElementById('surat_perintah_id');
+        const escHtml = t => { const d = document.createElement('div'); d.textContent = t ?? ''; return d.innerHTML; };
+
+        let label = inp.value;
+        let sorot = -1;
+
+        const cocok = () => {
+            const q = inp.value.trim().toLowerCase();
+
+            return spData.filter(sp => !q || q === label.toLowerCase()
+                || [sp.nomor_sp, sp.unit_kerja, sp.tujuan, sp.uraian_sp].join(' ').toLowerCase().includes(q));
+        };
+
+        function gambar() {
+            const daftar = cocok();
+            drop.innerHTML = daftar.length
+                ? daftar.map((sp, i) => '<div class="kb-item' + (String(sp.id) === nilai.value ? ' terpilih' : '')
+                    + (i === sorot ? ' sorot' : '') + '" role="option" data-id="' + sp.id + '">'
+                    + '<strong>' + escHtml(sp.nomor_sp) + '</strong><br><span style="color:var(--mut);font-size:11.5px;">'
+                    + escHtml(sp.unit_kerja || '') + (sp.tujuan ? ' &middot; ' + escHtml(sp.tujuan) : '')
+                    + (sp.jumlah_anggota ? ' &middot; ' + sp.jumlah_anggota + ' anggota' : '') + '</span></div>').join('')
+                : '<div class="kb-kosong">Tidak ada Surat Perintah yang cocok</div>';
+        }
+
+        function buka() { sorot = -1; gambar(); wrap.classList.add('buka'); inp.setAttribute('aria-expanded', 'true'); }
+        function tutup() { wrap.classList.remove('buka'); inp.setAttribute('aria-expanded', 'false'); inp.value = label; }
+
+        function pilih(id) {
+            const sp = spData.find(s => String(s.id) === String(id));
+            if (!sp) return;
+
+            nilai.value = sp.id;
+            label = sp.nomor_sp + ' — ' + (sp.unit_kerja || '') + (sp.tujuan ? ' (' + sp.tujuan + ')' : '');
+            inp.value = label;
+            tutup();
+
             document.getElementById('nomor_sp').value = sp.nomor_sp;
             document.getElementById('tanggal_sp').value = sp.tanggal_sp;
             document.getElementById('uraian_sp').value = sp.uraian_sp || '';
             document.getElementById('tujuan').value = sp.tujuan || '';
             importSpAnggota(sp.anggota || []);
         }
-    });
-    document.getElementById('sp-taut').value = document.getElementById('surat_perintah_id').value;
+
+        inp.addEventListener('focus', buka);
+        inp.addEventListener('click', buka);
+        inp.addEventListener('input', function () { sorot = -1; gambar(); wrap.classList.add('buka'); });
+        inp.addEventListener('blur', () => setTimeout(tutup, 130));
+        inp.addEventListener('keydown', function (e) {
+            const daftar = cocok();
+            if (e.key === 'ArrowDown' || e.key === 'ArrowUp') {
+                e.preventDefault();
+                if (!wrap.classList.contains('buka')) buka();
+                sorot = Math.min(Math.max(sorot + (e.key === 'ArrowDown' ? 1 : -1), 0), daftar.length - 1);
+                gambar();
+                const el = drop.querySelector('.kb-item.sorot');
+                if (el) el.scrollIntoView({block: 'nearest'});
+            } else if (e.key === 'Enter') {
+                e.preventDefault();
+                if (daftar[sorot]) pilih(daftar[sorot].id);
+            } else if (e.key === 'Escape') { tutup(); inp.blur(); }
+        });
+        drop.addEventListener('mousedown', function (e) {
+            const item = e.target.closest('.kb-item[data-id]');
+            if (!item) return;
+            e.preventDefault();
+            pilih(item.dataset.id);
+        });
+    })();
 
     // ==================== Anggota Tim ====================
     const timList = document.getElementById('tim-list');

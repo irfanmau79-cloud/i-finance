@@ -2,11 +2,22 @@
 
 namespace App\Exports;
 
+use App\Exports\Concerns\PunyaPetunjukKolom;
 use App\Models\Vendor;
 use Illuminate\Database\Eloquent\Builder;
 
-class VendorExport extends DataManagementExport
+class VendorExport extends DataManagementExport implements PunyaPetunjukKolom
 {
+    public function petunjukCatatan(): string
+    {
+        return VendorTemplateExport::CATATAN;
+    }
+
+    public function petunjukKolom(): array
+    {
+        return VendorTemplateExport::PETUNJUK;
+    }
+
     public function query(): Builder
     {
         return Vendor::query()->orderByDesc('aktif')->orderBy('nama');

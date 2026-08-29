@@ -8,6 +8,7 @@ use App\Models\Spm;
 use App\Models\Tagging;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use Illuminate\Support\Collection;
 use Tests\TestCase;
 
 class RincianRealisasiTest extends TestCase
@@ -28,7 +29,20 @@ class RincianRealisasiTest extends TestCase
         ]);
     }
 
-    public function test_tree_tiga_tingkat_mengagregasi_angka_anak_tanpa_menyimpan_ulang(): void
+    /**
+     * Pohon Rincian Realisasi bertingkat Program > Sub Kegiatan > Kode
+     * Rekening > Tagging, sama seperti pivot di GAS. Helper ini meratakan
+     * level Sub Kegiatan supaya asersi tetap ringkas.
+     *
+     * @param  Collection<int, array<string, mixed>>  $tree
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function subKegiatan($tree): Collection
+    {
+        return $tree->flatMap(fn (array $program) => $program['sub']);
+    }
+
+    public function test_tree_empat_tingkat_mengagregasi_angka_anak_tanpa_menyimpan_ulang(): void
     {
         $tagA = Tagging::create(['nama' => 'Tag A', 'aktif' => true]);
         $tagB = Tagging::create(['nama' => 'Tag B', 'aktif' => true]);
@@ -45,9 +59,12 @@ class RincianRealisasiTest extends TestCase
             ->assertSee('Tutup Semua')
             ->assertSee('Buka Semua')
             ->assertViewHas('tree', function ($tree) {
-                $sub = $tree->first();
+                // Satu Program, dengan satu Sub Kegiatan di dalamnya.
+                $sub = $this->subKegiatan($tree)->first();
 
                 return $tree->count() === 1
+                    && $tree->first()['sub']->count() === 1
+                    && $tree->first()['angka']['pagu'] === 18_000_000.0
                     && $sub['rekening']->count() === 2
                     && $sub['rekening']->first()['tagging']->count() === 2
                     && $sub['angka']['pagu'] === 18_000_000.0
@@ -87,11 +104,13 @@ class RincianRealisasiTest extends TestCase
             ->assertOk()
             ->assertSee('Sub Target')
             ->assertViewHas('tree', function ($tree) {
-                return $tree->count() === 1
-                    && $tree->first()['nama'] === 'Sub Target'
-                    && $tree->first()['rekening']->count() === 1
-                    && $tree->first()['rekening']->first()['tagging']->count() === 1
-                    && $tree->first()['rekening']->first()['tagging']->first()['nama'] === 'Prioritas Merah';
+                $sub = $this->subKegiatan($tree);
+
+                return $sub->count() === 1
+                    && $sub->first()['nama'] === 'Sub Target'
+                    && $sub->first()['rekening']->count() === 1
+                    && $sub->first()['rekening']->first()['tagging']->count() === 1
+                    && $sub->first()['rekening']->first()['tagging']->first()['nama'] === 'Prioritas Merah';
             })
             ->assertViewHas('total', fn (array $total) => $total['pagu'] === 10_000_000.0);
     }
@@ -113,7 +132,7 @@ class RincianRealisasiTest extends TestCase
         $response = $this->actingAs($this->user)->get(route('rincian.index'));
         $response->assertOk()->assertSee('0,00 %');
         $response->assertViewHas('tree', function ($tree) {
-            $transaksi = $tree->firstWhere('nama', 'Sub Transaksi')['angka'];
+            $transaksi = $this->subKegiatan($tree)->firstWhere('nama', 'Sub Transaksi')['angka'];
 
             return $transaksi['dana_terikat_npd'] === 5_000_000.0
                 && $transaksi['realisasi_aktual'] === 4_000_000.0
@@ -145,7 +164,8 @@ class RincianRealisasiTest extends TestCase
         $response = $this->actingAs($this->user)->get(route('rincian.index'));
         $response->assertOk();
         $response->assertViewHas('tree', function ($tree) {
-            $angka = fn ($nama) => $tree->firstWhere('nama', $nama)['angka'];
+            $sub = $this->subKegiatan($tree);
+            $angka = fn ($nama) => $sub->firstWhere('nama', $nama)['angka'];
 
             return $angka('Sub Multi A')['realisasi_ls'] === 1_000_000.0
                 && $angka('Sub Multi B')['realisasi_ls'] === 2_000_000.0
@@ -154,6 +174,84 @@ class RincianRealisasiTest extends TestCase
                 && $angka('Sub Multi B')['sisa_tersedia'] === 8_000_000.0
                 && $angka('Sub Multi C')['sisa_tersedia'] === 7_000_000.0;
         });
+    }
+
+    /**
+     * Rupa halaman disamakan dengan GAS (page-rincian di index.html):
+     * empat tingkat Program > Sub Kegiatan > Kode Rekening > Tagging, satu
+     * kotak pencarian langsung, tombol Buka Semua lalu Tutup Semua, dan
+     * judul kolom "Anggaran" serta "% Realisasi".
+     */
+    public function test_tampilan_mengikuti_gas_empat_tingkat_dan_judul_kolomnya(): void
+    {
+        $tag = Tagging::create(['nama' => 'Tag A', 'aktif' => true]);
+        $this->anggaran('Sub Kegiatan Satu', '5.1.01', $tag, 10_000_000);
+
+        $halaman = $this->actingAs($this->user)->get(route('rincian.index'))->assertOk();
+
+        // Judul kolom persis seperti GAS - bukan "Pagu Anggaran"/"%Realisasi".
+        $halaman->assertSee('<th>Uraian</th>', false)
+            ->assertSee('<th class="num">Anggaran</th>', false)
+            ->assertSee('<th class="num">% Realisasi</th>', false)
+            ->assertDontSee('Pagu Anggaran')
+            ->assertDontSee('%Realisasi');
+
+        // Keterangan hierarki + tahun anggaran.
+        $halaman->assertSee('Sub Kegiatan &rsaquo; Kode Rekening &rsaquo; Tagging', false)
+            ->assertSee('Tahun Anggaran');
+
+        // Satu kotak pencarian langsung, bukan tiga dropdown + tombol Terapkan.
+        $halaman->assertSee('Cari program / sub kegiatan / kode rekening / tagging', false)
+            ->assertSee('Buka Semua')
+            ->assertSee('Tutup Semua')
+            ->assertDontSee('Terapkan');
+
+        // Empat tingkat baris.
+        foreach (['row-lvl0', 'row-lvl1', 'row-lvl2', 'row-lvl3'] as $kelas) {
+            $halaman->assertSee($kelas, false);
+        }
+    }
+
+    /**
+     * Pola selang-seling baris berasal dari `tbody tr:nth-child(even)` pada
+     * tabel dasar - aturan yang di GAS memang MENANG atas warna tingkat.
+     * nth-child menghitung baris yang ada DI DOM, jadi baris tertutup harus
+     * benar-benar dilepas, bukan sekadar disembunyikan. Kalau memakai
+     * `hidden`, baris tersembunyi ikut terhitung dan warna Program jadi acak.
+     */
+    public function test_baris_tertutup_dilepas_dari_dom_bukan_disembunyikan(): void
+    {
+        $tag = Tagging::create(['nama' => 'Tag A', 'aktif' => true]);
+        $this->anggaran('Sub Kegiatan Satu', '5.1.01', $tag, 10_000_000);
+
+        $halaman = $this->actingAs($this->user)->get(route('rincian.index'))->assertOk();
+
+        $halaman->assertDontSee('tr.hidden =', false)
+            ->assertSee('body.removeChild', false)
+            ->assertSee('createDocumentFragment', false);
+    }
+
+    public function test_pohon_berisi_program_di_tingkat_teratas_dan_terurut_alami(): void
+    {
+        $tag = Tagging::create(['nama' => 'Tag A', 'aktif' => true]);
+        $this->anggaran('Sub B', '5.1.10', $tag, 1_000_000);
+        $this->anggaran('Sub A', '5.1.2', $tag, 2_000_000);
+
+        $this->actingAs($this->user)->get(route('rincian.index'))
+            ->assertViewHas('tree', function ($tree) {
+                $sub = $this->subKegiatan($tree);
+
+                // Sub Kegiatan urut alami di dalam programnya.
+                if ($sub->pluck('nama')->all() !== ['Sub A', 'Sub B']) {
+                    return false;
+                }
+
+                // Kode rekening urut alami: 5.1.2 sebelum 5.1.10.
+                $kode = $sub->flatMap(fn (array $s) => $s['rekening'])->pluck('kode')->all();
+
+                return $kode === ['5.1.2', '5.1.10']
+                    && $tree->every(fn (array $program) => isset($program['nama'], $program['sub'], $program['angka']));
+            });
     }
 
     public function test_backend_route_mengikuti_config_akses_menu(): void

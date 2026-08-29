@@ -9,6 +9,7 @@ use App\Models\Npd;
 use App\Models\Pegawai;
 use App\Models\PejabatOpd;
 use App\Models\Pelimpahan;
+use App\Models\SuratPerintah;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
@@ -170,8 +171,21 @@ class NpdPdfRenderTest extends TestCase
         $response->assertRedirect(route('npd.show', $npd));
         $this->assertSame(12, $npd->penerima()->count());
 
-        $this->simpanPdf('bj-01-npd.pdf', $this->actingAs($pptk)->get(route('npd.cetak-npd', $npd)));
+        $cetakNpd = $this->actingAs($pptk)->get(route('npd.cetak-npd', $npd));
+        $this->simpanPdf('bj-01-npd.pdf', $cetakNpd);
         $this->simpanPdf('bj-02-lampiran.pdf', $this->actingAs($pptk)->get(route('npd.cetak-lampiran', $npd)));
+
+        $isi = $cetakNpd->getContent();
+
+        // Dokumen bertanda tangan memakai Arial. mPDF hanya membawa DejaVu,
+        // jadi kalau Arial tidak tertanam berarti MpdfFont gagal menemukannya
+        // dan seluruh dokumen tercetak dengan huruf yang salah.
+        $this->assertStringContainsString('Arial', $isi, 'PDF NPD tidak menanamkan Arial.');
+
+        // Arial TIDAK punya U+2713, jadi tanda centang "Tanpa Panjar" wajib
+        // ikut menanamkan DejaVu. Tanpa itu centangnya tercetak sebagai kotak
+        // .notdef kosong - kelihatan seperti kotak yang belum dicentang.
+        $this->assertStringContainsString('DejaVu', $isi, 'Tanda centang NPD kehilangan font DejaVu.');
     }
 
     // ============================================================ PD ====
@@ -226,14 +240,33 @@ class NpdPdfRenderTest extends TestCase
             ];
         }
 
+        // NPD Perjalanan Dinas wajib berangkat dari Surat Perintah; nomor dan
+        // tanggal SP pada dokumen diambil dari SP ini, bukan dari isian form.
+        $suratPerintah = SuratPerintah::create([
+            'nomor_sp' => '900/SP/AUDIT/2026',
+            'tanggal_sp' => '2026-07-15',
+            'unit_kerja' => 'Sekretariat',
+            'lokasi' => 'Cirebon dan sekitarnya',
+            'nama_pengirim' => 'Penguji',
+            'tujuan_transfer' => 'Rekening Penguji',
+            'irban_dibayar' => false,
+            'rincian_tgl_bayar' => '20 - 24 Juli 2026',
+            'keterangan' => 'Perjalanan dinas pengujian audit visual PDF multi-halaman',
+            'file_url' => 'sp/audit.pdf',
+            'status_sp' => 'Baru',
+            'status' => SuratPerintah::STATUS_DITERIMA_PPTK,
+            'jenis_permintaan' => SuratPerintah::JENIS_UANG_HARIAN,
+            'sumber_npd' => true,
+            'dipantau' => true,
+        ]);
+
         $payload = [
             'master_anggaran_id' => $master->id,
+            'surat_perintah_id' => $suratPerintah->id,
             'jenis_panjar' => 'Panjar',
             'tanggal_npd' => '2026-07-20',
             'bulan' => 7,
             'tahun' => 2026,
-            'nomor_sp' => '900/SP/AUDIT/2026',
-            'tanggal_sp' => '2026-07-15',
             'uraian_sp' => 'Perjalanan dinas pengujian audit visual PDF multi-halaman',
             'berangkat_dari' => 'Kota Bandung',
             'tujuan' => 'Cirebon dan sekitarnya',

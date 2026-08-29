@@ -11,10 +11,35 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Foundation\Auth\User as Authenticatable;
 use Illuminate\Notifications\Notifiable;
 
-#[Fillable(['username', 'nama', 'nip', 'pegawai_id', 'role', 'aktif', 'password', 'last_login_at'])]
+#[Fillable(['username', 'nama', 'nama_panggilan', 'jenis_kelamin', 'nip', 'pegawai_id', 'role', 'aktif', 'password', 'last_login_at'])]
 #[Hidden(['password', 'remember_token'])]
 class User extends Authenticatable
 {
+    public const KELAMIN = ['L' => 'Laki-laki', 'P' => 'Perempuan'];
+
+    /**
+     * Nama yang dipakai untuk menyapa: nama panggilan bila ada, kalau tidak
+     * jatuh ke nama lengkap. Nama lengkap tetap dipakai sebagai identitas
+     * akun di menu profil dan riwayat aktivitas.
+     */
+    public function namaSapaan(): string
+    {
+        return trim((string) $this->nama_panggilan) ?: (string) $this->nama;
+    }
+
+    /**
+     * Sapaan untuk bilah atas. Selama jenis kelaminnya belum diisi, dipakai
+     * "Pak/Bu" - lebih baik netral daripada menebak dan salah.
+     */
+    public function sapaan(): string
+    {
+        return match ($this->jenis_kelamin) {
+            'L' => 'Pak',
+            'P' => 'Bu',
+            default => 'Pak/Bu',
+        };
+    }
+
     /** @use HasFactory<UserFactory> */
     use HasFactory, Notifiable;
 

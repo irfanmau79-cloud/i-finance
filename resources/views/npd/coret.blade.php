@@ -1,13 +1,13 @@
 @extends('layouts.app')
 
 @section('activeNav', 'verifikasi')
-@section('title', 'Coret Dokumen NPD')
+@section('title', 'Coret Dokumen Nota Pencairan Dana')
 
 @section('content')
 <div class="page-head">
     <div>
         <div class="ph-crumb">Beranda / Verifikasi NPD / <b>Coret Dokumen NPD</b></div>
-        <div class="ph-title">Coret Dokumen NPD &mdash; {{ $npd->nomor_lengkap ?? 'Belum bernomor (masih Draft)' }}</div>
+        <div class="ph-title">Coret Dokumen Nota Pencairan Dana &mdash; {{ $npd->nomor_lengkap ?? 'Belum bernomor (masih Draft)' }}</div>
     </div>
 </div>
 

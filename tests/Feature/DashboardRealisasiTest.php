@@ -268,7 +268,7 @@ class DashboardRealisasiTest extends TestCase
     private function rak(MasterAnggaran $anggaran, int $bulan, float $target): RakBulanan
     {
         return RakBulanan::create([
-            'sub_kegiatan' => $anggaran->sub_kegiatan,
+            'sub_kegiatan' => $anggaran->sub_kegiatan_lengkap,
             'kode_rekening' => $anggaran->kode_rekening_bersih,
             'tahun' => 2026,
             'bulan' => $bulan,

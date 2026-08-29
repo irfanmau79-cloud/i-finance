@@ -4,8 +4,8 @@ namespace App\Http\Controllers;
 
 use App\Helpers\AuditLog;
 use App\Helpers\PejabatResolver;
-use App\Models\Npd;
 use App\Models\BantexSpj;
+use App\Models\Npd;
 use App\Models\NpdNarasumber;
 use App\Models\NpdPenerima;
 use App\Models\NpdPeserta;
@@ -13,6 +13,7 @@ use App\Models\NpdTim;
 use App\Models\Pengembalian;
 use App\Models\User;
 use App\Support\CoretanPdf;
+use App\Support\MpdfFont;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -37,6 +38,59 @@ class NpdController extends Controller
         $bolehBuat = in_array($request->user()->role, [User::ROLE_SUPERADMIN, User::ROLE_PPTK], true);
 
         return view('npd.index', compact('npds', 'filters', 'bolehBuat'));
+    }
+
+    /**
+     * Data NPD: satu halaman baca-saja berisi ringkasan KPI dan daftar
+     * SELURUH NPD apa pun statusnya. Berbeda dari Pembuatan/Persetujuan/
+     * Verifikasi yang masing-masing hanya menampilkan antreannya sendiri.
+     */
+    public function dataNpd(Request $request)
+    {
+        $npds = Npd::query()
+            ->with(['masterAnggaran.tagging', 'penerima', 'tim', 'narasumber', 'peserta', 'historiStatus'])
+            ->orderByDesc('tanggal_npd')
+            ->orderByDesc('id')
+            ->get();
+
+        $batasDraft = now()->subDays(7);
+
+        $baris = $npds->map(function (Npd $npd) use ($batasDraft) {
+            // "Draft mengendap": dibuat PPTK, umurnya lebih dari 7 hari, dan
+            // BELUM pernah ada aksi apa pun. Begitu diteruskan ke BPP, histori
+            // status terisi - jadi baris ini otomatis keluar dari kategori,
+            // termasuk bila kelak dikembalikan lagi ke PPTK.
+            $mengendap = $npd->status === 'Draft NPD - PPTK'
+                && $npd->historiStatus->isEmpty()
+                && $npd->created_at !== null
+                && $npd->created_at->lessThan($batasDraft);
+
+            return [
+                'id' => $npd->id,
+                'nomor_npd' => $npd->nomor_lengkap ?: 'NPD #'.$npd->id,
+                'sub_kegiatan' => $npd->masterAnggaran?->subKegiatanNormal() ?? '-',
+                'kode_rekening' => $npd->masterAnggaran?->kode_rekening_bersih ?? '-',
+                'tagging' => $npd->tagging_snapshot ?: ($npd->masterAnggaran?->tagging?->nama ?? '-'),
+                'penerima' => $npd->ringkasanPenerima(),
+                'nominal' => (float) $npd->nominal,
+                'nominal_teks' => 'Rp '.number_format((float) $npd->nominal, 2, ',', '.'),
+                'status' => $npd->status,
+                'badge' => Npd::STATUS_BADGE_CLASS[$npd->status] ?? 'st-npd',
+                'umur_hari' => $npd->created_at?->diffInDays(now()) ?? 0,
+                'draft_mengendap' => $mengendap,
+                'url' => route('npd.show', $npd),
+            ];
+        })->values();
+
+        return view('npd.data', [
+            'baris' => $baris,
+            'kpi' => [
+                'total' => $baris->count(),
+                'selesai' => $baris->where('status', 'Selesai')->count(),
+                'proses' => $baris->where('status', '!=', 'Selesai')->count(),
+                'draft_mengendap' => $baris->where('draft_mengendap', true)->count(),
+            ],
+        ]);
     }
 
     /**
@@ -102,7 +156,10 @@ class NpdController extends Controller
             $query->where('status', $filters['status']);
         }
 
-        return [$query->paginate(30)->withQueryString(), $filters];
+        // Seluruh baris dikirim sekaligus, penyaringan dan penomoran halaman
+        // dikerjakan di peramban - sama seperti Data NPD, supaya penyaring
+        // per kolom bekerja atas seluruh data, bukan cuma halaman yang tampak.
+        return [$query->get(), $filters];
     }
 
     public function show(Request $request, Npd $npd)
@@ -427,14 +484,7 @@ class NpdController extends Controller
 
         $html = $this->sisipkanCoretan($html, $npd, 'npd');
 
-        $mpdf = new Mpdf([
-            'format' => [215, 330],
-            'margin_left' => 15,
-            'margin_right' => 15,
-            'margin_top' => 15,
-            'margin_bottom' => 15,
-            'default_font' => 'arial',
-        ]);
+        $mpdf = new Mpdf(MpdfFont::konfigF4([15, 15, 15, 15]));
         $mpdf->WriteHTML($html);
 
         AuditLog::catat('Cetak NPD', 'Nomor NPD: '.($npd->nomor_lengkap ?? "#{$npd->id}"));
@@ -493,14 +543,7 @@ class NpdController extends Controller
 
         $html = $this->sisipkanCoretan($html, $npd, 'lampiran');
 
-        $mpdf = new Mpdf([
-            'format' => [215, 330],
-            'margin_left' => 12,
-            'margin_right' => 12,
-            'margin_top' => 12,
-            'margin_bottom' => 12,
-            'default_font' => 'arial',
-        ]);
+        $mpdf = new Mpdf(MpdfFont::konfigF4([12, 12, 12, 12]));
         $mpdf->WriteHTML($html);
 
         AuditLog::catat('Cetak Lampiran NPD', 'Nomor NPD: '.($npd->nomor_lengkap ?? "#{$npd->id}"));
@@ -543,14 +586,7 @@ class NpdController extends Controller
 
         $html = $this->sisipkanCoretan($html, $npd, 'daftar');
 
-        $mpdf = new Mpdf([
-            'format' => [215, 330],
-            'margin_left' => 7,
-            'margin_right' => 7,
-            'margin_top' => 7,
-            'margin_bottom' => 7,
-            'default_font' => 'arial',
-        ]);
+        $mpdf = new Mpdf(MpdfFont::konfigF4([7, 7, 7, 7]));
         $mpdf->WriteHTML($html);
 
         AuditLog::catat('Cetak Daftar Pembayaran NPD', 'Nomor NPD: '.($npd->nomor_lengkap ?? "#{$npd->id}"));
@@ -587,14 +623,7 @@ class NpdController extends Controller
 
         $html = $this->sisipkanCoretan($html, $npd, 'daftar');
 
-        $mpdf = new Mpdf([
-            'format' => [215, 330],
-            'margin_left' => 10,
-            'margin_right' => 10,
-            'margin_top' => 12,
-            'margin_bottom' => 12,
-            'default_font' => 'arial',
-        ]);
+        $mpdf = new Mpdf(MpdfFont::konfigF4([10, 10, 12, 12]));
         $mpdf->WriteHTML($html);
 
         AuditLog::catat('Cetak Daftar Pembayaran Narasumber', 'Nomor NPD: '.($npd->nomor_lengkap ?? "#{$npd->id}"));
@@ -640,14 +669,7 @@ class NpdController extends Controller
 
         $html = $this->sisipkanCoretan($html, $npd, 'daftar');
 
-        $mpdf = new Mpdf([
-            'format' => [215, 330],
-            'margin_left' => 7,
-            'margin_right' => 7,
-            'margin_top' => 7,
-            'margin_bottom' => 7,
-            'default_font' => 'arial',
-        ]);
+        $mpdf = new Mpdf(MpdfFont::konfigF4([7, 7, 7, 7]));
         $mpdf->WriteHTML($html);
 
         AuditLog::catat('Cetak Daftar Bayar Kontribusi Diklat', 'Nomor NPD: '.($npd->nomor_lengkap ?? "#{$npd->id}"));
@@ -702,14 +724,7 @@ class NpdController extends Controller
 
         $html = $this->sisipkanCoretan($html, $npd, 'spd');
 
-        $mpdf = new Mpdf([
-            'format' => [215, 330],
-            'margin_left' => 12,
-            'margin_right' => 12,
-            'margin_top' => 13,
-            'margin_bottom' => 13,
-            'default_font' => 'arial',
-        ]);
+        $mpdf = new Mpdf(MpdfFont::konfigF4([12, 12, 13, 13]));
         $mpdf->WriteHTML($html);
 
         AuditLog::catat('Cetak SPD Rampung NPD', 'Nomor NPD: '.($npd->nomor_lengkap ?? "#{$npd->id}"));
@@ -739,9 +754,16 @@ class NpdController extends Controller
         return $overlay === '' ? $html : str_replace('</body>', $overlay.'</body>', $html);
     }
 
+    /**
+     * Lambang Jawa Barat untuk kop dokumen. Berkasnya diambil dari LogoData.gs
+     * milik GAS (di sana tertanam sebagai data URI) lalu disimpan sebagai PNG,
+     * supaya kop di Laravel benar-benar sama dengan dokumen yang sudah
+     * ditandatangani. Sebelumnya menunjuk berkas .svg yang tidak pernah ada,
+     * sehingga seluruh PDF tercetak tanpa lambang.
+     */
     private function logoKopPath(): ?string
     {
-        $path = storage_path('app/import/Coat_of_arms_of_West_Java.svg');
+        $path = storage_path('app/logo/lambang-jabar.png');
 
         return file_exists($path) ? $path : null;
     }
@@ -751,6 +773,13 @@ class NpdController extends Controller
     {
         return $tanggal ? Carbon::parse($tanggal)->translatedFormat('d F Y') : '';
     }
+
+    /**
+     * Apakah label "Rp" ikut dicetak pada sel nominal. Hanya tpl_kd_daftar
+     * di GAS yang menampilkannya (float kiri); tpl_pd_daftar dan
+     * tpl_kd_pd_daftar menyembunyikannya.
+     */
+    private bool $selRpBerlabel = true;
 
     /**
      * Sel nominal gaya "Rp    [angka]" — Rp mepet kiri, angka rata kanan,
@@ -768,6 +797,14 @@ class NpdController extends Controller
         }
 
         $angka = number_format($n, 0, ',', '.');
+
+        // Daftar Bayar Perjalanan Dinas & Kontribusi Diklat (bagian
+        // perjalanan) MENYEMBUNYIKAN label "Rp" supaya kolomnya muat -
+        // di GAS lewat "td.rp .rp-l { display:none }" pada tpl_pd_daftar
+        // dan tpl_kd_pd_daftar. Yang tersisa hanya angkanya, rata kanan.
+        if (! $this->selRpBerlabel) {
+            return "<td class=\"{$cls}\"{$rowspanAttr}>{$angka}</td>";
+        }
 
         return "<td class=\"{$cls}\"{$rowspanAttr}><table class=\"rpwrap\"><tr><td class=\"rp-l\">Rp</td><td class=\"rp-a\">{$angka}</td></tr></table></td>";
     }
@@ -827,6 +864,8 @@ class NpdController extends Controller
      */
     private function rowsDaftarBayar(Collection $tim): array
     {
+        $this->selRpBerlabel = false;
+
         $body = '';
         $tHarian = $tAkom = $tTransport = $tRepr = $tJumlah = 0.0;
         $no = 0;
@@ -915,7 +954,7 @@ class NpdController extends Controller
                 }
                 $rowsUh .= '<td class="center">'.(int) $p['lama_hari'].' hari x</td>'
                     .'<td class="num">'.fmt_rupiah($p['tarif_uh']).'</td>'
-                    .'<td class="num">'.fmt_rupiah($p['sub_uh']).'</td></tr>';
+                    .'<td class="num br0">'.fmt_rupiah($p['sub_uh']).'</td></tr>';
             }
         }
 
@@ -938,7 +977,7 @@ class NpdController extends Controller
                 }
                 $rowsAk .= '<td class="center">'.(int) $p['malam'].' malam x</td>'
                     .'<td class="num">'.fmt_rupiah($p['tarif_akom']).'</td>'
-                    .'<td class="num">'.fmt_rupiah($p['sub_akom']).'</td></tr>';
+                    .'<td class="num br0">'.fmt_rupiah($p['sub_akom']).'</td></tr>';
             }
         }
 
@@ -954,12 +993,12 @@ class NpdController extends Controller
         $tTr = $totBbm + $totTol + $totTiket;
         $literStr = str_replace('.', ',', (string) (round($totLiter * 100) / 100));
         $rowsTr =
-            '<tr class="dat"><td class="center v">1</td><td class="v">BBM</td><td class="v"></td>'
-                .'<td class="center">'.($totBbm > 0 ? $literStr.' liter' : '').'</td><td class="num"></td><td class="num">'.fmt_rupiah($totBbm).'</td></tr>'
-            .'<tr class="dat"><td class="center v">2</td><td class="v">e-Toll</td><td class="v"></td>'
-                .'<td class="center"></td><td class="num"></td><td class="num">'.fmt_rupiah($totTol).'</td></tr>'
-            .'<tr class="dat"><td class="center v">3</td><td class="v">Tiket</td><td class="v"></td>'
-                .'<td class="center"></td><td class="num"></td><td class="num">'.fmt_rupiah($totTiket).'</td></tr>';
+            '<tr class="dat"><td class="center v bl0">1</td><td class="v">BBM</td><td class="v"></td>'
+                .'<td class="center">'.($totBbm > 0 ? $literStr.' liter' : '').'</td><td class="num"></td><td class="num br0">'.fmt_rupiah($totBbm).'</td></tr>'
+            .'<tr class="dat"><td class="center v bl0">2</td><td class="v">e-Toll</td><td class="v"></td>'
+                .'<td class="center"></td><td class="num"></td><td class="num br0">'.fmt_rupiah($totTol).'</td></tr>'
+            .'<tr class="dat"><td class="center v bl0">3</td><td class="v">Tiket</td><td class="v"></td>'
+                .'<td class="center"></td><td class="num"></td><td class="num br0">'.fmt_rupiah($totTiket).'</td></tr>';
 
         // ---- IV. Uang Representatif (hanya kalau ada) ----
         $no = 0;
@@ -968,10 +1007,10 @@ class NpdController extends Controller
             $h = $anggota->hitung();
             if ($h['representatif'] > 0) {
                 $tRp += $h['representatif'];
-                $rowsRp .= '<tr class="dat"><td class="center v">'.$no.'</td><td class="v">'.e($anggota->nama).'</td>'
+                $rowsRp .= '<tr class="dat"><td class="center v bl0">'.$no.'</td><td class="v">'.e($anggota->nama).'</td>'
                     .'<td class="v">'.e($anggota->jabatan).'</td>'
                     .'<td class="center">1 keg x</td><td class="num">'.fmt_rupiah($h['representatif']).'</td>'
-                    .'<td class="num">'.fmt_rupiah($h['representatif']).'</td></tr>';
+                    .'<td class="num br0">'.fmt_rupiah($h['representatif']).'</td></tr>';
             }
         }
 
@@ -1212,6 +1251,8 @@ class NpdController extends Controller
      */
     private function rowsDaftarKd(Collection $peserta): array
     {
+        $this->selRpBerlabel = true;
+
         $body = '';
         $tKontribusi = $tMooc = $tJumlah = 0.0;
         $no = 0;
@@ -1261,6 +1302,8 @@ class NpdController extends Controller
      */
     private function rowsDaftarKdPerjalanan(Collection $peserta): array
     {
+        $this->selRpBerlabel = false;
+
         $body = '';
         $tHarian = $tAkom = $tSaku = $tTransport = $tJumlah = 0.0;
         $no = 0;

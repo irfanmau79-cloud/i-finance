@@ -13,17 +13,17 @@
 return [
 
     'menu' => [
-        'superadmin' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd', 'persetujuan', 'verifikasi', 'sp-input', 'sp-data', 'sp-monitor', 'tk-data', 'tk-form', 'spm', 'pengembalian-create', 'pengembalian', 'manajemen-data', 'audit-log', 'users', 'pelimpahan', 'data-pegawai', 'profil'],
-        'bendahara_pengeluaran' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'spm', 'pengembalian-create', 'pengembalian', 'manajemen-data', 'data-pegawai', 'profil'],
-        'pptk' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dash-tk', 'tk-monitor', 'dashspj', 'npd', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'data-pegawai', 'profil'],
-        'bpp' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'persetujuan', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'pengembalian-create', 'pengembalian', 'data-pegawai', 'profil'],
-        'verifikator' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'verifikasi', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'data-pegawai', 'profil'],
-        'perencanaan' => ['dashboard', 'rincian', 'analisis', 'dashpd', 'dash-tk', 'tk-monitor', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'data-pegawai', 'profil'],
-        'inspektur' => ['dashboard', 'rincian', 'analisis', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'audit-log', 'data-pegawai', 'profil'],
-        'sekretaris' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'data-pegawai', 'profil'],
-        'kasubbag' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'data-pegawai', 'profil'],
-        'inspektur_pembantu' => ['dashboard', 'rincian', 'analisis', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'tk-form', 'data-pegawai', 'profil'],
-        'layanan' => ['dashboard', 'rincian', 'sp-input', 'sp-monitor', 'tk-form', 'data-pegawai'],
+        'superadmin' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd-data', 'npd', 'persetujuan', 'verifikasi', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-pegawai', 'tk-data', 'tk-form', 'spm', 'pengembalian-create', 'pengembalian', 'manajemen-data', 'audit-log', 'users', 'pelimpahan', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'gt-daftar', 'profil'],
+        'bendahara_pengeluaran' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd-data', 'npd', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'spm', 'pengembalian-create', 'pengembalian', 'manajemen-data', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
+        'pptk' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dash-tk', 'tk-monitor', 'dashspj', 'npd-data', 'npd', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
+        'bpp' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd-data', 'persetujuan', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'pengembalian-create', 'pengembalian', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
+        'verifikator' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd-data', 'verifikasi', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
+        'perencanaan' => ['dashboard', 'rincian', 'analisis', 'dashpd', 'dash-tk', 'tk-monitor', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
+        'inspektur' => ['dashboard', 'rincian', 'analisis', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'audit-log', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
+        'sekretaris' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
+        'kasubbag' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
+        'inspektur_pembantu' => ['dashboard', 'rincian', 'analisis', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
+        'layanan' => ['dashboard', 'rincian', 'sp-input', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'tk-form'],
     ],
 
     'role_label' => [

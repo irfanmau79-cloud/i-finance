@@ -34,7 +34,7 @@ class ImportMaster extends Command
 
         $this->info("Membaca file: {$path}");
 
-        $import = new MasterDataImport();
+        $import = new MasterDataImport;
 
         try {
             Excel::import($import, $path);
@@ -96,7 +96,7 @@ class ImportMaster extends Command
                 'update' => 0,
                 'dinonaktifkan' => 0,
                 'dilewati' => 0,
-                'errors' => ["FATAL - seluruh import di-rollback: ".$e->getMessage()],
+                'errors' => ['FATAL - seluruh import di-rollback: '.$e->getMessage()],
             ];
         }
     }
@@ -121,7 +121,7 @@ class ImportMaster extends Command
                 'update' => 0,
                 'dinonaktifkan' => 0,
                 'dilewati' => 0,
-                'errors' => ["FATAL - seluruh import di-rollback: ".$e->getMessage()],
+                'errors' => ['FATAL - seluruh import di-rollback: '.$e->getMessage()],
             ];
 
             return ['pegawai' => $fatal, 'vendor' => $fatal];
@@ -243,20 +243,32 @@ class ImportMaster extends Command
                 // Kunci unik: sub_kegiatan + kode_rekening + tagging_id. Sub
                 // kegiatan dan kode rekening yang sama boleh muncul lebih dari
                 // sekali selama taggingnya berbeda - itu bukan duplikat.
-                $key = $subKegiatan.'|'.$kodeRekening.'|'.($taggingId ?? 'NULL');
+                // Kode dan nama punya kolom sendiri sejak migrasi
+                // split_kode_uraian_master_anggaran; sel sumber di file legacy
+                // masih menggabungkan keduanya, jadi dipecah di sini dengan
+                // aturan yang sama seperti MasterAnggaran::pecahNilaiGabungan().
+                [$kodeSubKegiatan, $namaSubKegiatan] = MasterAnggaran::pisahKodeUraian($subKegiatan);
+
+                if ($namaSubKegiatan === '' || preg_match('/^\d[\d.]*$/', $kodeSubKegiatan) !== 1) {
+                    $kodeSubKegiatan = MasterAnggaran::normalisasiTeks($subKegiatan);
+                    $namaSubKegiatan = $subKegiatan;
+                }
+
+                $key = $kodeSubKegiatan.'|'.$kodeRekening.'|'.($taggingId ?? 'NULL');
 
                 if (isset($keyToFirstRow[$key])) {
-                    $errors[] = "Baris {$rowNumber}: kunci (sub_kegiatan+kode_rekening+tagging_id) sama dengan baris {$keyToFirstRow[$key]} - baris ini meng-update baris tersebut, bukan insert baru.";
+                    $errors[] = "Baris {$rowNumber}: kunci (kode_sub_kegiatan+kode_rekening+tagging_id) sama dengan baris {$keyToFirstRow[$key]} - baris ini meng-update baris tersebut, bukan insert baru.";
                 } else {
                     $keyToFirstRow[$key] = $rowNumber;
                 }
 
                 $model = MasterAnggaran::updateOrCreate(
-                    ['sub_kegiatan' => $subKegiatan, 'kode_rekening' => $kodeRekening, 'tagging_id' => $taggingId],
+                    ['kode_sub_kegiatan' => $kodeSubKegiatan, 'kode_rekening' => $kodeRekening, 'tagging_id' => $taggingId],
                     [
                         'program' => $program,
                         'kegiatan' => $kegiatan,
-                        'uraian_rekening' => $uraianRekening,
+                        'sub_kegiatan' => $namaSubKegiatan,
+                        'rekening' => $uraianRekening,
                         'pagu' => $pagu,
                         'aktif' => true,
                     ]
