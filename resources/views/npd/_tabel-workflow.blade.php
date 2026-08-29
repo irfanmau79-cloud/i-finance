@@ -30,8 +30,14 @@
 <div class="npd-scroll" style="border:1px solid var(--line);border-radius:8px;overflow:auto;">
     <table class="realisasi npd-table" id="npd-tabel" style="width:100%;table-layout:fixed;">
         <colgroup>
-            <col style="width:11%;"><col style="width:16%;"><col style="width:14%;"><col style="width:13%;">
-            <col style="width:14%;"><col style="width:13%;"><col style="width:9%;"><col style="width:10%;">
+            {{-- Lebar kolom hasil ukur, bukan kira-kira:
+                 - Status 13%: pil terpanjang ("Verifikasi - Verifikator") butuh
+                   123px + padding sel. Di 9% pilnya tumpah ke kolom Aksi.
+                 - Nominal 12,5%: nominal NPD terbesar yang ada bernilai sembilan
+                   angka dan butuh 130px. JANGAN dipersempit lagi tanpa mengukur
+                   ulang - angkanya nowrap, jadi kelebihannya langsung tumpah. --}}
+            <col style="width:11%;"><col style="width:15%;"><col style="width:13%;"><col style="width:12%;">
+            <col style="width:13.5%;"><col style="width:12.5%;"><col style="width:13%;"><col style="width:10%;">
         </colgroup>
         <thead>
             <tr>
@@ -66,7 +72,7 @@
                     $bisaHapus = $tampilkanKelola && $npd->dapatDihapusOleh(auth()->user());
                 @endphp
                 <tr>
-                    <td>{{ $npd->nomor_lengkap ?? '-' }}</td>
+                    <td class="kol-npd">{{ $npd->nomor_lengkap ?? '-' }}</td>
                     <td>{{ $npd->masterAnggaran->sub_kegiatan_lengkap }}</td>
                     <td>{{ $npd->masterAnggaran->rekening_lengkap }}</td>
                     <td>{{ $npd->masterAnggaran->tagging->nama ?? '-' }}</td>
@@ -75,11 +81,13 @@
                         <div class="pen-sub">({{ \App\Models\Npd::JENIS_LABEL[$npd->jenis] ?? strtoupper($npd->jenis) }})</div>
                     </td>
                     <td class="num">Rp {{ number_format((float) $npd->nominal, 2, ',', '.') }}</td>
-                    <td>
-                        <div class="stat-cell">
-                            <div class="stat-badge"><span class="badge {{ \App\Models\Npd::STATUS_BADGE_CLASS[$npd->status] ?? 'st-diterima' }}">{{ $npd->status }}</span></div>
+                    <td class="kol-status">
+                        {{-- Pil status sama persis dengan Data NPD, ditambah pil
+                             Catatan bernada emas di bawahnya. --}}
+                        <div class="stat-kolom">
+                            <span class="badge {{ \App\Models\Npd::STATUS_BADGE_CLASS[$npd->status] ?? 'st-diterima' }}">{{ $npd->status }}</span>
                             @if ($npd->catatan)
-                                <span class="stat-cat-chip"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Terdapat Catatan</span>
+                                <span class="stat-cat"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Catatan</span>
                             @endif
                         </div>
                     </td>

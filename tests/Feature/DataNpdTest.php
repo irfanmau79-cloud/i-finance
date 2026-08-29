@@ -127,6 +127,43 @@ class DataNpdTest extends TestCase
             ->assertSee('Klik untuk menyaring tabel');
     }
 
+    /**
+     * Kolom Penerima memakai gaya yang sama dengan Pembuatan NPD: nama tebal
+     * (.pen-nm) dengan jenis NPD sebagai baris kecil di bawahnya (.pen-sub).
+     */
+    public function test_kolom_penerima_memakai_gaya_yang_sama_dengan_pembuatan_npd(): void
+    {
+        $this->npd('Selesai');
+
+        $this->actingAs($this->user)->get(route('npd.data'))->assertOk()
+            ->assertSee('class="pen-nm"', false)
+            ->assertSee('class="pen-sub"', false)
+            ->assertViewHas('baris', fn ($baris) => $baris->first()['jenis_label'] === Npd::JENIS_LABEL['bj']);
+    }
+
+    /**
+     * Lebar kolom dikunci karena angkanya hasil pengukuran, bukan selera.
+     * Nominal 12,5% (+ padding sel yang sudah dirapatkan) pas untuk nominal
+     * NPD terbesar yang ada - sembilan angka, "Rp 180.684.000,00" - dan
+     * isinya nowrap, jadi begitu dipersempit lagi angkanya langsung tumpah ke
+     * kolom Status. Status 13% pas untuk pil terpanjang
+     * "Verifikasi - Verifikator".
+     */
+    public function test_lebar_kolom_terkunci_sesuai_hasil_pengukuran(): void
+    {
+        $lebar = '<col style="width:11%;"><col style="width:15%;"><col style="width:13%;"><col style="width:12%;">';
+        $lebar2 = '<col style="width:13.5%;"><col style="width:12.5%;"><col style="width:13%;"><col style="width:10%;">';
+
+        // Data NPD dan ketiga antrean NPD harus memakai lebar yang sama persis.
+        $this->actingAs($this->user)->get(route('npd.data'))->assertOk()
+            ->assertSee($lebar, false)
+            ->assertSee($lebar2, false);
+
+        $this->actingAs($this->user)->get(route('npd.index'))->assertOk()
+            ->assertSee($lebar, false)
+            ->assertSee($lebar2, false);
+    }
+
     public function test_seluruh_npd_muncul_apa_pun_statusnya(): void
     {
         foreach (Npd::STATUS_LIST as $status) {

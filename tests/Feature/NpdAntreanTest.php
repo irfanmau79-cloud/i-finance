@@ -107,6 +107,68 @@ class NpdAntreanTest extends TestCase
         $this->actingAs($superadmin)->get(route('npd.verifikasi'))->assertOk();
     }
 
+    /**
+     * Penyaring jenis & status yang dulu melayang di atas tabel sudah dibuang -
+     * pekerjaannya diambil alih baris penyaring di dalam tabel. Penyaring
+     * peladen sendiri TIDAK dibuang: antrean tetap dibatasi pada NPD yang
+     * memerlukan tindakan, dan ?status=semua tetap bisa dipakai.
+     */
+    public function test_penyaring_melayang_di_atas_tabel_sudah_dibuang(): void
+    {
+        $superadmin = $this->buatUser('superadmin', 'superadmin-saring');
+        $this->buatNpd('Draft NPD - BPP');
+
+        foreach (['npd.index', 'npd.persetujuan', 'npd.verifikasi'] as $rute) {
+            $this->actingAs($superadmin)->get(route($rute))
+                ->assertOk()
+                ->assertDontSee('-- Semua Jenis --')
+                ->assertDontSee('-- Semua Status --')
+                ->assertSee('kolom-saring', false);
+        }
+    }
+
+    /**
+     * Sel Status memakai pil berwarna yang sama persis dengan Data NPD, plus
+     * pil "Catatan" di bawahnya - bukan teks telanjang. Yang dibuang cuma
+     * kotak abu pembungkusnya, karena itulah yang membuat kolom sempit ini
+     * terasa berdesakan.
+     */
+    public function test_sel_status_memakai_pil_berwarna_dan_pil_catatan(): void
+    {
+        $bpp = $this->buatUser('bpp', 'bpp-status-pil');
+        $npd = $this->buatNpd('Draft NPD - BPP');
+        $npd->update(['catatan' => 'Mohon dilengkapi lampirannya']);
+
+        $this->actingAs($bpp)->get(route('npd.persetujuan'))
+            ->assertOk()
+            ->assertSee('class="stat-kolom"', false)
+            ->assertSee('class="badge st-npd-bpp"', false)
+            ->assertSee('class="stat-cat"', false)
+            ->assertSee('class="kol-npd"', false)
+            ->assertDontSee('class="stat-cell"', false)
+            ->assertDontSee('Terdapat Catatan')
+            ->assertSee('Catatan');
+    }
+
+    /**
+     * Warna pil status dipetakan dari STATUS_BADGE_CLASS - Selesai hijau,
+     * Dibatalkan oranye, dan seterusnya - sama seperti Data NPD.
+     */
+    public function test_setiap_status_memakai_kelas_warnanya_sendiri(): void
+    {
+        $superadmin = $this->buatUser('superadmin', 'superadmin-warna-status');
+
+        foreach (Npd::STATUS_LIST as $status) {
+            $this->buatNpd($status);
+        }
+
+        $halaman = $this->actingAs($superadmin)->get(route('npd.index'))->assertOk();
+
+        foreach (Npd::STATUS_BADGE_CLASS as $kelas) {
+            $halaman->assertSee('class="badge '.$kelas.'"', false);
+        }
+    }
+
     public function test_bpp_klik_dari_antrean_ke_detail_lalu_kembali(): void
     {
         $bpp = $this->buatUser('bpp', 'klik-bpp');

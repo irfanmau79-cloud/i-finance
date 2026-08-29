@@ -72,6 +72,7 @@ class NpdController extends Controller
                 'kode_rekening' => $npd->masterAnggaran?->kode_rekening_bersih ?? '-',
                 'tagging' => $npd->tagging_snapshot ?: ($npd->masterAnggaran?->tagging?->nama ?? '-'),
                 'penerima' => $npd->ringkasanPenerima(),
+                'jenis_label' => Npd::JENIS_LABEL[$npd->jenis] ?? strtoupper($npd->jenis),
                 'nominal' => (float) $npd->nominal,
                 'nominal_teks' => 'Rp '.number_format((float) $npd->nominal, 2, ',', '.'),
                 'status' => $npd->status,

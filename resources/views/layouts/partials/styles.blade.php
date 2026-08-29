@@ -147,17 +147,31 @@
   .wf-lihat{background:#f1f5f9;color:#334155;}
   .wf-btn:disabled{opacity:.5;cursor:not-allowed;}
   .catatan-box{background:#fff7ed;border:1px solid #fed7aa;border-radius:8px;padding:8px 11px;font-size:12px;color:#9a3412;margin-top:6px;}
-  /* Sel Status terpadu (status + link SP + penanda catatan) */
-  .stat-cell{display:flex;flex-direction:column;gap:6px;align-items:flex-start;border:1px solid var(--line);border-radius:10px;padding:8px 9px;background:#f5f7f9;min-width:0;}
+  /* Nomor NPD - satu gaya untuk Data NPD maupun tabel alur kerja. */
+  td.kol-npd{font-weight:600;color:var(--navy);}
+  /* ---- Sel Status di tabel NPD (Data NPD + Pembuatan/Verifikasi/Persetujuan)
+     Dua pil bertumpuk: status berwarna, lalu penanda catatan. TIDAK dibungkus
+     kotak abu lagi - kotak itulah yang dulu membuat kolom sempit ini terasa
+     penuh. Ukuran hurufnya dikecilkan ke 9.6px supaya label terpanjang
+     ("Verifikasi - Verifikator") tetap muat satu baris di lebar kolomnya;
+     kalau dibiarkan 10.5px pilnya melewati sel dan menabrak kolom Aksi. */
+  .stat-kolom{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;}
+  .stat-kolom .badge{max-width:100%;white-space:nowrap;font-size:9.6px;letter-spacing:-.1px;
+    padding:4px 9px 4px 8px;gap:4px;line-height:1.35;}
+  .stat-kolom .badge::before{width:5px;height:5px;flex:0 0 5px;}
+  /* Penanda catatan: pil bergeometri SAMA dengan pil status supaya keduanya
+     bertumpuk rapi, tapi bernada emas - warna aksen i-Finance - dan tanpa
+     titik di depannya, jadi terbaca sebagai keterangan tambahan, bukan
+     status kedua. */
+  .stat-cat{display:inline-flex;align-items:center;justify-content:center;gap:4px;max-width:100%;
+    background:#fdf4de;border:1px solid #eddcae;color:#8a6516;
+    border-radius:50px;padding:3px 9px 3px 7px;font-size:9.6px;font-weight:700;
+    letter-spacing:-.1px;line-height:1.35;white-space:nowrap;}
+  .stat-cat svg{width:10px;height:10px;stroke:currentColor;fill:none;stroke-width:2.2;flex:0 0 10px;}
+  :root[data-tema="gelap"] .stat-cat{background:rgba(217,169,56,.16);border-color:rgba(217,169,56,.4);color:#e8c56a;}
   .pen-nm{font-weight:700;color:#a63f17;line-height:1.3;}
   .pen-sub{font-size:12px;color:var(--mut);margin-top:1px;}
-  /* Pill mengikuti isinya (bukan 100%) agar sudut bulatnya utuh & tidak gepeng */
-  .stat-badge, .stat-sp{width:auto;max-width:100%;min-width:0;}
-  /* Badge di sel status: dikompres agar label terpanjang ("Verifikasi - Verifikator") tetap 1 baris */
-  .stat-cell .badge{max-width:100%;white-space:nowrap;text-align:left;border-radius:50px;padding:4px 8px 4px 7px;gap:4px;font-size:9.6px;letter-spacing:-.1px;line-height:1.3;align-items:center;}
-  .stat-cell .badge::before{width:5px;height:5px;flex:0 0 5px;}
-  .stat-cell .badge::before{margin-top:1px;align-self:center;}
-  .stat-cell .stat-cat-chip{max-width:100%;white-space:nowrap;font-size:10px;padding:3px 7px;}
+  /* Chip penanda pada halaman Detail NPD (mis. "Ada Coretan"). */
   .stat-cat-chip{display:inline-flex;align-items:center;gap:5px;background:#fbf3e2;border:1px solid #f0dcae;border-radius:8px;padding:3px 9px;font-size:11px;font-weight:600;color:#b07d1d;white-space:nowrap;}
   .stat-cat-chip svg{width:12px;height:12px;stroke:currentColor;fill:none;stroke-width:2;flex:0 0 12px;}
   /* Modal riwayat catatan timeline */
@@ -622,7 +636,7 @@
   .npd-scroll{overflow-x:visible;}
   @media(max-width:900px){.npd-scroll{overflow-x:auto;}}
   .npd-table td, .npd-table th{padding:11px 10px;}
-  .npd-table td:has(.stat-cell){padding-left:6px;padding-right:6px;}
+  .npd-table td.kol-status{padding-left:6px;padding-right:6px;text-align:center;}
   /* Kolom Aksi: pastikan 3 ikon per baris muat tanpa scroll horizontal */
   .npd-table td:last-child, .npd-table th:last-child{padding-left:2px;padding-right:2px;}
   .npd-table td:last-child .aksi-wrap{grid-template-columns:repeat(3,28px);gap:3px;width:90px;margin:0 auto;}
@@ -632,8 +646,11 @@
   #tbl-daftar-npd td:nth-child(2), #tbl-daftar-npd td:nth-child(3),
   #prst-table td:nth-child(2), #prst-table td:nth-child(3),
   #vrf-table td:nth-child(2), #vrf-table td:nth-child(3){overflow-wrap:anywhere;word-break:break-word;}
-  .npd-table td.num{white-space:nowrap;font-variant-numeric:tabular-nums;padding-left:6px;padding-right:8px;}
-  .npd-table th.num{white-space:nowrap;}
+  /* Padding dirapatkan: kolom Nominal menyerahkan sebagian lebarnya ke
+     Penerima, jadi ruang untuk angkanya diambil kembali dari padding.
+     th.num disamakan supaya judulnya sejajar dengan angka di bawahnya. */
+  .npd-table td.num{white-space:nowrap;font-variant-numeric:tabular-nums;padding-left:3px;padding-right:5px;}
+  .npd-table th.num{white-space:nowrap;padding-left:3px;padding-right:5px;}
   .npd-table th.num, #tbl-daftar-npd th.num, #prst-table th.num, #vrf-table th.num{text-align:left;}
   #tbl-daftar-npd td.num, #prst-table td.num, #vrf-table td.num{text-align:left;}
   .npd-table th.st, #tbl-daftar-npd th.st, #prst-table th.st, #vrf-table th.st{text-align:center;}

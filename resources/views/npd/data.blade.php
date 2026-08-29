@@ -29,7 +29,6 @@
   /* Lebar kolom & gaya tabel disamakan dengan Pembuatan NPD: kelas
      .realisasi .npd-table yang sama, table-layout:fixed, dan tanpa
      min-width - jadi tabelnya pas selebar kartu, bukan digulir mendatar. */
-  table.dn-tabel td.kol-npd{font-weight:600;color:var(--navy);}
   table.dn-tabel td.kol-status{text-align:center;}
 
   /* Baris penyaring per kolom - sama seperti Tabel Rincian SPJ. */
@@ -91,8 +90,10 @@
   <div class="npd-scroll">
     <table class="realisasi npd-table dn-tabel" id="dn-tabel" style="width:100%;table-layout:fixed;">
       <colgroup>
-        <col style="width:11%;"><col style="width:16%;"><col style="width:14%;"><col style="width:13%;">
-        <col style="width:14%;"><col style="width:13%;"><col style="width:9%;"><col style="width:10%;">
+        {{-- Lebar sama dengan tabel Pembuatan/Verifikasi/Persetujuan NPD -
+             lihat catatan pengukurannya di npd/_tabel-workflow.blade.php. --}}
+        <col style="width:11%;"><col style="width:15%;"><col style="width:13%;"><col style="width:12%;">
+        <col style="width:13.5%;"><col style="width:12.5%;"><col style="width:13%;"><col style="width:10%;">
       </colgroup>
       <thead>
         <tr>
@@ -176,11 +177,14 @@ document.addEventListener('DOMContentLoaded', function () {
         '<td title="' + esc(r.sub_kegiatan) + '">' + esc(r.sub_kegiatan) + '</td>' +
         '<td>' + esc(r.kode_rekening) + '</td>' +
         '<td>' + esc(r.tagging) + '</td>' +
-        '<td title="' + esc(r.penerima) + '">' + esc(r.penerima) + '</td>' +
+        '<td title="' + esc(r.penerima) + '">' +
+          '<div class="pen-nm">' + esc(r.penerima) + '</div>' +
+          '<div class="pen-sub">(' + esc(r.jenis_label) + ')</div></td>' +
         '<td class="num">' + esc(r.nominal_teks) + '</td>' +
-        '<td class="kol-status"><span class="badge ' + esc(r.badge) + '">' + esc(r.status) + '</span>' +
-          (r.draft_mengendap ? ' <span class="badge st-dikembalikan" title="Sudah ' + r.umur_hari + ' hari tanpa aksi">' + r.umur_hari + ' hari</span>' : '') +
-        '</td>' +
+        '<td class="kol-status"><div class="stat-kolom">' +
+          '<span class="badge ' + esc(r.badge) + '">' + esc(r.status) + '</span>' +
+          (r.draft_mengendap ? '<span class="badge st-dikembalikan" title="Sudah ' + r.umur_hari + ' hari tanpa aksi">' + r.umur_hari + ' hari</span>' : '') +
+        '</div></td>' +
         '<td style="text-align:center;"><a class="dn-lihat" href="' + r.url + '" title="Lihat NPD" aria-label="Lihat NPD">' +
           '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></a></td>' +
       '</tr>'
