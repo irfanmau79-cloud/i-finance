@@ -35,6 +35,22 @@ class CetakSpjPerjalananController extends Controller
 
     public const KODE_PROSES = 'proses';
 
+    /** Kata kunci terlalu pendek untuk dicarikan awalan. */
+    public const KODE_TERLALU_PENDEK = 'pendek';
+
+    /** Beberapa SP berawalan sama - pegawai memilih dulu yang mana. */
+    public const KODE_BANYAK = 'banyak';
+
+    /**
+     * Panjang minimal kata kunci pencarian awalan. Nomor SP yang lengkap tetap
+     * boleh diketik utuh dan langsung ketemu; batas ini hanya berlaku saat
+     * nomornya diketik sebagian.
+     */
+    public const MIN_CARI = 3;
+
+    /** Batas saran yang ditampilkan sekaligus, supaya daftarnya tetap terbaca. */
+    public const MAKS_SARAN = 15;
+
     public function index(Request $request)
     {
         GuestSession::login();
@@ -43,8 +59,58 @@ class CetakSpjPerjalananController extends Controller
 
         return view('surat-perintah.cetak-spj', [
             'nomorSp' => $nomorSp,
+            'minCari' => self::MIN_CARI,
             'hasil' => $nomorSp === '' ? null : $this->cari($nomorSp),
         ]);
+    }
+
+    /**
+     * Saran nomor SP untuk pencarian ketik-langsung. Sengaja HANYA
+     * mengembalikan identitas SP-nya - nama anggota dan nominal tidak pernah
+     * ikut, itu baru muncul setelah SP-nya benar-benar dipilih.
+     */
+    public function saran(Request $request)
+    {
+        GuestSession::login();
+
+        $q = trim((string) $request->query('q', ''));
+
+        if (mb_strlen($q) < self::MIN_CARI) {
+            return response()->json([]);
+        }
+
+        return response()->json(
+            $this->berawalan($q)
+                ->map(fn (SuratPerintah $sp) => [
+                    'nomor_sp' => $sp->nomor_sp,
+                    'keterangan' => trim(collect([
+                        $sp->tanggal_sp?->format('d-m-Y'),
+                        $sp->unit_kerja,
+                        $sp->lokasi,
+                    ])->filter()->implode(' · ')),
+                ])
+                ->values()
+        );
+    }
+
+    /**
+     * SP yang nomornya DIAWALI kata kunci. Pencocokannya sengaja awalan, bukan
+     * "mengandung": nomor SP dibaca dari depan, dan pegawai mengetik digit
+     * pertamanya.
+     *
+     * @return \Illuminate\Support\Collection<int, SuratPerintah>
+     */
+    private function berawalan(string $q): \Illuminate\Support\Collection
+    {
+        // Karakter pola LIKE di kata kunci di-escape supaya "%" yang diketik
+        // pegawai dicari apa adanya, bukan jadi wildcard.
+        $pola = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q).'%';
+
+        return SuratPerintah::query()
+            ->where('nomor_sp', 'like', $pola)
+            ->orderBy('nomor_sp')
+            ->limit(self::MAKS_SARAN)
+            ->get();
     }
 
     /**
@@ -52,10 +118,34 @@ class CetakSpjPerjalananController extends Controller
      */
     private function cari(string $nomorSp): array
     {
+        // Nomor utuh selalu menang: pegawai yang menyalin nomor lengkap tidak
+        // perlu memilih dari daftar walau ada nomor lain berawalan sama.
         $suratPerintah = SuratPerintah::where('nomor_sp', $nomorSp)->first();
 
         if (! $suratPerintah) {
-            return $this->gagal(self::KODE_TIDAK_ADA, 'Surat Perintah tidak ditemukan.');
+            if (mb_strlen($nomorSp) < self::MIN_CARI) {
+                return $this->gagal(
+                    self::KODE_TERLALU_PENDEK,
+                    'Ketik minimal '.self::MIN_CARI.' karakter awal Nomor Surat Perintah.'
+                );
+            }
+
+            $cocok = $this->berawalan($nomorSp);
+
+            if ($cocok->isEmpty()) {
+                return $this->gagal(self::KODE_TIDAK_ADA, 'Surat Perintah tidak ditemukan.');
+            }
+
+            if ($cocok->count() > 1) {
+                // array_replace, bukan union: gagal() sudah memuat kunci
+                // 'pilihan' kosong, dan union akan mempertahankan yang kiri.
+                return array_replace(
+                    $this->gagal(self::KODE_BANYAK, 'Ada '.$cocok->count().' Surat Perintah berawalan "'.$nomorSp.'". Pilih salah satu.'),
+                    ['pilihan' => $cocok]
+                );
+            }
+
+            $suratPerintah = $cocok->first();
         }
 
         $terkait = Npd::query()
@@ -103,7 +193,7 @@ class CetakSpjPerjalananController extends Controller
     /** @return array<string, mixed> */
     private function gagal(string $kode, string $pesan): array
     {
-        return ['ok' => false, 'kode' => $kode, 'pesan' => $pesan, 'daftar' => []];
+        return ['ok' => false, 'kode' => $kode, 'pesan' => $pesan, 'daftar' => [], 'pilihan' => collect()];
     }
 
     /**

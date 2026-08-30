@@ -45,6 +45,38 @@ class SuratPerintahTimelineService
     private const AKSI_SELESAI = 'selesai';
 
     /**
+     * Ringkasan keadaan terkini SP, ditampilkan di bawah timeline.
+     *
+     * Kuncinya adalah label titik timeline yang sedang berlaku. Yang dipakai
+     * menentukan titik itu BUKAN posisi terakhir yang tercapai, melainkan
+     * STATUS NPD-nya sekarang - dokumen yang sempat bolak-balik revisi membuat
+     * urutan titik tidak lagi mencerminkan kronologi, sedangkan statusnya
+     * selalu menunjukkan di meja siapa dokumen itu berada.
+     */
+    public const RINGKASAN = [
+        'SP Diterima' => 'Surat Perintah telah diterima oleh PPTK dan menunggu NPD dibuat.',
+        'NPD Dibuat' => 'NPD telah dibuat oleh PPTK namun belum diserahkan kepada BPP atau dalam tahap revisi.',
+        'Diperiksa BPP' => 'NPD sedang diperiksa oleh BPP sebelum disetujui dan diteruskan ke KPA.',
+        'Verifikasi' => 'NPD sedang diverifikasi oleh Verifikator.',
+        'Revisi' => 'NPD sedang direvisi oleh PPTK.',
+        'Persetujuan NPD & Proses IBC' => 'NPD disetujui oleh BPP, menunggu validasi KPA dan transaksi IBC.',
+        'Selesai' => 'Transaksi telah selesai dieksekusi.',
+        // Di luar tujuh titik timeline, tapi harus tetap punya penjelasan -
+        // NPD yang dibatalkan tidak boleh terbaca seolah masih berjalan.
+        'Dibatalkan' => 'NPD dibatalkan. Surat Perintah ini tidak lagi diproses sampai NPD baru dibuat.',
+    ];
+
+    /** Status NPD -> label titik timeline yang sedang berlaku. */
+    private const STATUS_KE_TITIK = [
+        'Draft NPD - PPTK' => 'NPD Dibuat',
+        'Draft NPD - BPP' => 'Diperiksa BPP',
+        'Verifikasi - Verifikator' => 'Verifikasi',
+        'NPD Disetujui - BPP' => 'Persetujuan NPD & Proses IBC',
+        'Selesai' => 'Selesai',
+        'Dibatalkan' => 'Dibatalkan',
+    ];
+
+    /**
      * Timeline untuk BANYAK SP sekaligus. NPD dan histori dibaca masing-masing
      * SEKALI lalu disusun di memori - halaman Monitoring SP menampilkan
      * puluhan baris, jadi versi per-baris akan menghasilkan ratusan query.
@@ -167,6 +199,40 @@ class SuratPerintahTimelineService
             'nomor_npd' => $npd?->nomor_lengkap ?? '',
             'npd_id' => $npd?->id,
             'titik' => $titik,
+            'ringkasan' => $this->ringkasan($npd, $revisi !== null, $hanyaTransport),
+        ];
+    }
+
+    /**
+     * Keadaan terkini SP dalam satu kalimat.
+     *
+     * Dibedakan dari status NPD, bukan dari titik terakhir yang tercapai.
+     * Satu-satunya keadaan yang tidak bisa dibaca dari status saja adalah
+     * "Revisi": status NPD-nya kembali ke 'Draft NPD - PPTK', sama persis
+     * dengan NPD yang baru dibuat - yang membedakan hanya pernah tidaknya
+     * dokumen itu dikembalikan BPP.
+     *
+     * @return array{label: string, narasi: string, nada: string}
+     */
+    private function ringkasan(?Npd $npd, bool $pernahDikembalikan, bool $hanyaTransport): array
+    {
+        $label = match (true) {
+            $npd === null => 'SP Diterima',
+            $npd->status === 'Draft NPD - PPTK' && $pernahDikembalikan => 'Revisi',
+            default => self::STATUS_KE_TITIK[$npd->status] ?? 'NPD Dibuat',
+        };
+
+        return [
+            // Mengikuti penamaan titik pertama timeline: dokumen yang hanya
+            // berisi transport disebut SPJ, bukan SP.
+            'label' => $label === 'SP Diterima' && $hanyaTransport ? 'SPJ Diterima' : $label,
+            'narasi' => self::RINGKASAN[$label],
+            'nada' => match ($label) {
+                'Selesai' => 'selesai',
+                'Revisi' => 'revisi',
+                'Dibatalkan' => 'batal',
+                default => 'jalan',
+            },
         ];
     }
 

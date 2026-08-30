@@ -115,7 +115,7 @@ class NpdLifecycleTest extends TestCase
 
         $this->actingAs($pptk)->post(route('npd.transisi', $npd), ['aksi' => 'ajukan_bpp']);
         $this->actingAs($bpp)->post(route('npd.transisi', $npd), ['aksi' => 'teruskan']);
-        $this->actingAs($verifikator)->post(route('npd.transisi', $npd), ['aksi' => 'verifikasi', 'nomor_urut' => 8]);
+        $this->actingAs($verifikator)->post(route('npd.transisi', $npd), ['aksi' => 'verifikasi', 'nomor_lengkap' => '08/NPD-Keu.1.IBC/7/2026']);
         $this->actingAs($bpp)->post(route('npd.transisi', $npd), ['aksi' => 'setuju']);
         $this->actingAs($bpp)->post(route('npd.transisi', $npd), ['aksi' => 'selesai']);
 
@@ -242,13 +242,13 @@ class NpdLifecycleTest extends TestCase
         $this->assertDatabaseHas('audit_log', ['aktivitas' => 'Hapus Permanen NPD']);
     }
 
-    public function test_konflik_nomor_tahunan_ditolak_dengan_pesan_ramah(): void
+    public function test_konflik_nomor_ditolak_dengan_pesan_ramah(): void
     {
         $verifikator = $this->user('verifikator');
         $anggaran = $this->anggaran();
         $terpakai = Npd::create([
             'jenis' => 'bj', 'master_anggaran_id' => $anggaran->id, 'keu' => '1', 'bulan' => 6, 'tahun' => 2026,
-            'nomor_urut' => 9, 'nomor_lengkap' => '09/NPD-Keu.1.IBC/6/2026', 'tanggal_npd' => '2026-06-20',
+            'nomor_lengkap' => '09/NPD-Keu.1.IBC/6/2026', 'tanggal_npd' => '2026-06-20',
             'nominal' => 100_000, 'terbilang' => 'seratus ribu rupiah', 'status' => 'Draft NPD - BPP',
         ]);
         $target = Npd::create([
@@ -257,12 +257,13 @@ class NpdLifecycleTest extends TestCase
             'status' => 'Verifikasi - Verifikator',
         ]);
 
-        $response = $this->actingAs($verifikator)->post(route('npd.transisi', $target), ['aksi' => 'verifikasi', 'nomor_urut' => 9]);
+        $response = $this->actingAs($verifikator)
+            ->post(route('npd.transisi', $target), ['aksi' => 'verifikasi', 'nomor_lengkap' => '09/NPD-Keu.1.IBC/6/2026']);
 
-        $response->assertSessionHasErrors('nomor_urut');
-        $this->assertStringContainsString('sudah dipakai', session('errors')->first('nomor_urut'));
+        $response->assertSessionHasErrors('nomor_lengkap');
+        $this->assertStringContainsString('sudah dipakai', session('errors')->first('nomor_lengkap'));
         $this->assertSame('Verifikasi - Verifikator', $target->fresh()->status);
-        $this->assertSame(9, $terpakai->fresh()->nomor_urut);
+        $this->assertSame('09/NPD-Keu.1.IBC/6/2026', $terpakai->fresh()->nomor_lengkap);
     }
 
     public function test_status_dikembalikan_tidak_lagi_menjadi_sumber_kebenaran(): void

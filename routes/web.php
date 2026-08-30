@@ -70,6 +70,10 @@ Route::middleware('gerbang-layanan')->group(function () {
     // SP, tanpa akun. Dokumennya sendiri hanya dilayani untuk NPD berstatus
     // Selesai yang tertaut ke SP (lihat CetakSpjPerjalananController).
     Route::get('/cetak-spj-perjalanan', [CetakSpjPerjalananController::class, 'index'])->name('cetak-spj.index');
+    // Saran nomor SP untuk pencarian ketik-langsung. Hanya identitas SP-nya;
+    // rincian anggota tetap baru muncul setelah SP dipilih.
+    Route::get('/cetak-spj-perjalanan/saran', [CetakSpjPerjalananController::class, 'saran'])
+        ->middleware('throttle:60,1')->name('cetak-spj.saran');
     Route::get('/cetak-spj-perjalanan/{npd}/daftar', [CetakSpjPerjalananController::class, 'cetakDaftar'])->name('cetak-spj.daftar');
     Route::get('/cetak-spj-perjalanan/{npd}/spd', [CetakSpjPerjalananController::class, 'cetakSpd'])->name('cetak-spj.spd');
     Route::get('/pengumuman', [PengumumanController::class, 'show'])->name('pengumuman.show');

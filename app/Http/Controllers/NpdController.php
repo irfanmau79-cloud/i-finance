@@ -99,6 +99,9 @@ class NpdController extends Controller
      * gas-lama/CodeRevisi.gs: seluruh NPD ditampilkan, tombol aksi di
      * halaman detail aktif hanya untuk status di tahap BPP.
      */
+    /** Nilai penyaring status yang berarti "seluruh status di meja role ini". */
+    public const STATUS_ANTREAN = 'antrean';
+
     public function persetujuan(Request $request)
     {
         [$npds, $filters] = $this->daftarNpd($request, 'persetujuan', lengkap: true);
@@ -124,18 +127,25 @@ class NpdController extends Controller
      */
     private function daftarNpd(Request $request, string $mode = 'daftar', bool $lengkap = false): array
     {
-        $defaultStatus = match ($mode) {
-            'persetujuan' => 'Draft NPD - BPP',
-            'verifikasi' => 'Verifikasi - Verifikator',
+        // Antrean = seluruh status yang ADA DI MEJA role itu, bukan satu status.
+        // NPD yang sudah disetujui BPP tetap di meja BPP - dialah yang menekan
+        // Selesai - jadi kalau antreannya hanya 'Draft NPD - BPP', dokumen yang
+        // baru disetujui langsung hilang dari layar orang yang harus
+        // menyelesaikannya.
+        $statusAntrean = match ($mode) {
+            'persetujuan' => ['Draft NPD - BPP', 'NPD Disetujui - BPP'],
+            'verifikasi' => ['Verifikasi - Verifikator'],
             default => null,
         };
         $validated = $request->validate([
             'jenis' => ['nullable', Rule::in(array_keys(Npd::JENIS_LABEL))],
-            'status' => ['nullable', Rule::in([...Npd::STATUS_LIST, 'semua'])],
+            'status' => ['nullable', Rule::in([...Npd::STATUS_LIST, 'semua', self::STATUS_ANTREAN])],
         ]);
         $filters = [
             'jenis' => $validated['jenis'] ?? '',
-            'status' => $request->has('status') ? (($validated['status'] ?? null) ?: 'semua') : ($defaultStatus ?? 'semua'),
+            'status' => $request->has('status')
+                ? (($validated['status'] ?? null) ?: 'semua')
+                : ($statusAntrean === null ? 'semua' : self::STATUS_ANTREAN),
         ];
 
         $query = Npd::query()
@@ -153,7 +163,9 @@ class NpdController extends Controller
             $query->where('jenis', $filters['jenis']);
         }
 
-        if ($filters['status'] !== 'semua') {
+        if ($filters['status'] === self::STATUS_ANTREAN) {
+            $query->whereIn('status', $statusAntrean ?? Npd::STATUS_LIST);
+        } elseif ($filters['status'] !== 'semua') {
             $query->where('status', $filters['status']);
         }
 
@@ -282,24 +294,27 @@ class NpdController extends Controller
             ]);
         }
 
-        $nomorUrut = null;
+        // Nomor NPD diketik PENUH oleh Verifikator - sistem tidak lagi
+        // menyusunnya dari nomor urut. Yang dijaga hanya bentuk dasarnya
+        // (tidak kosong, tidak kepanjangan) dan ketunggalannya.
+        $nomorLengkap = null;
 
         if ($aksi === 'verifikasi') {
-            $nomorUrut = (int) $request->input('nomor_urut');
+            $nomorLengkap = preg_replace('/\s+/', ' ', trim((string) $request->input('nomor_lengkap')));
 
-            if ($nomorUrut < 1 || $nomorUrut > 999) {
-                return back()->withErrors(['nomor_urut' => 'Nomor NPD harus antara 1 dan 999.']);
+            if ($nomorLengkap === '') {
+                return back()->withErrors(['nomor_lengkap' => 'Nomor NPD wajib diisi.']);
             }
 
-            $bentrok = Npd::where('id', '!=', $npd->id)
-                ->where('keu', $npd->keu)
-                ->where('tahun', $npd->tahun)
-                ->where('nomor_urut', $nomorUrut)
-                ->first();
+            if (mb_strlen($nomorLengkap) > 100) {
+                return back()->withErrors(['nomor_lengkap' => 'Nomor NPD maksimal 100 karakter.']);
+            }
+
+            $bentrok = Npd::where('id', '!=', $npd->id)->where('nomor_lengkap', $nomorLengkap)->first();
 
             if ($bentrok) {
                 return back()->withErrors([
-                    'nomor_urut' => "Nomor {$nomorUrut} sudah dipakai pada Keu.{$npd->keu} (NPD: {$bentrok->nomor_lengkap}).",
+                    'nomor_lengkap' => "Nomor \"{$nomorLengkap}\" sudah dipakai NPD lain.",
                 ]);
             }
         }
@@ -312,7 +327,7 @@ class NpdController extends Controller
         };
 
         try {
-            DB::transaction(function () use ($request, $npd, $rule, $catatanBaru, $nomorUrut, $aksi, $coretanJson) {
+            DB::transaction(function () use ($request, $npd, $rule, $catatanBaru, $nomorLengkap, $aksi, $coretanJson) {
                 $npd = Npd::query()->lockForUpdate()->findOrFail($npd->id);
                 if ($npd->status !== $rule['from']) {
                     throw ValidationException::withMessages(['aksi' => 'Status NPD telah berubah. Muat ulang halaman sebelum melanjutkan.']);
@@ -328,17 +343,14 @@ class NpdController extends Controller
                 if ($aksi === 'verifikasi') {
                     $bentrok = Npd::query()->lockForUpdate()
                         ->whereKeyNot($npd->id)
-                        ->where('keu', $npd->keu)
-                        ->where('tahun', $npd->tahun)
-                        ->where('nomor_urut', $nomorUrut)
+                        ->where('nomor_lengkap', $nomorLengkap)
                         ->first();
                     if ($bentrok) {
                         throw ValidationException::withMessages([
-                            'nomor_urut' => "Nomor {$nomorUrut} sudah dipakai pada KEU {$npd->keu} tahun {$npd->tahun}.",
+                            'nomor_lengkap' => "Nomor \"{$nomorLengkap}\" sudah dipakai NPD lain.",
                         ]);
                     }
-                    $npd->nomor_urut = $nomorUrut;
-                    $npd->nomor_lengkap = Npd::buatNomorLengkap($nomorUrut, $npd->keu, $npd->bulan, $npd->tahun);
+                    $npd->nomor_lengkap = $nomorLengkap;
                 }
 
                 $npd->status = $rule['to'];
@@ -349,7 +361,7 @@ class NpdController extends Controller
             });
         } catch (QueryException $e) {
             if (str_contains(strtolower($e->getMessage()), 'unique') || ($e->errorInfo[0] ?? null) === '23000') {
-                return back()->withErrors(['nomor_urut' => 'Nomor NPD baru saja dipakai oleh transaksi lain. Pilih nomor lain.']);
+                return back()->withErrors(['nomor_lengkap' => 'Nomor NPD baru saja dipakai oleh transaksi lain. Pilih nomor lain.']);
             }
             throw $e;
         }

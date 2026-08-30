@@ -166,8 +166,13 @@
                 @csrf
                 <input type="hidden" name="aksi" id="wf-mdl-aksi" value="">
                 <div id="wf-mdl-nomor-wrap" style="display:none;">
-                    <label class="fl">Nomor Urut NPD (1&ndash;999)</label>
-                    <input type="number" name="nomor_urut" id="wf-mdl-nomor" min="1" max="999">
+                    <label class="fl" for="wf-mdl-nomor">Nomor NPD</label>
+                    <input type="text" name="nomor_lengkap" id="wf-mdl-nomor" maxlength="100"
+                           autocomplete="off" placeholder="Contoh: {{ \App\Models\Npd::CONTOH_NOMOR }}">
+                    <div class="sub" style="margin-top:5px;">
+                        Ditulis lengkap apa adanya - inilah yang tercetak di dokumen. Contohnya sekadar
+                        acuan bentuk, bukan aturan. Nomor yang sudah dipakai NPD lain akan ditolak.
+                    </div>
                 </div>
                 <div id="wf-mdl-catatan-wrap">
                     <label class="fl" id="wf-mdl-catatan-label">Catatan</label>

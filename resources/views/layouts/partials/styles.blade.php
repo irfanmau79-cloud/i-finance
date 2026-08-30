@@ -281,6 +281,15 @@
   .nsearch .ns-item.ns-kosong:hover{background:transparent;}
   .nsearch .ns-item.manual{color:var(--navy);font-weight:600;border-bottom:1px solid var(--line);}
   .nsearch .ns-empty{padding:11px 13px;font-size:12.5px;color:var(--mut);text-align:center;}
+  /* Daftar pilihan SP saat kata kuncinya cocok ke beberapa nomor sekaligus
+     (Cetak SPJ Perjalanan Dinas). */
+  .spj-pilihan{display:grid;gap:8px;}
+  .spj-pilihan-item{display:flex;justify-content:space-between;gap:14px;align-items:baseline;flex-wrap:wrap;
+    padding:12px 14px;border:1px solid var(--line);border-radius:10px;background:var(--surface);
+    text-decoration:none;transition:border-color .15s,background .15s;}
+  .spj-pilihan-item:hover{border-color:var(--navy);background:var(--navy-l);}
+  .spj-pilihan-item .nomor{font-size:14px;font-weight:700;color:var(--navy);}
+  .spj-pilihan-item .ket{font-size:12px;color:var(--mut);}
   /* Logout di sidebar */
   .sb-logout{margin:6px 10px 12px;padding:11px 13px;border-radius:9px;color:#c4d4e6;cursor:pointer;font-size:13.5px;font-weight:500;display:flex;align-items:center;gap:10px;transition:background .15s;}
   .sb-logout:hover{background:rgba(255,255,255,.08);color:#fff;}
@@ -1076,6 +1085,26 @@
   .sp-tl-node{position:relative;flex:1 0 118px;text-align:center;padding:0 4px;}
   .sp-tl-line{position:absolute;left:50%;right:-50%;top:6px;height:2px;z-index:0;}
   .sp-tl-dot{position:relative;z-index:1;display:inline-block;width:14px;height:14px;border-radius:50%;}
+  /* Inti keadaan SP di bawah timeline: timeline menunjukkan sudah sampai
+     mana, blok ini menjelaskan apa artinya sekarang. Warnanya mengikuti
+     nada keadaan - berjalan, perlu perbaikan, tuntas, atau batal. */
+  .sp-tl-ringkas{display:flex;gap:10px;align-items:flex-start;margin-top:14px;padding:11px 14px;
+    border:1px solid var(--line);border-left-width:3px;border-radius:9px;background:var(--surface-2);}
+  .sp-tl-ringkas-dot{flex:0 0 9px;width:9px;height:9px;border-radius:50%;margin-top:4px;}
+  .sp-tl-ringkas-lbl{font-size:12.5px;font-weight:700;letter-spacing:.2px;}
+  .sp-tl-ringkas-teks{font-size:12.5px;line-height:1.5;color:var(--ink);margin-top:2px;}
+  .sp-tl-ringkas.nada-jalan{border-left-color:var(--navy);}
+  .sp-tl-ringkas.nada-jalan .sp-tl-ringkas-dot{background:var(--navy);}
+  .sp-tl-ringkas.nada-jalan .sp-tl-ringkas-lbl{color:var(--navy);}
+  .sp-tl-ringkas.nada-selesai{border-left-color:var(--ok);background:var(--ok-bg);}
+  .sp-tl-ringkas.nada-selesai .sp-tl-ringkas-dot{background:var(--ok);}
+  .sp-tl-ringkas.nada-selesai .sp-tl-ringkas-lbl{color:var(--ok);}
+  .sp-tl-ringkas.nada-revisi{border-left-color:var(--warn);background:var(--warn-bg);}
+  .sp-tl-ringkas.nada-revisi .sp-tl-ringkas-dot{background:var(--warn);}
+  .sp-tl-ringkas.nada-revisi .sp-tl-ringkas-lbl{color:var(--warn);}
+  .sp-tl-ringkas.nada-batal{border-left-color:var(--err);background:var(--err-bg);}
+  .sp-tl-ringkas.nada-batal .sp-tl-ringkas-dot{background:var(--err);}
+  .sp-tl-ringkas.nada-batal .sp-tl-ringkas-lbl{color:var(--err);}
   .sp-tl-lbl{font-weight:600;font-size:11.5px;line-height:1.25;margin-top:7px;}
   .sp-tl-ts{color:#475569;font-size:10.5px;margin-top:2px;}
   .sp-tl-note{color:#64748b;font-size:10.5px;margin-top:2px;font-style:italic;}

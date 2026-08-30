@@ -100,6 +100,15 @@ class CetakSpjPerjalananTest extends TestCase
         return $npd;
     }
 
+    /** SP + satu NPD Perjalanan Dinas berstatus Selesai. */
+    private function spDenganNpdSelesai(string $nomor): SuratPerintah
+    {
+        $sp = $this->sp($nomor);
+        $this->npd($sp, 'Selesai');
+
+        return $sp;
+    }
+
     // ---------------- Empat jawaban berjenjang ----------------
 
     public function test_halaman_dapat_dibuka_tanpa_login(): void
@@ -232,4 +241,111 @@ class CetakSpjPerjalananTest extends TestCase
             ->assertOk()
             ->assertSee(route('cetak-spj.index'), false);
     }
+
+    // ---------------- Pencarian nomor SP dengan awalan ----------------
+
+    public function test_kata_kunci_kurang_dari_tiga_karakter_diminta_dilengkapi(): void
+    {
+        $this->spDenganNpdSelesai('1234/PW.02.01/Sekre');
+
+        $this->get(route('cetak-spj.index', ['nomor_sp' => '12']))
+            ->assertOk()
+            ->assertSee('Ketik minimal 3 karakter awal');
+    }
+
+    public function test_awalan_yang_cocok_ke_beberapa_sp_menampilkan_pilihan(): void
+    {
+        foreach (['1234/PW.02.01/Sekre', '1235/PW.02.01/Sekre', '123a/PW.02.01/Sekre'] as $nomor) {
+            $this->spDenganNpdSelesai($nomor);
+        }
+        // Berawalan lain - tidak boleh ikut muncul.
+        $this->spDenganNpdSelesai('987/PW.02.01/Sekre');
+
+        $response = $this->get(route('cetak-spj.index', ['nomor_sp' => '123']))
+            ->assertOk()
+            ->assertSee('Ada 3 Surat Perintah berawalan');
+
+        foreach (['1234/PW.02.01/Sekre', '1235/PW.02.01/Sekre', '123a/PW.02.01/Sekre'] as $nomor) {
+            $response->assertSee($nomor);
+        }
+
+        $response->assertDontSee('987/PW.02.01/Sekre');
+    }
+
+    public function test_awalan_yang_cocok_ke_satu_sp_langsung_menampilkan_hasilnya(): void
+    {
+        $this->spDenganNpdSelesai('1234/PW.02.01/Sekre');
+        $this->spDenganNpdSelesai('987/PW.02.01/Sekre');
+
+        $this->get(route('cetak-spj.index', ['nomor_sp' => '1234']))
+            ->assertOk()
+            ->assertSee('Nota Pencairan Dana selesai untuk SP 1234/PW.02.01/Sekre');
+    }
+
+    /**
+     * Nomor utuh harus tetap langsung ketemu walau ada nomor lain yang
+     * MEMAKAI nomor itu sebagai awalan - pegawai yang menyalin nomor lengkap
+     * tidak boleh dipaksa memilih dari daftar.
+     */
+    public function test_nomor_utuh_menang_atas_pencocokan_awalan(): void
+    {
+        $this->spDenganNpdSelesai('123/PW.02.01/Sekre');
+        $this->spDenganNpdSelesai('1234/PW.02.01/Sekre');
+
+        $this->get(route('cetak-spj.index', ['nomor_sp' => '123/PW.02.01/Sekre']))
+            ->assertOk()
+            ->assertSee('Nota Pencairan Dana selesai untuk SP 123/PW.02.01/Sekre');
+    }
+
+    public function test_awalan_tanpa_kecocokan_tetap_memberi_pesan_tidak_ditemukan(): void
+    {
+        $this->spDenganNpdSelesai('1234/PW.02.01/Sekre');
+
+        $this->get(route('cetak-spj.index', ['nomor_sp' => '555']))
+            ->assertOk()
+            ->assertSee('Surat Perintah tidak ditemukan.');
+    }
+
+    public function test_saran_mengembalikan_nomor_sp_berawalan_saja(): void
+    {
+        $this->spDenganNpdSelesai('1234/PW.02.01/Sekre');
+        $this->spDenganNpdSelesai('1235/PW.02.01/Sekre');
+        $this->spDenganNpdSelesai('987/PW.02.01/Sekre');
+
+        $data = $this->getJson(route('cetak-spj.saran', ['q' => '123']))
+            ->assertOk()
+            ->json();
+
+        $this->assertSame(['1234/PW.02.01/Sekre', '1235/PW.02.01/Sekre'], array_column($data, 'nomor_sp'));
+    }
+
+    public function test_saran_diam_saja_bila_kata_kuncinya_kurang_dari_tiga_karakter(): void
+    {
+        $this->spDenganNpdSelesai('1234/PW.02.01/Sekre');
+
+        $this->getJson(route('cetak-spj.saran', ['q' => '12']))
+            ->assertOk()
+            ->assertExactJson([]);
+    }
+
+    /** Saran hanya memuat identitas SP - nama anggota dan nominal tidak ikut. */
+    public function test_saran_tidak_membocorkan_rincian_anggota(): void
+    {
+        $this->spDenganNpdSelesai('1234/PW.02.01/Sekre');
+
+        $data = $this->getJson(route('cetak-spj.saran', ['q' => '123']))->json();
+
+        $this->assertSame(['nomor_sp', 'keterangan'], array_keys($data[0]));
+    }
+
+    /** Karakter pola LIKE yang diketik pegawai dicari apa adanya. */
+    public function test_karakter_persen_tidak_diperlakukan_sebagai_wildcard(): void
+    {
+        $this->spDenganNpdSelesai('1234/PW.02.01/Sekre');
+
+        $this->getJson(route('cetak-spj.saran', ['q' => '%23']))
+            ->assertOk()
+            ->assertExactJson([]);
+    }
+
 }

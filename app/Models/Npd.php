@@ -396,11 +396,15 @@ class Npd extends Model
             ->all();
     }
 
-    /** Format nomor NPD resmi: "01/NPD-Keu.1.IBC/7/2026" (urut 2-digit minimal). */
-    public static function buatNomorLengkap(int $nomorUrut, string $keu, int $bulan, int $tahun): string
-    {
-        return sprintf('%02d/NPD-Keu.%s.IBC/%d/%d', $nomorUrut, $keu, $bulan, $tahun);
-    }
+    /**
+     * Contoh bentuk nomor NPD yang lazim dipakai kantor, ditampilkan sebagai
+     * petunjuk pada isian Verifikator.
+     *
+     * SEKADAR CONTOH, bukan aturan: sejak penomoran dibuat penuh manual,
+     * Verifikator bebas menuliskan nomor apa pun - sistem hanya menjaga
+     * nomornya tidak kosong dan tidak dipakai NPD lain.
+     */
+    public const CONTOH_NOMOR = '01/NPD-Keu.1.IBC/7/2026';
 
     /** Mirror status NPD ke surat_perintah terkait, kalau NPD ini tertaut ke satu (port _mirrorStatusKeSP). */
     public function mirrorStatusKeSuratPerintah(): void

@@ -221,6 +221,159 @@ class SuratPerintahMonitoringTest extends TestCase
         $this->assertSame('', $revisi['catatan']);
     }
 
+    // ---------------- Ringkasan keadaan di bawah timeline ----------------
+
+    /**
+     * Timeline menunjukkan sudah sampai mana; ringkasan menjelaskan apa
+     * artinya sekarang. Yang menentukan tahapnya adalah STATUS NPD, bukan
+     * titik terakhir yang tercapai - dokumen yang bolak-balik revisi membuat
+     * urutan titik tidak lagi mencerminkan kronologi.
+     */
+    private function ringkasan(SuratPerintah $sp): array
+    {
+        return app(SuratPerintahTimelineService::class)->untukSatu($sp)['ringkasan'];
+    }
+
+    public function test_ringkasan_sp_belum_punya_npd(): void
+    {
+        $r = $this->ringkasan($this->sp());
+
+        $this->assertSame('SP Diterima', $r['label']);
+        $this->assertSame('Surat Perintah telah diterima oleh PPTK dan menunggu NPD dibuat.', $r['narasi']);
+        $this->assertSame('jalan', $r['nada']);
+    }
+
+    public function test_ringkasan_mengikuti_penamaan_spj_untuk_pengajuan_transport_saja(): void
+    {
+        $r = $this->ringkasan($this->sp(['pengajuan' => 'Transport']));
+
+        $this->assertSame('SPJ Diterima', $r['label'], 'Label ringkasan harus seiring titik pertama timeline.');
+        $this->assertSame('Surat Perintah telah diterima oleh PPTK dan menunggu NPD dibuat.', $r['narasi']);
+    }
+
+    public function test_ringkasan_npd_baru_dibuat(): void
+    {
+        $sp = $this->sp();
+        $this->npd($sp, 'Draft NPD - PPTK');
+
+        $r = $this->ringkasan($sp);
+
+        $this->assertSame('NPD Dibuat', $r['label']);
+        $this->assertSame('NPD telah dibuat oleh PPTK namun belum diserahkan kepada BPP atau dalam tahap revisi.', $r['narasi']);
+    }
+
+    public function test_ringkasan_diperiksa_bpp(): void
+    {
+        $sp = $this->sp();
+        $npd = $this->npd($sp, 'Draft NPD - BPP');
+        $npd->catatHistoriStatus(null, 'ajukan_bpp', 'Draft NPD - PPTK', 'Draft NPD - BPP');
+
+        $r = $this->ringkasan($sp);
+
+        $this->assertSame('Diperiksa BPP', $r['label']);
+        $this->assertSame('NPD sedang diperiksa oleh BPP sebelum disetujui dan diteruskan ke KPA.', $r['narasi']);
+    }
+
+    public function test_ringkasan_verifikasi(): void
+    {
+        $sp = $this->sp();
+        $npd = $this->npd($sp, 'Verifikasi - Verifikator');
+        $npd->catatHistoriStatus(null, 'ajukan_bpp', 'Draft NPD - PPTK', 'Draft NPD - BPP');
+        $npd->catatHistoriStatus(null, 'teruskan', 'Draft NPD - BPP', 'Verifikasi - Verifikator');
+
+        $r = $this->ringkasan($sp);
+
+        $this->assertSame('Verifikasi', $r['label']);
+        $this->assertSame('NPD sedang diverifikasi oleh Verifikator.', $r['narasi']);
+    }
+
+    public function test_ringkasan_revisi_dibedakan_dari_npd_baru_dibuat(): void
+    {
+        $sp = $this->sp();
+        // Statusnya kembali ke 'Draft NPD - PPTK', sama persis dengan NPD yang
+        // baru dibuat - yang membedakan hanya pernah dikembalikan BPP.
+        $npd = $this->npd($sp, 'Draft NPD - PPTK');
+        $npd->catatHistoriStatus(null, 'ajukan_bpp', 'Draft NPD - PPTK', 'Draft NPD - BPP');
+        $npd->catatHistoriStatus(null, 'kembali_pptk', 'Draft NPD - BPP', 'Draft NPD - PPTK', 'lampiran kurang');
+
+        $r = $this->ringkasan($sp);
+
+        $this->assertSame('Revisi', $r['label']);
+        $this->assertSame('NPD sedang direvisi oleh PPTK.', $r['narasi']);
+        $this->assertSame('revisi', $r['nada']);
+    }
+
+    public function test_ringkasan_persetujuan_dan_proses_ibc(): void
+    {
+        $sp = $this->sp();
+        $npd = $this->npd($sp, 'NPD Disetujui - BPP');
+        $npd->catatHistoriStatus(null, 'verifikasi', 'Verifikasi - Verifikator', 'Draft NPD - BPP');
+        $npd->catatHistoriStatus(null, 'setuju', 'Draft NPD - BPP', 'NPD Disetujui - BPP');
+
+        $r = $this->ringkasan($sp);
+
+        $this->assertSame('Persetujuan NPD & Proses IBC', $r['label']);
+        $this->assertSame('NPD disetujui oleh BPP, menunggu validasi KPA dan transaksi IBC.', $r['narasi']);
+    }
+
+    public function test_ringkasan_selesai(): void
+    {
+        $sp = $this->sp();
+        $npd = $this->npd($sp, 'Selesai');
+        $npd->catatHistoriStatus(null, 'selesai', 'NPD Disetujui - BPP', 'Selesai');
+
+        $r = $this->ringkasan($sp);
+
+        $this->assertSame('Selesai', $r['label']);
+        $this->assertSame('Transaksi telah selesai dieksekusi.', $r['narasi']);
+        $this->assertSame('selesai', $r['nada']);
+    }
+
+    public function test_ringkasan_npd_dibatalkan_tidak_terbaca_seolah_masih_berjalan(): void
+    {
+        $sp = $this->sp();
+        $this->npd($sp, 'Dibatalkan');
+
+        $r = $this->ringkasan($sp);
+
+        $this->assertSame('Dibatalkan', $r['label']);
+        $this->assertSame('batal', $r['nada']);
+    }
+
+    /**
+     * Dokumen yang sudah bolak-balik: pernah dikembalikan, lalu maju lagi
+     * sampai verifikator. Titik "Revisi" tetap tercapai di timeline, tapi
+     * ringkasannya harus mengikuti di meja siapa dokumen berada SEKARANG.
+     */
+    public function test_ringkasan_mengikuti_keadaan_terkini_bukan_titik_terakhir(): void
+    {
+        $sp = $this->sp();
+        $npd = $this->npd($sp, 'Verifikasi - Verifikator');
+        $npd->catatHistoriStatus(null, 'ajukan_bpp', 'Draft NPD - PPTK', 'Draft NPD - BPP');
+        $npd->catatHistoriStatus(null, 'kembali_pptk', 'Draft NPD - BPP', 'Draft NPD - PPTK', 'perbaiki nominal');
+        $npd->catatHistoriStatus(null, 'ajukan_bpp', 'Draft NPD - PPTK', 'Draft NPD - BPP');
+        $npd->catatHistoriStatus(null, 'teruskan', 'Draft NPD - BPP', 'Verifikasi - Verifikator');
+
+        $tl = app(SuratPerintahTimelineService::class)->untukSatu($sp);
+
+        $this->assertTrue(
+            collect($tl['titik'])->firstWhere('label', 'Revisi')['tercapai'],
+            'Riwayat revisinya tetap tercatat di timeline.'
+        );
+        $this->assertSame('Verifikasi', $tl['ringkasan']['label'], 'Ringkasan harus mengikuti keadaan sekarang.');
+    }
+
+    public function test_halaman_monitoring_menampilkan_ringkasan(): void
+    {
+        $pptk = $this->user('pptk');
+        $sp = $this->sp();
+        $this->npd($sp, 'Draft NPD - PPTK');
+
+        $this->actingAs($pptk)->get(route('surat-perintah.monitoring'))
+            ->assertOk()
+            ->assertSee('NPD telah dibuat oleh PPTK namun belum diserahkan kepada BPP atau dalam tahap revisi.');
+    }
+
     public function test_titik_pertama_jadi_spj_diterima_bila_pengajuannya_hanya_transport(): void
     {
         $hanyaTransport = $this->sp(['pengajuan' => 'Transport']);

@@ -46,3 +46,22 @@
         @endforeach
     </div>
 </div>
+
+@php
+    /**
+     * Inti keadaan SP saat ini dalam satu kalimat. Timeline memberi tahu
+     * SUDAH SAMPAI MANA; blok ini memberi tahu APA ARTINYA sekarang - yang
+     * dicari orang begitu membuka barisnya.
+     */
+    $ringkasan = $tl['ringkasan'] ?? null;
+@endphp
+
+@if ($ringkasan)
+    <div class="sp-tl-ringkas nada-{{ $ringkasan['nada'] }}">
+        <span class="sp-tl-ringkas-dot" aria-hidden="true"></span>
+        <div>
+            <div class="sp-tl-ringkas-lbl">{{ $ringkasan['label'] }}</div>
+            <div class="sp-tl-ringkas-teks">{{ $ringkasan['narasi'] }}</div>
+        </div>
+    </div>
+@endif
