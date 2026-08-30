@@ -9,6 +9,7 @@ use App\Models\MasterAnggaran;
 use App\Models\Npd;
 use App\Models\Pegawai;
 use App\Models\Vendor;
+use App\Support\AnggaranNpd;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -175,7 +176,7 @@ class NpdNarasumberController extends Controller
 
     private function form(?Npd $npd = null, ?array $narasumberAwal = null)
     {
-        $masterAnggaran = MasterAnggaran::with('tagging')->where('aktif', true)->orderBy('sub_kegiatan')->get();
+        $masterAnggaran = AnggaranNpd::daftar(auth()->user(), $npd);
         $pegawai = Pegawai::where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'jabatan', 'bidang', 'rekening']);
         $vendor = Vendor::where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'rekening']);
         $bulanList = [

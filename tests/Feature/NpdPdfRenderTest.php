@@ -62,6 +62,45 @@ class NpdPdfRenderTest extends TestCase
         }
     }
 
+    private function jumlahHalaman(string $pdf): int
+    {
+        return (new PdfReader(new PdfParser(StreamReader::createByString($pdf))))->getPageCount();
+    }
+
+    /**
+     * Tombol "Cetak Semua (1 Berkas)": satu PDF berisi seluruh dokumen NPD.
+     *
+     * Yang dijaga dua hal. Pertama, tidak ada halaman yang hilang atau
+     * terduplikasi — jumlah halaman gabungan harus sama persis dengan total
+     * halaman cetak satu-satu. Kedua, urutannya sesuai yang dijanjikan di
+     * halaman detail; PdfGabungTest yang memastikan urutan masukan itu
+     * dipertahankan apa adanya di berkas hasil.
+     *
+     * @param  array<int, string>  $rute  nama rute dokumen, dalam urutan gabungan
+     */
+    private function periksaGabungan(User $aktor, Npd $npd, array $rute, string $urutan, string $namaFile): void
+    {
+        $halamanTerpisah = 0;
+        foreach ($rute as $nama) {
+            $satuan = $this->actingAs($aktor)->get(route($nama, $npd));
+            $satuan->assertOk();
+            $halamanTerpisah += $this->jumlahHalaman($satuan->getContent());
+        }
+
+        $gabungan = $this->actingAs($aktor)->get(route('npd.cetak-gabungan', $npd));
+        $this->simpanPdf($namaFile, $gabungan);
+
+        $this->assertSame(
+            $halamanTerpisah,
+            $this->jumlahHalaman($gabungan->getContent()),
+            "$namaFile: jumlah halaman gabungan tidak sama dengan total cetak satu-satu."
+        );
+
+        $halaman = $this->actingAs($aktor)->get(route('npd.show', $npd));
+        $halaman->assertSee($urutan, false);
+        $halaman->assertSee('class="btn gabung" href="'.route('npd.cetak-gabungan', $npd).'"', false);
+    }
+
     private function pegawai(string $nama): Pegawai
     {
         $this->seq++;
@@ -77,8 +116,16 @@ class NpdPdfRenderTest extends TestCase
         ]);
     }
 
-    /** Bangun rantai pejabat lengkap (PA/Bendahara OPD + KPA/BPP/PPTK + Pelimpahan) untuk satu program/sub kegiatan, supaya tanda tangan PDF tidak kosong/placeholder. */
-    private function pastikanPejabatLengkap(string $program, string $subKegiatan): void
+    /**
+     * Bangun rantai pejabat lengkap (PA/Bendahara OPD + KPA/BPP/PPTK +
+     * Pelimpahan) untuk satu program/sub kegiatan, supaya tanda tangan PDF
+     * tidak kosong/placeholder.
+     *
+     * $pptkUser ditautkan ke pegawai PPTK yang dibuat di sini. Tanpa tautan
+     * itu akunnya tidak dianggap sebagai penerima limpahan dan tidak boleh
+     * membuat NPD sama sekali — lihat App\Support\AnggaranNpd.
+     */
+    private function pastikanPejabatLengkap(string $program, string $subKegiatan, ?User $pptkUser = null): void
     {
         if (PejabatOpd::aktif() === null) {
             PejabatOpd::simpan([
@@ -95,6 +142,7 @@ class NpdPdfRenderTest extends TestCase
         $pptk = $this->pegawai('Agus Setiawan, S.H. (PPTK)');
         KpaPptk::create(['kpa_id' => $kpa->id, 'pptk_pegawai_id' => $pptk->id, 'aktif' => true]);
         Pelimpahan::tetapkan([['program' => $program, 'sub_kegiatan' => $subKegiatan]], $kpa->id, $kpa->bpp_pegawai_id, $pptk->id);
+        $pptkUser?->forceFill(['pegawai_id' => $pptk->id])->save();
     }
 
     private function user(string $role, string $username): User
@@ -128,7 +176,7 @@ class NpdPdfRenderTest extends TestCase
         $sub = '6.01.01.2.01 Sub Kegiatan Audit PDF Barang Jasa';
         $pptk = $this->user('pptk', 'audit-bj-pptk');
         $master = $this->masterAnggaran($program, $sub, '5.1.02.01.01.0900');
-        $this->pastikanPejabatLengkap($program, $sub);
+        $this->pastikanPejabatLengkap($program, $sub, $pptk);
 
         $namaPenerima = [
             'Drs. Bambang Setiawan, M.Si.', 'Hj. Siti Nurhaliza, S.E.', 'CV Sumber Makmur Jaya',
@@ -186,6 +234,15 @@ class NpdPdfRenderTest extends TestCase
         // ikut menanamkan DejaVu. Tanpa itu centangnya tercetak sebagai kotak
         // .notdef kosong - kelihatan seperti kotak yang belum dicentang.
         $this->assertStringContainsString('DejaVu', $isi, 'Tanda centang NPD kehilangan font DejaVu.');
+
+        // Barang/Jasa tidak punya Daftar Bayar maupun SPD Rampung: gabungannya 2 dokumen.
+        $this->periksaGabungan(
+            $pptk,
+            $npd,
+            ['npd.cetak-npd', 'npd.cetak-lampiran'],
+            'NPD → Lampiran NPD',
+            'bj-03-gabungan.pdf'
+        );
     }
 
     // ============================================================ PD ====
@@ -196,7 +253,7 @@ class NpdPdfRenderTest extends TestCase
         $sub = '6.01.01.2.02 Sub Kegiatan Audit PDF Perjalanan Dinas';
         $pptk = $this->user('pptk', 'audit-pd-pptk');
         $master = $this->masterAnggaran($program, $sub, '5.1.02.04.01.0900');
-        $this->pastikanPejabatLengkap($program, $sub);
+        $this->pastikanPejabatLengkap($program, $sub, $pptk);
 
         $namaTim = [
             'Drs. Hendra Gunawan, M.M.', 'Nurul Fitriani, S.E.', 'Dedi Kurniawan, S.H.',
@@ -300,6 +357,15 @@ class NpdPdfRenderTest extends TestCase
         // response is still a valid PDF either way.
         $this->simpanPdf('pd-04-spd-rampung.pdf', $this->actingAs($pptk)->get(route('npd.cetak-spd', $npd)), maksimalHalaman: 2);
 
+        // Perjalanan Dinas: gabungan terpanjang, 4 dokumen.
+        $this->periksaGabungan(
+            $pptk,
+            $npd,
+            ['npd.cetak-npd', 'npd.cetak-lampiran', 'npd.cetak-daftar', 'npd.cetak-spd'],
+            'NPD → Lampiran NPD → Daftar Pembayaran → SPD Rampung',
+            'pd-05-gabungan.pdf'
+        );
+
         // Simpan induk untuk skenario Transport di bawah (butuh induk 'pd' berstatus Selesai).
         $npd->status = 'Selesai';
         $npd->save();
@@ -354,6 +420,15 @@ class NpdPdfRenderTest extends TestCase
         $this->simpanPdf('tr-02-lampiran.pdf', $this->actingAs($pptk)->get(route('npd.cetak-lampiran', $npd)));
         $this->simpanPdf('tr-03-daftar-bayar.pdf', $this->actingAs($pptk)->get(route('npd.cetak-daftar', $npd)));
         $this->simpanPdf('tr-04-spd-rampung.pdf', $this->actingAs($pptk)->get(route('npd.cetak-spd', $npd)));
+
+        // Transport turunan PD: dokumennya sama lengkapnya dengan induknya.
+        $this->periksaGabungan(
+            $pptk,
+            $npd,
+            ['npd.cetak-npd', 'npd.cetak-lampiran', 'npd.cetak-daftar', 'npd.cetak-spd'],
+            'NPD → Lampiran NPD → Daftar Pembayaran → SPD Rampung',
+            'tr-05-gabungan.pdf'
+        );
     }
 
     // ============================================================ NS ====
@@ -364,7 +439,7 @@ class NpdPdfRenderTest extends TestCase
         $sub = '6.01.01.2.03 Sub Kegiatan Audit PDF Narasumber';
         $pptk = $this->user('pptk', 'audit-ns-pptk');
         $master = $this->masterAnggaran($program, $sub, '5.1.02.02.01.0900');
-        $this->pastikanPejabatLengkap($program, $sub);
+        $this->pastikanPejabatLengkap($program, $sub, $pptk);
 
         $namaNara = [
             'Prof. Dr. H. Bambang Sutrisno, M.Si.', 'Dr. Hj. Ratna Kusuma, S.H., M.H.',
@@ -409,6 +484,15 @@ class NpdPdfRenderTest extends TestCase
         $this->simpanPdf('ns-01-npd.pdf', $this->actingAs($pptk)->get(route('npd.cetak-npd', $npd)));
         $this->simpanPdf('ns-02-lampiran.pdf', $this->actingAs($pptk)->get(route('npd.cetak-lampiran', $npd)));
         $this->simpanPdf('ns-03-daftar-honor.pdf', $this->actingAs($pptk)->get(route('npd.cetak-daftar-nara', $npd)));
+
+        // Narasumber: ada Daftar Pembayaran, tidak ada SPD Rampung.
+        $this->periksaGabungan(
+            $pptk,
+            $npd,
+            ['npd.cetak-npd', 'npd.cetak-lampiran', 'npd.cetak-daftar-nara'],
+            'NPD → Lampiran NPD → Daftar Pembayaran',
+            'ns-04-gabungan.pdf'
+        );
     }
 
     // ================================================== KD (kontribusi) ====
@@ -419,7 +503,7 @@ class NpdPdfRenderTest extends TestCase
         $sub = '6.01.01.2.04 Sub Kegiatan Audit PDF Kontribusi Diklat';
         $pptk = $this->user('pptk', 'audit-kd-k-pptk');
         $master = $this->masterAnggaran($program, $sub, '5.1.02.03.01.0900');
-        $this->pastikanPejabatLengkap($program, $sub);
+        $this->pastikanPejabatLengkap($program, $sub, $pptk);
 
         $namaPeserta = [
             'Andi Saputra, S.E.', 'Rina Marlina, S.H.', 'Budi Hartono, S.T.',
@@ -465,6 +549,15 @@ class NpdPdfRenderTest extends TestCase
         $this->simpanPdf('kd-kontribusi-02-lampiran.pdf', $this->actingAs($pptk)->get(route('npd.cetak-lampiran', $npd)));
         $this->simpanPdf('kd-kontribusi-03-daftar-bayar.pdf', $this->actingAs($pptk)->get(route('npd.cetak-daftar-kd', $npd)));
 
+        // Kontribusi Diklat: ada Daftar Bayar, tidak ada SPD Rampung.
+        $this->periksaGabungan(
+            $pptk,
+            $npd,
+            ['npd.cetak-npd', 'npd.cetak-lampiran', 'npd.cetak-daftar-kd'],
+            'NPD → Lampiran NPD → Daftar Bayar',
+            'kd-kontribusi-04-gabungan.pdf'
+        );
+
         self::$referensiKdPerjalanan = $npd;
         self::$masterKdPerjalananProgram = $program;
         self::$masterKdPerjalananSub = $sub;
@@ -486,6 +579,9 @@ class NpdPdfRenderTest extends TestCase
 
         $pptk = $this->user('pptk', 'audit-kd-p-pptk');
         $master = $this->masterAnggaran(self::$masterKdPerjalananProgram, self::$masterKdPerjalananSub, '5.1.02.03.01.0901');
+        // Sub kegiatan yang sama, PPTK berbeda: limpahannya berpindah ke akun
+        // ini. Cetakan mode kontribusi di atas sudah selesai diperiksa.
+        $this->pastikanPejabatLengkap(self::$masterKdPerjalananProgram, self::$masterKdPerjalananSub, $pptk);
 
         $namaPeserta = [
             'Andi Saputra, S.E.', 'Rina Marlina, S.H.', 'Budi Hartono, S.T.',
@@ -534,5 +630,14 @@ class NpdPdfRenderTest extends TestCase
         $this->simpanPdf('kd-perjalanan-01-npd.pdf', $this->actingAs($pptk)->get(route('npd.cetak-npd', $npd)));
         $this->simpanPdf('kd-perjalanan-02-lampiran.pdf', $this->actingAs($pptk)->get(route('npd.cetak-lampiran', $npd)));
         $this->simpanPdf('kd-perjalanan-03-daftar-bayar.pdf', $this->actingAs($pptk)->get(route('npd.cetak-daftar-kd', $npd)));
+
+        // Kontribusi Diklat: ada Daftar Bayar, tidak ada SPD Rampung.
+        $this->periksaGabungan(
+            $pptk,
+            $npd,
+            ['npd.cetak-npd', 'npd.cetak-lampiran', 'npd.cetak-daftar-kd'],
+            'NPD → Lampiran NPD → Daftar Bayar',
+            'kd-perjalanan-04-gabungan.pdf'
+        );
     }
 }

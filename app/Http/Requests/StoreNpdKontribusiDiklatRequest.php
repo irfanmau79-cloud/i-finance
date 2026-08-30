@@ -3,6 +3,7 @@
 namespace App\Http\Requests;
 
 use App\Models\Npd;
+use App\Support\AnggaranNpd;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -18,7 +19,10 @@ class StoreNpdKontribusiDiklatRequest extends FormRequest
         return [
             'mode' => ['required', Rule::in(Npd::MODE_KD_LIST)],
             'npd_referensi_id' => ['nullable', 'integer', 'exists:npd,id'],
-            'master_anggaran_id' => ['required', Rule::exists('master_anggaran', 'id')->where('aktif', true)],
+            // PPTK hanya boleh memakai Sub Kegiatan limpahannya sendiri. Dropdown
+            // di formulir memang sudah disaring, tetapi id-nya dikirim lewat isian
+            // tersembunyi - jadi batasnya ditegakkan lagi di sini.
+            'master_anggaran_id' => AnggaranNpd::aturan($this->user(), $this->route('npd')),
             'jenis_panjar' => ['required', Rule::in(Npd::JENIS_PANJAR_LIST)],
             'tanggal_npd' => ['required', 'date'],
             'bulan' => ['required', 'integer', 'between:1,12'],

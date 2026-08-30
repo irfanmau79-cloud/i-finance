@@ -79,6 +79,7 @@ class NpdSisaAnggaranManualTest extends TestCase
     {
         $pptk = $this->pptk();
         $masterAnggaran = $this->masterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         $this->actingAs($pptk)
             ->post(route('npd.bj.store'), $this->payloadBj($masterAnggaran, [
@@ -102,6 +103,7 @@ class NpdSisaAnggaranManualTest extends TestCase
     {
         $pptk = $this->pptk();
         $masterAnggaran = $this->masterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         $this->actingAs($pptk)
             ->post(route('npd.bj.store'), $this->payloadBj($masterAnggaran))
@@ -120,6 +122,7 @@ class NpdSisaAnggaranManualTest extends TestCase
     {
         $pptk = $this->pptk();
         $masterAnggaran = $this->masterAnggaran(4_000_000);
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         // Nominal 5jt melebihi pagu 4jt. Mengetik sisa manual yang besar tidak
         // boleh membuatnya lolos - batasnya tetap angka sistem.
@@ -152,6 +155,7 @@ class NpdSisaAnggaranManualTest extends TestCase
     {
         $pptk = $this->pptk();
         $masterAnggaran = $this->masterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         $this->actingAs($pptk)
             ->post(route('npd.bj.store'), $this->payloadBj($masterAnggaran, [

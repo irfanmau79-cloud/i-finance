@@ -11,6 +11,7 @@
 @yield('content')
 </div>
 @include('layouts.partials.select-cari')
+@include('layouts.partials.kalender-tanggal')
 @include('layouts.partials.input-rupiah')
 </body>
 </html>

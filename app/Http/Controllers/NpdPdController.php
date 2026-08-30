@@ -12,6 +12,7 @@ use App\Models\MasterAnggaran;
 use App\Models\Npd;
 use App\Models\Pegawai;
 use App\Models\SuratPerintah;
+use App\Support\AnggaranNpd;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -20,10 +21,7 @@ class NpdPdController extends Controller
 {
     public function create()
     {
-        $masterAnggaran = MasterAnggaran::with('tagging')
-            ->where('aktif', true)
-            ->orderBy('sub_kegiatan')
-            ->get();
+        $masterAnggaran = AnggaranNpd::daftar(auth()->user());
 
         $pegawai = Pegawai::where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'jabatan', 'bidang', 'nip', 'rekening']);
 
@@ -178,7 +176,7 @@ class NpdPdController extends Controller
         abort_unless($npd->dapatDieditOleh($request->user()), 403);
         $npd->load('tim.paket');
 
-        $masterAnggaran = MasterAnggaran::with('tagging')->where('aktif', true)->orderBy('sub_kegiatan')->get();
+        $masterAnggaran = AnggaranNpd::daftar(auth()->user(), $npd);
         $pegawai = Pegawai::where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'jabatan', 'bidang', 'nip', 'rekening']);
         $clusterList = ClusterUh::with(['wilayah' => fn ($q) => $q->orderBy('nama_wilayah')])->where('aktif', true)->orderBy('kode')->get();
         // SP yang sedang tertaut tetap ikut ditampilkan walau flag Sumber NPD

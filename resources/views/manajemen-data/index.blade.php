@@ -42,7 +42,7 @@
                 ? route($meta['import_template'][0], $meta['import_template'][1])
                 : ($key === 'rak' ? $exportHref : null);
             $resetKeywordIni = $resetKeyword[$key] ?? null;
-            // Judul kartu Pagu sekaligus pintu masuk ke riwayat versi pagu
+            // Judul kartu Pagu sekaligus pintu masuk ke riwayat tahapan pagu
             // (DPA Murni, DPA Pergeseran, ...). Sengaja lewat judul, bukan
             // tombol kelima, supaya deretan tombol tetap seragam antar kartu.
             $judulHref = $key === 'pagu' ? route('versi-pagu.index') : null;
@@ -56,7 +56,7 @@
                 @endif
             </h3>
             @if ($judulHref)
-                <div class="sub" style="margin:0 0 10px;">Klik judul untuk melihat rincian dan histori pagu.</div>
+                <div class="sub" style="margin:0 0 10px;">Klik judul untuk melihat tahapan pagu, Nomor DPA, dan histori pagu.</div>
             @endif
             <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;">
                 @if ($templateHref && ($bolehImport || ! $meta['import_create']))

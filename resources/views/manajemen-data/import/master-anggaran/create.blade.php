@@ -19,8 +19,8 @@
 
     <div class="sub">
         File akan ditampilkan sebagai diperiksa lebih dulu dulu &mdash; belum ada yang tersimpan sampai Anda menekan Konfirmasi Simpan.
-        Setelah dikonfirmasi pun, pagunya tersimpan sebagai <strong>versi draf</strong> dan
-        <strong>belum berlaku</strong> sampai diaktifkan di halaman <a href="{{ route('versi-pagu.index') }}">Versi Pagu</a>.
+        Setelah dikonfirmasi pun, pagunya tersimpan sebagai <strong>tahapan draf</strong> dan
+        <strong>belum berlaku</strong> sampai diaktifkan di halaman <a href="{{ route('versi-pagu.index') }}">Tahapan Pagu</a>.
     </div>
 
     @if ($errors->any())
@@ -37,16 +37,17 @@
     <div class="tbl-tools">
         <a href="{{ route('manajemen-data.import.master-anggaran.template') }}" class="btn">Unduh Template</a>
         <a href="{{ route('manajemen-data.export', 'master-anggaran') }}" class="btn">Unduh Pagu Berlaku</a>
-        <a href="{{ route('versi-pagu.index') }}" class="btn">Daftar Versi Pagu ({{ $jumlahVersi }})</a>
+        <a href="{{ route('versi-pagu.index') }}" class="btn">Daftar Tahapan Pagu ({{ $jumlahVersi }})</a>
     </div>
 
     <div class="sub" style="margin-top:8px;">
         Pagu yang berlaku sekarang:
         @if ($versiAktif)
             <strong>{{ $versiAktif->nama }}</strong>
-            &mdash; Rp {{ fmt_rupiah((float) $versiAktif->total_pagu) }} pada {{ $versiAktif->jumlah_baris }} mata anggaran.
+            &mdash; Rp {{ fmt_rupiah((float) $versiAktif->total_pagu) }} pada {{ $versiAktif->jumlah_baris }} mata anggaran,
+            Nomor DPA {{ $versiAktif->nomor_dpa ?: '— belum diisi —' }}.
         @else
-            <strong>belum ada versi yang diaktifkan.</strong>
+            <strong>belum ada tahapan yang diaktifkan.</strong>
         @endif
     </div>
 
@@ -59,14 +60,26 @@
         </div>
 
         <div class="fg">
-            <label class="fl" for="versi_nama">Nama Versi Pagu</label>
+            <label class="fl" for="versi_nama">Tahapan Pagu</label>
             <input type="text" id="versi_nama" name="versi_nama" value="{{ old('versi_nama', $saranNama) }}" maxlength="150" required
                    placeholder="Contoh: DPA Murni, DPA Pergeseran 1, DPA Perubahan" style="max-width:420px;">
-            <div class="sub">Nama harus unik dalam satu tahun anggaran. Nama inilah yang muncul di riwayat pergeseran pagu.</div>
+            <div class="sub">Nama tahapan harus unik dalam satu tahun anggaran. Nama inilah yang muncul di riwayat pergeseran pagu.</div>
         </div>
 
         <div class="fg">
-            <label class="fl" for="versi_keterangan">Keterangan Versi (opsional)</label>
+            <label class="fl" for="versi_nomor_dpa">Nomor DPA</label>
+            <input type="text" id="versi_nomor_dpa" name="versi_nomor_dpa" value="{{ old('versi_nomor_dpa') }}" maxlength="100"
+                   placeholder="Contoh: DPA/A.1/1.01.0.00.0.00.01.0000/001/2026" style="max-width:420px;">
+            <div class="sub">
+                Satu nomor untuk satu dokumen DPA. Nomor milik tahapan yang <strong>sedang berlaku</strong> inilah
+                yang tercetak di kolom &ldquo;No. DPA&rdquo; pada setiap NPD.
+                Boleh dikosongkan bila nomornya belum terbit &mdash; dapat dilengkapi belakangan di halaman
+                <a href="{{ route('versi-pagu.index') }}">Tahapan Pagu</a> tanpa impor ulang.
+            </div>
+        </div>
+
+        <div class="fg">
+            <label class="fl" for="versi_keterangan">Keterangan Tahapan (opsional)</label>
             <textarea id="versi_keterangan" name="versi_keterangan" rows="2" maxlength="2000"
                       placeholder="Contoh: dasar SK Pergeseran Nomor ... tanggal ...">{{ old('versi_keterangan') }}</textarea>
         </div>
@@ -79,7 +92,7 @@
         <div class="sub" style="margin-top:8px;">
             Batas: 5 MB, maksimum {{ number_format(\App\Models\MasterAnggaranImport::MAKS_BARIS, 0, ',', '.') }} baris data per file.
             Berkas yang sudah diunggah dapat diperiksa selama {{ \App\Models\MasterAnggaranImport::MENIT_KEDALUWARSA }} menit sebelum perlu diunggah ulang.<br>
-            Mata anggaran yang ada sekarang tapi <strong>tidak dicantumkan</strong> di file ini akan berpagu 0 dan dinonaktifkan saat versi diaktifkan &mdash;
+            Mata anggaran yang ada sekarang tapi <strong>tidak dicantumkan</strong> di file ini akan berpagu 0 dan dinonaktifkan saat tahapan diaktifkan &mdash;
             dokumen DPA diperlakukan utuh, bukan sebagai perubahan sebagian.
         </div>
 

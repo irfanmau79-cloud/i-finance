@@ -26,7 +26,7 @@ class SimulasiAnggaranExport implements FromCollection, PunyaPetunjukKolom, Shou
 
     public function petunjukCatatan(): string
     {
-        return 'Hasil satu Simulasi Pergeseran/Perubahan Anggaran yang tersimpan. Angka pada kolom Anggaran (Simulasi) bersifat RENCANA - simulasi tidak pernah mengubah pagu yang berlaku. Untuk benar-benar memberlakukan pergeseran, buat versi pagu baru lewat Import Pagu lalu aktifkan di halaman Versi Pagu. Kolom Realisasi diambil dari transaksi nyata saat berkas ini diunduh, jadi bisa berbeda bila diunduh ulang di lain waktu.';
+        return 'Hasil satu Simulasi Pergeseran/Perubahan Anggaran yang tersimpan. Angka pada kolom Anggaran (Simulasi) bersifat RENCANA - simulasi tidak pernah mengubah pagu yang berlaku. Untuk benar-benar memberlakukan pergeseran, buat tahapan pagu baru lewat Import Pagu lalu aktifkan di halaman Tahapan Pagu. Kolom Realisasi diambil dari transaksi nyata saat berkas ini diunduh, jadi bisa berbeda bila diunduh ulang di lain waktu.';
     }
 
     public function petunjukKolom(): array

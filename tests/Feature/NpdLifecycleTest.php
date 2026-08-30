@@ -110,7 +110,10 @@ class NpdLifecycleTest extends TestCase
         $bpp = $this->user('bpp');
         $verifikator = $this->user('verifikator');
 
-        $this->actingAs($pptk)->post(route('npd.bj.store'), $this->payloadBj($this->anggaran()));
+        $anggaran = $this->anggaran();
+        $this->limpahkanSubKegiatan($pptk, $anggaran);
+
+        $this->actingAs($pptk)->post(route('npd.bj.store'), $this->payloadBj($anggaran));
         $npd = Npd::sole();
 
         $this->actingAs($pptk)->post(route('npd.transisi', $npd), ['aksi' => 'ajukan_bpp']);
@@ -134,6 +137,7 @@ class NpdLifecycleTest extends TestCase
         $pptk = $this->user('pptk');
         $bpp = $this->user('bpp');
         $anggaran = $this->anggaran();
+        $this->limpahkanSubKegiatan($pptk, $anggaran);
         $this->actingAs($pptk)->post(route('npd.bj.store'), $this->payloadBj($anggaran));
         $npd = Npd::sole();
 
@@ -155,6 +159,7 @@ class NpdLifecycleTest extends TestCase
     {
         $pptk = $this->user('pptk');
         $anggaran = $this->anggaran();
+        $this->limpahkanSubKegiatan($pptk, $anggaran);
         $sp = $this->sp();
         $this->actingAs($pptk)->post(route('npd.pd.store'), $this->payloadPd($anggaran, $sp));
         $npd = Npd::sole();
@@ -175,6 +180,7 @@ class NpdLifecycleTest extends TestCase
     {
         $pptk = $this->user('pptk');
         $anggaran = $this->anggaran();
+        $this->limpahkanSubKegiatan($pptk, $anggaran);
         $sp = $this->sp();
         $this->actingAs($pptk)->post(route('npd.pd.store'), $this->payloadPd($anggaran, $sp));
         $npd = Npd::sole();
@@ -198,6 +204,7 @@ class NpdLifecycleTest extends TestCase
         $pptk = $this->user('pptk');
         $superadmin = $this->user('superadmin');
         $anggaran = $this->anggaran();
+        $this->limpahkanSubKegiatan($pptk, $anggaran);
         $this->actingAs($pptk)->post(route('npd.bj.store'), $this->payloadBj($anggaran));
         $npd = Npd::sole();
         $npd->update(['status' => 'Selesai', 'nomor_urut' => 3, 'nomor_lengkap' => '03/NPD-Keu.1.IBC/7/2026']);
@@ -222,6 +229,7 @@ class NpdLifecycleTest extends TestCase
         $pptk = $this->user('pptk');
         $superadmin = $this->user('superadmin');
         $anggaran = $this->anggaran();
+        $this->limpahkanSubKegiatan($pptk, $anggaran);
         $npd = Npd::create([
             'jenis' => 'bj', 'master_anggaran_id' => $anggaran->id, 'keu' => 'KEU1', 'bulan' => 7, 'tahun' => 2026,
             'tanggal_npd' => '2026-07-27', 'jenis_panjar' => 'Tanpa Panjar',

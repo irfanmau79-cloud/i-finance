@@ -432,6 +432,70 @@
   .scari .sc-item .sc-sub{display:block;margin-top:2px;font-size:11px;font-weight:400;color:var(--mut);}
   .scari .sc-kosong{padding:12px;font-size:12px;color:var(--mut);text-align:center;}
 
+  /* ===== KALENDER TANGGAL: pemilih banyak tanggal =====
+     Dipasang otomatis oleh layouts/partials/kalender-tanggal pada tiap
+     <input data-kalender>. Isiannya tetap isian teks biasa - hanya read-only
+     dan berkursor penunjuk - supaya sebaris dengan isian lain di formulir. */
+  .kal-inp{cursor:pointer;background:var(--surface) !important;}
+  .kal-inp:disabled{cursor:not-allowed;}
+  .kal-lapis{position:fixed;inset:0;z-index:300;display:flex;align-items:center;justify-content:center;
+    padding:16px;background:rgba(15,39,64,.45);}
+  .kal-lapis[hidden]{display:none;}
+  .kal-box{width:336px;max-width:100%;padding:15px;border-radius:var(--radius);background:var(--surface);
+    box-shadow:0 20px 60px rgba(0,0,0,.3);font-size:13px;color:var(--ink);}
+  .kal-kepala{display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;}
+  .kal-judul{font-size:14px;font-weight:700;color:var(--navy);}
+  .kal-nav{width:30px;height:30px;border:1px solid var(--line);border-radius:8px;background:var(--surface);
+    color:var(--navy);font-size:16px;line-height:1;cursor:pointer;}
+  .kal-nav:hover{background:var(--navy-l);}
+  .kal-grid{display:grid;grid-template-columns:repeat(7,1fr);gap:3px;}
+  .kal-dow{margin-bottom:4px;}
+  .kal-dow span{padding:2px 0;text-align:center;font-size:11px;font-weight:600;color:var(--mut);}
+  .kal-kosong{height:34px;}
+  .kal-hari{height:34px;border:1px solid transparent;border-radius:8px;background:var(--surface-2);
+    font-family:inherit;font-size:12.5px;color:var(--ink);cursor:pointer;transition:background .12s;}
+  .kal-hari:hover{background:var(--navy-l);}
+  /* Hari ini ditandai garis tepi saja - warna penuh disediakan untuk
+     tanggal yang benar-benar dipilih, supaya keduanya tidak tertukar. */
+  .kal-hari.kini{border-color:var(--navy);font-weight:700;}
+  .kal-hari.aktif{background:var(--navy);border-color:var(--navy);color:#fff;font-weight:700;}
+  .kal-ring{margin-top:12px;padding:9px 10px;border:1px solid var(--line);border-radius:9px;background:var(--surface-2);}
+  .kal-ring-lbl{margin-bottom:3px;font-size:11px;font-weight:600;color:var(--mut);}
+  .kal-ring-isi{font-size:12.5px;font-weight:600;line-height:1.45;color:var(--navy);}
+  .kal-ring-kosong{font-weight:400;font-style:italic;color:var(--mut);}
+  .kal-kaki{display:flex;align-items:center;gap:8px;margin-top:12px;}
+  .kal-kaki-sela{flex:1;}
+  .kal-kaki .btn{padding:8px 14px;font-size:12.5px;}
+  :root[data-tema="gelap"] .kal-lapis{background:rgba(4,10,18,.62);}
+  :root[data-tema="gelap"] .kal-hari.aktif{background:var(--gold);border-color:var(--gold);color:#1b1408;}
+
+  /* Label yang berbagi baris dengan sebuah chip aksi - mis. centang "Isi
+     Manual" di sebelah kanan label Tujuan Transfer, sama seperti pada kartu
+     anggota SP. Labelnya tetap <label class="fl"> biasa, hanya barisnya
+     dibuat flex supaya jarak atas-bawahnya tidak berlipat. */
+  .fl-baris{display:flex;align-items:center;gap:10px;margin:14px 0 5px;}
+  .fl-baris .fl{margin:0;}
+  .fl-baris .fl-sela{flex:1;}
+
+  /* Isian Nomor DPA di dalam sel tabel Tahapan Pagu: isian + tombol sebaris,
+     sesempit mungkin supaya tidak mendorong kolom lain keluar layar. */
+  .dpa-form{display:flex;gap:6px;align-items:center;}
+  .dpa-form input{min-width:0;flex:1 1 150px;padding:6px 9px;font-size:12.5px;}
+  .dpa-form .btn{flex:0 0 auto;padding:6px 12px;font-size:12px;}
+
+  /* Nota peringatan umum: kotak kuning berikon untuk keadaan yang menghambat
+     pengisian formulir tapi bukan kesalahan pengguna - mis. dropdown Mata
+     Anggaran yang kosong karena pelimpahan belum diset. */
+  .nota-peringatan{display:flex;gap:9px;align-items:flex-start;margin-bottom:14px;padding:11px 13px;
+    border:1px solid #fde68a;background:#fffbeb;border-radius:var(--radius-sm);
+    font-size:12.5px;line-height:1.55;color:#8a5a08;}
+  .nota-peringatan strong{display:block;color:#7c4a04;margin-bottom:2px;}
+  .nota-peringatan svg{flex:0 0 16px;width:16px;height:16px;margin-top:2px;stroke:#b45309;fill:none;
+    stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  :root[data-tema="gelap"] .nota-peringatan{border-color:#5c4310;background:#33290f;color:#f0d9a8;}
+  :root[data-tema="gelap"] .nota-peringatan strong{color:#fbe7bd;}
+  :root[data-tema="gelap"] .nota-peringatan svg{stroke:#e0b45c;}
+
   /* Isian Sisa Anggaran manual pada formulir NPD (npd/_sisa-manual).
      Bentuknya mengikuti GAS: satu centang yang membuka isian angka. Nota
      kuningnya tambahan Laravel - di sini angkanya HANYA untuk cetakan,
@@ -944,6 +1008,26 @@
   .btn.danger{background:#dc2626;color:#fff;border-color:#dc2626;}
   .btn.danger:hover{background:#b91c1c;border-color:#b91c1c;}
   .btn:disabled{opacity:.45;cursor:not-allowed;}
+
+  /* Deretan tombol "Dokumen & Cetak" pada detail NPD. Tombol gabungan
+     didorong ke ujung kanan dan dipisahkan garis: hasilnya bukan satu
+     dokumen seperti tombol di kirinya, melainkan semuanya sekaligus. */
+  .cetak-bar{display:flex;flex-wrap:wrap;align-items:center;gap:8px;}
+  .cetak-pisah{width:1px;align-self:stretch;min-height:22px;margin:0 4px 0 auto;background:var(--line);}
+  .btn.gabung{display:inline-flex;align-items:center;gap:8px;background:var(--gold);border-color:var(--gold);
+    color:#1b1408;box-shadow:0 2px 8px rgba(217,169,56,.32);}
+  .btn.gabung:hover{background:var(--gold-d);border-color:var(--gold-d);}
+  .btn.gabung svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  /* Mode gelap menjadikan .btn.prim emas, jadi tombol ini beralih ke garis
+     tepi emas supaya keduanya tetap terbedakan. */
+  :root[data-tema="gelap"] .btn.gabung{background:transparent;color:var(--gold);box-shadow:none;}
+  :root[data-tema="gelap"] .btn.gabung:hover{background:rgba(217,169,56,.12);}
+  /* Layar sempit: barisnya sudah membungkus, jadi dorongan ke kanan malah
+     menyisakan celah aneh - garis pemisahnya disembunyikan saja. */
+  @media (max-width:700px){
+    .cetak-pisah{display:none;}
+    .cetak-bar .btn{flex:1 1 auto;text-align:center;justify-content:center;}
+  }
 
   .rev{font-size:13.5px;}
   .rev .grp{border:1px solid var(--line);border-radius:var(--radius-sm);padding:13px 15px;margin-top:12px;}

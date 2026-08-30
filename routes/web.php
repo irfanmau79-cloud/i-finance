@@ -282,6 +282,8 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/npd/{npd}/cetak-spd', [NpdController::class, 'cetakSpd'])->name('npd.cetak-spd');
         Route::get('/npd/{npd}/cetak-daftar-nara', [NpdController::class, 'cetakDaftarNarasumber'])->name('npd.cetak-daftar-nara');
         Route::get('/npd/{npd}/cetak-daftar-kd', [NpdController::class, 'cetakDaftarKontribusiDiklat'])->name('npd.cetak-daftar-kd');
+        // Seluruh dokumen di atas dalam satu berkas, berurutan.
+        Route::get('/npd/{npd}/cetak-gabungan', [NpdController::class, 'cetakGabungan'])->name('npd.cetak-gabungan');
         Route::post('/npd/{npd}/arsip-spj', [InventarisasiSpjController::class, 'store'])->name('npd.arsip-spj.store');
     });
 
@@ -374,6 +376,9 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/versi-pagu', [VersiPaguController::class, 'index'])->name('versi-pagu.index');
         Route::get('/versi-pagu/{versiPagu}', [VersiPaguController::class, 'show'])->name('versi-pagu.show');
         Route::post('/versi-pagu/{versiPagu}/aktifkan', [VersiPaguController::class, 'aktifkan'])->name('versi-pagu.aktifkan');
+        // Nomor DPA sering terbit setelah paguya diimpor; bisa dilengkapi
+        // tanpa mengulang impor seluruh dokumen.
+        Route::patch('/versi-pagu/{versiPagu}/nomor-dpa', [VersiPaguController::class, 'nomorDpa'])->name('versi-pagu.nomor-dpa');
         Route::delete('/versi-pagu/{versiPagu}', [VersiPaguController::class, 'destroy'])->name('versi-pagu.destroy');
 
         // Import SPM UP/GU dan LS: upload -> staging (preview/dry-run) -> konfirmasi simpan.

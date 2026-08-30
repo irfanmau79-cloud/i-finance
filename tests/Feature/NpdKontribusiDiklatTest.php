@@ -116,6 +116,7 @@ class NpdKontribusiDiklatTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'kd-pptk-kontribusi');
         $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         $response = $this->actingAs($pptk)->post(route('npd.kd.store'), $this->payloadKontribusi($masterAnggaran));
 
@@ -154,11 +155,13 @@ class NpdKontribusiDiklatTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'kd-pptk-perjalanan');
         $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         $this->actingAs($pptk)->post(route('npd.kd.store'), $this->payloadKontribusi($masterAnggaran));
         $referensi = Npd::where('mode_kd', 'kontribusi')->firstOrFail();
 
         $masterAnggaranPd = $this->buatMasterAnggaran(100_000_000, '5.1.02.04.01.0002');
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaranPd);
         $response = $this->actingAs($pptk)->post(
             route('npd.kd.store'),
             $this->payloadPerjalanan($masterAnggaranPd, $referensi->id)
@@ -193,6 +196,7 @@ class NpdKontribusiDiklatTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'kd-ref-invalid');
         $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         // Buat NPD BJ biasa sebagai referensi salah jenis.
         $npdBj = Npd::create([
@@ -220,6 +224,7 @@ class NpdKontribusiDiklatTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'kd-ref-batal');
         $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         $this->actingAs($pptk)->post(route('npd.kd.store'), $this->payloadKontribusi($masterAnggaran));
         $referensi = Npd::where('mode_kd', 'kontribusi')->firstOrFail();
@@ -236,6 +241,7 @@ class NpdKontribusiDiklatTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'kd-tolak');
         $masterAnggaran = $this->buatMasterAnggaran(1_000_000);
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         Npd::create([
             'jenis' => 'bj',
@@ -286,6 +292,7 @@ class NpdKontribusiDiklatTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'kd-pdf');
         $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         $this->actingAs($pptk)->post(route('npd.kd.store'), $this->payloadKontribusi($masterAnggaran));
         $npdKontribusi = Npd::where('mode_kd', 'kontribusi')->firstOrFail();
@@ -297,6 +304,7 @@ class NpdKontribusiDiklatTest extends TestCase
         }
 
         $masterAnggaranPd = $this->buatMasterAnggaran(100_000_000, '5.1.02.04.01.0003');
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaranPd);
         $this->actingAs($pptk)->post(route('npd.kd.store'), $this->payloadPerjalanan($masterAnggaranPd, $npdKontribusi->id));
         $npdPerjalanan = Npd::where('mode_kd', 'perjalanan')->firstOrFail();
 
@@ -311,6 +319,7 @@ class NpdKontribusiDiklatTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'kd-jenis-lain');
         $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         $npdBj = Npd::create([
             'jenis' => 'bj',

@@ -84,6 +84,7 @@ class NpdNarasumberTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'ns-pptk');
         $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         $response = $this->actingAs($pptk)->post(route('npd.ns.store'), $this->payload($masterAnggaran));
 
@@ -125,6 +126,7 @@ class NpdNarasumberTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'ns-master');
         $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         $pegawai = Pegawai::create([
             'nama' => 'Bambang Wijaya',
@@ -150,6 +152,7 @@ class NpdNarasumberTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'ns-tolak');
         $masterAnggaran = $this->buatMasterAnggaran(1_000_000);
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         // Sudah terpakai 800.000, sisa hanya 200.000.
         Npd::create([
@@ -203,6 +206,7 @@ class NpdNarasumberTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'ns-pdf');
         $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         $this->actingAs($pptk)->post(route('npd.ns.store'), $this->payload($masterAnggaran));
         $npd = Npd::firstOrFail();
@@ -224,6 +228,7 @@ class NpdNarasumberTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'ns-jenis-lain');
         $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         $npdBj = Npd::create([
             'jenis' => 'bj',

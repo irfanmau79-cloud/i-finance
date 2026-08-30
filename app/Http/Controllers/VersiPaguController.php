@@ -8,9 +8,13 @@ use Illuminate\Http\Request;
 use RuntimeException;
 
 /**
- * Kelola versi dokumen pagu (DPA Murni, DPA Pergeseran 1, ...). Import
- * hanya menghasilkan versi berstatus draft; halaman inilah yang
- * memberlakukan sebuah versi lewat VersiPagu::aktifkan().
+ * Kelola tahapan dokumen pagu (DPA Murni, DPA Pergeseran 1, ...). Import
+ * hanya menghasilkan tahapan berstatus draf; halaman inilah yang
+ * memberlakukan sebuah tahapan lewat VersiPagu::aktifkan(), sekaligus
+ * tempat melengkapi Nomor DPA-nya.
+ *
+ * Nama kelas & tabel tetap "versi pagu" — yang berubah hanya istilah yang
+ * dilihat pengguna.
  */
 class VersiPaguController extends Controller
 {
@@ -61,8 +65,8 @@ class VersiPaguController extends Controller
             return redirect()->route('versi-pagu.index')->withErrors(['aktivasi' => $e->getMessage()]);
         }
 
-        AuditLog::catat('Aktivasi Versi Pagu', sprintf(
-            'Versi "%s" (TA %d) diberlakukan. Versi sebelumnya: %s. Total pagu: Rp %s.',
+        AuditLog::catat('Aktivasi Tahapan Pagu', sprintf(
+            'Tahapan "%s" (TA %d) diberlakukan. Tahapan sebelumnya: %s. Total pagu: Rp %s.',
             $versiPagu->nama,
             $versiPagu->tahun,
             $sebelumnya?->nama ?? 'belum ada',
@@ -70,7 +74,42 @@ class VersiPaguController extends Controller
         ));
 
         return redirect()->route('versi-pagu.index')->with('success', sprintf(
-            'Versi pagu "%s" sekarang berlaku. Seluruh pagu, sisa tersedia, dan dashboard sudah memakai angka versi ini.',
+            'Tahapan pagu "%s" sekarang berlaku. Seluruh pagu, sisa tersedia, dashboard, dan Nomor DPA pada cetakan NPD sudah memakai tahapan ini.',
+            $versiPagu->nama
+        ));
+    }
+
+    /**
+     * Isi atau perbarui Nomor DPA sebuah tahapan.
+     *
+     * Nomor DPA kerap baru terbit setelah angka pagunya diimpor, jadi
+     * melengkapinya tidak boleh menuntut impor ulang seluruh dokumen. Boleh
+     * pada tahapan berstatus apa pun — termasuk arsip, yang nomornya bisa
+     * saja baru dicatat belakangan.
+     */
+    public function nomorDpa(Request $request, VersiPagu $versiPagu)
+    {
+        $data = $request->validate(
+            ['nomor_dpa' => ['nullable', 'string', 'max:100']],
+            [],
+            ['nomor_dpa' => 'Nomor DPA'],
+        );
+
+        $sebelumnya = $versiPagu->nomor_dpa;
+        $versiPagu->update(['nomor_dpa' => trim((string) ($data['nomor_dpa'] ?? '')) ?: null]);
+
+        AuditLog::catat('Ubah Nomor DPA Tahapan Pagu', sprintf(
+            'Tahapan "%s" (TA %d): %s -> %s.',
+            $versiPagu->nama,
+            $versiPagu->tahun,
+            $sebelumnya ?: 'kosong',
+            $versiPagu->nomor_dpa ?: 'kosong',
+        ));
+
+        return redirect()->route('versi-pagu.index')->with('success', sprintf(
+            $versiPagu->berlaku()
+                ? 'Nomor DPA tahapan "%s" tersimpan dan langsung dipakai pada cetakan NPD.'
+                : 'Nomor DPA tahapan "%s" tersimpan.',
             $versiPagu->nama
         ));
     }
@@ -82,13 +121,13 @@ class VersiPaguController extends Controller
      */
     public function destroy(VersiPagu $versiPagu)
     {
-        abort_if($versiPagu->status !== VersiPagu::STATUS_DRAFT, 403, 'Hanya versi pagu berstatus draft yang bisa dihapus.');
+        abort_if($versiPagu->status !== VersiPagu::STATUS_DRAFT, 403, 'Hanya tahapan pagu berstatus draf yang bisa dihapus.');
 
         $nama = $versiPagu->nama;
         $versiPagu->delete();
 
-        AuditLog::catat('Hapus Versi Pagu', sprintf('Versi draft "%s" dihapus.', $nama));
+        AuditLog::catat('Hapus Tahapan Pagu', sprintf('Tahapan draf "%s" dihapus.', $nama));
 
-        return redirect()->route('versi-pagu.index')->with('success', sprintf('Versi pagu draft "%s" dihapus.', $nama));
+        return redirect()->route('versi-pagu.index')->with('success', sprintf('Tahapan pagu draf "%s" dihapus.', $nama));
     }
 }

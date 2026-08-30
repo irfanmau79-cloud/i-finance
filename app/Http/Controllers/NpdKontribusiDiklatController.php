@@ -8,6 +8,7 @@ use App\Http\Requests\StoreNpdKontribusiDiklatRequest;
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
 use App\Models\Pegawai;
+use App\Support\AnggaranNpd;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -226,7 +227,7 @@ class NpdKontribusiDiklatController extends Controller
 
     private function form(?Npd $npd = null, ?array $pesertaAwal = null, array $detailAwal = [])
     {
-        $masterAnggaran = MasterAnggaran::with('tagging')->where('aktif', true)->orderBy('sub_kegiatan')->get();
+        $masterAnggaran = AnggaranNpd::daftar(auth()->user(), $npd);
         $pegawai = Pegawai::where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'jabatan', 'bidang', 'nip', 'rekening']);
         $bulanList = [
             1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni',

@@ -141,6 +141,7 @@ class NpdPdTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'pd-wajib-sp');
         $master = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $master);
 
         $payload = $this->payload($master);
         unset($payload['surat_perintah_id']);
@@ -155,6 +156,7 @@ class NpdPdTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'pd-sp-tidak-layak');
         $master = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $master);
 
         $reimburse = $this->buatSuratPerintah('900/SP/REIMBURSE/2026');
         $reimburse->update(['jenis_permintaan' => SuratPerintah::JENIS_REIMBURSE]);
@@ -176,6 +178,7 @@ class NpdPdTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'pd-nomor-sp');
         $master = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $master);
         $sp = $this->buatSuratPerintah('777/SP/BENAR/2026');
 
         $payload = $this->payload($master, $sp);
@@ -202,6 +205,7 @@ class NpdPdTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'pd-lama-impor');
         $master = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $master);
 
         $lama = Npd::create([
             'jenis' => 'pd',
@@ -235,6 +239,7 @@ class NpdPdTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'pd-draft-tanpa-sp');
         $master = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $master);
 
         $draft = Npd::create([
             'jenis' => 'pd',
@@ -264,6 +269,7 @@ class NpdPdTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'pd-tahun');
         $master = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $master);
 
         // Tidak ada lagi isian Tahun yang bisa diketik pengguna.
         $this->actingAs($pptk)->get(route('npd.pd.create'))->assertOk()
@@ -308,6 +314,7 @@ class NpdPdTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'pd-pagu');
         $masterAnggaran = $this->buatMasterAnggaran(1_000_000);
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         $this->actingAs($pptk)->post(route('npd.pd.store'), $this->payload($masterAnggaran))
             ->assertSessionHasErrors(['tim']);
@@ -319,6 +326,7 @@ class NpdPdTest extends TestCase
     {
         $pptk = $this->buatUser('pptk', 'pd-simpan');
         $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
         $suratPerintah = $this->buatSuratPerintah();
         $pegawai = Pegawai::create([
             'nama' => 'Anggota Pertama', 'nip' => '198001012000011001', 'jabatan' => 'Auditor',

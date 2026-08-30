@@ -23,6 +23,7 @@ use RuntimeException;
 #[Fillable([
     'tahun',
     'nama',
+    'nomor_dpa',
     'keterangan',
     'status',
     'total_pagu',
@@ -83,6 +84,16 @@ class VersiPagu extends Model
     public static function aktifTahun(int $tahun): ?self
     {
         return self::where('tahun', $tahun)->where('status', self::STATUS_AKTIF)->first();
+    }
+
+    /**
+     * Nomor DPA yang berlaku pada satu tahun anggaran — inilah yang tercetak
+     * di kolom "No. DPA" pada PDF NPD. Kosong kalau tahapannya belum diberi
+     * nomor atau belum ada tahapan yang diaktifkan.
+     */
+    public static function nomorDpaAktif(int $tahun): string
+    {
+        return trim((string) self::aktifTahun($tahun)?->nomor_dpa);
     }
 
     /**

@@ -317,6 +317,40 @@ class MasterAnggaranImportTest extends TestCase
 
     // ---------------- Konfirmasi menghasilkan versi draft ----------------
 
+    public function test_nomor_dpa_dari_formulir_ikut_tersimpan_ke_tahapan_pagu(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+
+        $import = $this->unggah($superadmin, [$this->baseRow()], 'DPA Murni', [
+            'versi_nomor_dpa' => '  027/DPA/2026  ',
+        ]);
+
+        // Masih di staging: nomornya menempel pada berkasnya dulu, tahapannya
+        // belum dibuat sampai dikonfirmasi.
+        $this->assertSame('027/DPA/2026', $import->versi_nomor_dpa);
+        $this->assertSame(0, VersiPagu::count());
+
+        $this->actingAs($superadmin)
+            ->post(route('manajemen-data.import.master-anggaran.konfirmasi', $import))
+            ->assertRedirect(route('versi-pagu.index'));
+
+        $this->assertSame('027/DPA/2026', VersiPagu::sole()->nomor_dpa);
+    }
+
+    public function test_nomor_dpa_boleh_dikosongkan_saat_impor(): void
+    {
+        // Nomor DPA kerap terbit belakangan; impor tidak boleh terhalang.
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+
+        $import = $this->unggah($superadmin, [$this->baseRow()], 'DPA Murni');
+
+        $this->actingAs($superadmin)
+            ->post(route('manajemen-data.import.master-anggaran.konfirmasi', $import))
+            ->assertRedirect(route('versi-pagu.index'));
+
+        $this->assertNull(VersiPagu::sole()->nomor_dpa);
+    }
+
     public function test_konfirmasi_membuat_versi_draft_tanpa_mengubah_pagu_berlaku(): void
     {
         $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
@@ -375,7 +409,7 @@ class MasterAnggaranImportTest extends TestCase
 
         $log = AuditLog::where('aktivitas', 'Import Master Anggaran')->latest('id')->first();
         $this->assertNotNull($log);
-        $this->assertStringContainsString('Versi: DPA Pergeseran 1 (draft)', $log->keterangan);
+        $this->assertStringContainsString('Tahapan: DPA Pergeseran 1 (draft)', $log->keterangan);
         $this->assertStringContainsString('Baru: 1', $log->keterangan);
         $this->assertStringContainsString('Update: 1', $log->keterangan);
     }

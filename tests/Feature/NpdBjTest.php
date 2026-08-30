@@ -40,6 +40,8 @@ class NpdBjTest extends TestCase
             'aktif' => true,
         ]);
 
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
         $pegawai = Pegawai::create([
             'nama' => 'Budi Santoso',
             'nip' => '198001012000031001',
@@ -160,6 +162,8 @@ class NpdBjTest extends TestCase
             'aktif' => true,
         ]);
 
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
         // NPD lama berstatus Draft tetap mengurangi sisa (dananya sudah dipesan).
         Npd::create([
             'jenis' => 'bj',
@@ -228,6 +232,8 @@ class NpdBjTest extends TestCase
             'pagu' => 1_000_000,
             'aktif' => true,
         ]);
+
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         // Sudah terpakai 800.000, sisa hanya 200.000.
         Npd::create([
@@ -313,6 +319,8 @@ class NpdBjTest extends TestCase
             'pagu' => 100_000_000,
             'aktif' => true,
         ]);
+
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
         $payload = [
             'master_anggaran_id' => $masterAnggaran->id,

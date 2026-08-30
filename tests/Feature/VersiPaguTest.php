@@ -88,7 +88,7 @@ class VersiPaguTest extends TestCase
         $this->assertSame(15_000_000.0, (float) $master->pagu);
         $this->assertTrue($master->aktif);
 
-        $log = AuditLog::where('aktivitas', 'Aktivasi Versi Pagu')->latest('id')->first();
+        $log = AuditLog::where('aktivitas', 'Aktivasi Tahapan Pagu')->latest('id')->first();
         $this->assertNotNull($log);
         $this->assertStringContainsString('DPA Murni', $log->keterangan);
     }
@@ -234,7 +234,7 @@ class VersiPaguTest extends TestCase
             ->assertOk()
             ->assertSee('href="'.route('versi-pagu.index').'"', false)
             ->assertSee('Data Pagu Anggaran')
-            ->assertSee('Klik judul untuk melihat rincian dan histori pagu');
+            ->assertSee('Klik judul untuk melihat tahapan pagu, Nomor DPA, dan histori pagu');
     }
 
     public function test_halaman_rincian_menampilkan_selisih_terhadap_versi_berlaku(): void

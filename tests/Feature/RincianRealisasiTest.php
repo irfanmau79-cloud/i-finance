@@ -121,6 +121,9 @@ class RincianRealisasiTest extends TestCase
         $this->assertSame(0.0, $zero->persentaseRealisasiAktual());
 
         $anggaran = $this->anggaran('Sub Transaksi', '5.1.03', null, 10_000_000);
+        // Formulir NPD di bawah dibuka sebagai PPTK, yang kini hanya melihat
+        // Sub Kegiatan limpahannya sendiri.
+        $this->limpahkanSubKegiatan($this->user, $anggaran);
         $this->npd($anggaran, 2_000_000, 'Draft NPD - PPTK');
         $this->npd($anggaran, 3_000_000, 'Selesai');
         Spm::buatLs([

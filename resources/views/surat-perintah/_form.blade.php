@@ -33,6 +33,17 @@
     ])->values()->all();
 
     $komponenAwal = old('komponen', $sp?->pengajuanArray() ?? []);
+
+    // Tujuan Transfer disimpan sebagai satu string bebas. Kalau isinya cocok
+    // dengan nama pegawai aktif, dropdown-nya yang terpilih; kalau tidak
+    // (rekanan, panitia, pegawai yang sudah nonaktif) formulir langsung
+    // terbuka dalam mode Isi Manual supaya nilai lamanya tidak hilang.
+    $tujuanAwal = (string) old('tujuan_transfer', $sp->tujuan_transfer ?? '');
+    $tujuanManual = $tujuanAwal !== '' && ! in_array($tujuanAwal, array_column($pegawaiAnggotaJs, 'nama'), true);
+    // Mode yang sedang tidak dipakai disembunyikan sekaligus dimatikan sejak
+    // dari server, jadi tidak ada kedipan sebelum JavaScript sempat jalan.
+    $tujuanAttrPilih = $tujuanManual ? ' hidden disabled' : '';
+    $tujuanAttrTeks = $tujuanManual ? '' : ' hidden disabled';
 @endphp
 
 <div aria-hidden="true" style="position:absolute;left:-10000px;width:1px;height:1px;overflow:hidden;">
@@ -123,9 +134,29 @@
         <input type="text" id="nama_pengirim" name="nama_pengirim" value="{{ old('nama_pengirim', $sp->nama_pengirim ?? '') }}">
     </div>
 
-    <div class="fg" data-sp-identitas>
-        <label class="fl" for="tujuan_transfer">Tujuan Transfer (Nama Orang)</label>
-        <input type="text" id="tujuan_transfer" name="tujuan_transfer" value="{{ old('tujuan_transfer', $sp->tujuan_transfer ?? '') }}">
+    {{-- Tujuan Transfer: dipilih dari Data Pegawai, dengan jalan keluar
+         "Isi Manual" untuk penerima di luar daftar (rekanan, panitia, kas).
+         Yang terkirim tetap satu string lewat isian tersembunyi, jadi
+         validasi & penyimpanannya tidak berubah. --}}
+    <div class="fg" data-sp-identitas data-tujuan-wrap>
+        <div class="fl-baris">
+            <label class="fl" for="{{ $tujuanManual ? 'tujuan_transfer_manual' : 'tujuan_transfer_pilih' }}">Tujuan Transfer</label>
+            <span class="fl-sela"></span>
+            <label class="komp-chip sp-manual-chip" title="Ketik sendiri tujuan transfer di luar Data Pegawai">
+                <input type="checkbox" data-tujuan-manual @checked($tujuanManual)>
+                <span class="komp-box"><svg viewBox="0 0 16 16" aria-hidden="true"><polyline points="3,8.5 6.5,12 13,4.5"/></svg></span>
+                <span class="komp-txt">Isi Manual</span>
+            </label>
+        </div>
+        <select id="tujuan_transfer_pilih" data-cari data-tujuan-select{{ $tujuanAttrPilih }}>
+            <option value="">&mdash; Pilih dari Data Pegawai &mdash;</option>
+            @foreach ($pegawaiAnggotaJs as $pegawai)
+                <option value="{{ $pegawai['nama'] }}" @selected(! $tujuanManual && $tujuanAwal === $pegawai['nama'])
+                    @if ($pegawai['detail']) data-sub="{{ $pegawai['detail'] }}" @endif>{{ $pegawai['nama'] }}</option>
+            @endforeach
+        </select>
+        <input type="text" id="tujuan_transfer_manual" data-tujuan-teks placeholder="Ketik nama atau tujuan transfer" value="{{ $tujuanManual ? $tujuanAwal : '' }}"{{ $tujuanAttrTeks }}>
+        <input type="hidden" name="tujuan_transfer" data-tujuan-nilai value="{{ $tujuanAwal }}">
     </div>
 
     <div class="fg" data-sp-identitas>
@@ -138,7 +169,11 @@
 
     <div class="fg" data-sp-identitas>
         <label class="fl" for="rincian_tgl_bayar">Rincian Tanggal Penugasan yang Dibayar</label>
-        <input type="text" id="rincian_tgl_bayar" name="rincian_tgl_bayar" placeholder="Contoh: 1 - 2 Mei 2026" value="{{ old('rincian_tgl_bayar', $sp->rincian_tgl_bayar ?? '') }}">
+        {{-- data-kalender: isiannya dijadikan pemicu kalender oleh
+             layouts/partials/kalender-tanggal. Yang tersimpan tetap string
+             ringkas seperti "1-2, 4-7 Juli 2026". --}}
+        <input type="text" id="rincian_tgl_bayar" name="rincian_tgl_bayar" data-kalender readonly
+            placeholder="Klik untuk pilih tanggal&hellip;" value="{{ old('rincian_tgl_bayar', $sp->rincian_tgl_bayar ?? '') }}">
     </div>
 
     <div class="fg span2" data-sp-komponen>
@@ -225,12 +260,37 @@
     const anggotaCard = document.getElementById('sp-anggota-card');
     const anggotaNote = document.getElementById('sp-anggota-reimburse');
     const fileNote = document.getElementById('sp-file-note');
+    const tujuanWrap = document.querySelector('[data-tujuan-wrap]');
+    const tujuanSelect = tujuanWrap && tujuanWrap.querySelector('[data-tujuan-select]');
+    const tujuanTeks = tujuanWrap && tujuanWrap.querySelector('[data-tujuan-teks]');
+    const tujuanNilai = tujuanWrap && tujuanWrap.querySelector('[data-tujuan-nilai]');
+    const tujuanManual = tujuanWrap && tujuanWrap.querySelector('[data-tujuan-manual]');
     let sequence = 0;
 
     function esc(value) {
         return String(value ?? '').replace(/[&<>"']/g, c => ({
             '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
         }[c]));
+    }
+
+    /**
+     * Tujuan Transfer: dropdown pegawai atau isian bebas, satu-satunya yang
+     * terkirim adalah isian tersembunyi. Fungsi ini penulis tunggalnya, jadi
+     * kedua mode itu tidak pernah bisa mengirim nilai yang berbeda.
+     */
+    function terapkanTujuan() {
+        if (! tujuanWrap) return;
+        const reimburse = jenisSelect && jenisSelect.value === REIMBURSE;
+        const manual = tujuanManual.checked;
+
+        tujuanSelect.hidden = manual;
+        tujuanTeks.hidden = ! manual;
+        // Mode yang sedang tidak dipakai ikut dimatikan supaya tidak bisa
+        // difokus lewat Tab; saat Reimburse keduanya mati (nilainya disalin
+        // dari SP induk di server).
+        tujuanSelect.disabled = manual || reimburse;
+        tujuanTeks.disabled = ! manual || reimburse;
+        tujuanNilai.value = manual ? tujuanTeks.value.trim() : tujuanSelect.value;
     }
 
     function refresh() {
@@ -386,6 +446,11 @@
         document.querySelectorAll('[data-sp-komponen]').forEach(el => { el.hidden = reimburse; });
         document.querySelectorAll('[data-sp-identitas]').forEach(el => { el.hidden = reimburse; });
 
+        // Dipanggil setelah penguncian di atas: baris sebelumnya menyalakan
+        // ulang SEMUA isian identitas, termasuk mode Tujuan Transfer yang
+        // sedang tidak dipakai.
+        terapkanTujuan();
+
         if (reimburse) {
             list.querySelectorAll('[data-sp-anggota] input, [data-sp-anggota] select').forEach(el => { el.disabled = true; });
         } else {
@@ -410,6 +475,30 @@
         });
     });
     initial.forEach(item => addAnggota(item));
+
+    if (tujuanWrap) {
+        tujuanManual.addEventListener('change', () => {
+            // Nilai yang sudah ada dibawa pindah antar mode, jadi mencentang
+            // "Isi Manual" untuk membetulkan satu huruf tidak mengosongkan isian.
+            if (tujuanManual.checked) {
+                tujuanTeks.value = tujuanNilai.value;
+            } else {
+                const cocok = Array.from(tujuanSelect.options).some(o => o.value === tujuanNilai.value);
+                tujuanSelect.value = cocok ? tujuanNilai.value : '';
+            }
+            terapkanTujuan();
+            // Isian pencarian bentukan SelectCari memakai id turunan, jadi
+            // label harus ikut berpindah supaya kliknya tetap mendarat benar.
+            const label = tujuanWrap.querySelector('label.fl');
+            const cari = tujuanSelect.closest('.scari')?.querySelector('.sc-inp');
+            if (label) label.setAttribute('for', tujuanManual.checked ? tujuanTeks.id : (cari?.id ?? tujuanSelect.id));
+            const fokus = tujuanManual.checked ? tujuanTeks : (cari ?? tujuanSelect);
+            if (fokus) fokus.focus();
+        });
+        tujuanSelect.addEventListener('change', terapkanTujuan);
+        tujuanTeks.addEventListener('input', terapkanTujuan);
+        terapkanTujuan();
+    }
 
     if (jenisSelect) {
         jenisSelect.addEventListener('change', terapkanJenis);

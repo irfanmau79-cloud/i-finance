@@ -19,10 +19,15 @@ class StoreMasterAnggaranImportRequest extends FormRequest
             'file' => ['required', 'file', 'mimes:xlsx,xls', 'max:5120'],
             'tahun' => ['required', 'integer', Rule::in([(int) config('anggaran.tahun_aktif')])],
 
-            // Nama versi pagu, mis. "DPA Murni" / "DPA Pergeseran 1".
+            // Tahapan pagu, mis. "DPA Murni" / "DPA Pergeseran 1".
             // Keunikan per tahun diperiksa di MasterAnggaranImport::buatDariUpload()
             // supaya pesannya seragam dengan pemeriksaan ulang saat konfirmasi.
             'versi_nama' => ['required', 'string', 'max:150'],
+
+            // Satu nomor untuk satu dokumen DPA. Boleh dikosongkan saat
+            // nomornya belum terbit; bisa dilengkapi belakangan di halaman
+            // Tahapan Pagu tanpa perlu impor ulang.
+            'versi_nomor_dpa' => ['nullable', 'string', 'max:100'],
             'versi_keterangan' => ['nullable', 'string', 'max:2000'],
         ];
     }
@@ -33,8 +38,10 @@ class StoreMasterAnggaranImportRequest extends FormRequest
             $this->merge(['tahun' => (int) config('anggaran.tahun_aktif')]);
         }
 
-        if (is_string($this->input('versi_nama'))) {
-            $this->merge(['versi_nama' => trim($this->input('versi_nama'))]);
+        foreach (['versi_nama', 'versi_nomor_dpa'] as $isian) {
+            if (is_string($this->input($isian))) {
+                $this->merge([$isian => trim($this->input($isian))]);
+            }
         }
     }
 
@@ -43,8 +50,9 @@ class StoreMasterAnggaranImportRequest extends FormRequest
         return [
             'file' => 'File Excel',
             'tahun' => 'Tahun Anggaran',
-            'versi_nama' => 'Nama Versi Pagu',
-            'versi_keterangan' => 'Keterangan Versi',
+            'versi_nama' => 'Tahapan Pagu',
+            'versi_nomor_dpa' => 'Nomor DPA',
+            'versi_keterangan' => 'Keterangan Tahapan',
         ];
     }
 }

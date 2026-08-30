@@ -95,6 +95,7 @@ class ImportSheetPertamaTest extends TestCase
             (int) config('anggaran.tahun_aktif'),
             'DPA Uji Sheet',
             null,
+            null,
             null
         );
 
@@ -120,6 +121,7 @@ class ImportSheetPertamaTest extends TestCase
             new UploadedFile($path, 'pagu-aktif.xlsx', null, null, true),
             (int) config('anggaran.tahun_aktif'),
             'DPA Uji Non Aktif',
+            null,
             null,
             null
         );

@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('activeNav', 'manajemen-data')
-@section('title', 'Rincian Versi Pagu')
+@section('title', 'Rincian Tahapan Pagu')
 
 @section('content')
 <div class="dash-card">
@@ -18,12 +18,14 @@
         @endif
     </div>
 
+    <div class="sub">Nomor DPA: <strong>{{ $versi->nomor_dpa ?: '— belum diisi —' }}</strong></div>
+
     @if ($versi->keterangan)
         <div class="sub">{{ $versi->keterangan }}</div>
     @endif
 
     <div class="kpi-grid">
-        <div class="dash-card"><h3>Rp {{ fmt_rupiah((float) $versi->total_pagu) }}</h3><div class="sub">Total Pagu Versi Ini</div></div>
+        <div class="dash-card"><h3>Rp {{ fmt_rupiah((float) $versi->total_pagu) }}</h3><div class="sub">Total Pagu Tahapan Ini</div></div>
         <div class="dash-card"><h3>{{ $versi->jumlah_baris }}</h3><div class="sub">Mata Anggaran</div></div>
         @if ($pembanding)
             <div class="dash-card">
@@ -34,12 +36,12 @@
     </div>
 
     <div class="tbl-tools">
-        <a href="{{ route('versi-pagu.index') }}" class="btn">Kembali ke Daftar Versi</a>
+        <a href="{{ route('versi-pagu.index') }}" class="btn">Kembali ke Daftar Tahapan</a>
         @if ($versi->status !== \App\Models\VersiPagu::STATUS_AKTIF)
             <form method="POST" action="{{ route('versi-pagu.aktifkan', $versi) }}"
-                  onsubmit="return confirm('Berlakukan versi &quot;{{ $versi->nama }}&quot; sebagai pagu resmi?');">
+                  onsubmit="return confirm('Berlakukan tahapan &quot;{{ $versi->nama }}&quot; sebagai pagu resmi?');">
                 @csrf
-                <button type="submit" class="btn prim">Aktifkan Versi Ini</button>
+                <button type="submit" class="btn prim">Aktifkan Tahapan Ini</button>
             </form>
         @endif
     </div>

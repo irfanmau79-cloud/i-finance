@@ -40,6 +40,7 @@ use Throwable;
     'nama_file',
     'tahun',
     'versi_nama',
+    'versi_nomor_dpa',
     'versi_keterangan',
     'versi_pagu_id',
     'status',
@@ -132,6 +133,7 @@ class MasterAnggaranImport extends Model
         UploadedFile $file,
         int $tahun,
         string $versiNama,
+        ?string $versiNomorDpa,
         ?string $versiKeterangan,
         ?int $userId
     ): self {
@@ -145,13 +147,13 @@ class MasterAnggaranImport extends Model
         $versiNama = trim($versiNama);
         if ($versiNama === '') {
             throw ValidationException::withMessages([
-                'versi_nama' => 'Nama versi pagu wajib diisi, misalnya DPA Murni atau DPA Pergeseran 1.',
+                'versi_nama' => 'Tahapan pagu wajib diisi, misalnya DPA Murni atau DPA Pergeseran 1.',
             ]);
         }
 
         if (VersiPagu::where('tahun', $tahun)->where('nama', $versiNama)->exists()) {
             throw ValidationException::withMessages([
-                'versi_nama' => sprintf('Versi pagu %s untuk Tahun Anggaran %d sudah ada. Pakai nama lain.', $versiNama, $tahun),
+                'versi_nama' => sprintf('Tahapan pagu %s untuk Tahun Anggaran %d sudah ada. Pakai nama lain.', $versiNama, $tahun),
             ]);
         }
 
@@ -187,12 +189,15 @@ class MasterAnggaranImport extends Model
             ]);
         }
 
-        return DB::transaction(function () use ($file, $userId, $baris, $tahun, $versiNama, $versiKeterangan) {
+        $versiNomorDpa = trim((string) $versiNomorDpa) ?: null;
+
+        return DB::transaction(function () use ($file, $userId, $baris, $tahun, $versiNama, $versiNomorDpa, $versiKeterangan) {
             $import = self::create([
                 'user_id' => $userId,
                 'nama_file' => $file->getClientOriginalName(),
                 'tahun' => $tahun,
                 'versi_nama' => $versiNama,
+                'versi_nomor_dpa' => $versiNomorDpa,
                 'versi_keterangan' => $versiKeterangan,
                 'status' => self::STATUS_STAGED,
                 'total_baris' => $baris->count(),
@@ -309,7 +314,7 @@ class MasterAnggaranImport extends Model
 
         if (VersiPagu::where('tahun', $this->tahun)->where('nama', $this->versi_nama)->exists()) {
             throw new RuntimeException(sprintf(
-                'Versi pagu %s untuk Tahun Anggaran %d keburu dibuat proses lain. Ulangi import dengan nama versi berbeda.',
+                'Tahapan pagu %s untuk Tahun Anggaran %d keburu dibuat proses lain. Ulangi import dengan nama tahapan berbeda.',
                 $this->versi_nama,
                 $this->tahun
             ));
@@ -319,6 +324,7 @@ class MasterAnggaranImport extends Model
             $versi = VersiPagu::create([
                 'tahun' => $this->tahun,
                 'nama' => $this->versi_nama,
+                'nomor_dpa' => $this->versi_nomor_dpa,
                 'keterangan' => $this->versi_keterangan,
                 'status' => VersiPagu::STATUS_DRAFT,
                 'user_id' => $this->user_id,

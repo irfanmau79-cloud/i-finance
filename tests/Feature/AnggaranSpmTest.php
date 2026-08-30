@@ -140,6 +140,7 @@ class AnggaranSpmTest extends TestCase
             'password' => 'rahasia',
         ]);
         $anggaran = $this->buatAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $anggaran);
         $this->buatNpd($anggaran, 2_000_000, 'Draft NPD - PPTK');
         Spm::buatLs($this->dataSpmLs('007/SPM-LS/2026', '2026-07-20', 1_000_000, $anggaran->id));
 

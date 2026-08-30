@@ -42,7 +42,7 @@
     @if ($import->jumlah_dinolkan > 0)
         <div class="sub" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px;">
             <strong>{{ $import->jumlah_dinolkan }} mata anggaran</strong> ada di data sekarang tapi tidak dicantumkan di file ini.
-            Pagunya akan menjadi 0 dan mata anggarannya dinonaktifkan <em>saat versi ini diaktifkan</em>.
+            Pagunya akan menjadi 0 dan mata anggarannya dinonaktifkan <em>saat tahapan ini diaktifkan</em>.
             Kalau itu tidak disengaja, batalkan dan lengkapi filenya.
         </div>
     @endif
@@ -54,12 +54,12 @@
                 @method('DELETE')
                 <button type="submit" class="btn">Batalkan</button>
             </form>
-            <form method="POST" action="{{ route('manajemen-data.import.master-anggaran.konfirmasi', $import) }}" onsubmit="return confirm('Simpan sebagai versi pagu draft &quot;{{ $import->versi_nama }}&quot;? Pagu yang berlaku BELUM berubah sampai versi ini diaktifkan.');">
+            <form method="POST" action="{{ route('manajemen-data.import.master-anggaran.konfirmasi', $import) }}" onsubmit="return confirm('Simpan sebagai tahapan pagu draf &quot;{{ $import->versi_nama }}&quot;? Pagu yang berlaku BELUM berubah sampai tahapan ini diaktifkan.');">
                 @csrf
                 <button type="submit" class="btn prim">Konfirmasi Simpan sebagai Draft</button>
             </form>
         </div>
-        <div class="sub">Baris yang ditolak tidak ikut disimpan ke dalam versi.</div>
+        <div class="sub">Baris yang ditolak tidak ikut disimpan ke dalam tahapan.</div>
     @endif
 
     <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;margin-top:16px;overflow-x:auto;">

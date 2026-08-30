@@ -1,15 +1,15 @@
 @extends('layouts.app')
 
 @section('activeNav', 'manajemen-data')
-@section('title', 'Versi Pagu')
+@section('title', 'Tahapan Pagu')
 
 @section('content')
 <div class="dash-card">
-    <h3>Versi Pagu — Tahun Anggaran {{ $tahun }}</h3>
+    <h3>Tahapan Pagu — Tahun Anggaran {{ $tahun }}</h3>
     <div class="sub">
         Riwayat dokumen pagu: DPA Murni, DPA Pergeseran, DPA Perubahan, dan seterusnya.
-        Hanya <strong>satu versi</strong> yang berlaku pada satu waktu &mdash; versi itulah yang dipakai seluruh perhitungan
-        pagu, sisa tersedia, validasi NPD/SPM, dan dashboard.
+        Hanya <strong>satu tahapan</strong> yang berlaku pada satu waktu &mdash; tahapan itulah yang dipakai seluruh perhitungan
+        pagu, sisa tersedia, validasi NPD/SPM, dan dashboard, sekaligus yang <strong>Nomor DPA</strong>-nya tercetak di setiap NPD.
     </div>
 
     @if (session('success'))
@@ -28,7 +28,7 @@
     @endif
 
     <div class="tbl-tools">
-        <a href="{{ route('manajemen-data.import.master-anggaran.create') }}" class="btn prim">Import Versi Pagu Baru</a>
+        <a href="{{ route('manajemen-data.import.master-anggaran.create') }}" class="btn prim">Import Tahapan Pagu Baru</a>
         <a href="{{ route('manajemen-data.index') }}" class="btn">Kembali ke Manajemen Data</a>
     </div>
 
@@ -36,7 +36,8 @@
         <table class="realisasi">
             <thead>
                 <tr>
-                    <th>Versi</th>
+                    <th>Tahapan</th>
+                    <th>Nomor DPA</th>
                     <th>Status</th>
                     <th class="num">Total Pagu</th>
                     <th class="num">Mata Anggaran</th>
@@ -53,6 +54,17 @@
                             @if ($v->keterangan)
                                 <br><small class="sub">{{ $v->keterangan }}</small>
                             @endif
+                        </td>
+                        {{-- Nomor DPA sering baru terbit setelah pagunya diimpor,
+                             jadi bisa dilengkapi di tempat tanpa impor ulang. --}}
+                        <td>
+                            <form method="POST" action="{{ route('versi-pagu.nomor-dpa', $v) }}" class="dpa-form">
+                                @csrf
+                                @method('PATCH')
+                                <input type="text" name="nomor_dpa" value="{{ $v->nomor_dpa }}" maxlength="100"
+                                       placeholder="belum diisi" aria-label="Nomor DPA {{ $v->nama }}">
+                                <button type="submit" class="btn">Simpan</button>
+                            </form>
                         </td>
                         <td>
                             @if ($v->status === \App\Models\VersiPagu::STATUS_AKTIF)
@@ -87,7 +99,7 @@
 
                                 @if ($v->status !== \App\Models\VersiPagu::STATUS_AKTIF)
                                     <form method="POST" action="{{ route('versi-pagu.aktifkan', $v) }}"
-                                          onsubmit="return confirm('Berlakukan versi &quot;{{ $v->nama }}&quot; sebagai pagu resmi? Seluruh pagu, sisa tersedia, dan dashboard akan langsung memakai angka versi ini.');">
+                                          onsubmit="return confirm('Berlakukan tahapan &quot;{{ $v->nama }}&quot; sebagai pagu resmi? Seluruh pagu, sisa tersedia, dashboard, dan Nomor DPA pada cetakan NPD akan langsung memakai tahapan ini.');">
                                         @csrf
                                         <button type="submit" class="btn prim">Aktifkan</button>
                                     </form>
@@ -95,7 +107,7 @@
 
                                 @if ($v->status === \App\Models\VersiPagu::STATUS_DRAFT)
                                     <form method="POST" action="{{ route('versi-pagu.destroy', $v) }}"
-                                          onsubmit="return confirm('Hapus versi draf &quot;{{ $v->nama }}&quot;? Tindakan ini permanen.');">
+                                          onsubmit="return confirm('Hapus tahapan draf &quot;{{ $v->nama }}&quot;? Tindakan ini permanen.');">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="btn">Hapus</button>
@@ -106,8 +118,8 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" style="text-align:center;color:var(--mut);padding:20px;">
-                            Belum ada versi pagu. Mulai dengan mengimpor DPA Murni.
+                        <td colspan="8" style="text-align:center;color:var(--mut);padding:20px;">
+                            Belum ada tahapan pagu. Mulai dengan mengimpor DPA Murni.
                         </td>
                     </tr>
                 @endforelse
@@ -116,8 +128,8 @@
     </div>
 
     <div class="sub" style="margin-top:12px;">
-        Versi <strong>arsip</strong> sengaja tidak bisa dihapus &mdash; itu jejak riwayat pergeseran pagu.
-        Versi arsip tetap bisa diaktifkan kembali kalau perlu mengembalikan pagu ke kondisi sebelumnya.
+        Tahapan <strong>arsip</strong> sengaja tidak bisa dihapus &mdash; itu jejak riwayat pergeseran pagu.
+        Tahapan arsip tetap bisa diaktifkan kembali kalau perlu mengembalikan pagu ke kondisi sebelumnya.
     </div>
 </div>
 @endsection

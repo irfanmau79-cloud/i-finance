@@ -38,6 +38,7 @@ class MasterAnggaranImportController extends Controller
                 $request->file('file'),
                 (int) $request->input('tahun'),
                 (string) $request->input('versi_nama'),
+                $request->input('versi_nomor_dpa'),
                 $request->input('versi_keterangan'),
                 $request->user()->id
             );
@@ -72,9 +73,10 @@ class MasterAnggaranImportController extends Controller
         }
 
         AuditLog::catat('Import Master Anggaran', sprintf(
-            'File: %s, Versi: %s (draft), Baru: %d, Update: %d, Dinolkan: %d, Ditolak: %d',
+            'File: %s, Tahapan: %s (draft), Nomor DPA: %s, Baru: %d, Update: %d, Dinolkan: %d, Ditolak: %d',
             $import->nama_file,
             $import->versi_nama,
+            $import->versi_nomor_dpa ?: '-',
             $hasil['baru'],
             $hasil['update'],
             $hasil['dinolkan'],
@@ -82,7 +84,7 @@ class MasterAnggaranImportController extends Controller
         ));
 
         return redirect()->route('versi-pagu.index')->with('success', sprintf(
-            'Versi pagu "%s" tersimpan sebagai draft: %d mata anggaran baru, %d diperbarui, %d dinolkan, %d ditolak. Pagu ini BELUM berlaku - tekan Aktifkan untuk memberlakukannya.',
+            'Tahapan pagu "%s" tersimpan sebagai draft: %d mata anggaran baru, %d diperbarui, %d dinolkan, %d ditolak. Pagu ini BELUM berlaku - tekan Aktifkan untuk memberlakukannya.',
             $import->versi_nama,
             $hasil['baru'],
             $hasil['update'],
@@ -101,9 +103,9 @@ class MasterAnggaranImportController extends Controller
     }
 
     /**
-     * Usulkan nama versi berikutnya supaya penamaan konsisten: belum ada
-     * versi sama sekali -> "DPA Murni", selebihnya "DPA Pergeseran N" dengan
-     * N melanjutkan nomor pergeseran tertinggi yang sudah ada.
+     * Usulkan nama tahapan berikutnya supaya penamaan konsisten: belum ada
+     * tahapan sama sekali -> "DPA Murni", selebihnya "DPA Pergeseran N"
+     * dengan N melanjutkan nomor pergeseran tertinggi yang sudah ada.
      */
     private function saranNamaVersi(int $tahun): string
     {

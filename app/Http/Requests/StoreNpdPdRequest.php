@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Models\Npd;
 use App\Models\SuratPerintah;
+use App\Support\AnggaranNpd;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 
@@ -17,7 +18,10 @@ class StoreNpdPdRequest extends FormRequest
     public function rules(): array
     {
         return [
-            'master_anggaran_id' => ['required', Rule::exists('master_anggaran', 'id')->where('aktif', true)],
+            // PPTK hanya boleh memakai Sub Kegiatan limpahannya sendiri. Dropdown
+            // di formulir memang sudah disaring, tetapi id-nya dikirim lewat isian
+            // tersembunyi - jadi batasnya ditegakkan lagi di sini.
+            'master_anggaran_id' => AnggaranNpd::aturan($this->user(), $this->route('npd')),
             // NPD Perjalanan Dinas WAJIB berangkat dari Surat Perintah - tidak
             // boleh lagi dibuat lepas. SP-nya pun harus yang benar-benar layak
             // jadi sumber: berjenis Uang Harian/Akomodasi, masih berstatus

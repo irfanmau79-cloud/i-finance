@@ -52,7 +52,7 @@ class MasterAnggaranTemplateExport implements FromArray, PunyaPetunjukKolom, Sho
         return self::PETUNJUK;
     }
 
-    public const CATATAN = 'Satu baris mewakili satu mata anggaran. Identitasnya adalah kombinasi Kode Sub Kegiatan + Kode Rekening + Tagging - kombinasi yang sudah ada akan DIPERBARUI pagunya, yang belum ada akan dibuat baru. Berkas ini diperlakukan sebagai dokumen DPA yang UTUH: mata anggaran yang sudah ada tapi tidak dicantumkan di sini akan berpagu 0 dan dinonaktifkan saat versi diaktifkan. Setelah dikonfirmasi, isinya tersimpan sebagai versi pagu berstatus draft dan BELUM berlaku sampai diaktifkan di halaman Versi Pagu.';
+    public const CATATAN = 'Satu baris mewakili satu mata anggaran. Identitasnya adalah kombinasi Kode Sub Kegiatan + Kode Rekening + Tagging - kombinasi yang sudah ada akan DIPERBARUI pagunya, yang belum ada akan dibuat baru. Berkas ini diperlakukan sebagai dokumen DPA yang UTUH: mata anggaran yang sudah ada tapi tidak dicantumkan di sini akan berpagu 0 dan dinonaktifkan saat tahapan diaktifkan. Setelah dikonfirmasi, isinya tersimpan sebagai tahapan pagu berstatus draf dan BELUM berlaku sampai diaktifkan di halaman Tahapan Pagu. Nomor DPA TIDAK diisi di berkas ini - satu nomor untuk satu dokumen, diketik di formulir Import.';
 
     public const PETUNJUK = [
         ['Tahun', 'Tidak', 'Angka 4 digit', 'Tahun anggaran. Boleh dikosongkan. Bila diisi, nilainya wajib sama dengan tahun anggaran yang sedang berjalan; kalau berbeda, SELURUH berkas ditolak.', '2026'],

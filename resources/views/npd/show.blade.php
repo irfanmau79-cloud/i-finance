@@ -363,7 +363,7 @@
     @endif
 
     <h3 style="margin-top:22px;">Dokumen &amp; Cetak</h3>
-    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+    <div class="cetak-bar">
         @if (in_array($npd->jenis, ['pd', 'tr'], true))
             <a class="btn prim" href="{{ route('npd.cetak-daftar', $npd) }}" target="_blank">Cetak Daftar Pembayaran</a>
             <a class="btn prim" href="{{ route('npd.cetak-spd', $npd) }}" target="_blank">Cetak SPD Rampung</a>
@@ -374,7 +374,20 @@
         @endif
         <a class="btn prim" href="{{ route('npd.cetak-npd', $npd) }}" target="_blank">Cetak NPD</a>
         <a class="btn prim" href="{{ route('npd.cetak-lampiran', $npd) }}" target="_blank">Cetak Lampiran</a>
+
+        {{-- Cetak gabungan: sengaja dipisah garis dan berwarna lain karena
+             hasilnya bukan satu dokumen seperti tombol di kirinya, melainkan
+             semuanya sekaligus dalam satu berkas. --}}
+        <span class="cetak-pisah" aria-hidden="true"></span>
+        <a class="btn gabung" href="{{ route('npd.cetak-gabungan', $npd) }}" target="_blank"
+            title="{{ $urutanGabungan }}">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+                <path d="M12 2 3 7l9 5 9-5-9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>
+            </svg>
+            Cetak Semua (1 Berkas)
+        </a>
     </div>
+    <div class="sub" style="margin-top:7px;">Urutan berkas gabungan: {{ $urutanGabungan }}.</div>
 
     <div style="display:flex;justify-content:flex-end;margin-top:16px;">
         <a class="btn" href="{{ route($ruteDaftar) }}">Kembali ke Daftar NPD</a>

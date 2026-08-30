@@ -68,6 +68,8 @@
         </div>
 
         <div class="pane" data-pane="2">
+            @include('npd._anggaran-kosong')
+
             <div class="fg">
                 <label class="fl" for="maf-program">Program</label>
                 <select id="maf-program" data-cari><option value="">Memuat data…</option></select>

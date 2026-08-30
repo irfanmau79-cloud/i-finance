@@ -8,6 +8,7 @@ use App\Models\Npd;
 use App\Models\Pegawai;
 use App\Models\PejabatOpd;
 use App\Models\Pelimpahan;
+use App\Models\VersiPagu;
 
 /**
  * Sumber tunggal KPA/BPP/PPTK (dan PA/Bendahara Pengeluaran level OPD)
@@ -23,7 +24,11 @@ class PejabatResolver
 {
     public static function untukNpd(Npd $npd): array
     {
-        return self::untukSubKegiatan($npd->masterAnggaran->program_lengkap, $npd->masterAnggaran->sub_kegiatan_lengkap);
+        return self::untukSubKegiatan(
+            $npd->masterAnggaran->program_lengkap,
+            $npd->masterAnggaran->sub_kegiatan_lengkap,
+            $npd->tahun,
+        );
     }
 
     /**
@@ -33,12 +38,13 @@ class PejabatResolver
      * whitespace berbeda hasil impor; tanpa normalisasi, pelimpahan yang
      * sudah diset bisa gagal cocok untuk sebagian baris.
      */
-    public static function untukSubKegiatan(?string $program, ?string $subKegiatan): array
+    public static function untukSubKegiatan(?string $program, ?string $subKegiatan, ?int $tahun = null): array
     {
         $pejabatOpd = PejabatOpd::aktif();
         $pa = self::dariPegawai($pejabatOpd?->paPegawai);
         $bendaharaPengeluaran = self::dariPegawai($pejabatOpd?->bendaharaPengeluaranPegawai);
         $dataTambahan = DataTambahan::untukProgram($program);
+        $noDpa = self::noDpa($tahun, $dataTambahan);
 
         $programKunci = MasterAnggaran::normalisasiKunci((string) $program);
         $subKegiatanKunci = MasterAnggaran::normalisasiKunci((string) $subKegiatan);
@@ -69,7 +75,7 @@ class PejabatResolver
                 'pptk' => self::dariPegawai($pelimpahan->pptkPegawai),
                 'pa' => $pa,
                 'bendahara_pengeluaran' => $bendaharaPengeluaran,
-                'no_dpa' => $dataTambahan?->no_dpa ?? '',
+                'no_dpa' => $noDpa,
                 'peringatan' => null,
                 'fallback_digunakan' => false,
                 'sumber' => 'pelimpahan',
@@ -89,7 +95,7 @@ class PejabatResolver
             'pptk' => self::dariNamaBebas($dataTambahan?->pptk),
             'pa' => $pa,
             'bendahara_pengeluaran' => $bendaharaPengeluaran,
-            'no_dpa' => $dataTambahan?->no_dpa ?? '',
+            'no_dpa' => $noDpa,
             'peringatan' => $peringatan,
             'fallback_digunakan' => true,
             'sumber' => 'data_tambahan',
@@ -109,6 +115,21 @@ class PejabatResolver
                 ->whereHas('pptkPegawai', fn ($query) => $query->where('aktif', true))
                 ->whereHas('kpaPptk', fn ($query) => $query->where('aktif', true))
                 ->exists();
+    }
+
+    /**
+     * Nomor DPA yang tercetak di NPD: milik Tahapan Pagu yang sedang BERLAKU
+     * pada tahun anggaran dokumen itu.
+     *
+     * data_tambahan (per program, warisan GAS) dipertahankan hanya sebagai
+     * cadangan untuk data lama — sejak Tahapan Pagu punya kolom Nomor DPA
+     * sendiri, tabel itu tidak lagi jadi sumber utama.
+     */
+    private static function noDpa(?int $tahun, ?DataTambahan $dataTambahan): string
+    {
+        $nomorTahapan = VersiPagu::nomorDpaAktif($tahun ?? (int) config('anggaran.tahun_aktif'));
+
+        return $nomorTahapan !== '' ? $nomorTahapan : trim((string) $dataTambahan?->no_dpa);
     }
 
     private static function dariPegawai(?Pegawai $pegawai): object
