@@ -21,7 +21,7 @@
         </div>
     @endif
 
-    <form method="POST" action="{{ route('tunjangan.pegawai.store') }}" style="margin-top:14px;max-width:720px;">
+    <form method="POST" action="{{ route('tunjangan.pegawai.store') }}" style="margin-top:14px;">
         @csrf
         @include('tunjangan-keluarga._pegawai-form')
 

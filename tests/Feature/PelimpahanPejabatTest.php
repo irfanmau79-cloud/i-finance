@@ -250,7 +250,7 @@ class PelimpahanPejabatTest extends TestCase
             'kpa' => $pejabat['kpa'],
             'pptk' => $pejabat['pptk'],
             'noDpa' => '',
-            'sisaSebelum' => (float) $npd->masterAnggaran->pagu,
+            'sisaAnggaran' => (float) $npd->masterAnggaran->pagu,
             'logoPath' => null,
         ])->render();
     }

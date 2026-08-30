@@ -186,6 +186,8 @@ class SpmImport extends Model
                     'pph_2' => (float) $baris->pph2,
                     'jenis_pph_2' => $baris->jenis_pph2,
                     'penerima' => $baris->penerima,
+                    'bank_tujuan' => $baris->bank_tujuan,
+                    'nomor_rekening' => $baris->nomor_rekening,
                     'uraian' => $baris->uraian,
                 ];
 
@@ -251,6 +253,8 @@ class SpmImport extends Model
                 'pph_2' => $row['nominal_pph_2'] ?? $row['pph_2'] ?? null,
                 'jenis_pph_2' => $row['jenis_pph_2'] ?? null,
                 'penerima' => $row['penerima'] ?? null,
+                'bank_tujuan' => $row['bank_tujuan'] ?? null,
+                'nomor_rekening' => $row['nomor_rekening'] ?? null,
                 'uraian' => $row['uraian'] ?? null,
             ];
 
@@ -303,6 +307,11 @@ class SpmImport extends Model
             'pph2' => self::normalisasiAngka($mentah['pph_2'] ?? null) ?? 0.0,
             'jenis_pph2' => trim((string) ($mentah['jenis_pph_2'] ?? '')) ?: null,
             'penerima' => trim((string) ($mentah['penerima'] ?? '')) ?: null,
+            'penerima_pegawai_id' => null,
+            'penerima_vendor_id' => null,
+            'bank_tujuan' => trim((string) ($mentah['bank_tujuan'] ?? '')) ?: null,
+            // Dibaca sebagai teks: nol di depan nomor rekening tidak boleh hilang.
+            'nomor_rekening' => trim((string) ($mentah['nomor_rekening'] ?? '')) ?: null,
             'uraian' => trim((string) ($mentah['uraian'] ?? '')) ?: null,
         ];
     }
@@ -367,6 +376,19 @@ class SpmImport extends Model
             return self::dasarDitolak($dasar, 'Nominal harus lebih dari 0.');
         }
 
+        // Penerima dan Uraian WAJIB untuk LS: dokumen pencairan ke pihak
+        // ketiga tanpa nama penerima atau tanpa keperluannya tidak bisa
+        // dipertanggungjawabkan. UP/GU tidak tunduk aturan ini - di sana
+        // penerimanya selalu Bendahara Pengeluaran (BP) dan sudah jelas
+        // dari jenis dokumennya.
+        if ($dasar['penerima'] === null) {
+            return self::dasarDitolak($dasar, 'Penerima wajib diisi untuk SPM LS.');
+        }
+
+        if ($dasar['uraian'] === null) {
+            return self::dasarDitolak($dasar, 'Uraian wajib diisi untuk SPM LS.');
+        }
+
         $subKegiatan = trim((string) ($mentah['sub_kegiatan'] ?? ''));
         // File sumber kadang berisi kode+uraian gabungan di kolom Kode
         // Rekening - ambil bagian kode saja untuk matching & penyimpanan
@@ -401,6 +423,26 @@ class SpmImport extends Model
             ->first();
 
         if (! $masterAnggaran) {
+            // Sebab paling sering: kolom Tagging dikosongkan padahal mata
+            // anggarannya bertagging. Disebut terpisah supaya pengisi file tahu
+            // persis apa yang kurang, bukan sekadar "tidak ditemukan".
+            if ($taggingNama === null) {
+                $taggingTersedia = MasterAnggaran::where('sub_kegiatan_kunci', MasterAnggaran::normalisasiKunci($subKegiatan))
+                    ->where('kode_rekening_bersih', $kodeRekening)
+                    ->whereNotNull('tagging_id')
+                    ->where('aktif', true)
+                    ->with('tagging')
+                    ->get()
+                    ->pluck('tagging.nama')
+                    ->filter()
+                    ->unique()
+                    ->values();
+
+                if ($taggingTersedia->isNotEmpty()) {
+                    return self::dasarDitolak($dasar, 'Kolom Tagging wajib diisi untuk mata anggaran ini. Tagging yang tersedia: '.$taggingTersedia->implode(', ').'.');
+                }
+            }
+
             return self::dasarDitolak($dasar, 'Mata anggaran tidak ditemukan atau tidak aktif untuk kombinasi Sub Kegiatan + Kode Rekening + Tagging tersebut.');
         }
 
@@ -420,7 +462,7 @@ class SpmImport extends Model
             ? (float) (SpmDetail::where('spm_id', $existing->id)->where('master_anggaran_id', $masterAnggaran->id)->value('nominal') ?? 0)
             : 0.0;
 
-        return $dasar + [
+        return array_replace($dasar, self::cocokkanPenerima($dasar), [
             'aksi' => $existing ? SpmImportRow::AKSI_UPDATE : SpmImportRow::AKSI_BARU,
             'alasan' => null,
             'spm_id' => $existing?->id,
@@ -431,7 +473,52 @@ class SpmImport extends Model
             'nominal_lama' => $nominalLama,
             'sisa_sebelum' => null,
             'sisa_sesudah' => null,
-        ];
+        ]);
+    }
+
+    /**
+     * Tautkan nama penerima ke Data Pegawai/Vendor bila namanya SAMA PERSIS
+     * (tanpa membedakan huruf besar-kecil) dengan tepat satu data aktif.
+     *
+     * Sengaja tidak menebak-nebak: nama yang cocok ke lebih dari satu data,
+     * atau tidak cocok sama sekali, dibiarkan sebagai teks saja - tautan yang
+     * salah lebih berbahaya daripada tidak ada tautan sama sekali. Nomor
+     * rekening dari master hanya dipakai bila kolomnya memang dikosongkan di
+     * file; yang tertulis di file selalu menang.
+     *
+     * @param  array<string, mixed>  $dasar
+     * @return array<string, mixed>  kolom penerima yang berubah (kosong bila tidak ada yang cocok)
+     */
+    private static function cocokkanPenerima(array $dasar): array
+    {
+        $nama = $dasar['penerima'];
+
+        if ($nama === null) {
+            return [];
+        }
+
+        $cocok = fn (string $kelas) => $kelas::query()
+            ->where('aktif', true)
+            ->whereRaw('LOWER(nama) = ?', [mb_strtolower($nama)])
+            ->get(['id', 'rekening']);
+
+        $pegawai = $cocok(Pegawai::class);
+        $vendor = $pegawai->count() === 1 ? collect() : $cocok(Vendor::class);
+
+        $terpilih = match (true) {
+            $pegawai->count() === 1 => ['penerima_pegawai_id' => $pegawai->first()->id, 'rekening' => $pegawai->first()->rekening],
+            $vendor->count() === 1 => ['penerima_vendor_id' => $vendor->first()->id, 'rekening' => $vendor->first()->rekening],
+            default => null,
+        };
+
+        if ($terpilih === null) {
+            return [];
+        }
+
+        $rekening = trim((string) $terpilih['rekening']) ?: null;
+        unset($terpilih['rekening']);
+
+        return $terpilih + ['nomor_rekening' => $dasar['nomor_rekening'] ?? $rekening];
     }
 
     /**
@@ -538,12 +625,13 @@ class SpmImport extends Model
                     $header = [
                         $hasil['tanggal_sp2d'], $hasil['nomor_sp2d'], $hasil['ppn'],
                         $hasil['pph1'], $hasil['jenis_pph1'], $hasil['pph2'], $hasil['jenis_pph2'],
-                        $hasil['penerima'], $hasil['uraian'],
+                        $hasil['penerima'], $hasil['bank_tujuan'], $hasil['nomor_rekening'],
+                        $hasil['uraian'],
                     ];
                     if ($headerPertama === null) {
                         $headerPertama = $header;
                     } elseif ($header !== $headerPertama) {
-                        $alasanGrup = "Kolom SP2D/PPN/PPh/Penerima/Uraian berbeda antar baris untuk dokumen {$hasil['nomor_dokumen']} ({$hasil['tanggal_dokumen']}) - harus sama persis di semua baris dokumen yang sama.";
+                        $alasanGrup = "Kolom SP2D/PPN/PPh/Penerima/Bank/Uraian berbeda antar baris untuk dokumen {$hasil['nomor_dokumen']} ({$hasil['tanggal_dokumen']}) - harus sama persis di semua baris dokumen yang sama.";
                         break;
                     }
                 }
@@ -687,6 +775,10 @@ class SpmImport extends Model
                 'pph2' => $pertama['pph2'],
                 'jenis_pph2' => $pertama['jenis_pph2'],
                 'penerima' => $pertama['penerima'],
+                'penerima_pegawai_id' => $pertama['penerima_pegawai_id'],
+                'penerima_vendor_id' => $pertama['penerima_vendor_id'],
+                'bank_tujuan' => $pertama['bank_tujuan'],
+                'nomor_rekening' => $pertama['nomor_rekening'],
                 'uraian' => $pertama['uraian'],
             ];
 
@@ -746,6 +838,10 @@ class SpmImport extends Model
             'pph2' => $hasil['pph2'],
             'jenis_pph2' => $hasil['jenis_pph2'],
             'penerima' => $hasil['penerima'],
+            'penerima_pegawai_id' => $hasil['penerima_pegawai_id'],
+            'penerima_vendor_id' => $hasil['penerima_vendor_id'],
+            'bank_tujuan' => $hasil['bank_tujuan'],
+            'nomor_rekening' => $hasil['nomor_rekening'],
             'uraian' => $hasil['uraian'],
             'sisa_sebelum' => $hasil['sisa_sebelum'],
             'sisa_sesudah' => $hasil['sisa_sesudah'],

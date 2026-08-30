@@ -11,5 +11,7 @@
 <div style="max-width:1100px;margin:0 auto;">
 @yield('content')
 </div>
+@include('layouts.partials.select-cari')
+@include('layouts.partials.input-rupiah')
 </body>
 </html>

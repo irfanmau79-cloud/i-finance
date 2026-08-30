@@ -24,6 +24,12 @@ class StoreNpdNarasumberRequest extends FormRequest
             // formulir, tetapi tetap ditegakkan di sini.
             'tahun' => ['required', 'integer', 'in:'.config('anggaran.tahun_aktif')],
 
+            // Hanya untuk kolom "SISA ANGGARAN" di PDF NPD - lihat
+            // Npd::sisaAnggaranCetak(). Dikosongkan berarti memakai angka
+            // sistem. Saat isian ini dikunci kembali, nilainya diabaikan di
+            // controller, bukan ditolak, supaya formulir lama tidak gagal.
+            'sisa_anggaran_manual' => ['nullable', 'numeric', 'min:0'],
+
             'uraian_kegiatan' => ['required', 'string'],
             'tanggal_mulai' => ['nullable', 'date'],
             'tanggal_selesai' => ['nullable', 'date', 'after_or_equal:tanggal_mulai'],
@@ -50,6 +56,7 @@ class StoreNpdNarasumberRequest extends FormRequest
             'tanggal_npd' => 'Tanggal NPD',
             'bulan' => 'Bulan',
             'tahun' => 'Tahun',
+            'sisa_anggaran_manual' => 'Sisa Anggaran (cetak PDF)',
             'uraian_kegiatan' => 'Uraian Kegiatan',
             'tanggal_mulai' => 'Tanggal Mulai',
             'tanggal_selesai' => 'Tanggal Selesai',

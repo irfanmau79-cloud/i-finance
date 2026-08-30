@@ -10,7 +10,7 @@ use Illuminate\Database\Eloquent\Builder;
  * Sejak Prompt 22, satu SPM LS bisa mencakup beberapa mata anggaran. Sumber
  * query di sini adalah spm_detail (bukan spm) - SATU BARIS FILE per
  * kombinasi SPM + mata anggaran, dengan kolom header dokumen (Nomor/Tanggal
- * Dokumen, SP2D, PPN, PPh, Penerima, Uraian, Dibuat Oleh/Pada) DIULANG persis
+ * Dokumen, SP2D, PPN, PPh, Penerima, Bank, Uraian, Dibuat Oleh/Pada) DIULANG persis
  * sama di setiap baris milik SPM yang sama - lihat App\Models\SpmImport untuk
  * penjelasan lengkap kenapa format ini dipilih (harus tetap sinkron dengan
  * SpmUploadImport yang membacanya kembali).
@@ -66,6 +66,8 @@ class SpmLsExport extends DataManagementExport implements PunyaPetunjukKolom
             $spm->jenis_pph2,
             (float) $spm->pph2,
             $spm->penerima,
+            $spm->bank_tujuan,
+            $spm->nomor_rekening,
             $spm->uraian,
         ];
     }

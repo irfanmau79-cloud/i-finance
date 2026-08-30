@@ -53,7 +53,7 @@
 
         <div class="fg span2" id="sp-induk-wrap" hidden>
             <label class="fl" for="sp_induk_id">Pilih SP Uang Harian/Akomodasi (induk)</label>
-            <select id="sp_induk_id" name="sp_induk_id">
+            <select id="sp_induk_id" name="sp_induk_id" data-cari>
                 <option value="">&mdash; Pilih SP induk &mdash;</option>
                 @foreach ($indukJs as $induk)
                     <option value="{{ $induk['id'] }}" @selected((string) old('sp_induk_id') === (string) $induk['id'])>
@@ -283,8 +283,9 @@
         const i = sequence++;
         const manual = String(data.manual ?? '') === '1' || data.manual === true;
         const opsiPegawai = pegawai.map(p =>
-            '<option value="' + p.id + '"' + (String(p.id) === String(data.pegawai_id ?? '') ? ' selected' : '') + '>'
-            + esc(p.nama + (p.detail ? ' — ' + p.detail : '')) + '</option>'
+            '<option value="' + p.id + '"' + (String(p.id) === String(data.pegawai_id ?? '') ? ' selected' : '')
+            + (p.detail ? ' data-sub="' + esc(p.detail) + '"' : '') + '>'
+            + esc(p.nama) + '</option>'
         ).join('');
         const opsiJabatan = jabatan.map(j =>
             '<option value="' + esc(j) + '"' + (j === (data.jabatan_sp ?? '') ? ' selected' : '') + '>' + esc(j) + '</option>'
@@ -305,7 +306,7 @@
             + '</div>'
             + '<div class="sp-anggota-fields">'
             + '<div class="fg sp-f-nama"><label class="fl">Nama</label>'
-            + '<select data-nama-select><option value="">— Pilih dari Data Pegawai —</option>' + opsiPegawai + '</select>'
+            + '<select data-cari data-nama-select><option value="">— Pilih dari Data Pegawai —</option>' + opsiPegawai + '</select>'
             + '<input type="text" data-nama-text placeholder="Ketik nama lengkap" value="' + esc(data.nama ?? '') + '" hidden disabled>'
             + '</div>'
             + '<div class="fg"><label class="fl">NIP</label>'
@@ -349,6 +350,10 @@
         row.querySelector('[data-sp-remove]').addEventListener('click', () => { row.remove(); refresh(); });
 
         list.appendChild(row);
+        // Dipasang saat itu juga, bukan menunggu pengamat dokumen: baris ini
+        // langsung difokuskan setelah dibuat, jadi isian pencariannya harus
+        // sudah ada saat baris ini kembali ke pemanggil.
+        if (window.SelectCari) window.SelectCari.pasang(row);
         setManual(row, manual);
         refresh();
         return row;
@@ -396,7 +401,10 @@
             const row = addAnggota();
             // Fokuskan langsung ke isian Nama kartu baru supaya bisa terus
             // mengetik tanpa memindahkan tangan ke tetikus.
-            const fokus = row.querySelector('[data-nama-select]:not([hidden])') || row.querySelector('[data-nama-text]');
+            const namaSel = row.querySelector('[data-nama-select]');
+            const fokus = namaSel && ! namaSel.hidden
+                ? (namaSel.closest('.scari')?.querySelector('.sc-inp') ?? namaSel)
+                : row.querySelector('[data-nama-text]');
             if (fokus) fokus.focus();
             row.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
         });

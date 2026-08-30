@@ -324,7 +324,7 @@
           <div class="spj-edit-grid">
             <div>
               <label class="fl" for="spj-f-lokasi">Lokasi Penyimpanan</label>
-              <select name="lokasi" id="spj-f-lokasi">
+              <select name="lokasi" id="spj-f-lokasi" data-cari>
                 <option value="">&mdash; Belum Ditetapkan &mdash;</option>
                 @foreach($inventaris['bantex'] as $bantex)
                   <option value="{{ $bantex['label'] }}">{{ $bantex['label'] }}</option>

@@ -57,7 +57,7 @@ class SpmImportController extends Controller
                 ->withErrors(['file' => 'Sesi staging sudah kedaluwarsa. Silakan upload ulang berkasnya.']);
         }
 
-        $baris = $import->baris()->orderBy('nomor_baris')->paginate(50);
+        $baris = $import->baris()->with(['penerimaPegawai:id,nama', 'penerimaVendor:id,nama'])->orderBy('nomor_baris')->paginate(50);
 
         return view('manajemen-data.import.spm.preview', compact('import', 'baris'));
     }

@@ -10,5 +10,7 @@
 <div class="wrap">
 @yield('content')
 </div>
+@include('layouts.partials.select-cari')
+@include('layouts.partials.input-rupiah')
 </body>
 </html>

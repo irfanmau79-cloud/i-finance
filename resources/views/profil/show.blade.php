@@ -4,12 +4,6 @@
 @section('title', 'Profil Saya')
 
 @section('content')
-<style>
-  .profil-info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px 24px;}
-  .profil-info-item .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--mut);}
-  .profil-info-item .val{font-size:14px;font-weight:600;color:var(--ink);margin-top:4px;}
-</style>
-
 @php
     $initials = collect(preg_split('/\s+/', trim($user->nama ?? '')))
         ->filter()

@@ -479,7 +479,10 @@ class NpdController extends Controller
             'kpa' => $pejabat['kpa'],
             'pptk' => $pejabat['pptk'],
             'noDpa' => $pejabat['no_dpa'],
-            'sisaSebelum' => $npd->masterAnggaran->sisaAnggaranSebelum($npd),
+            // Angka manual (bila diisi saat membuat NPD) HANYA berlaku di
+            // sini - cetakan PDF. Perhitungan sisa tersedia di sistem tetap
+            // memakai MasterAnggaran, lihat Npd::sisaAnggaranCetak().
+            'sisaAnggaran' => $npd->sisaAnggaranCetak($npd->masterAnggaran->sisaAnggaranSebelum($npd)),
             'logoPath' => $this->logoKopPath(),
         ])->render();
 

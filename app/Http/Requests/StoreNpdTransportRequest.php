@@ -23,6 +23,12 @@ class StoreNpdTransportRequest extends FormRequest
             // Selalu tahun anggaran berjalan - isiannya sudah dihapus dari
             // formulir, tetapi tetap ditegakkan di sini.
             'tahun' => ['required', 'integer', 'in:'.config('anggaran.tahun_aktif')],
+
+            // Hanya untuk kolom "SISA ANGGARAN" di PDF NPD - lihat
+            // Npd::sisaAnggaranCetak(). Dikosongkan berarti memakai angka
+            // sistem. Saat isian ini dikunci kembali, nilainya diabaikan di
+            // controller, bukan ditolak, supaya formulir lama tidak gagal.
+            'sisa_anggaran_manual' => ['nullable', 'numeric', 'min:0'],
             'penerima_index' => ['required', 'integer', 'min:0'],
             'keterangan_lampiran' => ['nullable', 'string'],
 
@@ -46,6 +52,7 @@ class StoreNpdTransportRequest extends FormRequest
             'tanggal_npd' => 'Tanggal NPD',
             'bulan' => 'Bulan',
             'tahun' => 'Tahun',
+            'sisa_anggaran_manual' => 'Sisa Anggaran (cetak PDF)',
             'penerima_index' => 'Penerima Dana',
         ];
     }

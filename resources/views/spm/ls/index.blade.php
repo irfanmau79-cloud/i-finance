@@ -51,7 +51,12 @@
                         <td>{{ $spm->tanggal_sp2d?->format('d-m-Y') ?? '—' }}</td>
                         <td>{{ $spm->nomor_sp2d ?? '—' }}</td>
                         <td style="text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;">Rp {{ number_format($spm->totalNominal(), 2, ',', '.') }}</td>
-                        <td>{{ $spm->penerima ?? '—' }}</td>
+                        <td>
+                            {{ $spm->penerima ?? '—' }}
+                            @if ($spm->bank_tujuan || $spm->nomor_rekening)
+                                <span class="sub">{{ trim(($spm->bank_tujuan ?? '').' · '.($spm->nomor_rekening ?? ''), ' ·') }}</span>
+                            @endif
+                        </td>
                         <td>{{ $spm->uraian ?? '—' }}</td>
                         <td style="text-align:center;" onclick="event.stopPropagation();">
                             <div style="display:inline-flex;gap:6px;">

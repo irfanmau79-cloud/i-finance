@@ -35,17 +35,17 @@
             </div>
             <div class="fg">
                 <label class="fl" for="f-program">Program</label>
-                <select id="f-program"><option value="">— Semua Program —</option></select>
+                <select id="f-program" data-cari><option value="">— Semua Program —</option></select>
             </div>
         </div>
         <div class="form-grid">
             <div class="fg">
                 <label class="fl" for="f-kegiatan">Kegiatan</label>
-                <select id="f-kegiatan"><option value="">— Semua Kegiatan —</option></select>
+                <select id="f-kegiatan" data-cari><option value="">— Semua Kegiatan —</option></select>
             </div>
             <div class="fg">
                 <label class="fl" for="f-sub">Sub Kegiatan</label>
-                <select id="f-sub"><option value="">— Semua Sub Kegiatan —</option></select>
+                <select id="f-sub" data-cari><option value="">— Semua Sub Kegiatan —</option></select>
             </div>
         </div>
 
@@ -59,7 +59,7 @@
 
         <div class="fg">
             <label class="fl" for="f-dokumen">Dokumen Sumber</label>
-            <select id="f-dokumen"><option value="">— Semua Dokumen —</option></select>
+            <select id="f-dokumen" data-cari><option value="">— Semua Dokumen —</option></select>
         </div>
         <input type="hidden" id="dokumen_tipe" name="dokumen_tipe" value="{{ old('dokumen_tipe') }}">
         <input type="hidden" id="dokumen_id" name="dokumen_id" value="{{ old('dokumen_id') }}">

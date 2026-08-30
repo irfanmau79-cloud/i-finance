@@ -70,6 +70,7 @@ class NpdNarasumberController extends Controller
                 'tanggal_npd' => $data['tanggal_npd'],
                 'jenis_panjar' => $data['jenis_panjar'],
                 'nominal' => $nominal,
+                'sisa_anggaran_manual' => Npd::sisaManualDariInput($data),
                 'terbilang' => Terbilang::rupiah($nominal),
                 'status' => 'Draft NPD - PPTK',
                 'detail_json' => $detailJson,
@@ -157,6 +158,7 @@ class NpdNarasumberController extends Controller
                 'tanggal_npd' => $data['tanggal_npd'],
                 'jenis_panjar' => $data['jenis_panjar'],
                 'nominal' => $nominal,
+                'sisa_anggaran_manual' => Npd::sisaManualDariInput($data, $npd),
                 'terbilang' => Terbilang::rupiah($nominal),
                 'detail_json' => $detailJson,
             ]);

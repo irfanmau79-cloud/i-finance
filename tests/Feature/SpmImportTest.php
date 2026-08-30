@@ -6,11 +6,13 @@ use App\Exports\SpmLsExport;
 use App\Exports\SpmLsTemplateExport;
 use App\Models\AuditLog;
 use App\Models\MasterAnggaran;
+use App\Models\Pegawai;
 use App\Models\Spm;
 use App\Models\SpmImport;
 use App\Models\SpmImportRow;
 use App\Models\Tagging;
 use App\Models\User;
+use App\Models\Vendor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use PhpOffice\PhpSpreadsheet\Spreadsheet;
@@ -492,6 +494,220 @@ class SpmImportTest extends TestCase
         $this->assertEquals(250_000.0, (float) $spm->ppn);
     }
 
+    /**
+     * Satu baris sesuai template LS yang berlaku (19 kolom, termasuk Bank
+     * Tujuan & Nomor Rekening). Dipakai test yang memang menguji template
+     * terbaru; baseRowLs() tetap ada untuk menguji berkas format lama.
+     *
+     * @param  array<string, mixed>  $override
+     * @return array<int, mixed>
+     */
+    private function baseRowLsTemplate(MasterAnggaran $anggaran, array $override = []): array
+    {
+        return array_values(array_replace([
+            'tanggal_spm' => '2026-07-01',
+            'nomor_spm' => '001/SPM-LS/2026',
+            'tanggal_sp2d' => '',
+            'nomor_sp2d' => '',
+            'kode_sub_kegiatan' => $anggaran->kode_sub_kegiatan,
+            'sub_kegiatan' => $anggaran->sub_kegiatan,
+            'kode_rekening' => $anggaran->kode_rekening,
+            'rekening' => $anggaran->rekening,
+            'tagging' => '',
+            'nominal' => 4_000_000,
+            'ppn' => 0,
+            'jenis_pph1' => '',
+            'pph1' => 0,
+            'jenis_pph2' => '',
+            'pph2' => 0,
+            'penerima' => 'Vendor Uji',
+            'bank_tujuan' => 'Bank BJB',
+            'nomor_rekening' => '0011223344',
+            'uraian' => 'Pembayaran LS',
+        ], $override));
+    }
+
+    // ---------------- Kolom wajib & penerima (template LS terbaru) ----------------
+
+    public function test_penerima_kosong_menolak_baris(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $anggaran = $this->buatMasterAnggaran();
+
+        $file = $this->buatFileExcel(SpmLsTemplateExport::HEADERS, [
+            $this->baseRowLsTemplate($anggaran, ['penerima' => '']),
+        ]);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.store', 'spm-ls'), ['file' => $file]);
+        $import = SpmImport::latest('id')->firstOrFail();
+
+        $this->assertSame(1, $import->jumlah_ditolak);
+        $this->assertStringContainsString('Penerima wajib diisi', $import->baris()->first()->alasan);
+    }
+
+    public function test_uraian_kosong_menolak_baris(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $anggaran = $this->buatMasterAnggaran();
+
+        $file = $this->buatFileExcel(SpmLsTemplateExport::HEADERS, [
+            $this->baseRowLsTemplate($anggaran, ['uraian' => '']),
+        ]);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.store', 'spm-ls'), ['file' => $file]);
+        $import = SpmImport::latest('id')->firstOrFail();
+
+        $this->assertSame(1, $import->jumlah_ditolak);
+        $this->assertStringContainsString('Uraian wajib diisi', $import->baris()->first()->alasan);
+    }
+
+    public function test_tagging_kosong_pada_mata_anggaran_bertagging_menyebut_pilihan_yang_ada(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $tagging = Tagging::create(['nama' => 'Stunting', 'aktif' => true]);
+        $anggaran = $this->buatMasterAnggaran(['tagging_id' => $tagging->id]);
+
+        $file = $this->buatFileExcel(SpmLsTemplateExport::HEADERS, [
+            $this->baseRowLsTemplate($anggaran, ['tagging' => '']),
+        ]);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.store', 'spm-ls'), ['file' => $file]);
+        $import = SpmImport::latest('id')->firstOrFail();
+
+        $this->assertSame(1, $import->jumlah_ditolak);
+        $alasan = $import->baris()->first()->alasan;
+        $this->assertStringContainsString('Kolom Tagging wajib diisi', $alasan);
+        $this->assertStringContainsString('Stunting', $alasan);
+    }
+
+    public function test_nama_penerima_yang_cocok_ditautkan_ke_data_pegawai(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $anggaran = $this->buatMasterAnggaran();
+        $pegawai = Pegawai::create([
+            'nama' => 'Budi Santoso',
+            'nip' => '198001012000031001',
+            'jabatan' => 'Auditor Ahli Muda',
+            'bidang' => 'Inspektur Pembantu I',
+            'rekening' => '9988776655',
+            'aktif' => true,
+        ]);
+
+        $file = $this->buatFileExcel(SpmLsTemplateExport::HEADERS, [
+            // Huruf besar-kecil berbeda, dan Nomor Rekening dikosongkan supaya
+            // yang dipakai nomor dari Data Pegawai.
+            $this->baseRowLsTemplate($anggaran, ['penerima' => 'budi SANTOSO', 'nomor_rekening' => '']),
+        ]);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.store', 'spm-ls'), ['file' => $file]);
+        $import = SpmImport::latest('id')->firstOrFail();
+        $this->assertSame(1, $import->jumlah_baru);
+        $this->assertSame($pegawai->id, $import->baris()->first()->penerima_pegawai_id);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.konfirmasi', $import));
+
+        $spm = Spm::where('jenis_spm', 'ls')->firstOrFail();
+        $this->assertSame($pegawai->id, $spm->penerima_pegawai_id);
+        $this->assertNull($spm->penerima_vendor_id);
+        $this->assertSame('budi SANTOSO', $spm->penerima, 'Nama di file tetap dipakai apa adanya.');
+        $this->assertSame('9988776655', $spm->nomor_rekening);
+    }
+
+    public function test_nomor_rekening_di_file_menang_atas_data_master(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $anggaran = $this->buatMasterAnggaran();
+        Vendor::create(['nama' => 'CV Maju Jaya', 'rekening' => '1111111111', 'aktif' => true]);
+
+        $file = $this->buatFileExcel(SpmLsTemplateExport::HEADERS, [
+            $this->baseRowLsTemplate($anggaran, ['penerima' => 'CV Maju Jaya', 'nomor_rekening' => '2222222222']),
+        ]);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.store', 'spm-ls'), ['file' => $file]);
+        $import = SpmImport::latest('id')->firstOrFail();
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.konfirmasi', $import));
+
+        $spm = Spm::where('jenis_spm', 'ls')->firstOrFail();
+        $this->assertNotNull($spm->penerima_vendor_id);
+        $this->assertSame('2222222222', $spm->nomor_rekening);
+    }
+
+    public function test_nama_penerima_yang_ambigu_tidak_ditautkan(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $anggaran = $this->buatMasterAnggaran();
+
+        foreach (['198001012000031001', '198501012005011002'] as $nip) {
+            Pegawai::create([
+                'nama' => 'Budi Santoso',
+                'nip' => $nip,
+                'jabatan' => 'Auditor',
+                'bidang' => 'Sekretariat',
+                'aktif' => true,
+            ]);
+        }
+
+        $file = $this->buatFileExcel(SpmLsTemplateExport::HEADERS, [
+            $this->baseRowLsTemplate($anggaran, ['penerima' => 'Budi Santoso']),
+        ]);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.store', 'spm-ls'), ['file' => $file]);
+        $import = SpmImport::latest('id')->firstOrFail();
+
+        // Diterima, tapi TANPA tautan - menebak salah satu dari dua orang
+        // bernama sama lebih berbahaya daripada membiarkannya sebagai teks.
+        $this->assertSame(1, $import->jumlah_baru);
+        $this->assertNull($import->baris()->first()->penerima_pegawai_id);
+        $this->assertSame('Budi Santoso', $import->baris()->first()->penerima);
+    }
+
+    public function test_bank_berbeda_antar_baris_dokumen_yang_sama_menolak_seluruh_dokumen(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+        $a1 = $this->buatMasterAnggaran();
+        $a2 = $this->buatMasterAnggaran(['kode_rekening' => '5.1.02.05.02.6002 Belanja Pengujian Kedua']);
+
+        $file = $this->buatFileExcel(SpmLsTemplateExport::HEADERS, [
+            $this->baseRowLsTemplate($a1, ['nominal' => 1_000_000]),
+            $this->baseRowLsTemplate($a2, ['nominal' => 2_000_000, 'bank_tujuan' => 'Bank Mandiri']),
+        ]);
+
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.store', 'spm-ls'), ['file' => $file]);
+        $import = SpmImport::latest('id')->firstOrFail();
+
+        $this->assertSame(0, $import->jumlah_baru);
+        $this->assertSame(2, $import->jumlah_ditolak);
+        $this->assertStringContainsString('Bank', $import->baris()->first()->alasan);
+    }
+
+    public function test_export_ls_memuat_kolom_bank_dan_nomor_rekening(): void
+    {
+        $anggaran = $this->buatMasterAnggaran();
+        $spm = Spm::buatLs([
+            'nomor_dokumen' => '900/SPM-LS/2026',
+            'tanggal_dokumen' => '2026-07-20',
+            'penerima' => 'CV Sumber Rejeki',
+            'bank_tujuan' => 'Bank BJB',
+            'nomor_rekening' => '0011223344',
+            'uraian' => 'Pembayaran ATK',
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 1_000_000]],
+        ]);
+
+        $export = new SpmLsExport;
+        $baris = $export->map($spm->detail()->with('masterAnggaran.tagging')->first());
+
+        // Header dan baris harus tetap sepanjang & seurutan template, supaya
+        // hasil export bisa langsung diimpor balik.
+        $this->assertSame(SpmLsTemplateExport::HEADERS, $export->headings());
+        $this->assertCount(count(SpmLsTemplateExport::HEADERS), $baris);
+
+        $posisi = array_flip(SpmLsTemplateExport::HEADERS);
+        $this->assertSame('CV Sumber Rejeki', $baris[$posisi['Penerima']]);
+        $this->assertSame('Bank BJB', $baris[$posisi['Bank Tujuan']]);
+        $this->assertSame('0011223344', $baris[$posisi['Nomor Rekening']]);
+        $this->assertSame('Pembayaran ATK', $baris[$posisi['Uraian']]);
+    }
+
     // ---------------- Template LS kode terpisah ----------------
 
     /**
@@ -510,7 +726,7 @@ class SpmImportTest extends TestCase
             $anggaran->kode_sub_kegiatan, $anggaran->sub_kegiatan,
             $anggaran->kode_rekening, $anggaran->rekening, $tagging->nama,
             4_000_000, 100_000, 'PPh Pasal 22', 50_000, 'PPh Pasal 23', 25_000,
-            'Vendor Uji', 'Pembayaran LS',
+            'Vendor Uji', 'Bank BJB', '0011223344', 'Pembayaran LS',
         ]]);
 
         $this->actingAs($superadmin)->post(route('manajemen-data.import.spm.store', 'spm-ls'), ['file' => $file]);
@@ -535,6 +751,11 @@ class SpmImportTest extends TestCase
         // Mata anggaran tetap dipetakan lewat Sub Kegiatan + Kode Rekening + Tagging.
         $this->assertSame(1, $spm->detail()->count());
         $this->assertSame($anggaran->id, $spm->detail()->first()->master_anggaran_id);
+
+        // Kolom penerima baru ikut tersimpan.
+        $this->assertSame('Vendor Uji', $spm->penerima);
+        $this->assertSame('Bank BJB', $spm->bank_tujuan);
+        $this->assertSame('0011223344', $spm->nomor_rekening);
     }
 
     /** Berkas LS format lama (kode + nama tergabung, kolom "PPh 1") tetap terbaca. */

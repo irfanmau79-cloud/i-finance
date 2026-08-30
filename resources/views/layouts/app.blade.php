@@ -456,5 +456,7 @@
   })();
 </script>
 
+@include('layouts.partials.select-cari')
+@include('layouts.partials.input-rupiah')
 </body>
 </html>

@@ -24,6 +24,7 @@ use Illuminate\Database\Eloquent\SoftDeletes;
     'jenis_panjar',
     'mode_kd',
     'nominal',
+    'sisa_anggaran_manual',
     'terbilang',
     'status',
     'catatan',
@@ -140,9 +141,63 @@ class Npd extends Model
         return [
             'tanggal_npd' => 'date',
             'nominal' => 'decimal:2',
+            'sisa_anggaran_manual' => 'decimal:2',
             'detail_json' => 'array',
             'spj_verified_at' => 'datetime',
         ];
+    }
+
+    /**
+     * Boleh mengetik sendiri Sisa Anggaran yang tercetak di PDF NPD?
+     *
+     * Dibuka untuk tahun anggaran ini karena angka sistem belum mencakup
+     * seluruh transaksi lama. Untuk menguncinya kembali, setel
+     * config('anggaran.sisa_manual_npd') ke false - itu hanya menutup
+     * isiannya untuk NPD BARU; NPD yang sudah terlanjur menyimpan angka
+     * manual tetap dicetak dengan angka itu (lihat sisaAnggaranCetak()),
+     * supaya cetak ulang dokumen lama tidak berubah isinya.
+     */
+    public static function bolehInputSisaManual(): bool
+    {
+        return (bool) config('anggaran.sisa_manual_npd');
+    }
+
+    /**
+     * Angka yang dicetak pada kolom "SISA ANGGARAN" di PDF NPD: angka manual
+     * bila diisi, selain itu angka sistem yang dihitung dari transaksi.
+     *
+     * SENGAJA hanya dipakai oleh pencetakan PDF. Tidak ada perhitungan lain
+     * di sistem (sisa tersedia, dana terikat, realisasi, dashboard, validasi
+     * nominal NPD/SPM) yang boleh memanggil ini - semuanya tetap memakai
+     * MasterAnggaran, supaya angka manual tidak pernah bocor jadi dasar
+     * pengendalian anggaran.
+     */
+    public function sisaAnggaranCetak(float $sisaSistem): float
+    {
+        return $this->sisa_anggaran_manual === null
+            ? $sisaSistem
+            : (float) $this->sisa_anggaran_manual;
+    }
+
+    /**
+     * Nilai sisa_anggaran_manual yang boleh disimpan dari satu payload
+     * formulir.
+     *
+     * @param  array<string, mixed>  $data  payload tervalidasi
+     * @param  self|null  $npd  NPD yang sedang disunting (kosong saat membuat baru)
+     */
+    public static function sisaManualDariInput(array $data, ?self $npd = null): ?float
+    {
+        // Saat isian dikunci kembali, apa pun yang terkirim diabaikan dan
+        // nilai yang sudah tersimpan dipertahankan - mengedit NPD lama tidak
+        // boleh diam-diam menghapus angka yang sudah ikut tercetak.
+        if (! self::bolehInputSisaManual()) {
+            return $npd?->sisa_anggaran_manual === null ? null : (float) $npd->sisa_anggaran_manual;
+        }
+
+        $nilai = $data['sisa_anggaran_manual'] ?? null;
+
+        return ($nilai === null || $nilai === '') ? null : round((float) $nilai, 2);
     }
 
     public function masterAnggaran(): BelongsTo

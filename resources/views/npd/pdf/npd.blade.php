@@ -136,7 +136,7 @@
         <td style="border-bottom:none;white-space:nowrap;">{{ $npd->masterAnggaran->kode_rekening_bersih }}</td>
         <td class="muted" style="border-bottom:none;">{{ $npd->masterAnggaran->uraian_rekening }}</td>
         <td class="num" style="border-bottom:none;">{{ fmt_rupiah($npd->masterAnggaran->pagu) }}</td>
-        <td class="num" style="border-bottom:none;">{{ fmt_rupiah($sisaSebelum) }}</td>
+        <td class="num" style="border-bottom:none;">{{ fmt_rupiah($sisaAnggaran) }}</td>
         <td class="num" style="border-bottom:none;">{{ fmt_rupiah($npd->nominal) }}</td>
       </tr>
       <tr>
@@ -149,7 +149,7 @@
       <tr>
         <td colspan="2" class="center bold">J u m l a h</td>
         <td class="num bold">{{ fmt_rupiah($npd->masterAnggaran->pagu) }}</td>
-        <td class="num bold">{{ fmt_rupiah($sisaSebelum) }}</td>
+        <td class="num bold">{{ fmt_rupiah($sisaAnggaran) }}</td>
         <td class="num bold">{{ fmt_rupiah($npd->nominal) }}</td>
       </tr>
     </tbody>

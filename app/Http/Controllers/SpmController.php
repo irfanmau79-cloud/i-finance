@@ -6,7 +6,9 @@ use App\Helpers\AuditLog;
 use App\Http\Requests\StoreSpmLsRequest;
 use App\Http\Requests\StoreSpmUpGuRequest;
 use App\Models\MasterAnggaran;
+use App\Models\Pegawai;
 use App\Models\Spm;
+use App\Models\Vendor;
 use Illuminate\Http\Request;
 use RuntimeException;
 
@@ -62,13 +64,33 @@ class SpmController extends Controller
     {
         $masterAnggaran = MasterAnggaran::with('tagging')->where('aktif', true)->orderBy('sub_kegiatan')->get();
 
-        return view('spm.ls.create', compact('masterAnggaran'));
+        return view('spm.ls.create', ['masterAnggaran' => $masterAnggaran] + $this->pilihanPenerima());
+    }
+
+    /**
+     * Isi dropdown Penerima: seluruh Data Pegawai dan Data Vendor yang aktif.
+     * Yang tidak aktif lagi tetap disertakan bila sedang dipakai SPM yang
+     * disunting, supaya tautannya tidak lepas saat disimpan ulang.
+     */
+    private function pilihanPenerima(?Spm $spm = null): array
+    {
+        return [
+            'pegawaiList' => Pegawai::query()
+                ->where(fn ($query) => $query->where('aktif', true)->orWhere('id', $spm?->penerima_pegawai_id))
+                ->orderBy('nama')
+                ->get(['id', 'nama', 'nip', 'jabatan', 'bidang', 'rekening']),
+            'vendorList' => Vendor::query()
+                ->where(fn ($query) => $query->where('aktif', true)->orWhere('id', $spm?->penerima_vendor_id))
+                ->orderBy('nama')
+                ->get(['id', 'nama', 'jenis_usaha', 'rekening']),
+        ];
     }
 
     public function storeLs(StoreSpmLsRequest $request)
     {
         try {
-            $spm = Spm::buatLs($request->validated());
+            $data = $request->validated();
+            $spm = Spm::buatLs(array_replace($data, Spm::penerimaDariInput($data)));
         } catch (RuntimeException $e) {
             return back()->withInput()->withErrors(['baris' => $e->getMessage()]);
         }
@@ -90,7 +112,7 @@ class SpmController extends Controller
             ->orderBy('sub_kegiatan')
             ->get();
 
-        return view('spm.ls.create', compact('masterAnggaran', 'spm'));
+        return view('spm.ls.create', ['masterAnggaran' => $masterAnggaran, 'spm' => $spm] + $this->pilihanPenerima($spm));
     }
 
     public function updateLs(StoreSpmLsRequest $request, Spm $spm)
@@ -98,7 +120,8 @@ class SpmController extends Controller
         abort_unless($spm->jenis_spm === 'ls', 404);
 
         try {
-            $spm->updateLs($request->validated());
+            $data = $request->validated();
+            $spm->updateLs(array_replace($data, Spm::penerimaDariInput($data)));
         } catch (RuntimeException $e) {
             return back()->withInput()->withErrors(['baris' => $e->getMessage()]);
         }

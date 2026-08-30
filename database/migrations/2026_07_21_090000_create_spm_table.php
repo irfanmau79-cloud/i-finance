@@ -9,8 +9,9 @@ return new class extends Migration
     /**
      * Fondasi SPM (Surat Perintah Membayar) — tabel TERPISAH dari npd.
      * Dua jalur belanja:
-     *   - up_gu: BPP bayar transaksi lewat NPD, lalu isi ulang kas lewat SPM
-     *     UP/GU. Bukan realisasi (cuma mengisi ulang kas), makanya
+     *   - up_gu: BPP bayar transaksi lewat NPD, lalu kas diisi ulang lewat SPM
+     *     UP/GU yang dicairkan ke Bendahara Pengeluaran (BP) — bukan ke BPP.
+     *     Bukan realisasi (cuma mengisi ulang kas), makanya
      *     master_anggaran_id-nya NULL.
      *   - ls: dicairkan langsung di BPKAD ke pihak ketiga, tanpa NPD,
      *     langsung mengurangi pagu. master_anggaran_id WAJIB diisi.

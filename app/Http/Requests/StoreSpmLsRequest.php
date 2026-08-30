@@ -37,7 +37,14 @@ class StoreSpmLsRequest extends FormRequest
             'jenis_pph1' => ['nullable', 'string', 'max:50'],
             'pph2' => ['nullable', 'numeric', 'min:0'],
             'jenis_pph2' => ['nullable', 'string', 'max:50'],
+            // Penerima: dipilih dari Data Pegawai/Vendor, atau diisi sendiri.
+            // Nama, bank, dan nomor rekening tetap disimpan sebagai teks
+            // (snapshot) supaya dokumen lama tidak ikut berubah ketika data
+            // master disunting belakangan.
+            'penerima_sumber' => ['nullable', 'string', 'regex:/^(manual|pegawai:[0-9]+|vendor:[0-9]+)$/'],
             'penerima' => ['nullable', 'string', 'max:255'],
+            'bank_tujuan' => ['nullable', 'string', 'max:100'],
+            'nomor_rekening' => ['nullable', 'string', 'max:50'],
             'uraian' => ['nullable', 'string'],
         ];
     }
@@ -52,6 +59,10 @@ class StoreSpmLsRequest extends FormRequest
             'baris' => 'Baris Mata Anggaran',
             'baris.*.master_anggaran_id' => 'Mata Anggaran',
             'baris.*.nominal' => 'Nominal',
+            'penerima_sumber' => 'Pilihan Penerima',
+            'penerima' => 'Nama Penerima',
+            'bank_tujuan' => 'Bank Tujuan',
+            'nomor_rekening' => 'Nomor Rekening',
             'uraian' => 'Uraian',
         ];
     }

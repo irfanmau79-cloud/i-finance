@@ -95,7 +95,7 @@
                                     @csrf
                                     <div class="fg">
                                         <label class="fl" style="margin-top:0">Pegawai master</label>
-                                        <select name="pegawai_id" required>
+                                        <select name="pegawai_id" required data-cari>
                                             <option value="">-- Pilih Pegawai --</option>
                                             @foreach ($pegawai as $pg)
                                                 <option value="{{ $pg->id }}" @selected($p->pegawai_id === $pg->id)>{{ $pg->nama }} &middot; {{ $pg->nip }}</option>

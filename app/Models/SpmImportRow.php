@@ -26,6 +26,10 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'pph2',
     'jenis_pph2',
     'penerima',
+    'penerima_pegawai_id',
+    'penerima_vendor_id',
+    'bank_tujuan',
+    'nomor_rekening',
     'uraian',
     'sisa_sebelum',
     'sisa_sesudah',
@@ -68,5 +72,16 @@ class SpmImportRow extends Model
     public function spm(): BelongsTo
     {
         return $this->belongsTo(Spm::class);
+    }
+
+    /** Hasil pencocokan nama penerima ke master saat file di-parse. */
+    public function penerimaPegawai(): BelongsTo
+    {
+        return $this->belongsTo(Pegawai::class, 'penerima_pegawai_id');
+    }
+
+    public function penerimaVendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class, 'penerima_vendor_id');
     }
 }

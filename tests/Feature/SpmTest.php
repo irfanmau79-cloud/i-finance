@@ -4,7 +4,9 @@ namespace Tests\Feature;
 
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
+use App\Models\Pegawai;
 use App\Models\Spm;
+use App\Models\Vendor;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
@@ -195,6 +197,160 @@ class SpmTest extends TestCase
         $response->assertSee('"pagu":10000000', false);
         $response->assertSee('"dana_terikat":2000000', false);
         $response->assertSee('"sisa":8000000', false);
+    }
+
+    /**
+     * Formulir LS memuat baris tersimpannya sendiri lewat JavaScript, jadi
+     * yang dijaga di sini: halaman edit benar-benar MENGIRIM baris itu ke
+     * peramban. Tanpa ini, satu SPM multi-kode rekening bisa diam-diam
+     * tersimpan ulang tanpa sebagian barisnya.
+     */
+    public function test_form_edit_ls_mengirim_baris_tersimpan_ke_formulir(): void
+    {
+        $superadmin = $this->buatUser('superadmin', 'spm-ls-edit-form');
+        $a1 = $this->buatMasterAnggaran(10_000_000, '5.1.02.05.01.0011');
+        $a2 = $this->buatMasterAnggaran(10_000_000, '5.1.02.05.01.0012');
+
+        $spm = Spm::buatLs([
+            'nomor_dokumen' => '040/SPM-LS/2026',
+            'tanggal_dokumen' => '2026-07-20',
+            'baris' => [
+                ['master_anggaran_id' => $a1->id, 'nominal' => 1_000_000],
+                ['master_anggaran_id' => $a2->id, 'nominal' => 2_000_000],
+            ],
+        ]);
+
+        $response = $this->actingAs($superadmin)->get(route('spm.ls.edit', $spm));
+
+        $response->assertOk();
+        $response->assertSee('"master_anggaran_id":'.$a1->id.',"nominal":1000000', false);
+        $response->assertSee('"master_anggaran_id":'.$a2->id.',"nominal":2000000', false);
+    }
+
+    // ---------------- Penerima & netto ----------------
+
+    public function test_penerima_dari_data_pegawai_disalin_dari_master_dan_tertaut(): void
+    {
+        $superadmin = $this->buatUser('superadmin', 'spm-ls-penerima-pegawai');
+        $anggaran = $this->buatMasterAnggaran(10_000_000, '5.1.02.05.01.0021');
+        $pegawai = Pegawai::create([
+            'nama' => 'Budi Santoso',
+            'nip' => '198001012000031001',
+            'jabatan' => 'Auditor Ahli Muda',
+            'bidang' => 'Inspektur Pembantu I',
+            'rekening' => '0011223344',
+            'aktif' => true,
+        ]);
+
+        $this->actingAs($superadmin)->post(route('spm.ls.store'), [
+            'tanggal_dokumen' => '2026-07-20',
+            'nomor_dokumen' => '050/SPM-LS/2026',
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 1_000_000]],
+            'penerima_sumber' => 'pegawai:'.$pegawai->id,
+            // Nama & rekening yang dikirim SENGAJA salah: isiannya read-only di
+            // layar, jadi server harus mengambil ulang dari master.
+            'penerima' => 'Nama Palsu',
+            'nomor_rekening' => '999',
+            'bank_tujuan' => 'Bank BJB',
+        ])->assertRedirect(route('spm.ls.index'));
+
+        $spm = Spm::firstOrFail();
+        $this->assertSame($pegawai->id, $spm->penerima_pegawai_id);
+        $this->assertNull($spm->penerima_vendor_id);
+        $this->assertSame('Budi Santoso', $spm->penerima);
+        $this->assertSame('0011223344', $spm->nomor_rekening);
+        $this->assertSame('Bank BJB', $spm->bank_tujuan);
+    }
+
+    public function test_penerima_dari_data_vendor_tertaut_ke_vendor(): void
+    {
+        $superadmin = $this->buatUser('superadmin', 'spm-ls-penerima-vendor');
+        $anggaran = $this->buatMasterAnggaran(10_000_000, '5.1.02.05.01.0022');
+        $vendor = Vendor::create(['nama' => 'CV Maju Jaya', 'rekening' => '5566778899', 'aktif' => true]);
+
+        $this->actingAs($superadmin)->post(route('spm.ls.store'), [
+            'tanggal_dokumen' => '2026-07-20',
+            'nomor_dokumen' => '051/SPM-LS/2026',
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 1_000_000]],
+            'penerima_sumber' => 'vendor:'.$vendor->id,
+            'bank_tujuan' => 'Bank Mandiri',
+        ])->assertRedirect(route('spm.ls.index'));
+
+        $spm = Spm::firstOrFail();
+        $this->assertSame($vendor->id, $spm->penerima_vendor_id);
+        $this->assertNull($spm->penerima_pegawai_id);
+        $this->assertSame('CV Maju Jaya', $spm->penerima);
+        $this->assertSame('5566778899', $spm->nomor_rekening);
+    }
+
+    public function test_penerima_isi_manual_dipakai_apa_adanya_tanpa_tautan(): void
+    {
+        $superadmin = $this->buatUser('superadmin', 'spm-ls-penerima-manual');
+        $anggaran = $this->buatMasterAnggaran(10_000_000, '5.1.02.05.01.0023');
+
+        $this->actingAs($superadmin)->post(route('spm.ls.store'), [
+            'tanggal_dokumen' => '2026-07-20',
+            'nomor_dokumen' => '052/SPM-LS/2026',
+            'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 1_000_000]],
+            'penerima_sumber' => 'manual',
+            'penerima' => 'Koperasi Sejahtera',
+            // Bank di luar daftar tetap boleh: dropdown-nya punya "Isi Manual".
+            'bank_tujuan' => 'Bank Perkreditan Rakyat Cianjur',
+            'nomor_rekening' => '7788990011',
+        ])->assertRedirect(route('spm.ls.index'));
+
+        $spm = Spm::firstOrFail();
+        $this->assertNull($spm->penerima_pegawai_id);
+        $this->assertNull($spm->penerima_vendor_id);
+        $this->assertSame('Koperasi Sejahtera', $spm->penerima);
+        $this->assertSame('Bank Perkreditan Rakyat Cianjur', $spm->bank_tujuan);
+        $this->assertSame('7788990011', $spm->nomor_rekening);
+    }
+
+    public function test_nominal_netto_adalah_bruto_dikurangi_seluruh_pajak(): void
+    {
+        $a1 = $this->buatMasterAnggaran(10_000_000, '5.1.02.05.01.0024');
+        $a2 = $this->buatMasterAnggaran(10_000_000, '5.1.02.05.01.0025');
+
+        $spm = Spm::buatLs([
+            'nomor_dokumen' => '053/SPM-LS/2026',
+            'tanggal_dokumen' => '2026-07-20',
+            'baris' => [
+                ['master_anggaran_id' => $a1->id, 'nominal' => 4_000_000],
+                ['master_anggaran_id' => $a2->id, 'nominal' => 6_000_000],
+            ],
+            'ppn' => 1_100_000,
+            'pph1' => 150_000,
+            'pph2' => 50_000,
+        ]);
+
+        $this->assertSame(10_000_000.0, $spm->totalNominal());
+        $this->assertSame(1_300_000.0, $spm->totalPajak());
+        $this->assertSame(8_700_000.0, $spm->nominalNetto());
+
+        // Yang membebani anggaran tetap BRUTO, bukan netto.
+        $this->assertEquals(4_000_000.0, $a1->fresh()->realisasiLs());
+        $this->assertEquals(6_000_000.0, $a2->fresh()->realisasiLs());
+    }
+
+    public function test_form_ls_menyediakan_daftar_bank_dan_pilihan_penerima(): void
+    {
+        $superadmin = $this->buatUser('superadmin', 'spm-ls-form-penerima');
+        $this->buatMasterAnggaran();
+        Pegawai::create(['nama' => 'Siti Aminah', 'nip' => '199001012015032002', 'jabatan' => 'Auditor', 'bidang' => 'Sekretariat', 'aktif' => true]);
+        Vendor::create(['nama' => 'CV Sumber Rejeki', 'aktif' => true]);
+
+        $response = $this->actingAs($superadmin)->get(route('spm.ls.create'));
+
+        $response->assertOk();
+        $response->assertSee('Isi Manual');
+        $response->assertSee('Siti Aminah');
+        $response->assertSee('CV Sumber Rejeki');
+        $response->assertSee('Bank BJB');
+        $response->assertSee('Nominal Netto');
+        $response->assertSee('Total Bruto');
+        $response->assertSee('Biaya Pajak');
+        $response->assertDontSee('Total Nominal Dokumen');
     }
 
     // ---------------- Struktur header + banyak mata anggaran (Prompt 22) ----------------

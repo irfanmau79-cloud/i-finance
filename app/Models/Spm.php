@@ -22,6 +22,10 @@ use RuntimeException;
     'pph2',
     'jenis_pph2',
     'penerima',
+    'penerima_pegawai_id',
+    'penerima_vendor_id',
+    'bank_tujuan',
+    'nomor_rekening',
     'uraian',
     'dibuat_oleh',
 ])]
@@ -30,6 +34,14 @@ class Spm extends Model
     protected $table = 'spm';
 
     public const JENIS_LIST = ['up_gu', 'ls'];
+
+    /**
+     * Nilai penanda "diketik sendiri" pada dropdown Penerima dan Bank Tujuan.
+     * Sengaja bukan string kosong supaya bisa dibedakan dari "belum dipilih",
+     * dan tidak pernah ikut tersimpan - yang tersimpan selalu nama/bank
+     * hasil ketikannya.
+     */
+    public const ISI_MANUAL = '__manual__';
 
     protected function casts(): array
     {
@@ -52,6 +64,81 @@ class Spm extends Model
     public function dibuatOleh(): BelongsTo
     {
         return $this->belongsTo(User::class, 'dibuat_oleh');
+    }
+
+    /** Tautan opsional ke master; nama penerima tetap disimpan di kolom `penerima`. */
+    public function penerimaPegawai(): BelongsTo
+    {
+        return $this->belongsTo(Pegawai::class, 'penerima_pegawai_id');
+    }
+
+    public function penerimaVendor(): BelongsTo
+    {
+        return $this->belongsTo(Vendor::class, 'penerima_vendor_id');
+    }
+
+    /**
+     * Terjemahkan pilihan Penerima di formulir menjadi kolom-kolom yang
+     * disimpan.
+     *
+     * Saat penerimanya dipilih dari Data Pegawai/Vendor, nama dan nomor
+     * rekening diambil ULANG dari master di sini - bukan dari yang dikirim
+     * formulir - supaya isian yang read-only di layar tidak bisa dikirimi
+     * nilai lain. Bila pilihannya "Isi Manual" (atau tautannya tidak
+     * ditemukan lagi), yang dipakai apa adanya yang diketik pengguna.
+     *
+     * @param  array<string, mixed>  $data  payload tervalidasi
+     * @return array<string, mixed>  kolom penerima yang siap disimpan
+     */
+    public static function penerimaDariInput(array $data): array
+    {
+        $teks = fn (string $kunci) => trim((string) ($data[$kunci] ?? '')) ?: null;
+
+        $hasil = [
+            'penerima' => $teks('penerima'),
+            'penerima_pegawai_id' => null,
+            'penerima_vendor_id' => null,
+            'bank_tujuan' => $teks('bank_tujuan'),
+            'nomor_rekening' => $teks('nomor_rekening'),
+        ];
+
+        $sumber = (string) ($data['penerima_sumber'] ?? '');
+
+        if (str_starts_with($sumber, 'pegawai:')) {
+            $pegawai = Pegawai::find((int) substr($sumber, strlen('pegawai:')));
+
+            if ($pegawai) {
+                $hasil['penerima_pegawai_id'] = $pegawai->id;
+                $hasil['penerima'] = $pegawai->nama;
+                $hasil['nomor_rekening'] = trim((string) $pegawai->rekening) ?: $hasil['nomor_rekening'];
+            }
+        } elseif (str_starts_with($sumber, 'vendor:')) {
+            $vendor = Vendor::find((int) substr($sumber, strlen('vendor:')));
+
+            if ($vendor) {
+                $hasil['penerima_vendor_id'] = $vendor->id;
+                $hasil['penerima'] = $vendor->nama;
+                $hasil['nomor_rekening'] = trim((string) $vendor->rekening) ?: $hasil['nomor_rekening'];
+            }
+        }
+
+        return $hasil;
+    }
+
+    /** Seluruh potongan pajak dokumen: PPN + PPh 1 + PPh 2. */
+    public function totalPajak(): float
+    {
+        return round((float) $this->ppn + (float) $this->pph1 + (float) $this->pph2, 2);
+    }
+
+    /**
+     * Nominal yang benar-benar diterima penerima: bruto dikurangi pajak.
+     * Angka BRUTO-lah yang membebani anggaran (lihat MasterAnggaran::realisasiLs()),
+     * netto hanya untuk ditampilkan.
+     */
+    public function nominalNetto(): float
+    {
+        return round($this->totalNominal() - $this->totalPajak(), 2);
     }
 
     /**
@@ -105,9 +192,12 @@ class Spm extends Model
     }
 
     /**
-     * Simpan SPM jalur UP/GU (isi ulang kas BPP, BUKAN realisasi — realisasi
-     * sudah tercatat lewat NPD saat transaksi dibayar). Tidak pernah punya
-     * baris spm_detail.
+     * Simpan SPM jalur UP/GU: isi ulang kas, penerimanya SELALU Bendahara
+     * Pengeluaran (BP) di tingkat OPD — bukan BPP, dan bukan pihak ketiga.
+     * Karena itu tidak ada pilihan penerima seperti pada jalur LS.
+     *
+     * BUKAN realisasi: realisasinya sudah tercatat lewat NPD saat
+     * transaksinya dibayar. Tidak pernah punya baris spm_detail.
      */
     public static function buatUpGu(array $data): self
     {

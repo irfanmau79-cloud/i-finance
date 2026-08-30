@@ -65,6 +65,7 @@
                     @if ($import->jenis_spm === 'ls')
                         <th>Sisa Sebelum</th>
                         <th>Sisa Sesudah</th>
+                        <th>Penerima</th>
                     @endif
                     <th>Alasan</th>
                 </tr>
@@ -91,12 +92,23 @@
                         @if ($import->jenis_spm === 'ls')
                             <td>{{ $b->sisa_sebelum !== null ? 'Rp '.fmt_rupiah($b->sisa_sebelum) : '—' }}</td>
                             <td style="{{ $b->sisa_sesudah !== null && $b->sisa_sesudah < 0 ? 'color:#b91c1c;font-weight:700;' : '' }}">{{ $b->sisa_sesudah !== null ? 'Rp '.fmt_rupiah($b->sisa_sesudah) : '—' }}</td>
+                            <td>
+                                {{ $b->penerima ?? '—' }}
+                                @if ($b->penerimaPegawai || $b->penerimaVendor)
+                                    {{-- Terlihat sebelum disimpan: nama mana yang berhasil
+                                         dikenali sebagai Data Pegawai/Vendor. --}}
+                                    <span class="badge" style="background:#dcfce7;color:#166534;">{{ $b->penerimaPegawai ? 'Pegawai' : 'Vendor' }}</span>
+                                @endif
+                                @if ($b->bank_tujuan || $b->nomor_rekening)
+                                    <span class="sub">{{ trim(($b->bank_tujuan ?? '').' · '.($b->nomor_rekening ?? ''), ' ·') }}</span>
+                                @endif
+                            </td>
                         @endif
                         <td>{{ $b->alasan ?? '—' }}</td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="8" style="text-align:center;color:var(--mut);padding:20px;">Tidak ada baris.</td>
+                        <td colspan="{{ $import->jenis_spm === 'ls' ? 10 : 6 }}" style="text-align:center;color:var(--mut);padding:20px;">Tidak ada baris.</td>
                     </tr>
                 @endforelse
             </tbody>

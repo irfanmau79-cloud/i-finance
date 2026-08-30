@@ -290,6 +290,13 @@
   .form-grid .fg{display:flex;flex-direction:column;}
   .form-grid .fg.span2{grid-column:1 / -1;}
   .form-grid2{display:grid;grid-template-columns:1fr 1fr;gap:6px 12px;}
+  /* Grid yang MENGISI lebar kartunya: jumlah kolom mengikuti ruang yang ada,
+     bukan dipatok dua. Dipakai formulir panjang yang kalau dibatasi lebarnya
+     akan tampak menggantung di kiri pada layar lebar. */
+  .form-grid-auto{display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:6px 18px;}
+  @media(min-width:760px){
+    .form-grid-auto .span2{grid-column:span 2;}
+  }
   @media(max-width:680px){.form-grid{grid-template-columns:1fr;}}
   /* Kartu anggota keluarga */
   .fam-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;}
@@ -375,6 +382,76 @@
   .inv-kombo .kb-item:hover,.inv-kombo .kb-item.sorot{background:var(--navy-l);}
   .kombo .kb-item.terpilih,.inv-kombo .kb-item.terpilih{font-weight:700;color:var(--navy);}
   .kombo .kb-kosong,.inv-kombo .kb-kosong{padding:12px;font-size:12px;color:var(--mut);text-align:center;}
+
+  /* ===== SCARI: <select> yang bisa diketik untuk mencari =====
+     Dipasang otomatis oleh layouts/partials/select-cari pada tiap
+     <select data-cari>. <select> aslinya tetap ada di DOM (dan tetap
+     terkirim), hanya disembunyikan secara visual; yang terlihat adalah
+     isian pencarian di bawah ini. Rupanya sengaja disamakan dengan isian
+     biasa - padding, radius, dan ukuran huruf yang sama - supaya tidak
+     terbaca sebagai komponen asing di tengah formulir. */
+  .scari{position:relative;}
+  /* Bukan display:none: <select> tetap dirender setipis 1px supaya pesan
+     "wajib diisi" bawaan peramban masih punya tempat untuk muncul. */
+  .scari > select{position:absolute;left:0;bottom:0;width:100%;height:1px;min-height:0;padding:0;margin:0;
+    border:0;opacity:0;pointer-events:none;background:none;}
+  .scari .sc-inp{width:100%;box-sizing:border-box;padding:9px 34px 9px 11px;border:1px solid var(--line);
+    border-radius:var(--radius-sm);font-family:inherit;font-size:13.5px;color:var(--ink);background:var(--surface);
+    cursor:pointer;text-overflow:ellipsis;transition:border .15s,box-shadow .15s;}
+  .scari .sc-inp::placeholder{color:#94a3b8;}
+  .scari .sc-inp:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(30,58,95,.12);cursor:text;}
+  .scari .sc-inp:disabled{background:#f8fafc;color:#94a3b8;cursor:not-allowed;}
+  .scari .sc-chev{position:absolute;right:11px;top:50%;transform:translateY(-50%);width:16px;height:16px;
+    stroke:var(--navy);fill:none;stroke-width:2;stroke-linecap:round;pointer-events:none;transition:transform .15s;}
+  .scari .sc-inp:disabled ~ .sc-chev{stroke:#94a3b8;}
+  .scari.buka .sc-chev{transform:translateY(-50%) rotate(180deg);}
+  /* Daftar pilihannya position:fixed, bukan absolute: banyak dropdown ini
+     berada di dalam pembungkus tabel yang menggulir atau di dalam modal, dan
+     kotak melayang yang terikat pembungkus akan terpotong di sana. Letaknya
+     dihitung ulang tiap kali dibuka dan saat halaman digulir. z-index-nya di
+     atas modal (200) supaya tetap terlihat di dalam modal. */
+  .scari .sc-drop{position:fixed;background:var(--surface);
+    border:1px solid var(--line);border-radius:var(--radius-sm);box-shadow:0 10px 26px rgba(15,23,42,.14);
+    max-height:264px;overflow:auto;z-index:250;display:none;}
+  .scari.buka .sc-drop{display:block;}
+  .scari .sc-item{padding:9px 12px;font-size:13px;line-height:1.4;color:var(--ink);cursor:pointer;
+    border-bottom:1px solid var(--line);white-space:normal;overflow-wrap:anywhere;}
+  .scari .sc-item:last-child{border-bottom:none;}
+  .scari .sc-item:hover,.scari .sc-item.sorot{background:var(--navy-l);}
+  .scari .sc-item.terpilih{font-weight:700;color:var(--navy);}
+  .scari .sc-item.mati{color:var(--mut);cursor:not-allowed;background:transparent;}
+  .scari .sc-item .sc-sub{display:block;margin-top:2px;font-size:11px;font-weight:400;color:var(--mut);}
+  .scari .sc-kosong{padding:12px;font-size:12px;color:var(--mut);text-align:center;}
+
+  /* Isian Sisa Anggaran manual pada formulir NPD (npd/_sisa-manual).
+     Bentuknya mengikuti GAS: satu centang yang membuka isian angka. Nota
+     kuningnya tambahan Laravel - di sini angkanya HANYA untuk cetakan,
+     sedangkan di GAS ia juga menjadi batas nominal. */
+  .sisa-manual{margin-top:14px;}
+  .sisa-manual-chk{display:inline-flex;align-items:center;gap:8px;cursor:pointer;
+    font-size:12.5px;color:var(--mut);user-select:none;}
+  .sisa-manual-chk input{position:absolute;opacity:0;width:0;height:0;}
+  .sisa-manual-chk:hover{color:var(--navy);}
+  /* Kotak centangnya memakai .komp-box, tapi keadaan tercentangnya di-scope
+     ke .komp-chip - jadi diulang di sini untuk ukuran yang lebih kecil. */
+  .sisa-manual-chk .komp-box{width:16px;height:16px;flex:0 0 16px;border-radius:4px;}
+  .sisa-manual-chk .komp-box svg{width:10px;height:10px;}
+  .sisa-manual-chk input:checked ~ .komp-box{background:var(--navy);border-color:var(--navy);}
+  .sisa-manual-chk input:checked ~ .komp-box svg{opacity:1;transform:scale(1);}
+  .sisa-manual-chk:has(input:checked){color:var(--navy);font-weight:600;}
+  .sisa-manual-isi{margin-top:8px;}
+  /* Penanda di kotak mata anggaran saat angkanya sedang ditimpa manual. */
+  .sisa-manual-tanda{display:block;font-size:10px;font-weight:700;letter-spacing:.4px;
+    text-transform:uppercase;color:var(--warn);margin-top:2px;}
+  .sisa-manual-sistem{display:block;font-size:11px;font-weight:400;color:var(--mut);margin-top:1px;}
+  .sisa-manual-nota{display:flex;gap:8px;align-items:flex-start;margin-top:6px;padding:9px 11px;
+    border:1px solid #fde68a;background:#fffbeb;border-radius:9px;font-size:11.5px;line-height:1.5;color:#8a5a08;}
+  .sisa-manual-nota svg{flex:0 0 14px;width:14px;height:14px;margin-top:2px;stroke:#b45309;fill:none;stroke-width:2;stroke-linecap:round;}
+  .sisa-manual-nota strong{color:#7c4a04;}
+  :root[data-tema="gelap"] .sisa-manual-nota{border-color:#5c4310;background:#33290f;color:#f0d9a8;}
+  :root[data-tema="gelap"] .sisa-manual-nota strong{color:#fbe7bd;}
+  :root[data-tema="gelap"] .sisa-manual-nota svg{stroke:#e0b45c;}
+  :root[data-tema="gelap"] .scari .sc-inp:disabled{background:var(--surface-2);color:var(--mut);}
   /* ===== BILAH ATAS TETAP =====
      Selalu terlihat saat halaman digulir. Karena position:fixed melepasnya
      dari alur dokumen, .main diberi padding-top setinggi bilahnya. */
@@ -562,13 +639,27 @@
   .inv-pager{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 16px;background:#fafbfd;border-top:1px solid var(--line);flex-wrap:wrap;}
   .inv-pager .pg-info{font-size:12.5px;color:var(--mut);}
   .inv-pager .pg-btns{display:flex;gap:6px;align-items:center;flex-wrap:wrap;}
-  .inv-pg{min-width:34px;height:34px;padding:0 10px;border:1px solid var(--line);background:#fff;border-radius:9px;
-    font-size:13px;font-weight:700;color:#2a3746;cursor:pointer;transition:all .15s;display:inline-flex;align-items:center;justify-content:center;}
-  .inv-pg:hover:not(:disabled){border-color:var(--navy);color:var(--navy);}
-  .inv-pg.active{background:var(--navy);color:#fff;border-color:var(--navy);box-shadow:0 4px 10px -3px rgba(31,58,95,.5);}
-  .inv-pg:disabled{opacity:.4;cursor:not-allowed;}
-  .inv-pg.dots{border:none;background:none;cursor:default;pointer-events:none;min-width:20px;}
+  /* Tombol halaman dipakai sebagai <a>, jadi garis bawah bawaan peramban
+     harus dimatikan - itulah garis yang sempat terlihat di bawah "1 2 >". */
+  .inv-pg{min-width:34px;height:34px;padding:0 11px;border:1px solid var(--line);background:var(--surface);border-radius:9px;
+    font-size:13px;font-weight:600;color:var(--ink);cursor:pointer;text-decoration:none;line-height:1;
+    transition:background .15s,border-color .15s,color .15s;display:inline-flex;align-items:center;justify-content:center;}
+  .inv-pg:hover{background:var(--navy-l);border-color:var(--navy);color:var(--navy);text-decoration:none;}
+  .inv-pg.active{background:var(--navy);color:#fff;border-color:var(--navy);font-weight:700;
+    box-shadow:0 4px 10px -3px rgba(31,58,95,.45);}
+  .inv-pg.active:hover{background:var(--navy);color:#fff;}
+  /* Panah di ujung dirender sebagai <span aria-disabled>, bukan <button>,
+     jadi :disabled tidak pernah kena - keadaan matinya diambil dari ARIA. */
+  .inv-pg:disabled,.inv-pg[aria-disabled="true"]{opacity:.35;cursor:not-allowed;background:var(--surface-2);
+    border-color:var(--line);color:var(--mut);pointer-events:none;}
+  .inv-pg.dots{border:none;background:none;cursor:default;pointer-events:none;min-width:20px;color:var(--mut);}
   .page.show{display:block;}
+
+  /* Ringkasan identitas (Profil Saya). Ditaruh di gaya bersama karena
+     kelasnya pernah dipakai halaman lain yang tidak membawa gayanya sendiri. */
+  .profil-info-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:18px 24px;}
+  .profil-info-item .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--mut);}
+  .profil-info-item .val{font-size:14px;font-weight:600;color:var(--ink);margin-top:4px;}
 
   /* ===== Page header seragam (breadcrumb → judul → aksi) ===== */
   .page-head{display:flex;align-items:flex-end;justify-content:space-between;gap:16px;margin-bottom:20px;flex-wrap:wrap;}

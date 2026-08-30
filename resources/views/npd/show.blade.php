@@ -105,6 +105,14 @@
             <div class="gt">Nominal</div>
             <div class="li"><span class="k">Nominal NPD</span><span class="v">Rp {{ number_format((float) $npd->nominal, 2, ',', '.') }}</span></div>
             <div class="li"><span class="k">Terbilang</span><span class="v">{{ $npd->terbilang }}</span></div>
+            @if ($npd->sisa_anggaran_manual !== null)
+                {{-- Ditampilkan supaya verifikator tahu PDF-nya memakai angka
+                     ketikan, bukan angka sistem. --}}
+                <div class="li">
+                    <span class="k">Sisa Anggaran di PDF</span>
+                    <span class="v">Rp {{ number_format((float) $npd->sisa_anggaran_manual, 2, ',', '.') }} <span class="sub">(diketik manual)</span></span>
+                </div>
+            @endif
         </div>
 
         @if ($npd->catatan)
@@ -315,7 +323,7 @@
         <form method="POST" action="{{ route('npd.arsip-spj.store', $npd) }}" class="row" style="align-items:end;margin-bottom:16px;">
             @csrf
             <div><label class="fl">Jenis Dokumen</label><select name="jenis_dokumen" required>@foreach(\App\Services\InventarisasiSpjService::JENIS_DOKUMEN as $jenis)<option>{{ $jenis }}</option>@endforeach</select></div>
-            <div><label class="fl">Lokasi Bantex/Box</label><select name="lokasi" required><option value="">— Pilih Bantex/Box —</option>@foreach($bantexList as $bantex)<option value="{{ $bantex->nama }}">{{ $bantex->nama }}{{ $bantex->keterangan ? ' — '.$bantex->keterangan : '' }}</option>@endforeach</select></div>
+            <div><label class="fl">Lokasi Bantex/Box</label><select name="lokasi" required data-cari><option value="">— Pilih Bantex/Box —</option>@foreach($bantexList as $bantex)<option value="{{ $bantex->nama }}">{{ $bantex->nama }}{{ $bantex->keterangan ? ' — '.$bantex->keterangan : '' }}</option>@endforeach</select></div>
             <div><label class="fl">Catatan</label><input name="catatan" maxlength="1000" placeholder="Opsional"></div>
             <div><button class="btn prim" type="submit">Tetapkan / Pindahkan</button></div>
         </form>

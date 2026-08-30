@@ -39,7 +39,7 @@
                     <input type="hidden" id="npd_induk_id" name="npd_induk_id" value="{{ $npdEdit->npd_induk_id }}">
                     <div class="sub" style="margin-top:4px;">Induk tidak dapat diganti setelah NPD Transport dibuat.</div>
                 @else
-                    <select id="npd_induk_id" name="npd_induk_id">
+                    <select id="npd_induk_id" name="npd_induk_id" data-cari>
                         <option value="">— Pilih NPD Perjalanan Dinas —</option>
                         @foreach ($indukList as $induk)
                             <option value="{{ $induk->id }}" @selected((string) old('npd_induk_id') === (string) $induk->id)>
@@ -52,6 +52,10 @@
                     @endif
                 @endif
             </div>
+
+            {{-- Transport mewarisi mata anggaran dari NPD induk, jadi tidak
+                 ada kotak Pagu/Sisa yang bisa diikuti - centangnya selalu ada. --}}
+            @include('npd._sisa-manual', ['paneSisaManualSelalu' => true])
 
             <div class="err-box" id="err-1"></div>
             <div class="nav">

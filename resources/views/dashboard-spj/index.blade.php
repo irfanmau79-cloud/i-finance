@@ -22,7 +22,7 @@
 </div>
 
 <div class="dash-card"><form method="GET" class="spj-filter">
-  <div><label for="spj-bidang">Bidang</label><select id="spj-bidang" name="bidang"><option value="">Semua Bidang</option>@foreach($dashboard['pilihan_bidang'] as $bidang)<option @selected($filters['bidang']===$bidang)>{{ $bidang }}</option>@endforeach</select></div>
+  <div><label for="spj-bidang">Bidang</label><select id="spj-bidang" name="bidang" data-cari><option value="">Semua Bidang</option>@foreach($dashboard['pilihan_bidang'] as $bidang)<option @selected($filters['bidang']===$bidang)>{{ $bidang }}</option>@endforeach</select></div>
   <div><label for="spj-status">Status SPJ</label><select id="spj-status" name="status"><option value="">Semua</option><option value="terverifikasi" @selected($filters['status']==='terverifikasi')>Terverifikasi</option><option value="belum" @selected($filters['status']==='belum')>Belum</option></select></div>
   <div><label for="spj-cari">Pencarian</label><input id="spj-cari" name="cari" value="{{ $filters['cari'] }}" placeholder="Nomor NPD/SP, sub kegiatan, uraian"></div>
   <div><button class="btn prim">Terapkan</button> <a class="btn" href="{{ route('dashboard.spj.index') }}">Reset</a></div>

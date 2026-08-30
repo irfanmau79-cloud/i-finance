@@ -24,6 +24,12 @@ class StoreNpdBjRequest extends FormRequest
             // formulir, tetapi tetap ditegakkan di sini.
             'tahun' => ['required', 'integer', 'in:'.config('anggaran.tahun_aktif')],
 
+            // Hanya untuk kolom "SISA ANGGARAN" di PDF NPD - lihat
+            // Npd::sisaAnggaranCetak(). Dikosongkan berarti memakai angka
+            // sistem. Saat isian ini dikunci kembali, nilainya diabaikan di
+            // controller, bukan ditolak, supaya formulir lama tidak gagal.
+            'sisa_anggaran_manual' => ['nullable', 'numeric', 'min:0'],
+
             'penerima' => ['required', 'array', 'min:1'],
             'penerima.*.pegawai_id' => ['nullable', 'integer', 'exists:pegawai,id'],
             'penerima.*.vendor_id' => ['nullable', 'integer', 'exists:vendor,id'],
@@ -47,6 +53,7 @@ class StoreNpdBjRequest extends FormRequest
             'tanggal_npd' => 'Tanggal NPD',
             'bulan' => 'Bulan',
             'tahun' => 'Tahun',
+            'sisa_anggaran_manual' => 'Sisa Anggaran (cetak PDF)',
             'penerima.*.nama' => 'Nama Penerima',
             'penerima.*.bruto' => 'Bruto',
             'penerima.*.ppn' => 'PPN',

@@ -18,6 +18,26 @@
   table.pl-dsk td{vertical-align:top;}
   table.pl-dsk .sub{display:block;color:var(--mut);font-size:11px;margin-top:4px;}
   #assignment-form .inv-pager{margin-top:12px;border-radius:9px;}
+
+  /* Nama sub kegiatan dan judul kolomnya panjang-panjang. Tanpa ini judulnya
+     ikut aturan umum table.realisasi th (nowrap) sehingga kolom PPTK terdorong
+     lebar dan nama sub kegiatannya terpotong ke samping. */
+  table.pl-dsk th{white-space:normal;line-height:1.35;}
+  table.pl-dsk td{white-space:normal;overflow-wrap:anywhere;word-break:break-word;}
+  table.pl-dsk th:first-child,table.pl-dsk td:first-child{min-width:260px;}
+  table.pl-dsk .dsk-kpa,table.pl-dsk .dsk-pptk{min-width:170px;}
+
+  /* Identitas pejabat yang dipilih. Sebelumnya memakai kelas .profil-info-*
+     yang gayanya hanya ada di halaman Profil, jadi di sini tampil polos tanpa
+     gaya sama sekali - label dan isinya jadi tidak terbedakan. */
+  .pl-info{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);overflow:hidden;}
+  .pl-info-baris{display:grid;grid-template-columns:minmax(96px,34%) 1fr;gap:10px;align-items:baseline;padding:9px 12px;}
+  .pl-info-baris + .pl-info-baris{border-top:1px solid var(--line);}
+  .pl-info-baris .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--navy);}
+  .pl-info-baris .val{font-size:13px;font-weight:400;color:var(--ink);overflow-wrap:anywhere;}
+  @media(max-width:520px){
+    .pl-info-baris{grid-template-columns:1fr;gap:2px;}
+  }
 </style>
 
 @php
@@ -70,10 +90,10 @@
                     <input type="hidden" name="pa_pegawai_id" id="pa-id" value="{{ old('pa_pegawai_id', $pejabatOpd?->pa_pegawai_id) }}">
                     <div class="ns-drop" id="pa-drop"></div>
                 </div>
-                <div class="profil-info-grid" style="margin-top:10px">
-                    <div class="profil-info-item"><div class="lbl">NIP</div><div class="val" id="pa-nip">-</div></div>
-                    <div class="profil-info-item"><div class="lbl">Pangkat/Golongan</div><div class="val" id="pa-pg">-</div></div>
-                    <div class="profil-info-item"><div class="lbl">Jabatan</div><div class="val" id="pa-jab">-</div></div>
+                <div class="pl-info">
+                    <div class="pl-info-baris"><div class="lbl">NIP</div><div class="val" id="pa-nip">-</div></div>
+                    <div class="pl-info-baris"><div class="lbl">Pangkat/Golongan</div><div class="val" id="pa-pg">-</div></div>
+                    <div class="pl-info-baris"><div class="lbl">Jabatan</div><div class="val" id="pa-jab">-</div></div>
                 </div>
             </div>
             <div>
@@ -84,10 +104,10 @@
                     <input type="hidden" name="bendahara_pengeluaran_pegawai_id" id="bpopd-id" value="{{ old('bendahara_pengeluaran_pegawai_id', $pejabatOpd?->bendahara_pengeluaran_pegawai_id) }}">
                     <div class="ns-drop" id="bpopd-drop"></div>
                 </div>
-                <div class="profil-info-grid" style="margin-top:10px">
-                    <div class="profil-info-item"><div class="lbl">NIP</div><div class="val" id="bpopd-nip">-</div></div>
-                    <div class="profil-info-item"><div class="lbl">Pangkat/Golongan</div><div class="val" id="bpopd-pg">-</div></div>
-                    <div class="profil-info-item"><div class="lbl">Jabatan</div><div class="val" id="bpopd-jab">-</div></div>
+                <div class="pl-info">
+                    <div class="pl-info-baris"><div class="lbl">NIP</div><div class="val" id="bpopd-nip">-</div></div>
+                    <div class="pl-info-baris"><div class="lbl">Pangkat/Golongan</div><div class="val" id="bpopd-pg">-</div></div>
+                    <div class="pl-info-baris"><div class="lbl">Jabatan</div><div class="val" id="bpopd-jab">-</div></div>
                 </div>
             </div>
         </div>
@@ -101,23 +121,21 @@
         <h4 class="profil-sec-title" style="margin:0">Kuasa Pengguna Anggaran dan Bendahara Pengeluaran Pembantu</h4>
         <button type="button" class="btn prim" id="kpa-toggle">+ Tambah KPA dan BPP</button>
     </div>
-    <div class="sp-table-wrap"><table class="realisasi"><thead><tr><th>KPA</th><th>Jabatan</th><th>BPP</th><th>Status</th><th>Aksi</th></tr></thead><tbody>
+    <div class="sp-table-wrap"><table class="realisasi"><thead><tr><th>KPA</th><th>BPP</th><th>Status</th><th>Aksi</th></tr></thead><tbody>
         @forelse ($kpaList as $kpa)
             <tr>
                 <td>{{ $kpa->kpaPegawai->nama }}</td>
-                <td>{{ $kpa->nama_jabatan ?: '-' }}</td>
                 <td>{{ $kpa->bppPegawai->nama }}</td>
                 <td><span class="badge {{ $kpa->aktif ? 'st-aktif' : 'st-danger' }}">{{ $kpa->aktif ? 'Aktif' : 'Nonaktif' }}</span></td>
                 <td>
                     <button type="button" class="btn" data-kpa-edit
                         data-url="{{ route('pelimpahan.kpa.update', $kpa) }}"
                         data-kpa="{{ $kpa->kpa_pegawai_id }}" data-kpa-label="{{ $kpa->kpaPegawai->nama }}"
-                        data-bpp="{{ $kpa->bpp_pegawai_id }}" data-bpp-label="{{ $kpa->bppPegawai->nama }}"
-                        data-jabatan="{{ $kpa->nama_jabatan }}">Ubah</button>
+                        data-bpp="{{ $kpa->bpp_pegawai_id }}" data-bpp-label="{{ $kpa->bppPegawai->nama }}">Ubah</button>
                     <form method="POST" action="{{ route('pelimpahan.kpa.toggle-aktif', $kpa) }}" style="display:inline">@csrf @method('PATCH')<button class="btn">{{ $kpa->aktif ? 'Nonaktifkan' : 'Aktifkan' }}</button></form>
                 </td>
             </tr>
-        @empty <tr><td colspan="5">Belum ada KPA.</td></tr>@endforelse
+        @empty <tr><td colspan="4">Belum ada KPA.</td></tr>@endforelse
     </tbody></table></div>
 
     <div class="pl-add-form" id="kpa-form-wrap" hidden>
@@ -133,10 +151,10 @@
                         <input type="hidden" name="kpa_pegawai_id" id="kpaf-id">
                         <div class="ns-drop" id="kpaf-drop"></div>
                     </div>
-                    <div class="profil-info-grid" style="margin-top:10px">
-                        <div class="profil-info-item"><div class="lbl">NIP</div><div class="val" id="kpaf-nip">-</div></div>
-                        <div class="profil-info-item"><div class="lbl">Pangkat/Golongan</div><div class="val" id="kpaf-pg">-</div></div>
-                        <div class="profil-info-item"><div class="lbl">Jabatan</div><div class="val" id="kpaf-jab">-</div></div>
+                    <div class="pl-info">
+                        <div class="pl-info-baris"><div class="lbl">NIP</div><div class="val" id="kpaf-nip">-</div></div>
+                        <div class="pl-info-baris"><div class="lbl">Pangkat/Golongan</div><div class="val" id="kpaf-pg">-</div></div>
+                        <div class="pl-info-baris"><div class="lbl">Jabatan</div><div class="val" id="kpaf-jab">-</div></div>
                     </div>
                 </div>
                 <div>
@@ -147,14 +165,13 @@
                         <input type="hidden" name="bpp_pegawai_id" id="bppf-id">
                         <div class="ns-drop" id="bppf-drop"></div>
                     </div>
-                    <div class="profil-info-grid" style="margin-top:10px">
-                        <div class="profil-info-item"><div class="lbl">NIP</div><div class="val" id="bppf-nip">-</div></div>
-                        <div class="profil-info-item"><div class="lbl">Pangkat/Golongan</div><div class="val" id="bppf-pg">-</div></div>
-                        <div class="profil-info-item"><div class="lbl">Jabatan</div><div class="val" id="bppf-jab">-</div></div>
+                    <div class="pl-info">
+                        <div class="pl-info-baris"><div class="lbl">NIP</div><div class="val" id="bppf-nip">-</div></div>
+                        <div class="pl-info-baris"><div class="lbl">Pangkat/Golongan</div><div class="val" id="bppf-pg">-</div></div>
+                        <div class="pl-info-baris"><div class="lbl">Jabatan</div><div class="val" id="bppf-jab">-</div></div>
                     </div>
                 </div>
             </div>
-            <div class="fg" style="margin-top:12px"><label class="fl" for="kpaf-nama-jabatan">Nama Jabatan (opsional)</label><input name="nama_jabatan" id="kpaf-nama-jabatan"></div>
             <div style="text-align:right;margin-top:12px"><button class="btn prim" id="kpa-submit">Simpan</button></div>
         </form>
     </div>
@@ -189,10 +206,10 @@
                 <input type="hidden" name="pegawai_id" id="pptkf-id">
                 <div class="ns-drop" id="pptkf-drop"></div>
             </div>
-            <div class="profil-info-grid" style="margin-top:10px;max-width:520px">
-                <div class="profil-info-item"><div class="lbl">NIP</div><div class="val" id="pptkf-nip">-</div></div>
-                <div class="profil-info-item"><div class="lbl">Pangkat/Golongan</div><div class="val" id="pptkf-pg">-</div></div>
-                <div class="profil-info-item"><div class="lbl">Jabatan</div><div class="val" id="pptkf-jab">-</div></div>
+            <div class="pl-info">
+                <div class="pl-info-baris"><div class="lbl">NIP</div><div class="val" id="pptkf-nip">-</div></div>
+                <div class="pl-info-baris"><div class="lbl">Pangkat/Golongan</div><div class="val" id="pptkf-pg">-</div></div>
+                <div class="pl-info-baris"><div class="lbl">Jabatan</div><div class="val" id="pptkf-jab">-</div></div>
             </div>
             <div style="text-align:right;margin-top:12px"><button class="btn prim">Simpan</button></div>
         </form>
@@ -203,9 +220,9 @@
     <h3>Distribusi Sub Kegiatan</h3>
     <form method="GET" action="{{ route('pelimpahan.index') }}" class="pl-dsk-filter">
         <div class="fg"><label class="fl">Status</label><select name="status"><option value="">Semua</option><option value="assigned" @selected(request('status') === 'assigned')>Ditugaskan</option><option value="unassigned" @selected(request('status') === 'unassigned')>Belum ditugaskan</option></select></div>
-        <div class="fg"><label class="fl">KPA</label><select name="kpa_id"><option value="">Semua</option>@foreach ($kpaList as $kpa)<option value="{{ $kpa->id }}" @selected((string) request('kpa_id') === (string) $kpa->id)>{{ $kpa->kpaPegawai->nama }}</option>@endforeach</select></div>
-        <div class="fg"><label class="fl">PPTK</label><select name="pptk_pegawai_id"><option value="">Semua</option>@foreach ($pptkRoster as $item)<option value="{{ $item->pegawai_id }}" @selected((string) request('pptk_pegawai_id') === (string) $item->pegawai_id)>{{ $item->pegawai->nama }}</option>@endforeach</select></div>
-        <div class="fg"><label class="fl">Program</label><select name="program"><option value="">Semua</option>@foreach ($programList as $program)<option value="{{ $program->program_normal }}" @selected(request('program') === $program->program_normal)>{{ $program->program_normal }}</option>@endforeach</select></div>
+        <div class="fg"><label class="fl">KPA</label><select name="kpa_id" data-cari><option value="">Semua</option>@foreach ($kpaList as $kpa)<option value="{{ $kpa->id }}" @selected((string) request('kpa_id') === (string) $kpa->id)>{{ $kpa->kpaPegawai->nama }}</option>@endforeach</select></div>
+        <div class="fg"><label class="fl">PPTK</label><select name="pptk_pegawai_id" data-cari><option value="">Semua</option>@foreach ($pptkRoster as $item)<option value="{{ $item->pegawai_id }}" @selected((string) request('pptk_pegawai_id') === (string) $item->pegawai_id)>{{ $item->pegawai->nama }}</option>@endforeach</select></div>
+        <div class="fg"><label class="fl">Program</label><select name="program" data-cari><option value="">Semua</option>@foreach ($programList as $program)<option value="{{ $program->program_normal }}" @selected(request('program') === $program->program_normal)>{{ $program->program_normal }}</option>@endforeach</select></div>
         <div class="fg"><label class="fl">Cari Sub Kegiatan</label><input name="cari" value="{{ request('cari') }}"></div>
         <div class="fg pl-dsk-filter-actions" style="grid-column:1/-1;justify-content:flex-end"><a class="btn" href="{{ route('pelimpahan.index') }}">Reset</a> <button class="btn prim">Filter</button></div>
     </form>
@@ -334,7 +351,6 @@
         method.value = 'PUT';
         kpafPicker.setValue(btn.dataset.kpa, btn.dataset.kpaLabel);
         bppfPicker.setValue(btn.dataset.bpp, btn.dataset.bppLabel);
-        document.getElementById('kpaf-nama-jabatan').value = btn.dataset.jabatan || '';
         document.getElementById('kpa-form-title').textContent = 'Ubah KPA dan BPP';
         kpaFormWrap.hidden = false;
     }));

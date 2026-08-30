@@ -34,24 +34,24 @@
         <div class="pane show" data-pane="1">
             <div class="fg">
                 <label class="fl" for="maf-program">Program</label>
-                <select id="maf-program"><option value="">Memuat data…</option></select>
+                <select id="maf-program" data-cari><option value="">Memuat data…</option></select>
             </div>
             <div class="fg">
                 <label class="fl" for="maf-kegiatan">Kegiatan</label>
-                <select id="maf-kegiatan" disabled><option value="">Pilih program terlebih dahulu</option></select>
+                <select id="maf-kegiatan" data-cari disabled><option value="">Pilih program terlebih dahulu</option></select>
             </div>
             <div class="fg">
                 <label class="fl" for="maf-sub">Sub Kegiatan</label>
-                <select id="maf-sub" disabled><option value="">Pilih kegiatan terlebih dahulu</option></select>
+                <select id="maf-sub" data-cari disabled><option value="">Pilih kegiatan terlebih dahulu</option></select>
             </div>
             <div class="form-grid">
                 <div class="fg">
                     <label class="fl" for="maf-kode">Kode Rekening</label>
-                    <select id="maf-kode" disabled><option value="">Pilih sub kegiatan terlebih dahulu</option></select>
+                    <select id="maf-kode" data-cari disabled><option value="">Pilih sub kegiatan terlebih dahulu</option></select>
                 </div>
                 <div class="fg">
                     <label class="fl" for="maf-tagging">Tagging</label>
-                    <select id="maf-tagging" disabled><option value="">Pilih kode rekening terlebih dahulu</option></select>
+                    <select id="maf-tagging" data-cari disabled><option value="">Pilih kode rekening terlebih dahulu</option></select>
                 </div>
             </div>
             <input type="hidden" name="master_anggaran_id" id="master_anggaran_id" value="{{ old('master_anggaran_id', $npdEdit?->master_anggaran_id) }}">
@@ -66,6 +66,8 @@
                 <div class="ai"><span class="k">Sisa Anggaran</span><span class="v" id="ma-sisa" style="color:var(--ok);font-weight:800;"></span></div>
                 <div class="ai"><span class="k">KEU</span><span class="v" id="ma-keu"></span></div>
             </div>
+
+            @include('npd._sisa-manual')
 
             <div class="err-box" id="err-1"></div>
             <div class="nav">

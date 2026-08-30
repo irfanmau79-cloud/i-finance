@@ -301,7 +301,7 @@ class ManajemenDataExportTest extends TestCase
             ['Tanggal SPM', 'Nomor SPM', 'Tanggal SP2D', 'Nomor SP2D',
                 'Kode Sub Kegiatan', 'Sub Kegiatan', 'Kode Rekening', 'Rekening', 'Tagging',
                 'Nominal', 'PPN', 'Jenis PPh 1', 'Nominal PPh 1', 'Jenis PPh 2', 'Nominal PPh 2',
-                'Penerima', 'Uraian'],
+                'Penerima', 'Bank Tujuan', 'Nomor Rekening', 'Uraian'],
             $lsExport->headings()
         );
         $this->assertSame(1, $lsExport->jumlahBaris());
@@ -317,6 +317,8 @@ class ManajemenDataExportTest extends TestCase
 
         $this->assertSame(2000000.0, $mappedLs[9]);
         $this->assertSame('Vendor Uji', $mappedLs[15]);
+        // Uraian bergeser ke belakang Bank Tujuan + Nomor Rekening.
+        $this->assertSame('Pembayaran LS', $mappedLs[18]);
     }
 
     public function test_export_pegawai_dan_vendor_header_dan_jumlah_baris(): void
