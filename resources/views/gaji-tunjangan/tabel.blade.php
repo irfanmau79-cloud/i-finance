@@ -5,113 +5,121 @@
 
 @section('content')
 @php
-    $rp = fn ($nilai) => fmt_rupiah($nilai);
-    $bolehKelola = in_array(\App\Helpers\GuestSession::role(), config('gaji_tunjangan.role_kelola'), true);
-    // Jumlah kolom tabel, dipakai baris "tidak ada data" agar rentangnya pas.
-    $lebar = ['gaji' => 23, 'total' => 15, 'beban' => 12, 'kondisi' => 12][$jenis];
-    // TPP Beban Kerja & TPP Kondisi Kerja bentuk tabelnya sama persis, jadi
-    // keduanya memakai partial 'tpp' yang sama.
+    // gtFmt() di GAS memakai toLocaleString('id-ID') tanpa desimal, bukan
+    // fmt_rupiah() yang selalu menampilkan dua angka di belakang koma.
+    $rp = fn ($nilai) => number_format((float) $nilai, 0, ',', '.');
+
+    // gtPeriodeStr() di GAS.
+    $periode = $mode === 'tahun'
+        ? 'Kumulatif '.$tahun
+        : $namaBulan[$bulan].' '.$tahun;
+
+    // TPP Beban Kerja & TPP Kondisi Kerja bentuk tabelnya sama, hanya kolom
+    // "Pengurang IKP" yang khusus Kondisi Kerja (lihat colPot di gtTabelTPP).
     $partial = in_array($jenis, ['beban', 'kondisi'], true) ? 'tpp' : $jenis;
 @endphp
 
-<style>
-    /* Header dua tingkat ala cetakan SIPD. table.realisasi membuat setiap
-       <th> sticky di top:0; untuk baris kedua posisinya digeser turun
-       setinggi baris pertama supaya keduanya tidak saling menumpuk. */
-    .gt-tabel thead tr:nth-child(2) th { top: 33px; }
-    .gt-tabel th.grup { text-align: center; border-left: 1px solid var(--line); }
-    .gt-tabel th.num, .gt-tabel td.num { text-align: right; white-space: nowrap; font-variant-numeric: tabular-nums; }
-    .gt-tabel td.ident { white-space: normal; min-width: 190px; }
-    .gt-tabel th { cursor: default; }
-    .gt-filter { display: flex; gap: 10px; flex-wrap: wrap; align-items: flex-end; margin-bottom: 14px; }
-    .gt-filter label.fl { margin: 0 0 5px; }
-    .gt-filter .f { display: flex; flex-direction: column; }
-    .gt-filter .f.tumbuh { flex: 1; min-width: 180px; }
-    .gt-persen { display: inline-block; padding: 3px 10px; border-radius: 50px; background: var(--navy-l); color: var(--navy); font-weight: 700; font-size: 11.5px; }
-</style>
+@include('gaji-tunjangan._styles')
 
-<div class="page-head">
-    <div>
-        <div class="ph-crumb">Beranda / <b>Gaji dan Tunjangan</b> / {{ $judul }}</div>
-        <div class="ph-title">{{ $judul }}</div>
-    </div>
-    @if ($bolehKelola)
-        <div class="ph-actions"><a class="btn" href="{{ route('gaji-tunjangan.import.create') }}">Import Data</a></div>
+<div class="dash-card gt-card">
+    <h3>{{ $judul }}</h3>
+    <div class="sub">{{ $subJudul }}</div>
+
+    @if (session('success'))
+        <div class="sumbar ok"><span>{{ session('success') }}</span></div>
+    @endif
+
+    @if ($terkunci)
+        @include('gaji-tunjangan._gate')
+    @else
+        @if ($terbatas)
+            {{-- Bar identitas terverifikasi (#gt-authbar di GAS). --}}
+            <div style="flex:0 0 auto;margin:6px 0 4px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
+                <span style="font-size:12.5px;color:var(--navy);">Menampilkan data untuk NIP <b>{{ $nipSesi }}</b></span>
+                <form method="POST" action="{{ route('gaji-tunjangan.ganti-nip') }}" style="margin:0;">
+                    @csrf
+                    <button class="btn" style="padding:4px 12px;font-size:12px;" type="submit">Ganti NIP</button>
+                </form>
+            </div>
+        @endif
+
+        <form method="GET" class="gt-toolbar">
+            <div class="gt-field">
+                <label for="gt-mode">Tampilan</label>
+                <select id="gt-mode" name="mode" class="gt-inp">
+                    <option value="bulan" @selected($mode === 'bulan')>Bulanan</option>
+                    <option value="tahun" @selected($mode === 'tahun')>Kumulatif</option>
+                </select>
+            </div>
+            {{-- Mode Kumulatif menjumlah seluruh bulan, jadi pilihan Bulan
+                 disembunyikan sama seperti gtOnModeChange() di GAS. --}}
+            <div class="gt-field" id="gt-wrap-bulan" @style(['display:none' => $mode === 'tahun'])>
+                <label for="gt-bulan">Bulan</label>
+                <select id="gt-bulan" name="bulan" class="gt-inp">
+                    @foreach ($namaBulan as $nomor => $nama)
+                        <option value="{{ $nomor }}" @selected($nomor === $bulan)>{{ $nama }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="gt-field">
+                <label for="gt-tahun">Tahun</label>
+                <select id="gt-tahun" name="tahun" class="gt-inp">
+                    @foreach ($tahunTersedia as $t)
+                        <option value="{{ $t }}" @selected($t === $tahun)>{{ $t }}</option>
+                    @endforeach
+                </select>
+            </div>
+            <div class="gt-field gt-field-search">
+                <label for="gt-cari">Cari</label>
+                <div class="gt-search">
+                    <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+                    <input id="gt-cari" class="gt-inp" type="text" name="q" value="{{ $cari }}"
+                           placeholder="Nama / NIP / jabatan&hellip;">
+                </div>
+            </div>
+            <button class="gt-btn-tampil" type="submit">Tampilkan</button>
+        </form>
+
+        {{-- gtRenderTabel(): "N pegawai &middot; Agustus 2026 &middot; pencarian "kata"". --}}
+        <div class="gt-info">
+            {{ $baris->total() }} pegawai &middot; {{ $periode }}@if ($cari !== '') &middot; pencarian "{{ $cari }}" @endif
+        </div>
+
+        <div class="gt-tabel-box">
+            <div class="gt-tabel-wrap">
+                @if ($baris->total() === 0)
+                    <div class="gt-empty">
+                        Tidak ada data untuk periode <b>{{ $periode }}</b>{{ $cari !== '' ? ' dengan kata kunci tersebut' : '' }}.
+                    </div>
+                @else
+                    <table class="gt-table @if ($jenis === 'total') gt-table-total @endif">
+                        @include('gaji-tunjangan.kolom.'.$partial)
+                        <tbody>
+                            @foreach ($baris as $r)
+                                @include('gaji-tunjangan.baris.'.$partial, ['r' => $r, 'rp' => $rp])
+                            @endforeach
+                        </tbody>
+                    </table>
+                @endif
+            </div>
+        </div>
+
+        @include('gaji-tunjangan._pager')
     @endif
 </div>
 
-@if (session('success'))
-    <div class="sumbar ok"><span>{{ session('success') }}</span></div>
-@endif
+<script>
+(function () {
+    'use strict';
 
-@if ($terkunci)
-    @include('gaji-tunjangan._gate')
-@else
+    // gtOnModeChange(): pilihan Bulan tidak relevan di mode Kumulatif.
+    var mode = document.getElementById('gt-mode');
+    var wrapBulan = document.getElementById('gt-wrap-bulan');
+    if (! mode || ! wrapBulan) return;
 
-<div class="dash-card">
-    @if ($terbatas)
-        <div class="sumbar ok" style="margin-bottom:14px;display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;">
-            <span>Menampilkan data untuk NIP <b>{{ $nipSesi }}</b> saja.</span>
-            <form method="POST" action="{{ route('gaji-tunjangan.ganti-nip') }}" style="margin:0;">
-                @csrf
-                <button class="btn" type="submit">Ganti NIP</button>
-            </form>
-        </div>
-    @endif
-
-    <form method="GET" class="gt-filter">
-        <div class="f">
-            <label class="fl" for="gt-mode">Tampilan</label>
-            <select id="gt-mode" name="mode">
-                <option value="bulan" @selected($mode === 'bulan')>Bulanan</option>
-                <option value="tahun" @selected($mode === 'tahun')>Kumulatif</option>
-            </select>
-        </div>
-        <div class="f">
-            <label class="fl" for="gt-bulan">Bulan</label>
-            <select id="gt-bulan" name="bulan" @disabled($mode === 'tahun')>
-                @foreach ($namaBulan as $nomor => $nama)
-                    <option value="{{ $nomor }}" @selected($nomor === $bulan)>{{ $nama }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div class="f">
-            <label class="fl" for="gt-tahun">Tahun</label>
-            <select id="gt-tahun" name="tahun">
-                @foreach ($tahunTersedia as $t)
-                    <option value="{{ $t }}" @selected($t === $tahun)>{{ $t }}</option>
-                @endforeach
-            </select>
-        </div>
-        <div class="f tumbuh">
-            <label class="fl" for="gt-cari">Pencarian</label>
-            <input type="text" id="gt-cari" name="q" value="{{ $cari }}" placeholder="Cari Nama / NIP / Jabatan&hellip;">
-        </div>
-        <div class="f">
-            <button class="btn prim" type="submit">Tampilkan</button>
-        </div>
-    </form>
-
-    <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">
-        <table class="realisasi gt-tabel">
-            @include('gaji-tunjangan.kolom.'.$partial)
-
-            <tbody>
-                @forelse ($baris as $r)
-                    @include('gaji-tunjangan.baris.'.$partial, ['r' => $r, 'rp' => $rp])
-                @empty
-                    <tr>
-                        <td colspan="{{ $lebar }}" style="text-align:center;padding:26px;color:var(--mut);">
-                            Belum ada data {{ $judul }} untuk periode ini.
-                        </td>
-                    </tr>
-                @endforelse
-            </tbody>
-        </table>
-    </div>
-
-    {{ $baris->withQueryString()->links() }}
-</div>
-
-@endif
+    mode.addEventListener('change', function () {
+        wrapBulan.style.display = (mode.value === 'tahun') ? 'none' : '';
+    });
+})();
+</script>
 @endsection

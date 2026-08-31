@@ -1,21 +1,26 @@
-{{-- Header TPP Beban Kerja & TPP Kondisi Kerja - susunannya identik. --}}
+{{--
+    Header TPP Beban Kerja & TPP Kondisi Kerja - susunan persis gtTabelTPP()
+    di GAS. Kolom "Pengurang IKP" hanya ada di Kondisi Kerja, sehingga grup
+    Potongan membentang 2 kolom di sana dan 1 kolom di Beban Kerja (colPot).
+--}}
+@php($isKondisi = $jenis === 'kondisi')
 <thead>
     <tr>
-        <th rowspan="2">Nama</th>
-        <th rowspan="2">NIP</th>
-        <th rowspan="2">Jabatan</th>
+        <th rowspan="2">Nama / NIP<br>Jabatan</th>
         <th rowspan="2">Golongan</th>
-        <th class="grup" colspan="5">Perhitungan</th>
-        <th class="grup" colspan="2">Potongan</th>
-        <th class="grup num" rowspan="2">Jumlah Diterima Netto</th>
+        <th colspan="3">Perhitungan</th>
+        <th rowspan="2">Tunjangan<br>PPh 21</th>
+        <th rowspan="2">Jumlah<br>TPP Bruto</th>
+        <th colspan="{{ $isKondisi ? 2 : 1 }}">Potongan</th>
+        <th rowspan="2">Jumlah<br>Diterima<br>Netto</th>
     </tr>
     <tr>
-        <th class="num grup">Besaran TPP 100%</th>
-        <th class="num">Prosentase Kinerja</th>
-        <th class="num">Jumlah Penilaian Kinerja</th>
-        <th class="num">Tunjangan PPh 21</th>
-        <th class="num">Jumlah TPP Bruto</th>
-        <th class="num grup">Potongan PPh 21</th>
-        <th class="num">Pengurang IKP</th>
+        <th>Besaran TPP<br>100%</th>
+        <th>Prosentase<br>Kinerja</th>
+        <th>Jumlah Penilaian<br>Kinerja (TPP)</th>
+        <th>PPh 21</th>
+        @if ($isKondisi)
+            <th>Pengurang<br>IKP</th>
+        @endif
     </tr>
 </thead>

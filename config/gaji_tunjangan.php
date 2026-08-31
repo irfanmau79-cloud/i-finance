@@ -13,13 +13,19 @@
 return [
 
     /*
-     * Penandatangan Surat Keterangan Penghasilan. Di GAS ini konstanta
-     * GT_PENANDATANGAN yang di-hardcode.
+     * ISI AWAL daftar penandatangan Surat Keterangan Penghasilan. Di GAS ini
+     * konstanta GT_PENANDATANGAN yang di-hardcode.
      *
-     * Mengganti isi daftar ini TIDAK mengubah dokumen yang sudah pernah
-     * dibuat: identitas penandatangan ikut dibekukan sebagai snapshot di
-     * tabel rincian_penghasilan saat dokumen dibuat, jadi cetak ulang
-     * dokumen lama tetap memakai pejabat yang dulu menandatanganinya.
+     * PERHATIAN: sejak migrasi 2026_08_31_110000 daftar yang dipakai aplikasi
+     * ada di tabel `penandatangan_rincian` dan dikelola superadmin lewat menu
+     * Cetak Rincian Penghasilan. Nilai di bawah hanya dipakai SEKALI oleh
+     * migrasi itu untuk mengisi tabelnya; menyuntingnya sekarang tidak
+     * mengubah apa pun pada instalasi yang migrasinya sudah jalan.
+     *
+     * Mengganti isi daftar TIDAK mengubah dokumen yang sudah pernah dibuat:
+     * identitas penandatangan ikut dibekukan sebagai snapshot di tabel
+     * rincian_penghasilan saat dokumen dibuat, jadi cetak ulang dokumen lama
+     * tetap memakai pejabat yang dulu menandatanganinya.
      *
      * 'nama' ditulis apa adanya (tidak dikapitalkan ulang) supaya gelar
      * seperti "S.Ak." dan "M.S.P." tidak berubah bentuk - lihat perubahan 14

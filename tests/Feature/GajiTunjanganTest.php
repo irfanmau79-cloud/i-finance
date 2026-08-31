@@ -240,4 +240,127 @@ class GajiTunjanganTest extends TestCase
         config(['akses.menu.superadmin' => array_values(array_diff(config('akses.menu.superadmin'), ['gt-total']))]);
         $this->actingAs($user)->get(route('gaji-tunjangan.tabel.total'))->assertForbidden();
     }
+
+    /*
+     * ================================================================
+     * Tampilan hasil adopsi UI dari GAS (gtTabelGaji/gtTabelTPP/
+     * gtTabelTotal). Yang diuji bukan gayanya, melainkan susunan kolom
+     * dan format angka - keduanya mudah berubah tanpa disadari saat
+     * partial kolom/baris disunting.
+     * ================================================================
+     */
+
+    public function test_gaji_induk_memakai_kolom_gabungan_seperti_gas(): void
+    {
+        $this->gaji();
+
+        $halaman = $this->actingAs($this->user(User::ROLE_SUPERADMIN))
+            ->get(route('gaji-tunjangan.tabel.gaji', ['bulan' => 8, 'tahun' => 2026]))
+            ->assertOk();
+
+        // Header GAS menumpuk beberapa nilai dalam satu kolom, bukan satu
+        // kolom per nilai seperti tabel Laravel yang lama.
+        $halaman->assertSee('Nama / NIP<br>No Rek / Jabatan', false)
+            ->assertSee('Status<br>GOL/R', false)
+            ->assertSee('Gaji Pokok<br>Tj Suami/Istri<br>Tj Anak<br>Bruto 1', false)
+            ->assertSee('Beras / IWP 8%<br>IWP 1% / PPh', false)
+            ->assertSee('Jumlah<br>Dibayarkan', false);
+
+        // Identitas pegawai jadi satu blok .gt-peg di kolom pertama.
+        $halaman->assertSee('gt-peg', false)
+            ->assertSee('0006235352100');
+    }
+
+    public function test_nominal_tanpa_desimal_seperti_gtfmt(): void
+    {
+        $this->gaji();
+
+        $halaman = $this->actingAs($this->user(User::ROLE_SUPERADMIN))
+            ->get(route('gaji-tunjangan.tabel.gaji', ['bulan' => 8, 'tahun' => 2026]))
+            ->assertOk();
+
+        // gtFmt() memakai toLocaleString('id-ID'): pemisah ribuan titik,
+        // tanpa dua angka di belakang koma seperti fmt_rupiah().
+        $halaman->assertSee('7.251.700')->assertDontSee('7.251.700,00');
+    }
+
+    public function test_pengurang_ikp_hanya_muncul_di_tpp_kondisi_kerja(): void
+    {
+        $this->tpp('beban');
+        $this->tpp('kondisi');
+
+        $user = $this->user(User::ROLE_SUPERADMIN);
+
+        // colPot di gtTabelTPP: Beban Kerja hanya punya satu kolom potongan.
+        $this->actingAs($user)
+            ->get(route('gaji-tunjangan.tabel.beban', ['bulan' => 8, 'tahun' => 2026]))
+            ->assertOk()
+            ->assertDontSee('Pengurang<br>IKP', false);
+
+        $this->actingAs($user)
+            ->get(route('gaji-tunjangan.tabel.kondisi', ['bulan' => 8, 'tahun' => 2026]))
+            ->assertOk()
+            ->assertSee('Pengurang<br>IKP', false);
+    }
+
+    public function test_prosentase_kinerja_mengikuti_format_tofixed_gas(): void
+    {
+        $this->tpp('beban');
+        $this->tpp('beban', ['nip' => '196706161989021001', 'nama_pegawai' => 'BULAT SERATUS', 'nilai_kinerja' => 100]);
+
+        $halaman = $this->actingAs($this->user(User::ROLE_SUPERADMIN))
+            ->get(route('gaji-tunjangan.tabel.beban', ['bulan' => 8, 'tahun' => 2026]))
+            ->assertOk();
+
+        // GAS: pv % 1 === 0 ? pv+'%' : pv.toFixed(2)+'%'.
+        $halaman->assertSee('98.74%')->assertSee('>100%<', false);
+    }
+
+    public function test_baris_info_menyebut_jumlah_pegawai_dan_periode(): void
+    {
+        $this->gaji();
+
+        $this->actingAs($this->user(User::ROLE_SUPERADMIN))
+            ->get(route('gaji-tunjangan.tabel.gaji', ['bulan' => 8, 'tahun' => 2026, 'q' => 'ELYNA']))
+            ->assertOk()
+            ->assertSee('1 pegawai &middot; Agustus 2026', false)
+            ->assertSee('pencarian "ELYNA"', false);
+    }
+
+    public function test_mode_kumulatif_menyebut_periode_kumulatif(): void
+    {
+        $this->gaji();
+
+        $this->actingAs($this->user(User::ROLE_SUPERADMIN))
+            ->get(route('gaji-tunjangan.tabel.gaji', ['mode' => 'tahun', 'tahun' => 2026]))
+            ->assertOk()
+            ->assertSee('Kumulatif 2026');
+    }
+
+    public function test_pager_gas_muncul_saat_data_lebih_dari_sepuluh(): void
+    {
+        foreach (range(1, 25) as $i) {
+            $this->gaji([
+                'nip' => sprintf('19660101199003%04d', $i),
+                'nama_pegawai' => 'PEGAWAI KE '.$i,
+            ]);
+        }
+
+        $halaman = $this->actingAs($this->user(User::ROLE_SUPERADMIN))
+            ->get(route('gaji-tunjangan.tabel.gaji', ['bulan' => 8, 'tahun' => 2026]))
+            ->assertOk();
+
+        // gtRenderPager(): "Hal 1/3" plus tombol lompat halaman.
+        $halaman->assertSee('gt-pager', false)->assertSee('Hal 1/3');
+    }
+
+    public function test_pager_menyebut_jumlah_saat_hanya_satu_halaman(): void
+    {
+        $this->gaji();
+
+        $this->actingAs($this->user(User::ROLE_SUPERADMIN))
+            ->get(route('gaji-tunjangan.tabel.gaji', ['bulan' => 8, 'tahun' => 2026]))
+            ->assertOk()
+            ->assertSee('Menampilkan 1 pegawai');
+    }
 }

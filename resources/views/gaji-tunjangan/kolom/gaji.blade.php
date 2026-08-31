@@ -1,32 +1,19 @@
-{{-- Header dua tingkat Gaji Induk, susunan kolom mengikuti cetakan SIPD. --}}
+{{-- Header Gaji Induk - susunan persis gtTabelGaji() di GAS (10 kolom). --}}
 <thead>
     <tr>
-        <th rowspan="2">Nama</th>
-        <th rowspan="2">NIP</th>
-        <th rowspan="2">No. Rekening</th>
-        <th rowspan="2">Jabatan</th>
-        <th class="grup" colspan="11">Gaji Pokok &amp; Tunjangan</th>
-        <th class="grup" colspan="7">Potongan</th>
-        <th class="grup num" rowspan="2">Jumlah Dibayarkan</th>
+        <th rowspan="2">Nama / NIP<br>No Rek / Jabatan</th>
+        <th rowspan="2">Status<br>GOL/R</th>
+        <th colspan="3">Gaji Pokok</th>
+        <th rowspan="2">Jumlah<br>Bruto 2</th>
+        <th colspan="2">Potongan</th>
+        <th rowspan="2">Jumlah<br>Potongan</th>
+        <th rowspan="2">Jumlah<br>Dibayarkan</th>
     </tr>
     <tr>
-        <th class="num grup">Gaji Pokok</th>
-        <th class="num">Tunj. Suami/Istri</th>
-        <th class="num">Tunj. Anak</th>
-        <th class="num">Jumlah Bruto 1</th>
-        <th class="num">Tunj. Umum</th>
-        <th class="num">Tunj. Struktural</th>
-        <th class="num">Tunj. Fungsional</th>
-        <th class="num">Tunj. Beras</th>
-        <th class="num">Tunj. PPh</th>
-        <th class="num">Pembulatan</th>
-        <th class="num">Jumlah Bruto 2</th>
-        <th class="num grup">Beras</th>
-        <th class="num">Iuran 8%</th>
-        <th class="num">Iuran 1%</th>
-        <th class="num">PPh</th>
-        <th class="num">Rumah/Tanah</th>
-        <th class="num">Lain-Lain</th>
-        <th class="num">Jumlah Potongan</th>
+        <th>Gaji Pokok<br>Tj Suami/Istri<br>Tj Anak<br>Bruto 1</th>
+        <th>Tj Umum<br>Tj Struktural<br>Tj Fungsional</th>
+        <th>Tj Beras<br>Tj PPh<br>Pembulatan</th>
+        <th>Beras / IWP 8%<br>IWP 1% / PPh</th>
+        <th>Rumah<br>Tanah<br>Lain-Lain</th>
     </tr>
 </thead>

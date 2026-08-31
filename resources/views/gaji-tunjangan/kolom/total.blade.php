@@ -1,25 +1,23 @@
-{{-- Total Penghasilan: gabungan ketiga sumber, union berdasarkan NIP. --}}
+{{-- Header Total Penghasilan - susunan persis gtTabelTotal() di GAS. --}}
 <thead>
     <tr>
-        <th rowspan="2">Nama</th>
-        <th rowspan="2">NIP</th>
-        <th rowspan="2">Jabatan</th>
+        <th rowspan="2">Nama / NIP<br>Jabatan</th>
         <th rowspan="2">Golongan</th>
-        <th class="grup" colspan="4">Penghasilan Bruto</th>
-        <th class="grup" colspan="3">Potongan</th>
-        <th class="grup" colspan="4">Penghasilan Netto</th>
+        <th colspan="4">Penghasilan Bruto</th>
+        <th colspan="3">Potongan</th>
+        <th colspan="4">Penghasilan Netto</th>
     </tr>
     <tr>
-        <th class="num grup">Gaji Induk</th>
-        <th class="num">TPP Beban Kerja</th>
-        <th class="num">TPP Kondisi Kerja (TOL)</th>
-        <th class="num">Total Bruto</th>
-        <th class="num grup">Iuran 1% dan 8%</th>
-        <th class="num">Simpanan Koperasi Praja</th>
-        <th class="num">Zakat</th>
-        <th class="num grup">Gaji Induk</th>
-        <th class="num">TPP Beban Kerja</th>
-        <th class="num">TPP Kondisi Kerja (TOL)</th>
-        <th class="num">Total Netto</th>
+        <th>Gaji Induk</th>
+        <th>TPP Beban<br>Kerja</th>
+        <th>TPP Kondisi<br>Kerja (TOL)</th>
+        <th>Total<br>Bruto</th>
+        <th>Iuran 1%<br>dan 8%</th>
+        <th>Simpanan<br>Koperasi Praja</th>
+        <th>Zakat</th>
+        <th>Gaji Induk</th>
+        <th>TPP Beban<br>Kerja</th>
+        <th>TPP Kondisi<br>Kerja (TOL)</th>
+        <th>Penghasilan<br>Netto</th>
     </tr>
 </thead>

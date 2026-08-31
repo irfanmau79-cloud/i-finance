@@ -4,6 +4,8 @@ namespace Tests\Feature;
 
 use App\Helpers\GuestSession;
 use App\Models\GajiInduk;
+use App\Models\Pegawai;
+use App\Models\PenandatanganRincian;
 use App\Models\RincianPenghasilan;
 use App\Models\Tpp;
 use App\Models\User;
@@ -237,6 +239,180 @@ class RincianPenghasilanTest extends TestCase
 
         $this->actingAs($this->user(User::ROLE_BENDAHARA_PENGELUARAN))
             ->get(route('gaji-tunjangan.rincian.index'))->assertOk()->assertSee($dokumen->nomor);
+    }
+
+    /*
+     * ================================================================
+     * Daftar penandatangan: disusun superadmin dari Data Pegawai, role
+     * lain hanya memilih. Dulu daftar ini konstanta di config.
+     * ================================================================
+     */
+
+    private function pegawaiPejabat(array $ubah = []): Pegawai
+    {
+        return Pegawai::create(array_merge([
+            'nama' => 'DEDI SUPRIADI, S.E., M.M.',
+            'nip' => '197505052000031005',
+            'jabatan' => 'Kepala Subbagian Keuangan',
+            'bidang' => 'Sekretariat',
+            'pangkat' => 'Pembina',
+            'aktif' => true,
+        ], $ubah));
+    }
+
+    public function test_superadmin_menambah_penandatangan_dari_data_pegawai(): void
+    {
+        $pegawai = $this->pegawaiPejabat();
+
+        $this->actingAs($this->user(User::ROLE_SUPERADMIN))
+            ->post(route('gaji-tunjangan.rincian.ttd.store'), [
+                'ttd_pegawai_id' => $pegawai->id,
+                'ttd_nama' => $pegawai->nama,
+                'ttd_jabatan' => $pegawai->jabatan,
+                'ttd_pangkat' => $pegawai->pangkat,
+            ])
+            ->assertRedirect(route('gaji-tunjangan.rincian.create'));
+
+        $ttd = PenandatanganRincian::where('nama', 'DEDI SUPRIADI, S.E., M.M.')->firstOrFail();
+
+        $this->assertSame($pegawai->id, $ttd->pegawai_id);
+        $this->assertTrue($ttd->aktif);
+        $this->assertSame('dedi-supriadi-se-mm', $ttd->kunci);
+        $this->assertLessThanOrEqual(40, strlen($ttd->kunci), 'Kunci harus muat di kolom penandatangan_kunci.');
+    }
+
+    public function test_penandatangan_baru_bisa_dipilih_dan_dibekukan_di_dokumen(): void
+    {
+        $this->dataSatuBulan();
+        $pegawai = $this->pegawaiPejabat();
+        $user = $this->user(User::ROLE_SUPERADMIN);
+
+        $this->actingAs($user)->post(route('gaji-tunjangan.rincian.ttd.store'), [
+            'ttd_pegawai_id' => $pegawai->id,
+            'ttd_nama' => $pegawai->nama,
+            'ttd_jabatan' => $pegawai->jabatan,
+            'ttd_pangkat' => $pegawai->pangkat,
+        ]);
+
+        $ttd = PenandatanganRincian::where('pegawai_id', $pegawai->id)->firstOrFail();
+
+        // Muncul di dropdown untuk role mana pun.
+        $this->actingAs($this->user(User::ROLE_PPTK))
+            ->get(route('gaji-tunjangan.rincian.create'))
+            ->assertOk()
+            ->assertSee('DEDI SUPRIADI, S.E., M.M. — Kepala Subbagian Keuangan — Pembina', false);
+
+        $this->buat($user, ['penandatangan' => $ttd->kunci]);
+        $dokumen = RincianPenghasilan::firstOrFail();
+
+        $this->assertSame('DEDI SUPRIADI, S.E., M.M.', $dokumen->penandatangan_nama);
+        $this->assertSame('Pembina', $dokumen->penandatangan_pangkat);
+
+        // Dihapus dari daftar pilihan -> dokumen lama tetap utuh.
+        $this->actingAs($user)->delete(route('gaji-tunjangan.rincian.ttd.destroy', $ttd))
+            ->assertRedirect(route('gaji-tunjangan.rincian.create'));
+
+        $this->assertSame('DEDI SUPRIADI, S.E., M.M.', $dokumen->fresh()->penandatangan_nama);
+        $this->actingAs($user)->get(route('gaji-tunjangan.rincian.cetak', $dokumen))->assertOk();
+    }
+
+    public function test_kelola_penandatangan_hanya_untuk_superadmin(): void
+    {
+        $pegawai = $this->pegawaiPejabat();
+        $ttd = PenandatanganRincian::firstOrFail();
+
+        foreach ([User::ROLE_BENDAHARA_PENGELUARAN, User::ROLE_PPTK] as $role) {
+            $user = $this->user($role);
+
+            // Panelnya tidak dirakit...
+            $this->actingAs($user)->get(route('gaji-tunjangan.rincian.create'))
+                ->assertOk()
+                ->assertDontSee('Kelola Penandatangan');
+
+            // ...dan endpoint-nya tetap tertutup walau ditembak langsung.
+            $this->actingAs($user)->post(route('gaji-tunjangan.rincian.ttd.store'), [
+                'ttd_pegawai_id' => $pegawai->id,
+                'ttd_nama' => 'PENYUSUP',
+                'ttd_jabatan' => 'Auditor',
+                'ttd_pangkat' => 'Penata',
+            ])->assertForbidden();
+
+            $this->actingAs($user)
+                ->delete(route('gaji-tunjangan.rincian.ttd.destroy', $ttd))
+                ->assertForbidden();
+        }
+
+        $this->assertDatabaseMissing('penandatangan_rincian', ['nama' => 'PENYUSUP']);
+        $this->assertDatabaseHas('penandatangan_rincian', ['id' => $ttd->id]);
+    }
+
+    public function test_penandatangan_nonaktif_tidak_bisa_dipakai(): void
+    {
+        $this->dataSatuBulan();
+
+        $ttd = PenandatanganRincian::where('kunci', 'irfan')->firstOrFail();
+        $ttd->update(['aktif' => false]);
+
+        $this->buat($this->user(User::ROLE_SUPERADMIN), ['penandatangan' => 'irfan'])
+            ->assertSessionHasErrors('penandatangan');
+
+        $this->assertSame(0, RincianPenghasilan::count());
+    }
+
+    public function test_penandatangan_wajib_merujuk_pegawai_yang_ada(): void
+    {
+        $this->actingAs($this->user(User::ROLE_SUPERADMIN))
+            ->post(route('gaji-tunjangan.rincian.ttd.store'), [
+                'ttd_pegawai_id' => 999999,
+                'ttd_nama' => 'ORANG LUAR',
+                'ttd_jabatan' => 'Auditor',
+                'ttd_pangkat' => 'Penata',
+            ])
+            ->assertSessionHasErrors('ttd_pegawai_id', null, 'ttd');
+
+        $this->assertDatabaseMissing('penandatangan_rincian', ['nama' => 'ORANG LUAR']);
+    }
+
+    public function test_dua_penandatangan_bernama_sama_tidak_bentrok_kuncinya(): void
+    {
+        $satu = $this->pegawaiPejabat();
+        $dua = $this->pegawaiPejabat(['nip' => '197505052000031006']);
+        $user = $this->user(User::ROLE_SUPERADMIN);
+
+        foreach ([$satu, $dua] as $p) {
+            $this->actingAs($user)->post(route('gaji-tunjangan.rincian.ttd.store'), [
+                'ttd_pegawai_id' => $p->id,
+                'ttd_nama' => $p->nama,
+                'ttd_jabatan' => $p->jabatan,
+                'ttd_pangkat' => $p->pangkat,
+            ])->assertSessionHasNoErrors();
+        }
+
+        $kunci = PenandatanganRincian::whereNotNull('pegawai_id')->orderBy('id')->pluck('kunci')->all();
+
+        $this->assertSame(['dedi-supriadi-se-mm', 'dedi-supriadi-se-mm-2'], $kunci);
+    }
+
+    public function test_daftar_bisa_dicari_berdasarkan_nama_atau_nip(): void
+    {
+        // Kotak cari gtdRender() di GAS menyaring nama & NIP. Di Laravel
+        // penyaringannya di server supaya ikut berlaku lintas halaman.
+        $this->dataSatuBulan();
+        $user = $this->user(User::ROLE_SUPERADMIN);
+        $this->buat($user);
+
+        RincianPenghasilan::firstOrFail()->update(['nama' => 'ELYNA S. LAURA SIAHAAN, S.K.p.,MH']);
+
+        $this->actingAs($user)
+            ->get(route('gaji-tunjangan.rincian.index', ['q' => 'ELYNA']))
+            ->assertOk()
+            ->assertSee('ELYNA S. LAURA SIAHAAN, S.K.p.,MH');
+
+        $this->actingAs($user)
+            ->get(route('gaji-tunjangan.rincian.index', ['q' => 'TIDAK ADA ORANG INI']))
+            ->assertOk()
+            ->assertDontSee('ELYNA')
+            ->assertSee('Belum ada dokumen yang cocok.');
     }
 
     public function test_hapus_membuat_nomor_berikutnya_mundur_satu_urutan(): void

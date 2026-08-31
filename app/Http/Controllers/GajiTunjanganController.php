@@ -31,12 +31,15 @@ class GajiTunjanganController extends Controller
 
     private const PER_HALAMAN = 10;
 
-    /** Sub-menu -> [kunci menu, judul halaman]. */
+    /**
+     * Sub-menu -> [kunci menu, judul halaman, keterangan di bawah judul].
+     * Judul & keterangannya disalin dari gtView() di GAS.
+     */
     private const SUB = [
-        'gaji' => ['gt-gaji', 'Gaji Induk'],
-        'beban' => ['gt-beban', 'TPP Beban Kerja'],
-        'kondisi' => ['gt-kondisi', 'TPP Kondisi Kerja'],
-        'total' => ['gt-total', 'Total Penghasilan'],
+        'gaji' => ['gt-gaji', 'Gaji Induk', 'Rincian gaji pokok, tunjangan, dan potongan pegawai.'],
+        'beban' => ['gt-beban', 'TPP Beban Kerja', 'Tambahan Penghasilan Pegawai berdasarkan Beban Kerja.'],
+        'kondisi' => ['gt-kondisi', 'TPP Kondisi Kerja', 'Tambahan Penghasilan Pegawai berdasarkan Kondisi Kerja.'],
+        'total' => ['gt-total', 'Total Penghasilan', 'Rekapitulasi total penghasilan bruto & netto (Gaji + TPP + TOL) per pegawai.'],
     ];
 
     public function __construct(private readonly GajiTunjanganService $service) {}
@@ -45,7 +48,7 @@ class GajiTunjanganController extends Controller
     {
         abort_unless(isset(self::SUB[$jenis]), 404);
 
-        [$navKey, $judul] = self::SUB[$jenis];
+        [$navKey, $judul, $subJudul] = self::SUB[$jenis];
 
         $mode = in_array($request->query('mode'), ['bulan', 'tahun'], true) ? $request->query('mode') : 'bulan';
         $tahunTersedia = $this->service->tahunTersedia();
@@ -70,6 +73,7 @@ class GajiTunjanganController extends Controller
         return view('gaji-tunjangan.tabel', [
             'navKey' => $navKey,
             'judul' => $judul,
+            'subJudul' => $subJudul,
             'jenis' => $jenis,
             'mode' => $mode,
             'bulan' => $bulan,

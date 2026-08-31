@@ -174,6 +174,14 @@ Route::middleware('auth.or.guest')->group(function () {
     Route::get('/rincian-penghasilan/{dokumen}/cetak', [RincianPenghasilanController::class, 'cetak'])
         ->middleware('menu-akses:gt-cetak')->name('gaji-tunjangan.rincian.cetak');
 
+    // Daftar penandatangan surat disusun superadmin (diambil dari Data
+    // Pegawai); role lain hanya memilih dari daftar itu. Dijaga ulang di
+    // controller, bukan cuma dengan menyembunyikan panelnya di form.
+    Route::post('/rincian-penghasilan/penandatangan', [RincianPenghasilanController::class, 'simpanPenandatangan'])
+        ->middleware(['menu-akses:gt-cetak', 'role:superadmin'])->name('gaji-tunjangan.rincian.ttd.store');
+    Route::delete('/rincian-penghasilan/penandatangan/{penandatangan}', [RincianPenghasilanController::class, 'hapusPenandatangan'])
+        ->middleware(['menu-akses:gt-cetak', 'role:superadmin'])->name('gaji-tunjangan.rincian.ttd.destroy');
+
     // Daftar Rincian Penghasilan: hanya role pengelola (lihat gt-daftar di
     // config/akses.php). Penghapusan dijaga ulang di controller.
     Route::get('/rincian-penghasilan', [RincianPenghasilanController::class, 'index'])

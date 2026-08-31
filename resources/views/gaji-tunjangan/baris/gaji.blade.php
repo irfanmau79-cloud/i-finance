@@ -1,25 +1,32 @@
+{{-- Baris Gaji Induk - susunan sel persis gtTabelGaji() di GAS. --}}
 <tr>
-    <td class="ident"><strong>{{ $r['nama'] }}</strong></td>
-    <td>{{ $r['nip'] }}</td>
-    <td>{{ $r['norek'] ?: '-' }}</td>
-    <td class="ident"><span class="sub">{{ $r['jabatan'] ?: '-' }}</span></td>
-    <td class="num">{{ $rp($r['gaji_pokok']) }}</td>
-    <td class="num">{{ $rp($r['suami_istri']) }}</td>
-    <td class="num">{{ $rp($r['anak']) }}</td>
-    <td class="num"><strong>{{ $rp($r['bruto1']) }}</strong></td>
-    <td class="num">{{ $rp($r['tj_umum']) }}</td>
-    <td class="num">{{ $rp($r['tj_struktural']) }}</td>
-    <td class="num">{{ $rp($r['tj_fungsional']) }}</td>
-    <td class="num">{{ $rp($r['tj_beras']) }}</td>
-    <td class="num">{{ $rp($r['tj_pph']) }}</td>
-    <td class="num">{{ $rp($r['pembulatan']) }}</td>
-    <td class="num"><strong>{{ $rp($r['bruto2']) }}</strong></td>
-    <td class="num">{{ $rp($r['pot_beras']) }}</td>
-    <td class="num">{{ $rp($r['pot_iwp8']) }}</td>
-    <td class="num">{{ $rp($r['pot_iwp1']) }}</td>
-    <td class="num">{{ $rp($r['pot_pph']) }}</td>
-    <td class="num">{{ $rp($r['rumah_tanah']) }}</td>
-    <td class="num">{{ $rp($r['lain_lain']) }}</td>
-    <td class="num"><strong>{{ $rp($r['jml_potongan']) }}</strong></td>
-    <td class="num"><strong>{{ $rp($r['jml_dibayarkan']) }}</strong></td>
+    <td>@include('gaji-tunjangan._peg', ['r' => $r, 'norek' => true])</td>
+    <td class="gt-ctr">{{ $r['status'] }}<br>{{ $r['gol'] }}</td>
+    <td class="gt-num">
+        {{ $rp($r['gaji_pokok']) }}<br>
+        {{ $rp($r['suami_istri']) }}<br>
+        {{ $rp($r['anak']) }}<br>
+        <span class="gt-strong">{{ $rp($r['bruto1']) }}</span>
+    </td>
+    <td class="gt-num">
+        {{ $rp($r['tj_umum']) }}<br>
+        {{ $rp($r['tj_struktural']) }}<br>
+        {{ $rp($r['tj_fungsional']) }}
+    </td>
+    <td class="gt-num">
+        {{ $rp($r['tj_beras']) }}<br>
+        {{ $rp($r['tj_pph']) }}<br>
+        {{ $rp($r['pembulatan']) }}
+    </td>
+    <td class="gt-num gt-strong">{{ $rp($r['bruto2']) }}</td>
+    <td class="gt-num">
+        {{ $rp($r['pot_beras']) }} / {{ $rp($r['pot_iwp8']) }}<br>
+        {{ $rp($r['pot_iwp1']) }} / {{ $rp($r['pot_pph']) }}
+    </td>
+    <td class="gt-num">
+        {{ $rp($r['rumah_tanah']) }}<br>
+        {{ $rp($r['lain_lain']) }}
+    </td>
+    <td class="gt-num">{{ $rp($r['jml_potongan']) }}</td>
+    <td class="gt-num gt-strong">{{ $rp($r['jml_dibayarkan']) }}</td>
 </tr>

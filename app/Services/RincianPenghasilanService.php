@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\GajiInduk;
+use App\Models\PenandatanganRincian;
 use App\Models\RincianPenghasilan;
 use App\Models\Tpp;
 use App\Support\GajiTunjanganKolom;
@@ -129,14 +130,16 @@ class RincianPenghasilanService
             throw new RuntimeException('Pilih minimal satu periode penghasilan.');
         }
 
-        $daftarTtd = config('gaji_tunjangan.penandatangan');
+        // Daftar penandatangan dikelola superadmin di tabel tersendiri.
+        // Yang non-aktif ditolak di sini juga, bukan cuma disembunyikan di
+        // form, supaya kunci lama tidak bisa dikirim ulang lewat request.
         $kunciTtd = $data['penandatangan'];
 
-        if (! isset($daftarTtd[$kunciTtd])) {
+        $ttd = PenandatanganRincian::query()->aktif()->where('kunci', $kunciTtd)->first();
+
+        if ($ttd === null) {
             throw new RuntimeException('Penandatangan tidak dikenali.');
         }
-
-        $ttd = $daftarTtd[$kunciTtd];
 
         $adaPd = (bool) $data['ada_pd'];
         $nominalPd = $adaPd ? $this->uangHarian($data['nip'], (int) $data['tahun'], $periode) : [];
@@ -160,9 +163,9 @@ class RincianPenghasilanService
                 'nominal_pd' => $nominalPd,
                 'total_pd' => $totalPd,
                 'penandatangan_kunci' => $kunciTtd,
-                'penandatangan_nama' => $ttd['nama'],
-                'penandatangan_jabatan' => $ttd['jabatan'],
-                'penandatangan_pangkat' => $ttd['pangkat'],
+                'penandatangan_nama' => $ttd->nama,
+                'penandatangan_jabatan' => $ttd->jabatan,
+                'penandatangan_pangkat' => $ttd->pangkat,
                 'tanggal_dokumen' => $sekarang->toDateString(),
                 'dibuat_oleh' => $userId,
                 'dibuat_oleh_nama' => $namaPembuat,
