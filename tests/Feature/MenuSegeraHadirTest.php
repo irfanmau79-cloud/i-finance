@@ -9,10 +9,14 @@ use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 /**
- * Modul Gaji dan Tunjangan serta Cetak SPPD: rumahnya sudah ada, isinya
- * belum. Test ini menjaga agar menunya benar-benar bisa dibuka, hak
- * aksesnya sudah ditegakkan sejak sekarang, dan urutan modul di sidebar
- * tetap seperti yang disepakati.
+ * Cetak SPPD: rumahnya sudah ada, isinya belum. Test ini menjaga agar
+ * menunya benar-benar bisa dibuka, hak aksesnya sudah ditegakkan sejak
+ * sekarang, dan urutan modul di sidebar tetap seperti yang disepakati.
+ *
+ * Modul Gaji dan Tunjangan DULU juga di sini. Sejak modulnya digarap,
+ * keenam sub-menunya menunjuk halaman sungguhan dan pengujiannya pindah ke
+ * GajiTunjanganTest, RincianPenghasilanTest, dan GajiTunjanganImportTest.
+ * Yang tersisa di berkas ini hanyalah pemeriksaan sidebar-nya.
  */
 class MenuSegeraHadirTest extends TestCase
 {
@@ -41,22 +45,13 @@ class MenuSegeraHadirTest extends TestCase
         }
     }
 
-    public function test_daftar_rincian_penghasilan_khusus_superadmin(): void
-    {
-        // Mengikuti pembagian di GAS: lima menu untuk semua role, "Daftar
-        // Rincian Penghasilan" hanya untuk superadmin.
-        $this->actingAs($this->user(User::ROLE_SUPERADMIN))->get(route('segera.gt-daftar'))->assertOk();
-        $this->actingAs($this->user(User::ROLE_PPTK))->get(route('segera.gt-daftar'))->assertForbidden();
-        $this->actingAs($this->user(User::ROLE_PPTK))->get(route('segera.gt-gaji'))->assertOk();
-    }
-
     public function test_akses_mengikuti_config_akses_menu(): void
     {
         $user = $this->user(User::ROLE_SUPERADMIN);
-        $this->actingAs($user)->get(route('segera.gt-gaji'))->assertOk();
+        $this->actingAs($user)->get(route('segera.sp-cetaksppd'))->assertOk();
 
-        config(['akses.menu.superadmin' => array_values(array_diff(config('akses.menu.superadmin'), ['gt-gaji']))]);
-        $this->actingAs($user)->get(route('segera.gt-gaji'))->assertForbidden();
+        config(['akses.menu.superadmin' => array_values(array_diff(config('akses.menu.superadmin'), ['sp-cetaksppd']))]);
+        $this->actingAs($user)->get(route('segera.sp-cetaksppd'))->assertForbidden();
     }
 
     public function test_sidebar_memuat_modul_gaji_dan_cetak_sppd(): void

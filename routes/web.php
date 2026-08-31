@@ -5,6 +5,8 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CetakSpjPerjalananController;
 use App\Http\Controllers\DashboardRealisasiController;
+use App\Http\Controllers\GajiTunjanganController;
+use App\Http\Controllers\GajiTunjanganImportController;
 use App\Http\Controllers\InventarisasiSpjController;
 use App\Http\Controllers\ManajemenDataController;
 use App\Http\Controllers\MasterAnggaranImportController;
@@ -24,6 +26,7 @@ use App\Http\Controllers\PerjalananDinasDashboardController;
 use App\Http\Controllers\PerjalananDinasPegawaiController;
 use App\Http\Controllers\ProfilController;
 use App\Http\Controllers\RakBulananImportController;
+use App\Http\Controllers\RincianPenghasilanController;
 use App\Http\Controllers\RincianRealisasiController;
 use App\Http\Controllers\SegeraHadirController;
 use App\Http\Controllers\SimulasiAnggaranController;
@@ -131,6 +134,52 @@ Route::middleware('auth.or.guest')->group(function () {
         ->middleware('menu-akses:dash-tk')->name('tunjangan.dashboard');
     Route::get('/tunjangan-keluarga/monitoring', [TunjanganKeluargaController::class, 'monitoring'])
         ->middleware('menu-akses:tk-monitor')->name('tunjangan.monitoring');
+
+    /*
+     * Data Gaji & Tunjangan. Tidak ada pembatasan role di sini selain
+     * menu-akses: siapa yang boleh membuka menunya sudah diatur
+     * config('akses.menu'), dan siapa yang melihat data SELURUH pegawai
+     * diatur config('gaji_tunjangan.role_data_penuh'). Role di luar daftar
+     * itu - termasuk Pengguna Layanan yang masuk tanpa akun - harus
+     * memverifikasi NIP + 4 digit rekening lebih dulu dan hanya menerima
+     * barisnya sendiri, disaring di server oleh GajiTunjanganService.
+     */
+    // Tiap sub-menu dijaga kunci menunya masing-masing (gt-gaji, gt-beban,
+    // gt-kondisi, gt-total), bukan satu kunci untuk keempatnya, supaya hak
+    // aksesnya tetap benar bila suatu saat salah satu ditutup untuk sebuah
+    // role di config/akses.php.
+    foreach (['gaji', 'beban', 'kondisi', 'total'] as $jenisGt) {
+        Route::get('/gaji-tunjangan/'.$jenisGt, [GajiTunjanganController::class, 'index'])
+            ->defaults('jenis', $jenisGt)
+            ->middleware('menu-akses:gt-'.$jenisGt)
+            ->name('gaji-tunjangan.tabel.'.$jenisGt);
+    }
+
+    Route::post('/gaji-tunjangan/verifikasi', [GajiTunjanganController::class, 'verifikasi'])
+        ->middleware(['menu-akses:gt-gaji', 'throttle:10,1'])
+        ->name('gaji-tunjangan.verifikasi');
+    Route::post('/gaji-tunjangan/ganti-nip', [GajiTunjanganController::class, 'gantiNip'])
+        ->middleware('menu-akses:gt-gaji')
+        ->name('gaji-tunjangan.ganti-nip');
+
+    // Cetak Rincian Penghasilan: formulir pembuatan dokumen, terbuka untuk
+    // semua role yang punya menunya (termasuk layanan) - sama seperti GAS,
+    // yang sengaja tidak memasang gate di menu ini.
+    Route::get('/rincian-penghasilan/cetak', [RincianPenghasilanController::class, 'create'])
+        ->middleware('menu-akses:gt-cetak')->name('gaji-tunjangan.rincian.create');
+    Route::post('/rincian-penghasilan/uang-harian', [RincianPenghasilanController::class, 'uangHarian'])
+        ->middleware(['menu-akses:gt-cetak', 'throttle:60,1'])->name('gaji-tunjangan.rincian.uang-harian');
+    Route::post('/rincian-penghasilan/cetak', [RincianPenghasilanController::class, 'store'])
+        ->middleware(['menu-akses:gt-cetak', 'throttle:20,1'])->name('gaji-tunjangan.rincian.store');
+    Route::get('/rincian-penghasilan/{dokumen}/cetak', [RincianPenghasilanController::class, 'cetak'])
+        ->middleware('menu-akses:gt-cetak')->name('gaji-tunjangan.rincian.cetak');
+
+    // Daftar Rincian Penghasilan: hanya role pengelola (lihat gt-daftar di
+    // config/akses.php). Penghapusan dijaga ulang di controller.
+    Route::get('/rincian-penghasilan', [RincianPenghasilanController::class, 'index'])
+        ->middleware('menu-akses:gt-daftar')->name('gaji-tunjangan.rincian.index');
+    Route::delete('/rincian-penghasilan/{dokumen}', [RincianPenghasilanController::class, 'destroy'])
+        ->middleware('menu-akses:gt-daftar')->name('gaji-tunjangan.rincian.destroy');
 
     // Semua role yang login, kecuali "layanan" (layanan tidak login).
     Route::middleware('role:superadmin,bendahara_pengeluaran,pptk,bpp,verifikator,sekretaris,kasubbag,inspektur,inspektur_pembantu,perencanaan')->group(function () {
@@ -431,6 +480,15 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/manajemen-data/import/vendor/{import}/preview', [VendorImportController::class, 'preview'])->name('manajemen-data.import.vendor.preview');
         Route::post('/manajemen-data/import/vendor/{import}/konfirmasi', [VendorImportController::class, 'konfirmasi'])->name('manajemen-data.import.vendor.konfirmasi');
         Route::delete('/manajemen-data/import/vendor/{import}', [VendorImportController::class, 'batalkan'])->name('manajemen-data.import.vendor.batalkan');
+
+        // Import Data Gaji & Tunjangan: pilih jenis + bulan + tahun, unggah
+        // berkas SIPD apa adanya -> staging (preview/dry-run) -> konfirmasi.
+        // Konfirmasi MENIMPA seluruh data periode yang sama.
+        Route::get('/manajemen-data/import/gaji-tunjangan', [GajiTunjanganImportController::class, 'create'])->name('gaji-tunjangan.import.create');
+        Route::post('/manajemen-data/import/gaji-tunjangan', [GajiTunjanganImportController::class, 'store'])->name('gaji-tunjangan.import.store');
+        Route::get('/manajemen-data/import/gaji-tunjangan/{import}/preview', [GajiTunjanganImportController::class, 'preview'])->name('gaji-tunjangan.import.preview');
+        Route::post('/manajemen-data/import/gaji-tunjangan/{import}/konfirmasi', [GajiTunjanganImportController::class, 'konfirmasi'])->name('gaji-tunjangan.import.konfirmasi');
+        Route::delete('/manajemen-data/import/gaji-tunjangan/{import}', [GajiTunjanganImportController::class, 'batalkan'])->name('gaji-tunjangan.import.batalkan');
     });
 
 });

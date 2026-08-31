@@ -63,12 +63,12 @@
             'pengembalian-create' => route('pengembalian.create'),
             'pengembalian' => route('pengembalian.index'),
             'sp-cetaksppd' => route('segera.sp-cetaksppd'),
-            'gt-gaji' => route('segera.gt-gaji'),
-            'gt-beban' => route('segera.gt-beban'),
-            'gt-kondisi' => route('segera.gt-kondisi'),
-            'gt-total' => route('segera.gt-total'),
-            'gt-cetak' => route('segera.gt-cetak'),
-            'gt-daftar' => route('segera.gt-daftar'),
+            'gt-gaji' => route('gaji-tunjangan.tabel.gaji'),
+            'gt-beban' => route('gaji-tunjangan.tabel.beban'),
+            'gt-kondisi' => route('gaji-tunjangan.tabel.kondisi'),
+            'gt-total' => route('gaji-tunjangan.tabel.total'),
+            'gt-cetak' => route('gaji-tunjangan.rincian.create'),
+            'gt-daftar' => route('gaji-tunjangan.rincian.index'),
             'profil' => route('profil.show'),
         ];
         $href = fn ($key) => $navHref[$key] ?? '#';
@@ -212,8 +212,6 @@
       </div>
       @endif
 
-      {{-- Gaji dan Tunjangan: rumahnya sudah dibuat, isinya menyusul.
-           Semua sub menu masih diarahkan ke halaman "Under Progress". --}}
       @php($g = $group(['gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'gt-daftar']))
       @if ($g['visible'])
       <div class="sb-group{{ $g['open'] ? ' open' : '' }}">

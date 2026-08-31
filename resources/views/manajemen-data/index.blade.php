@@ -32,9 +32,13 @@
         @php
             $butuhSuperadmin = in_array($key, ['npd', 'perjalanan-dinas', 'spj-perjalanan-dinas', 'tunjangan-keluarga'], true);
             $bolehImport = ! $butuhSuperadmin || auth()->user()->isSuperadmin();
-            $exportHref = $meta['export_jenis'] === 'rak-bulanan'
-                ? route('manajemen-data.export', ['jenis' => 'rak-bulanan', 'tahun' => $tahunSekarang])
-                : route('manajemen-data.export', $meta['export_jenis']);
+            // Data Gaji & Tunjangan tidak punya Export - berkasnya datang dari
+            // SIPD dan dipakai apa adanya, jadi export_jenis-nya null.
+            $exportHref = $meta['export_jenis'] === null
+                ? null
+                : ($meta['export_jenis'] === 'rak-bulanan'
+                    ? route('manajemen-data.export', ['jenis' => 'rak-bulanan', 'tahun' => $tahunSekarang])
+                    : route('manajemen-data.export', $meta['export_jenis']));
             // RAK tidak punya template kosong generik - templatenya HARUS mengacu ke Master
             // Anggaran aktif saat ini (baris Sub Kegiatan/Kode Rekening), jadi tombol Template
             // mengunduh sumber yang sama dengan tombol Export.
@@ -65,7 +69,9 @@
                 @if ($meta['import_create'] && $bolehImport)
                     <a href="{{ route($meta['import_create'][0], $meta['import_create'][1]) }}" class="btn" style="white-space:nowrap;">Import Excel</a>
                 @endif
-                <a href="{{ $exportHref }}" class="btn prim" style="white-space:nowrap;">Unduh Excel</a>
+                @if ($exportHref)
+                    <a href="{{ $exportHref }}" class="btn prim" style="white-space:nowrap;">Unduh Excel</a>
+                @endif
                 @if ($resetKeywordIni && auth()->user()->isSuperadmin())
                     <details class="reset-data-details">
                         <summary class="btn danger" style="display:inline-block;white-space:nowrap;">Reset Data</summary>

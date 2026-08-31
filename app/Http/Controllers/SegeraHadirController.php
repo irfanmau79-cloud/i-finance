@@ -17,12 +17,6 @@ class SegeraHadirController extends Controller
 {
     /** @var array<string, array{judul: string, modul: string}> */
     public const HALAMAN = [
-        'gt-gaji' => ['judul' => 'Gaji Induk', 'modul' => 'Gaji dan Tunjangan'],
-        'gt-beban' => ['judul' => 'TPP Beban Kerja', 'modul' => 'Gaji dan Tunjangan'],
-        'gt-kondisi' => ['judul' => 'TPP Kondisi Kerja', 'modul' => 'Gaji dan Tunjangan'],
-        'gt-total' => ['judul' => 'Total Penghasilan', 'modul' => 'Gaji dan Tunjangan'],
-        'gt-cetak' => ['judul' => 'Cetak Rincian Penghasilan', 'modul' => 'Gaji dan Tunjangan'],
-        'gt-daftar' => ['judul' => 'Daftar Rincian Penghasilan', 'modul' => 'Gaji dan Tunjangan'],
         'sp-cetaksppd' => ['judul' => 'Cetak SPPD', 'modul' => 'Surat Perintah'],
     ];
 
