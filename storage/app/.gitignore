@@ -1,4 +1,9 @@
 *
 !private/
 !public/
+# Aset yang WAJIB ikut rilis, bukan berkas kerja: kop dan spesimen tanda
+# tangan elektronik yang disisipkan ke PDF. Tanpa pengecualian ini keduanya
+# tidak ikut ter-commit dan dokumen tercetak tanpa logo di server.
+!logo/
+!logo/*
 !.gitignore

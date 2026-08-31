@@ -119,6 +119,17 @@ class ManajemenDataController extends Controller
             'import_create' => ['tunjangan.import.create', null],
             'import_template' => ['tunjangan.import.template', null],
         ],
+        // Satu-satunya kartu tanpa Export: berkasnya datang dari SIPD dan
+        // dipakai apa adanya, jadi tidak ada bentuk unduhan yang berguna.
+        // 'import_template' juga null - templatenya berkas SIPD itu sendiri,
+        // bukan sesuatu yang dibuat sistem ini.
+        'gaji-tunjangan' => [
+            'label' => 'Data Gaji & Tunjangan',
+            'export_jenis' => null,
+            'import_create' => ['gaji-tunjangan.import.create', null],
+            'import_template' => null,
+            'import_note' => 'Unggah berkas Template SIPD apa adanya. Jenis penghasilan, bulan, dan tahun dipilih di formulir import.',
+        ],
     ];
 
     /**

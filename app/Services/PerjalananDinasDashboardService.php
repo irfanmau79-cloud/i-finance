@@ -63,6 +63,44 @@ class PerjalananDinasDashboardService
     }
 
     /**
+     * Uang Harian Perjalanan Dinas seorang pegawai, per bulan, untuk dipakai
+     * bagian "V. PENGHASILAN LAINNYA" pada Surat Keterangan Penghasilan.
+     *
+     * Port getUangHarianPD() di CodeDashboardPD.gs. Di GAS angkanya dibaca
+     * dari kolom Uang Harian sheet "Monitoring SPPD"; di sini diturunkan dari
+     * sumber yang sama dengan dashboard ini, jadi angkanya selalu sinkron
+     * dengan yang dilihat pengguna di Dashboard Perjalanan Dinas.
+     *
+     * Pencocokan lewat NIP yang dibersihkan dari karakter non-digit supaya
+     * tahan terhadap spasi dan tanda baca. Bulan tanpa data bernilai 0 -
+     * bukan kesalahan.
+     *
+     * @param  array<int, int>  $bulan
+     * @return array<int, float> bulan => nominal uang harian
+     */
+    public function uangHarian(?string $nip, int $tahun, array $bulan): array
+    {
+        $kunci = preg_replace('/\D/', '', (string) $nip) ?? '';
+        $hasil = array_fill_keys($bulan, 0.0);
+
+        if ($kunci === '') {
+            return $hasil;
+        }
+
+        $orang = $this->bacaData($tahun)->firstWhere('kunci', 'nip:'.$kunci);
+
+        if ($orang === null) {
+            return $hasil;
+        }
+
+        foreach ($bulan as $nomor) {
+            $hasil[$nomor] = (float) ($orang['bulan'][$nomor]['uh'] ?? 0);
+        }
+
+        return $hasil;
+    }
+
+    /**
      * Satu baris per orang berisi 12 bulan komponen — bentuk yang sama dengan
      * hasil _pdBacaData() di GAS.
      *
