@@ -259,6 +259,88 @@ class RekonsiliasiGajiTest extends TestCase
     }
 
     /*
+     * ---------------- Alur kerja kantor ----------------
+     */
+
+    public function test_periode_bisa_dikunci_sebelum_bulannya_berjalan(): void
+    {
+        // Alur sesungguhnya: SPM gaji Oktober dibuat 28 September, jadi data
+        // kepegawaian dikunci hari itu juga - sebelum bulannya mulai dan
+        // sebelum berkas Gaji Oktober diunggah.
+        $this->travelTo('2026-09-28 10:00:00');
+
+        $pegawai = $this->pegawai('ANI', '111', pasangan: true, anak: 1);
+        $admin = $this->user(User::ROLE_SUPERADMIN);
+
+        $this->actingAs($admin)
+            ->post(route('gaji-tunjangan.rekonsiliasi.kunci'), ['bulan' => 10, 'tahun' => 2026])
+            ->assertSessionHasNoErrors();
+
+        $kunci = RekonsiliasiKunci::where('bulan', 10)->firstOrFail();
+
+        // Potretnya diambil 28 September, tetapi acuan kelayakan usia anak
+        // tetap tanggal penggajian Oktober.
+        $this->assertSame('2026-09-28', $kunci->dikunci_at->toDateString());
+        $this->assertSame('2026-10-01', $kunci->tanggal_penggajian->toDateString());
+        $this->assertSame('K/1', $kunci->baris()->firstOrFail()->status_tk);
+
+        // 30 September anak kedua ditambahkan - setelah dikunci.
+        $this->travelTo('2026-09-30 09:00:00');
+        AnggotaKeluarga::create([
+            'tunjangan_keluarga_id' => TunjanganKeluarga::where('pegawai_id', $pegawai->id)->value('id'),
+            'hubungan' => 'anak', 'nama' => 'Anak Susulan',
+            'tanggal_lahir' => '2022-02-02', 'status_tunjangan' => true,
+        ]);
+
+        // 1 Oktober berkas Gaji Oktober diunggah, membayar dua anak.
+        $this->travelTo('2026-10-01 08:00:00');
+        $this->gaji('111', 'ANI', 1, 2, bulan: 10);
+
+        $baris = $this->service()->baris($kunci->fresh())[0];
+
+        $this->assertSame('K/1', $baris['status_tk'], 'Log harus tetap kondisi 28 September.');
+        $this->assertSame('K/2', $baris['status_penggajian']);
+        $this->assertEqualsWithDelta(100000 + 72420, $baris['kelebihan'], 0.01);
+    }
+
+    public function test_rekonsiliasi_bulan_lampau_memakai_data_tunjangan_keluarga_hari_ini(): void
+    {
+        // Pengunggahan susulan Januari s.d. September: potretnya baru dibuat
+        // sekarang, jadi memakai data Tunjangan Keluarga SAAT INI. Batas usia
+        // anak tetap dinilai pada tanggal penggajian bulan itu.
+        $this->travelTo('2026-09-15 10:00:00');
+
+        $this->pegawai('ANI', '111', pasangan: true, anak: 1);
+        $this->gaji('111', 'ANI', 1, 2, bulan: 1);
+
+        $kunci = $this->service()->kunci(1, 2026, $this->user(User::ROLE_SUPERADMIN));
+
+        $this->assertSame('2026-01-02', $kunci->tanggal_penggajian->toDateString());
+        $this->assertSame('2026-09-15', $kunci->dikunci_at->toDateString());
+
+        $baris = $this->service()->baris($kunci)[0];
+        $this->assertSame('K/1', $baris['status_tk']);
+        $this->assertEqualsWithDelta(100000 + 72420, $baris['kelebihan'], 0.01);
+    }
+
+    public function test_halaman_memperingatkan_bila_periode_dikunci_terlambat(): void
+    {
+        $this->travelTo('2026-09-15 10:00:00');
+
+        $halaman = $this->actingAs($this->user(User::ROLE_SUPERADMIN))
+            ->get(route('gaji-tunjangan.rekonsiliasi', ['bulan' => 1, 'tahun' => 2026]))
+            ->assertOk();
+
+        $halaman->assertSee('Perhatian');
+
+        // Periode yang tanggal penggajiannya belum lewat tidak diperingati.
+        $this->actingAs($this->user(User::ROLE_SUPERADMIN))
+            ->get(route('gaji-tunjangan.rekonsiliasi', ['bulan' => 10, 'tahun' => 2026]))
+            ->assertOk()
+            ->assertDontSee('Perhatian');
+    }
+
+    /*
      * ---------------- Otorisasi ----------------
      */
 
