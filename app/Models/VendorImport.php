@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Imports\VendorUploadImport;
+use App\Models\Concerns\StagingKedaluwarsa;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -33,6 +34,8 @@ use Throwable;
 ])]
 class VendorImport extends Model
 {
+    use StagingKedaluwarsa;
+
     protected $table = 'vendor_imports';
 
     public const STATUS_STAGED = 'staged';
@@ -40,8 +43,6 @@ class VendorImport extends Model
     public const STATUS_COMMITTED = 'committed';
 
     public const MAKS_BARIS = 5000;
-
-    public const MENIT_KEDALUWARSA = 30;
 
     protected function casts(): array
     {
@@ -59,16 +60,6 @@ class VendorImport extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function kedaluwarsa(): bool
-    {
-        return $this->status === self::STATUS_STAGED && $this->expires_at->isPast();
-    }
-
-    public static function bersihkanKedaluwarsa(): int
-    {
-        return self::where('status', self::STATUS_STAGED)->where('expires_at', '<', now())->delete();
     }
 
     /**
@@ -99,7 +90,7 @@ class VendorImport extends Model
                 'nama_file' => $file->getClientOriginalName(),
                 'status' => self::STATUS_STAGED,
                 'total_baris' => $baris->count(),
-                'expires_at' => now()->addMinutes(self::MENIT_KEDALUWARSA),
+                'expires_at' => now()->addMinutes(self::menitKedaluwarsa()),
             ]);
 
             $namaTerlihat = [];

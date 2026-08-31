@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Imports\MasterAnggaranUploadImport;
+use App\Models\Concerns\StagingKedaluwarsa;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -54,6 +55,8 @@ use Throwable;
 ])]
 class MasterAnggaranImport extends Model
 {
+    use StagingKedaluwarsa;
+
     protected $table = 'master_anggaran_imports';
 
     public const STATUS_STAGED = 'staged';
@@ -62,9 +65,6 @@ class MasterAnggaranImport extends Model
 
     /** Batas baris data per file - file lebih besar dari ini ditolak seluruhnya, bukan dipotong. */
     public const MAKS_BARIS = 5000;
-
-    /** Masa berlaku staging sebelum harus upload ulang. */
-    public const MENIT_KEDALUWARSA = 30;
 
     /**
      * Urutan kolom template. Maatwebsite men-slug baris header jadi key
@@ -109,17 +109,6 @@ class MasterAnggaranImport extends Model
     public function versi(): BelongsTo
     {
         return $this->belongsTo(VersiPagu::class, 'versi_pagu_id');
-    }
-
-    public function kedaluwarsa(): bool
-    {
-        return $this->status === self::STATUS_STAGED && $this->expires_at->isPast();
-    }
-
-    /** Buang batch staging yang sudah kedaluwarsa supaya tabel tidak menumpuk. Aman dipanggil kapan saja. */
-    public static function bersihkanKedaluwarsa(): int
-    {
-        return self::where('status', self::STATUS_STAGED)->where('expires_at', '<', now())->delete();
     }
 
     /**
@@ -201,7 +190,7 @@ class MasterAnggaranImport extends Model
                 'versi_keterangan' => $versiKeterangan,
                 'status' => self::STATUS_STAGED,
                 'total_baris' => $baris->count(),
-                'expires_at' => now()->addMinutes(self::MENIT_KEDALUWARSA),
+                'expires_at' => now()->addMinutes(self::menitKedaluwarsa()),
             ]);
 
             $kunciTerlihat = [];

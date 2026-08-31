@@ -4,6 +4,7 @@ namespace App\Models;
 
 use App\Exports\RakBulananExport;
 use App\Imports\RakBulananUploadImport;
+use App\Models\Concerns\StagingKedaluwarsa;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -47,6 +48,8 @@ use Throwable;
 ])]
 class RakBulananImport extends Model
 {
+    use StagingKedaluwarsa;
+
     protected $table = 'rak_bulanan_imports';
 
     public const STATUS_STAGED = 'staged';
@@ -55,8 +58,6 @@ class RakBulananImport extends Model
 
     /** Batas baris LEBAR (per kombinasi Sub Kegiatan+Kode Rekening) - satu baris bisa explode jadi sampai 12 baris staging. */
     public const MAKS_BARIS = 2000;
-
-    public const MENIT_KEDALUWARSA = 30;
 
     public const FORMAT_MONTHLY_V2 = 'monthly_v2';
 
@@ -87,16 +88,6 @@ class RakBulananImport extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function kedaluwarsa(): bool
-    {
-        return $this->status === self::STATUS_STAGED && $this->expires_at->isPast();
-    }
-
-    public static function bersihkanKedaluwarsa(): int
-    {
-        return self::where('status', self::STATUS_STAGED)->where('expires_at', '<', now())->delete();
     }
 
     /**
@@ -137,7 +128,7 @@ class RakBulananImport extends Model
                 'ada_kolom_tagging_lama' => $adaKolomTaggingLama,
                 'format_sumber' => $formatSumber,
                 'status' => self::STATUS_STAGED,
-                'expires_at' => now()->addMinutes(self::MENIT_KEDALUWARSA),
+                'expires_at' => now()->addMinutes(self::menitKedaluwarsa()),
             ]);
 
             $kunciTerlihat = [];

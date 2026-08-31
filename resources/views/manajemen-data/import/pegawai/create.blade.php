@@ -37,7 +37,7 @@
 
         <div class="sub" style="margin-top:8px;">
             Batas: 5 MB, maksimum {{ number_format(\App\Models\PegawaiImport::MAKS_BARIS, 0, ',', '.') }} baris data per file.
-            Berkas yang sudah diunggah dapat diperiksa selama {{ \App\Models\PegawaiImport::MENIT_KEDALUWARSA }} menit sebelum perlu diunggah ulang.
+            Berkas yang sudah diunggah dapat diperiksa selama {{ \App\Models\PegawaiImport::menitKedaluwarsa() }} menit sebelum perlu diunggah ulang.
         </div>
 
         <div class="nav" style="margin-top:16px;">

@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Models\Concerns\StagingKedaluwarsa;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -15,11 +16,11 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 ])]
 class NpdHistorisImport extends Model
 {
+    use StagingKedaluwarsa;
+
     public const STATUS_STAGED = 'staged';
 
     public const STATUS_COMMITTED = 'committed';
-
-    public const MENIT_KEDALUWARSA = 60;
 
     protected $table = 'npd_historis_imports';
 
@@ -39,10 +40,5 @@ class NpdHistorisImport extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function kedaluwarsa(): bool
-    {
-        return $this->status === self::STATUS_STAGED && $this->expires_at->isPast();
     }
 }

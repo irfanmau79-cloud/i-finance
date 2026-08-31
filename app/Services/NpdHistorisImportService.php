@@ -74,7 +74,7 @@ class NpdHistorisImportService
             $import = NpdHistorisImport::create([
                 'user_id' => $userId, 'nama_file' => $file->getClientOriginalName(), 'file_hash' => $hash,
                 'format_sumber' => 'npd_historis_v1', 'status' => NpdHistorisImport::STATUS_STAGED,
-                'expires_at' => now()->addMinutes(NpdHistorisImport::MENIT_KEDALUWARSA),
+                'expires_at' => now()->addMinutes(NpdHistorisImport::menitKedaluwarsa()),
             ]);
 
             $seen = [];

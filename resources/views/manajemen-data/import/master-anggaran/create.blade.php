@@ -91,7 +91,7 @@
 
         <div class="sub" style="margin-top:8px;">
             Batas: 5 MB, maksimum {{ number_format(\App\Models\MasterAnggaranImport::MAKS_BARIS, 0, ',', '.') }} baris data per file.
-            Berkas yang sudah diunggah dapat diperiksa selama {{ \App\Models\MasterAnggaranImport::MENIT_KEDALUWARSA }} menit sebelum perlu diunggah ulang.<br>
+            Berkas yang sudah diunggah dapat diperiksa selama {{ \App\Models\MasterAnggaranImport::menitKedaluwarsa() }} menit sebelum perlu diunggah ulang.<br>
             Mata anggaran yang ada sekarang tapi <strong>tidak dicantumkan</strong> di file ini akan berpagu 0 dan dinonaktifkan saat tahapan diaktifkan &mdash;
             dokumen DPA diperlakukan utuh, bukan sebagai perubahan sebagian.
         </div>

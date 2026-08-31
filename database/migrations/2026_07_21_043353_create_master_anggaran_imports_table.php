@@ -27,7 +27,7 @@ return new class extends Migration
             $table->unsignedInteger('jumlah_ditolak')->default(0);
 
             // Staging kedaluwarsa setelah durasi tertentu (lihat
-            // MasterAnggaranImport::MENIT_KEDALUWARSA) supaya tidak menumpuk
+            // App\Models\Concerns\StagingKedaluwarsa) supaya tidak menumpuk
             // dan tidak dikonfirmasi dari data yang sudah basi.
             $table->timestamp('expires_at');
             $table->timestamp('committed_at')->nullable();

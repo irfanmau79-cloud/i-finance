@@ -3,6 +3,7 @@
 namespace App\Models;
 
 use App\Imports\SpmUploadImport;
+use App\Models\Concerns\StagingKedaluwarsa;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -62,6 +63,8 @@ use Throwable;
 ])]
 class SpmImport extends Model
 {
+    use StagingKedaluwarsa;
+
     protected $table = 'spm_imports';
 
     public const STATUS_STAGED = 'staged';
@@ -69,8 +72,6 @@ class SpmImport extends Model
     public const STATUS_COMMITTED = 'committed';
 
     public const MAKS_BARIS = 5000;
-
-    public const MENIT_KEDALUWARSA = 30;
 
     protected function casts(): array
     {
@@ -88,16 +89,6 @@ class SpmImport extends Model
     public function user(): BelongsTo
     {
         return $this->belongsTo(User::class);
-    }
-
-    public function kedaluwarsa(): bool
-    {
-        return $this->status === self::STATUS_STAGED && $this->expires_at->isPast();
-    }
-
-    public static function bersihkanKedaluwarsa(): int
-    {
-        return self::where('status', self::STATUS_STAGED)->where('expires_at', '<', now())->delete();
     }
 
     /**
@@ -133,7 +124,7 @@ class SpmImport extends Model
                 'nama_file' => $file->getClientOriginalName(),
                 'status' => self::STATUS_STAGED,
                 'total_baris' => $baris->count(),
-                'expires_at' => now()->addMinutes(self::MENIT_KEDALUWARSA),
+                'expires_at' => now()->addMinutes(self::menitKedaluwarsa()),
             ]);
 
             $hasilBaris = self::evaluasiSemuaBaris($baris, $jenisSpm);
@@ -487,7 +478,7 @@ class SpmImport extends Model
      * file; yang tertulis di file selalu menang.
      *
      * @param  array<string, mixed>  $dasar
-     * @return array<string, mixed>  kolom penerima yang berubah (kosong bila tidak ada yang cocok)
+     * @return array<string, mixed> kolom penerima yang berubah (kosong bila tidak ada yang cocok)
      */
     private static function cocokkanPenerima(array $dasar): array
     {
