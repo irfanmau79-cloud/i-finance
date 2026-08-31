@@ -83,7 +83,14 @@
   .sb-parent .chev{width:15px;height:15px;margin-left:auto;flex:0 0 15px;transition:transform .18s;stroke:currentColor;stroke-width:2.2;fill:none;}
   .sb-group.open .sb-parent .chev{transform:rotate(90deg);}
   .sb-sub{max-height:0;overflow:hidden;transition:max-height .2s ease;}
-  .sb-group.open .sb-sub{max-height:320px;}
+  /* Batas ini cuma pemicu animasi buka-tutup (max-height tidak bisa
+     dianimasikan dari/ke auto), TAPI dipasangkan dengan overflow:hidden -
+     jadi begitu isi grup lebih tinggi dari angka ini, sub-menu terakhir
+     ikut terpotong dan seolah-olah hilang. Nilainya harus selalu lebih
+     tinggi dari grup terpanjang: satu item ~44px, grup terpanjang saat ini
+     Gaji dan Tunjangan dengan 7 item (~310px). Tambah angka ini bila suatu
+     saat ada grup yang lebih panjang. */
+  .sb-group.open .sb-sub{max-height:560px;}
   .sb-item.sub{padding-left:42px;font-size:13.5px;}
   .sb-item.sub::before{content:"";width:5px;height:5px;border-radius:50%;background:currentColor;opacity:.45;margin-right:9px;flex:0 0 5px;left:auto;top:auto;position:static;}
   .sb-item.sub.active::before{background:var(--gold);opacity:1;width:5px;height:5px;border-radius:50%;}
