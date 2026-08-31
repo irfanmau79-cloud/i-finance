@@ -69,6 +69,7 @@
             'gt-total' => route('gaji-tunjangan.tabel.total'),
             'gt-cetak' => route('gaji-tunjangan.rincian.create'),
             'gt-daftar' => route('gaji-tunjangan.rincian.index'),
+            'gt-rekon' => route('gaji-tunjangan.rekonsiliasi'),
             'profil' => route('profil.show'),
         ];
         $href = fn ($key) => $navHref[$key] ?? '#';
@@ -212,7 +213,7 @@
       </div>
       @endif
 
-      @php($g = $group(['gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'gt-daftar']))
+      @php($g = $group(['gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'gt-daftar', 'gt-rekon']))
       @if ($g['visible'])
       <div class="sb-group{{ $g['open'] ? ' open' : '' }}">
         <div class="sb-item sb-parent" id="nav-gt-parent">
@@ -227,6 +228,7 @@
           @if (in_array('gt-total', $akses)) <a class="sb-item sub{{ $activeNav === 'gt-total' ? ' active' : '' }}" href="{{ $href('gt-total') }}">Total Penghasilan</a> @endif
           @if (in_array('gt-cetak', $akses)) <a class="sb-item sub{{ $activeNav === 'gt-cetak' ? ' active' : '' }}" href="{{ $href('gt-cetak') }}">Cetak Rincian Penghasilan</a> @endif
           @if (in_array('gt-daftar', $akses)) <a class="sb-item sub{{ $activeNav === 'gt-daftar' ? ' active' : '' }}" href="{{ $href('gt-daftar') }}">Daftar Rincian Penghasilan</a> @endif
+          @if (in_array('gt-rekon', $akses)) <a class="sb-item sub{{ $activeNav === 'gt-rekon' ? ' active' : '' }}" href="{{ $href('gt-rekon') }}">Rekonsiliasi Gaji Induk</a> @endif
         </div>
       </div>
       @endif

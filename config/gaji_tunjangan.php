@@ -71,6 +71,48 @@ return [
     ],
 
     /*
+     * Rekonsiliasi Gaji Induk: membandingkan Status Tunjangan Keluarga yang
+     * DIKUNCI di awal bulan dengan status yang tersirat dari nominal gaji
+     * bulan itu, lalu menaksir potensi kelebihan pembayarannya.
+     *
+     * Tunjangan pasangan = 10% x gaji pokok, tunjangan anak = 2% x gaji
+     * pokok per anak (maksimal dua anak). Tiap jiwa juga membawa tunjangan
+     * beras sebesar 'beras_per_jiwa'.
+     *
+     * Potensi kelebihan hanya dihitung untuk selisih yang MERUGIKAN negara
+     * (penggajian membayar lebih banyak jiwa daripada yang berhak). Bila
+     * sebaliknya, angkanya nol - kolomnya memang bernama "Potensi Kelebihan
+     * Pembayaran" - tetapi selisihnya tetap terlihat pada kedua kolom status.
+     */
+    'rekonsiliasi' => [
+        'persen_pasangan' => 0.10,
+        'persen_anak' => 0.02,
+        'beras_per_jiwa' => 72420,
+        'maks_anak' => 2,
+    ],
+
+    /*
+     * Hari libur nasional, dipakai menentukan tanggal penggajian: tanggal 1
+     * tiap bulan, digeser ke hari berikutnya bila jatuh pada Sabtu, Minggu,
+     * atau salah satu tanggal di bawah.
+     *
+     * PENTING: yang tercantum di sini hanya libur bertanggal TETAP. Libur
+     * yang bergerak tiap tahun - Idulfitri, Iduladha, Tahun Baru Islam,
+     * Maulid, Isra Mikraj, Nyepi, Wafat Isa Almasih, Kenaikan Isa Almasih,
+     * Waisak, Imlek - beserta cuti bersamanya WAJIB ditambahkan sendiri tiap
+     * tahun, kalau tidak tanggal penggajiannya bisa meleset.
+     *
+     * Format: 'Y-m-d' => 'Keterangan'.
+     */
+    'hari_libur' => [
+        '2026-01-01' => 'Tahun Baru Masehi',
+        '2026-05-01' => 'Hari Buruh Internasional',
+        '2026-06-01' => 'Hari Lahir Pancasila',
+        '2026-08-17' => 'Hari Kemerdekaan RI',
+        '2026-12-25' => 'Hari Raya Natal',
+    ],
+
+    /*
      * Format nomor Surat Keterangan Penghasilan. :urut diisi nomor urut
      * GLOBAL (tidak reset), :bulan & :tahun adalah bulan dan tahun saat
      * dokumen DIBUAT - bukan periode penghasilannya.

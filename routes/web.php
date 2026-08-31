@@ -26,6 +26,7 @@ use App\Http\Controllers\PerjalananDinasDashboardController;
 use App\Http\Controllers\PerjalananDinasPegawaiController;
 use App\Http\Controllers\ProfilController;
 use App\Http\Controllers\RakBulananImportController;
+use App\Http\Controllers\RekonsiliasiGajiController;
 use App\Http\Controllers\RincianPenghasilanController;
 use App\Http\Controllers\RincianRealisasiController;
 use App\Http\Controllers\SegeraHadirController;
@@ -181,6 +182,23 @@ Route::middleware('auth.or.guest')->group(function () {
         ->middleware(['menu-akses:gt-cetak', 'role:superadmin'])->name('gaji-tunjangan.rincian.ttd.store');
     Route::delete('/rincian-penghasilan/penandatangan/{penandatangan}', [RincianPenghasilanController::class, 'hapusPenandatangan'])
         ->middleware(['menu-akses:gt-cetak', 'role:superadmin'])->name('gaji-tunjangan.rincian.ttd.destroy');
+
+    /*
+     * Rekonsiliasi Gaji Induk: Status Tunjangan Keluarga yang dikunci di awal
+     * bulan dibandingkan dengan status yang tersirat dari nominal gajinya.
+     *
+     * Halamannya dijaga menu-akses:gt-rekon (superadmin & Bendahara
+     * Pengeluaran), tetapi mengunci/menyunting/menghapus lognya HANYA
+     * superadmin - dijaga middleware sekaligus diperiksa lagi di controller.
+     */
+    Route::get('/rekonsiliasi-gaji', [RekonsiliasiGajiController::class, 'index'])
+        ->middleware('menu-akses:gt-rekon')->name('gaji-tunjangan.rekonsiliasi');
+    Route::post('/rekonsiliasi-gaji/kunci', [RekonsiliasiGajiController::class, 'kunci'])
+        ->middleware(['menu-akses:gt-rekon', 'role:superadmin'])->name('gaji-tunjangan.rekonsiliasi.kunci');
+    Route::put('/rekonsiliasi-gaji/baris/{baris}', [RekonsiliasiGajiController::class, 'sunting'])
+        ->middleware(['menu-akses:gt-rekon', 'role:superadmin'])->name('gaji-tunjangan.rekonsiliasi.sunting');
+    Route::delete('/rekonsiliasi-gaji/{kunci}', [RekonsiliasiGajiController::class, 'hapus'])
+        ->middleware(['menu-akses:gt-rekon', 'role:superadmin'])->name('gaji-tunjangan.rekonsiliasi.hapus');
 
     // Daftar Rincian Penghasilan: hanya role pengelola (lihat gt-daftar di
     // config/akses.php). Penghapusan dijaga ulang di controller.
