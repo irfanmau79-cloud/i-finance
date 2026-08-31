@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'pangkat',
     'bidang',
     'rekening',
+    'nomor_handphone',
     'aktif',
     'pegawai_id',
 ])]

@@ -152,11 +152,13 @@ class TunjanganKeluargaController extends Controller
             'status_kepegawaian' => ['required', Rule::in(Pegawai::STATUS_KEPEGAWAIAN)],
             'bidang' => ['required', 'string', 'max:100'],
             'rekening' => ['nullable', 'string', 'max:100'],
+            'nomor_handphone' => ['nullable', 'string', 'max:30'],
         ], [], [
             'nip' => 'NIP',
             'periode_kgb' => 'Periode KGB',
             'status_kepegawaian' => 'Status Kepegawaian',
             'bidang' => 'Unit Kerja',
+            'nomor_handphone' => 'Nomor Handphone',
         ]);
 
         $data['aktif'] = $request->boolean('aktif', true);

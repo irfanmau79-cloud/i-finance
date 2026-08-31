@@ -10,9 +10,9 @@ use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 
 /**
  * Baca file upload Manajemen Data > Import Vendor. Header kolom mengikuti
- * persis output VendorExport: Nama, Rekening, NPWP, Status PKP, Jenis
- * Usaha, Aktif - supaya export bisa dipakai langsung sebagai template
- * import. WithHeadingRow men-slug header jadi key array.
+ * persis output VendorExport: Nama, Rekening, Nomor Handphone, NPWP,
+ * Status PKP, Jenis Usaha, Aktif - supaya export bisa dipakai langsung
+ * sebagai template import. WithHeadingRow men-slug header jadi key array.
  */
 class VendorUploadImport implements ToCollection, WithHeadingRow, WithMultipleSheets
 {

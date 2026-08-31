@@ -109,6 +109,39 @@ class DataKepegawaianTest extends TestCase
         $this->assertSame(Pegawai::STATUS_PPPK_PARUH, $pegawai->status_kepegawaian);
     }
 
+    /**
+     * Kolom pegawai.nomor_handphone sudah lama ada di basis data tetapi belum
+     * pernah punya isian. Fitur Kirim Notifikasi di Data NPD bergantung
+     * padanya, jadi Data Pegawai kini menyimpannya dan menampilkan nomor yang
+     * masih kosong.
+     */
+    public function test_nomor_handphone_disimpan_dan_yang_kosong_ditandai_di_daftar(): void
+    {
+        $admin = $this->user('superadmin');
+
+        $this->actingAs($admin)->post(route('tunjangan.pegawai.store'), [
+            'nama' => 'Siti Aminah',
+            'nip' => '199203032015032002',
+            'jabatan' => 'Auditor Ahli Pertama',
+            'bidang' => 'Sekretariat',
+            'status_kepegawaian' => Pegawai::STATUS_PNS,
+            'nomor_handphone' => '0812-3456-7890',
+        ])->assertRedirect(route('tunjangan.pegawai.index'));
+
+        $pegawai = Pegawai::where('nip', '199203032015032002')->sole();
+        $this->assertSame('0812-3456-7890', $pegawai->nomor_handphone);
+
+        // Ditampilkan dalam bentuk yang seragam, bukan apa adanya.
+        $this->actingAs($admin)->get(route('tunjangan.pegawai.index'))
+            ->assertOk()
+            ->assertSee('Nomor Handphone')
+            ->assertSee('+62 812-3456-7890');
+
+        // Pegawai tanpa nomor ditandai jelas supaya kekosongannya kelihatan.
+        $this->pegawai('Budi Santoso', '199001012010011001');
+        $this->actingAs($admin)->get(route('tunjangan.pegawai.index'))->assertOk()->assertSee('Belum diisi');
+    }
+
     public function test_status_kepegawaian_di_luar_daftar_ditolak(): void
     {
         $this->actingAs($this->user('superadmin'))->post(route('tunjangan.pegawai.store'), [

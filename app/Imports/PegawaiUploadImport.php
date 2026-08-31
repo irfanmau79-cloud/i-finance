@@ -11,8 +11,9 @@ use Maatwebsite\Excel\Concerns\WithMultipleSheets;
 /**
  * Baca file upload Manajemen Data > Import Pegawai. Header kolom mengikuti
  * persis output PegawaiExport: Nama, NIP, Jabatan, Bidang, Golongan,
- * Pangkat, Rekening, Aktif - supaya export bisa dipakai langsung sebagai
- * template import. WithHeadingRow men-slug header jadi key array.
+ * Pangkat, Rekening, Nomor Handphone, Aktif - supaya export bisa dipakai
+ * langsung sebagai template import. WithHeadingRow men-slug header jadi key
+ * array.
  */
 class PegawaiUploadImport implements ToCollection, WithHeadingRow, WithMultipleSheets
 {

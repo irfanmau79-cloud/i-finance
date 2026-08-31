@@ -13,6 +13,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'alasan',
     'nama',
     'rekening',
+    'nomor_handphone',
     'npwp',
     'pkp',
     'jenis_usaha',

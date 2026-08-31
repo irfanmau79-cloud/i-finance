@@ -12,6 +12,7 @@ use App\Models\NpdPeserta;
 use App\Models\NpdTim;
 use App\Models\Pengembalian;
 use App\Models\User;
+use App\Services\NotifikasiNpdService;
 use App\Support\CoretanPdf;
 use App\Support\MpdfFont;
 use App\Support\PdfGabung;
@@ -49,14 +50,20 @@ class NpdController extends Controller
     public function dataNpd(Request $request)
     {
         $npds = Npd::query()
-            ->with(['masterAnggaran.tagging', 'penerima', 'tim', 'narasumber', 'peserta', 'historiStatus'])
+            ->with(['masterAnggaran.tagging', 'penerima', 'tim', 'narasumber', 'peserta', 'historiStatus', 'suratPerintah'])
+            ->withCount('notifikasi')
             ->orderByDesc('tanggal_npd')
             ->orderByDesc('id')
             ->get();
 
         $batasDraft = now()->subDays(7);
 
-        $baris = $npds->map(function (Npd $npd) use ($batasDraft) {
+        // Tombol Kirim Notifikasi hanya untuk pelaku pencairan; NPD-nya sendiri
+        // baru boleh dinotifikasi setelah berstatus Selesai. Keduanya diperiksa
+        // ulang di NpdNotifikasiController - ini semata menentukan tampilan.
+        $bolehNotifikasi = in_array($request->user()->role, NotifikasiNpdService::ROLE_BOLEH, true);
+
+        $baris = $npds->map(function (Npd $npd) use ($batasDraft, $bolehNotifikasi) {
             // "Draft mengendap": dibuat PPTK, umurnya lebih dari 7 hari, dan
             // BELUM pernah ada aksi apa pun. Begitu diteruskan ke BPP, histori
             // status terisi - jadi baris ini otomatis keluar dari kategori,
@@ -81,6 +88,9 @@ class NpdController extends Controller
                 'umur_hari' => $npd->created_at?->diffInDays(now()) ?? 0,
                 'draft_mengendap' => $mengendap,
                 'url' => route('npd.show', $npd),
+                'boleh_notifikasi' => $bolehNotifikasi && $npd->status === NotifikasiNpdService::STATUS_BOLEH,
+                'notifikasi_url' => route('npd.notifikasi.preview', $npd),
+                'notifikasi_terkirim' => (int) $npd->notifikasi_count,
             ];
         })->values();
 

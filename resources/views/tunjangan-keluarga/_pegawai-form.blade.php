@@ -55,6 +55,11 @@
         <input id="rekening" name="rekening" value="{{ old('rekening', $p->rekening ?? '') }}" placeholder="Opsional" inputmode="numeric">
     </div>
     <div class="fg">
+        <label class="fl" for="nomor_handphone">Nomor Handphone</label>
+        <input id="nomor_handphone" name="nomor_handphone" value="{{ old('nomor_handphone', $p->nomor_handphone ?? '') }}" placeholder="Contoh: 081234567890" inputmode="tel">
+        <div class="sub" style="margin-top:4px;">Dipakai fitur Kirim Notifikasi WhatsApp di Data NPD. Boleh ditulis 08&hellip; atau +62&hellip;</div>
+    </div>
+    <div class="fg">
         <label class="fl" for="aktif">Status Aktif</label>
         <select id="aktif" name="aktif">
             <option value="1" @selected(old('aktif', ($p->aktif ?? true) ? '1' : '0') == '1')>Aktif</option>

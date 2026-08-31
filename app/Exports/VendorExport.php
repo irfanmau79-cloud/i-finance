@@ -25,7 +25,7 @@ class VendorExport extends DataManagementExport implements PunyaPetunjukKolom
 
     public function headings(): array
     {
-        return ['Nama', 'Rekening', 'NPWP', 'Status PKP', 'Jenis Usaha', 'Aktif'];
+        return ['Nama', 'Rekening', 'Nomor Handphone', 'NPWP', 'Status PKP', 'Jenis Usaha', 'Aktif'];
     }
 
     public function map($row): array
@@ -33,6 +33,7 @@ class VendorExport extends DataManagementExport implements PunyaPetunjukKolom
         return [
             $row->nama,
             $row->rekening,
+            $row->nomor_handphone,
             $row->npwp,
             $row->pkp ? 'PKP' : 'Non-PKP',
             $row->jenis_usaha,

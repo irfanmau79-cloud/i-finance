@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Model;
 #[Fillable([
     'nama',
     'rekening',
+    'nomor_handphone',
     'npwp',
     'pkp',
     'jenis_usaha',

@@ -13,6 +13,7 @@ use App\Http\Controllers\NpdController;
 use App\Http\Controllers\NpdHistorisImportController;
 use App\Http\Controllers\NpdKontribusiDiklatController;
 use App\Http\Controllers\NpdNarasumberController;
+use App\Http\Controllers\NpdNotifikasiController;
 use App\Http\Controllers\NpdPdController;
 use App\Http\Controllers\NpdTransportController;
 use App\Http\Controllers\PegawaiImportController;
@@ -230,10 +231,15 @@ Route::middleware('auth.or.guest')->group(function () {
                 ->name('segera.'.$menuSegera);
         }
 
-        Route::get('/npd/data', [NpdController::class, 'dataNpd'])
-            ->middleware('menu-akses:npd-data')->name('npd.data');
         Route::get('/npd', [NpdController::class, 'index'])->name('npd.index');
     });
+
+    // Data NPD berdiri sendiri di luar grup di atas karena BPP ikut membukanya
+    // (di sanalah aksi Kirim Notifikasi pencairan berada - BPP yang menandai
+    // NPD Selesai), sementara Pembuatan NPD tetap tertutup untuk BPP.
+    Route::get('/npd/data', [NpdController::class, 'dataNpd'])
+        ->middleware(['role:superadmin,bendahara_pengeluaran,pptk,bpp', 'menu-akses:npd-data'])
+        ->name('npd.data');
 
     // Pembuatan NPD: hanya superadmin dan PPTK.
     Route::middleware('role:superadmin,pptk')->group(function () {
@@ -295,6 +301,14 @@ Route::middleware('auth.or.guest')->group(function () {
     // Transisi workflow tidak diberikan kepada Bendahara Pengeluaran.
     Route::middleware('role:superadmin,pptk,bpp,verifikator')->group(function () {
         Route::post('/npd/{npd}/transisi', [NpdController::class, 'transisi'])->name('npd.transisi');
+    });
+
+    // Kirim Notifikasi WhatsApp pencairan NPD (Data NPD). Pelaku pencairan
+    // saja: BPP yang menandai Selesai, BP sebagai pemantau OPD, superadmin.
+    // Status NPD ikut diperiksa di controller, bukan cuma di tampilan.
+    Route::middleware('role:superadmin,bendahara_pengeluaran,bpp')->group(function () {
+        Route::get('/npd/{npd}/notifikasi', [NpdNotifikasiController::class, 'preview'])->name('npd.notifikasi.preview');
+        Route::post('/npd/{npd}/notifikasi', [NpdNotifikasiController::class, 'store'])->name('npd.notifikasi.store');
     });
 
     // Data SPM: khusus superadmin dan Bendahara Pengeluaran.

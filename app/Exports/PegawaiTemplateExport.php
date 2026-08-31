@@ -25,6 +25,7 @@ class PegawaiTemplateExport implements FromArray, PunyaPetunjukKolom, ShouldAuto
         ['Golongan', 'Tidak', 'Teks', 'Golongan kepegawaian.', 'III/c'],
         ['Pangkat', 'Tidak', 'Teks', 'Pangkat kepegawaian.', 'Penata'],
         ['Rekening', 'Tidak', 'Teks', 'Nomor rekening bank untuk transfer. Format sebagai TEKS supaya nol di depan tidak hilang.', '0012345678'],
+        ['Nomor Handphone', 'Tidak', 'Teks', 'Nomor WhatsApp pegawai, dipakai fitur Kirim Notifikasi di Data NPD. Boleh ditulis 08... atau +62... Sel yang DIKOSONGKAN tidak menghapus nomor yang sudah tersimpan.', '081234567890'],
         ['Aktif', 'Tidak', 'Ya / Tidak', 'Status kepegawaian. Hanya "Tidak" yang menonaktifkan; sel kosong dianggap Aktif. Pegawai non-aktif tidak muncul di pilihan penerima.', 'Ya'],
     ];
 
@@ -38,7 +39,7 @@ class PegawaiTemplateExport implements FromArray, PunyaPetunjukKolom, ShouldAuto
         return self::PETUNJUK;
     }
 
-    public const HEADERS = ['Nama', 'NIP', 'Jabatan', 'Bidang', 'Golongan', 'Pangkat', 'Rekening', 'Aktif'];
+    public const HEADERS = ['Nama', 'NIP', 'Jabatan', 'Bidang', 'Golongan', 'Pangkat', 'Rekening', 'Nomor Handphone', 'Aktif'];
 
     public function array(): array
     {
@@ -49,7 +50,7 @@ class PegawaiTemplateExport implements FromArray, PunyaPetunjukKolom, ShouldAuto
     {
         return [AfterSheet::class => function (AfterSheet $event) {
             $sheet = $event->sheet->getDelegate();
-            $lastCol = 'H';
+            $lastCol = 'I';
             $sheet->getStyle("A1:{$lastCol}1")->getFont()->setBold(true);
             $sheet->getStyle("A1:{$lastCol}1")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setARGB('FFDCE6F1');
             $sheet->freezePane('A2');

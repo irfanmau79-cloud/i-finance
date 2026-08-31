@@ -25,7 +25,7 @@ class PegawaiExport extends DataManagementExport implements PunyaPetunjukKolom
 
     public function headings(): array
     {
-        return ['Nama', 'NIP', 'Jabatan', 'Bidang', 'Golongan', 'Pangkat', 'Rekening', 'Aktif'];
+        return ['Nama', 'NIP', 'Jabatan', 'Bidang', 'Golongan', 'Pangkat', 'Rekening', 'Nomor Handphone', 'Aktif'];
     }
 
     public function map($row): array
@@ -38,6 +38,7 @@ class PegawaiExport extends DataManagementExport implements PunyaPetunjukKolom
             $row->golongan,
             $row->pangkat,
             $row->rekening,
+            $row->nomor_handphone,
             $row->aktif ? 'Ya' : 'Tidak',
         ];
     }

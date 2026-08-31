@@ -113,6 +113,7 @@ class VendorImport extends Model
                 $hasil = self::evaluasiBaris([
                     'nama' => $row['nama'] ?? null,
                     'rekening' => $row['rekening'] ?? null,
+                    'nomor_handphone' => $row['nomor_handphone'] ?? null,
                     'npwp' => $row['npwp'] ?? null,
                     'status_pkp' => $row['status_pkp'] ?? null,
                     'jenis_usaha' => $row['jenis_usaha'] ?? null,
@@ -142,6 +143,7 @@ class VendorImport extends Model
                     'alasan' => $hasil['alasan'],
                     'nama' => $hasil['nama'],
                     'rekening' => $hasil['rekening'],
+                    'nomor_handphone' => $hasil['nomor_handphone'],
                     'npwp' => $hasil['npwp'],
                     'pkp' => $hasil['pkp'],
                     'jenis_usaha' => $hasil['jenis_usaha'],
@@ -184,6 +186,7 @@ class VendorImport extends Model
                 $hasil = self::evaluasiBaris([
                     'nama' => $baris->nama,
                     'rekening' => $baris->rekening,
+                    'nomor_handphone' => $baris->nomor_handphone,
                     'npwp' => $baris->npwp,
                     'status_pkp' => $baris->pkp ? 'pkp' : 'non-pkp',
                     'jenis_usaha' => $baris->jenis_usaha,
@@ -197,17 +200,24 @@ class VendorImport extends Model
                     continue;
                 }
 
+                $atribut = [
+                    'rekening' => $hasil['rekening'],
+                    'npwp' => $hasil['npwp'],
+                    'pkp' => $hasil['pkp'],
+                    'jenis_usaha' => $hasil['jenis_usaha'],
+                    'aktif' => $hasil['aktif'],
+                ];
+
+                // Nomor handphone sengaja TIDAK ikut ditimpa saat selnya kosong:
+                // export lama (sebelum kolom ini ada) masih dipakai sebagai
+                // berkas import, dan re-import berkas semacam itu tidak boleh
+                // diam-diam menghapus nomor yang sudah dikumpulkan.
+                if ($hasil['nomor_handphone'] !== null) {
+                    $atribut['nomor_handphone'] = $hasil['nomor_handphone'];
+                }
+
                 try {
-                    $model = Vendor::updateOrCreate(
-                        ['nama' => $hasil['nama']],
-                        [
-                            'rekening' => $hasil['rekening'],
-                            'npwp' => $hasil['npwp'],
-                            'pkp' => $hasil['pkp'],
-                            'jenis_usaha' => $hasil['jenis_usaha'],
-                            'aktif' => $hasil['aktif'],
-                        ]
-                    );
+                    $model = Vendor::updateOrCreate(['nama' => $hasil['nama']], $atribut);
                 } catch (Throwable $e) {
                     throw new RuntimeException("Baris {$baris->nomor_baris}: gagal disimpan - {$e->getMessage()}");
                 }
@@ -242,6 +252,7 @@ class VendorImport extends Model
     {
         $nama = trim((string) ($mentah['nama'] ?? ''));
         $rekening = trim((string) ($mentah['rekening'] ?? ''));
+        $nomorHandphone = trim((string) ($mentah['nomor_handphone'] ?? ''));
         $npwp = trim((string) ($mentah['npwp'] ?? ''));
         $statusPkp = mb_strtolower(trim((string) ($mentah['status_pkp'] ?? '')));
         $pkp = $statusPkp === 'pkp';
@@ -251,6 +262,7 @@ class VendorImport extends Model
         $dasar = [
             'nama' => $nama,
             'rekening' => $rekening !== '' ? $rekening : null,
+            'nomor_handphone' => $nomorHandphone !== '' ? $nomorHandphone : null,
             'npwp' => $npwp !== '' ? $npwp : null,
             'pkp' => $pkp,
             'jenis_usaha' => $jenisUsaha !== '' ? $jenisUsaha : null,

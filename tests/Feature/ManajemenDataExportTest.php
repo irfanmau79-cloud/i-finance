@@ -334,15 +334,15 @@ class ManajemenDataExportTest extends TestCase
         }
 
         $pegawaiExport = new PegawaiExport;
-        $this->assertSame(['Nama', 'NIP', 'Jabatan', 'Bidang', 'Golongan', 'Pangkat', 'Rekening', 'Aktif'], $pegawaiExport->headings());
+        $this->assertSame(['Nama', 'NIP', 'Jabatan', 'Bidang', 'Golongan', 'Pangkat', 'Rekening', 'Nomor Handphone', 'Aktif'], $pegawaiExport->headings());
         $this->assertSame(1, $pegawaiExport->jumlahBaris());
 
         $vendorExport = new VendorExport;
-        $this->assertSame(['Nama', 'Rekening', 'NPWP', 'Status PKP', 'Jenis Usaha', 'Aktif'], $vendorExport->headings());
+        $this->assertSame(['Nama', 'Rekening', 'Nomor Handphone', 'NPWP', 'Status PKP', 'Jenis Usaha', 'Aktif'], $vendorExport->headings());
         $this->assertSame(1, $vendorExport->jumlahBaris());
         $mappedVendor = $vendorExport->map($vendorExport->query()->first());
-        $this->assertSame('PKP', $mappedVendor[3]);
-        $this->assertSame('Percetakan', $mappedVendor[4]);
+        $this->assertSame('PKP', $mappedVendor[4]);
+        $this->assertSame('Percetakan', $mappedVendor[5]);
     }
 
     public function test_export_tunjangan_keluarga_mencakup_semua_pegawai_aktif_termasuk_yang_belum_isi_data(): void

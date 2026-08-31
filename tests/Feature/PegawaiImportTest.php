@@ -18,7 +18,7 @@ class PegawaiImportTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const HEADER = ['Nama', 'NIP', 'Jabatan', 'Bidang', 'Golongan', 'Pangkat', 'Rekening', 'Aktif'];
+    private const HEADER = ['Nama', 'NIP', 'Jabatan', 'Bidang', 'Golongan', 'Pangkat', 'Rekening', 'Nomor Handphone', 'Aktif'];
 
     private function buatUser(string $role, string $username = 'penguji'): User
     {
@@ -54,6 +54,7 @@ class PegawaiImportTest extends TestCase
             'golongan' => 'III/c',
             'pangkat' => 'Penata',
             'rekening' => '001-2233-4455',
+            'nomor_handphone' => '081234567890',
             'aktif' => 'Ya',
         ], $override));
     }
@@ -191,6 +192,32 @@ class PegawaiImportTest extends TestCase
         $ditolak = $import->baris()->where('aksi', PegawaiImportRow::AKSI_DITOLAK)->pluck('alasan');
         $this->assertTrue($ditolak->contains(fn ($a) => str_contains($a, 'wajib diisi')));
         $this->assertTrue($ditolak->contains(fn ($a) => str_contains($a, 'Duplikat NIP')));
+    }
+
+    /**
+     * Sama seperti pada import Vendor: sel Nomor Handphone yang dikosongkan
+     * TIDAK menghapus nomor yang sudah tersimpan, supaya re-import berkas
+     * export lama tidak mengosongkan data yang sudah dikumpulkan untuk fitur
+     * Kirim Notifikasi di Data NPD.
+     */
+    public function test_nomor_handphone_tersimpan_dan_sel_kosong_tidak_menghapus_nomor_lama(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+
+        $file = $this->buatFileExcel([$this->baseRow(['nomor_handphone' => '0812-3456-7890'])]);
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.pegawai.store'), ['file' => $file]);
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.pegawai.konfirmasi', PegawaiImport::latest('id')->firstOrFail()));
+
+        $pegawai = Pegawai::where('nip', '198501012010011001')->firstOrFail();
+        $this->assertSame('0812-3456-7890', $pegawai->nomor_handphone);
+
+        $file = $this->buatFileExcel([$this->baseRow(['nomor_handphone' => '', 'jabatan' => 'Auditor Madya'])]);
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.pegawai.store'), ['file' => $file]);
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.pegawai.konfirmasi', PegawaiImport::latest('id')->firstOrFail()));
+
+        $pegawai->refresh();
+        $this->assertSame('Auditor Madya', $pegawai->jabatan);
+        $this->assertSame('0812-3456-7890', $pegawai->nomor_handphone);
     }
 
     public function test_batalkan_staging_menghapus_import(): void

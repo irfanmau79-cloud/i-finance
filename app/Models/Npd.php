@@ -279,6 +279,12 @@ class Npd extends Model
         return $this->hasMany(NpdHistoriStatus::class)->orderBy('nomor_urut');
     }
 
+    /** Jejak Kirim Notifikasi WhatsApp pencairan (lihat NotifikasiNpdService). */
+    public function notifikasi(): HasMany
+    {
+        return $this->hasMany(NpdNotifikasi::class)->orderByDesc('id');
+    }
+
     /** Coretan Verifikator terkumulatif terbaru (lihat CoretanPdf::overlayHtml). */
     public function coretanJsonTerbaru(): ?string
     {

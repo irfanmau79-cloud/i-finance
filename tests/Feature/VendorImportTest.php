@@ -18,7 +18,7 @@ class VendorImportTest extends TestCase
 {
     use RefreshDatabase;
 
-    private const HEADER = ['Nama', 'Rekening', 'NPWP', 'Status PKP', 'Jenis Usaha', 'Aktif'];
+    private const HEADER = ['Nama', 'Rekening', 'Nomor Handphone', 'NPWP', 'Status PKP', 'Jenis Usaha', 'Aktif'];
 
     private function buatUser(string $role, string $username = 'penguji'): User
     {
@@ -49,6 +49,7 @@ class VendorImportTest extends TestCase
         return array_values(array_replace([
             'nama' => 'PT Uji Sejahtera',
             'rekening' => '009-8877',
+            'nomor_handphone' => '081234567890',
             'npwp' => '01.234.567.8-901.000',
             'status_pkp' => 'PKP',
             'jenis_usaha' => 'Percetakan',
@@ -184,6 +185,34 @@ class VendorImportTest extends TestCase
         $ditolak = $import->baris()->where('aksi', VendorImportRow::AKSI_DITOLAK)->pluck('alasan');
         $this->assertTrue($ditolak->contains(fn ($a) => str_contains($a, 'Nama kosong')));
         $this->assertTrue($ditolak->contains(fn ($a) => str_contains($a, 'Duplikat Nama')));
+    }
+
+    /**
+     * Nomor handphone vendor dipakai fitur Kirim Notifikasi di Data NPD, dan
+     * hanya bisa diisi lewat import (vendor tidak punya halaman CRUD). Sel yang
+     * dikosongkan sengaja TIDAK menghapus nomor yang sudah tersimpan, supaya
+     * re-import berkas export lama - yang belum punya kolom ini - tidak
+     * diam-diam mengosongkan nomor yang sudah dikumpulkan.
+     */
+    public function test_nomor_handphone_tersimpan_dan_sel_kosong_tidak_menghapus_nomor_lama(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+
+        $file = $this->buatFileExcel([$this->baseRow(['nomor_handphone' => '0812-3456-7890'])]);
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.vendor.store'), ['file' => $file]);
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.vendor.konfirmasi', VendorImport::latest('id')->firstOrFail()));
+
+        $vendor = Vendor::where('nama', 'PT Uji Sejahtera')->firstOrFail();
+        $this->assertSame('0812-3456-7890', $vendor->nomor_handphone);
+
+        // Berkas berikutnya memperbarui vendor yang sama tanpa mengisi kolom itu.
+        $file = $this->buatFileExcel([$this->baseRow(['nomor_handphone' => '', 'jenis_usaha' => 'Katering'])]);
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.vendor.store'), ['file' => $file]);
+        $this->actingAs($superadmin)->post(route('manajemen-data.import.vendor.konfirmasi', VendorImport::latest('id')->firstOrFail()));
+
+        $vendor->refresh();
+        $this->assertSame('Katering', $vendor->jenis_usaha);
+        $this->assertSame('0812-3456-7890', $vendor->nomor_handphone);
     }
 
     public function test_batalkan_staging_menghapus_import(): void

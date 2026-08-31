@@ -123,6 +123,7 @@ class PegawaiImport extends Model
                     'pangkat' => $row['pangkat'] ?? null,
                     'bidang' => $row['bidang'] ?? null,
                     'rekening' => $row['rekening'] ?? null,
+                    'nomor_handphone' => $row['nomor_handphone'] ?? null,
                     'aktif' => $row['aktif'] ?? null,
                 ]);
 
@@ -154,6 +155,7 @@ class PegawaiImport extends Model
                     'pangkat' => $hasil['pangkat'],
                     'bidang' => $hasil['bidang'],
                     'rekening' => $hasil['rekening'],
+                    'nomor_handphone' => $hasil['nomor_handphone'],
                     'aktif' => $hasil['aktif'],
                     'pegawai_id' => $hasil['pegawai_id'],
                 ]);
@@ -198,6 +200,7 @@ class PegawaiImport extends Model
                     'pangkat' => $baris->pangkat,
                     'bidang' => $baris->bidang,
                     'rekening' => $baris->rekening,
+                    'nomor_handphone' => $baris->nomor_handphone,
                     'aktif' => $baris->aktif ? 'ya' : 'tidak',
                 ]);
 
@@ -208,19 +211,26 @@ class PegawaiImport extends Model
                     continue;
                 }
 
+                $atribut = [
+                    'nama' => $hasil['nama'],
+                    'jabatan' => $hasil['jabatan'],
+                    'golongan' => $hasil['golongan'],
+                    'pangkat' => $hasil['pangkat'],
+                    'bidang' => $hasil['bidang'],
+                    'rekening' => $hasil['rekening'],
+                    'aktif' => $hasil['aktif'],
+                ];
+
+                // Nomor handphone sengaja TIDAK ikut ditimpa saat selnya kosong:
+                // export lama (sebelum kolom ini ada) masih dipakai sebagai
+                // berkas import, dan re-import berkas semacam itu tidak boleh
+                // diam-diam menghapus nomor yang sudah dikumpulkan.
+                if ($hasil['nomor_handphone'] !== null) {
+                    $atribut['nomor_handphone'] = $hasil['nomor_handphone'];
+                }
+
                 try {
-                    $model = Pegawai::updateOrCreate(
-                        ['nip' => $hasil['nip']],
-                        [
-                            'nama' => $hasil['nama'],
-                            'jabatan' => $hasil['jabatan'],
-                            'golongan' => $hasil['golongan'],
-                            'pangkat' => $hasil['pangkat'],
-                            'bidang' => $hasil['bidang'],
-                            'rekening' => $hasil['rekening'],
-                            'aktif' => $hasil['aktif'],
-                        ]
-                    );
+                    $model = Pegawai::updateOrCreate(['nip' => $hasil['nip']], $atribut);
                 } catch (Throwable $e) {
                     throw new RuntimeException("Baris {$baris->nomor_baris}: gagal disimpan - {$e->getMessage()}");
                 }
@@ -261,6 +271,7 @@ class PegawaiImport extends Model
         $pangkat = trim((string) ($mentah['pangkat'] ?? ''));
         $bidang = trim((string) ($mentah['bidang'] ?? ''));
         $rekening = trim((string) ($mentah['rekening'] ?? ''));
+        $nomorHandphone = trim((string) ($mentah['nomor_handphone'] ?? ''));
         $aktif = mb_strtolower(trim((string) ($mentah['aktif'] ?? ''))) !== 'tidak';
 
         $dasar = [
@@ -271,6 +282,7 @@ class PegawaiImport extends Model
             'pangkat' => $pangkat !== '' ? $pangkat : null,
             'bidang' => $bidang,
             'rekening' => $rekening !== '' ? $rekening : null,
+            'nomor_handphone' => $nomorHandphone !== '' ? $nomorHandphone : null,
             'aktif' => $aktif,
             'pegawai_id' => null,
         ];

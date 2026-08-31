@@ -47,6 +47,28 @@
     border-radius:8px;background:var(--navy);color:#fff;transition:.15s;}
   .dn-lihat:hover{background:var(--navy-d);transform:translateY(-1px);box-shadow:0 4px 10px rgba(21,49,74,.2);}
   .dn-lihat svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2;}
+  /* Aksi berisi dua tombol: Lihat dan Kirim Notifikasi WhatsApp. */
+  .dn-aksi{display:inline-flex;align-items:center;justify-content:center;gap:6px;}
+  .dn-wa{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid #1f9d55;
+    border-radius:8px;background:#fff;color:#1f9d55;cursor:pointer;transition:.15s;padding:0;position:relative;}
+  .dn-wa:hover{background:#1f9d55;color:#fff;transform:translateY(-1px);box-shadow:0 4px 10px rgba(31,157,85,.22);}
+  .dn-wa svg{width:15px;height:15px;fill:currentColor;stroke:none;}
+  /* Titik kecil penanda "sudah pernah dikirim", supaya kiriman ganda kelihatan sebelum diklik. */
+  .dn-wa .dn-wa-dot{position:absolute;top:-3px;right:-3px;min-width:14px;height:14px;padding:0 3px;border-radius:8px;
+    background:var(--navy);color:#fff;font-size:9px;font-weight:700;line-height:14px;box-sizing:border-box;}
+  .wa-baris{display:flex;gap:10px;padding:9px 0;border-bottom:1px solid var(--line);font-size:13px;}
+  .wa-baris:last-child{border-bottom:0;}
+  .wa-baris .k{flex:0 0 120px;color:var(--mut);}
+  .wa-baris .v{flex:1;color:var(--ink);font-weight:600;word-break:break-word;}
+  .wa-pesan{white-space:pre-wrap;background:#f6f8fb;border:1px solid var(--line);border-radius:10px;padding:12px 14px;
+    font-size:13px;line-height:1.6;color:var(--ink);margin-top:4px;}
+  .wa-peringatan{display:flex;gap:10px;align-items:flex-start;background:#fdf6e7;border:1px solid #e6d3a3;border-radius:10px;
+    padding:12px 14px;font-size:13px;line-height:1.55;color:#7a5b12;margin-top:12px;}
+  .wa-peringatan svg{flex:0 0 16px;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;margin-top:2px;}
+  .wa-riwayat{margin-top:14px;font-size:12px;color:var(--mut);line-height:1.7;}
+  .btn.wa{background:#1f9d55;border-color:#1f9d55;color:#fff;}
+  .btn.wa:hover{background:#188044;border-color:#188044;}
+  .btn.wa[aria-disabled="true"]{opacity:.5;pointer-events:none;}
   .dn-kaki{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 2px 0;}
   .dn-perpage{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--mut);}
   .dn-perpage select{border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-family:inherit;font-size:12px;background:#fff;}
@@ -136,10 +158,38 @@
   </div>
 </div>
 
+{{-- Kirim Notifikasi WhatsApp: isinya diambil dari server saat tombol ditekan,
+     supaya nomor tujuan & bunyi pesan selalu yang terbaru dan tidak pernah
+     dirakit ulang di sisi tampilan. --}}
+<div class="mdl-ov" id="wa-mdl-ov">
+  <div class="mdl" style="max-width:560px;">
+    <div class="mdl-h">Kirim Notifikasi Pencairan</div>
+    <div class="mdl-b" id="wa-mdl-body"></div>
+    <div class="mdl-f">
+      <button type="button" class="btn" data-wa-tutup>Tutup</button>
+      <a class="btn wa" id="wa-buka" target="_blank" rel="noopener">Buka WhatsApp</a>
+    </div>
+  </div>
+</div>
+
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const semua = {{ Illuminate\Support\Js::from($baris) }};
   const esc = s => { const d = document.createElement('div'); d.textContent = s ?? ''; return d.innerHTML; };
+
+  const IKON_WA = '<svg viewBox="0 0 24 24"><path d="M12.04 2C6.58 2 2.13 6.45 2.13 11.91c0 1.75.46 3.46 1.32 4.96L2 22l5.25-1.38a9.9 9.9 0 0 0 4.79 1.22h.01c5.46 0 9.9-4.45 9.9-9.91 0-2.65-1.03-5.14-2.9-7.01A9.82 9.82 0 0 0 12.04 2Zm5.8 14.16c-.25.69-1.44 1.32-1.99 1.37-.53.05-1.02.24-3.44-.72-2.9-1.14-4.74-4.1-4.88-4.29-.14-.19-1.16-1.55-1.16-2.96 0-1.41.74-2.1 1-2.39.26-.29.57-.36.76-.36.19 0 .38 0 .55.01.18.01.41-.07.64.49.25.6.83 2.06.9 2.21.07.15.12.32.02.51-.09.19-.14.31-.28.48-.14.17-.3.37-.42.5-.14.14-.29.29-.12.57.16.29.73 1.2 1.56 1.94 1.07.96 1.98 1.25 2.26 1.39.29.14.45.12.62-.07.17-.19.72-.84.91-1.13.19-.29.38-.24.64-.14.26.09 1.66.78 1.94.93.29.14.48.21.55.33.07.12.07.69-.18 1.38Z"/></svg>';
+
+  // Tombol Kirim Notifikasi hanya digambar untuk baris yang server izinkan
+  // (boleh_notifikasi). Angka kecil di pojoknya = sudah pernah dikirim.
+  function tombolNotifikasi(r) {
+    const judul = r.notifikasi_terkirim > 0
+      ? 'Kirim Notifikasi WhatsApp (sudah dikirim ' + r.notifikasi_terkirim + ' kali)'
+      : 'Kirim Notifikasi WhatsApp';
+
+    return '<button type="button" class="dn-wa" data-notif="' + r.notifikasi_url + '" title="' + esc(judul) + '" aria-label="' + esc(judul) + '">' +
+      IKON_WA + (r.notifikasi_terkirim > 0 ? '<span class="dn-wa-dot">' + r.notifikasi_terkirim + '</span>' : '') +
+    '</button>';
+  }
 
   const saringKolom = Array.from(document.querySelectorAll('#dn-tabel tr.kolom-saring input[data-kolom]'));
   const tombolDraft = document.getElementById('kpi-draft');
@@ -185,8 +235,11 @@ document.addEventListener('DOMContentLoaded', function () {
           '<span class="badge ' + esc(r.badge) + '">' + esc(r.status) + '</span>' +
           (r.draft_mengendap ? '<span class="badge st-dikembalikan" title="Sudah ' + r.umur_hari + ' hari tanpa aksi">' + r.umur_hari + ' hari</span>' : '') +
         '</div></td>' +
-        '<td style="text-align:center;"><a class="dn-lihat" href="' + r.url + '" title="Lihat NPD" aria-label="Lihat NPD">' +
-          '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></a></td>' +
+        '<td style="text-align:center;"><div class="dn-aksi">' +
+          '<a class="dn-lihat" href="' + r.url + '" title="Lihat NPD" aria-label="Lihat NPD">' +
+          '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></a>' +
+          (r.boleh_notifikasi ? tombolNotifikasi(r) : '') +
+        '</div></td>' +
       '</tr>'
     ).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--mut);padding:24px;">Tidak ada data.</td></tr>';
 
@@ -249,6 +302,112 @@ document.addEventListener('DOMContentLoaded', function () {
   document.getElementById('dn-perpage').addEventListener('change', function () {
     perHalaman = Number(this.value);
     perbarui();
+  });
+
+  /* ---------- Kirim Notifikasi WhatsApp ---------- */
+
+  const waOv = document.getElementById('wa-mdl-ov');
+  const waBody = document.getElementById('wa-mdl-body');
+  const waBuka = document.getElementById('wa-buka');
+  const csrf = document.querySelector('meta[name="csrf-token"]').content;
+  const IKON_PERINGATAN = '<svg viewBox="0 0 24 24"><path d="M10.29 3.86 1.82 18a2 2 0 0 0 1.71 3h16.94a2 2 0 0 0 1.71-3L13.71 3.86a2 2 0 0 0-3.42 0z"/><line x1="12" y1="9" x2="12" y2="13"/><line x1="12" y1="17" x2="12.01" y2="17"/></svg>';
+  let waUrl = null;
+  let waBaris = null;
+
+  function waTutup() { waOv.classList.remove('show'); }
+
+  document.querySelectorAll('[data-wa-tutup]').forEach(b => b.addEventListener('click', waTutup));
+  waOv.addEventListener('click', e => { if (e.target === waOv) waTutup(); });
+  document.addEventListener('keydown', e => { if (e.key === 'Escape' && waOv.classList.contains('show')) waTutup(); });
+
+  // Didelegasikan ke tbody: barisnya digambar ulang tiap kali menyaring atau
+  // pindah halaman, jadi pendengar per tombol akan ikut hilang.
+  document.getElementById('dn-tbody').addEventListener('click', function (e) {
+    const tombol = e.target.closest('[data-notif]');
+    if (!tombol) return;
+
+    waBaris = semua.find(x => x.notifikasi_url === tombol.dataset.notif) || null;
+    waMuat(tombol.dataset.notif);
+  });
+
+  function waMuat(url) {
+    waUrl = url;
+    waBody.innerHTML = '<div style="padding:16px 0;color:var(--mut);font-size:13px;">Menyiapkan pesan&hellip;</div>';
+    waBuka.style.display = 'none';
+    waOv.classList.add('show');
+
+    fetch(url, {headers: {'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'}})
+      .then(res => res.ok ? res.json() : Promise.reject(res.status))
+      .then(waGambar)
+      .catch(() => {
+        waBody.innerHTML = '<div class="wa-peringatan">' + IKON_PERINGATAN +
+          '<div>Gagal menyiapkan notifikasi. Muat ulang halaman lalu coba lagi.</div></div>';
+      });
+  }
+
+  function waGambar(d) {
+    const t = d.tujuan;
+    let html = '<div class="wa-baris"><div class="k">Nomor NPD</div><div class="v">' + esc(d.nomor_npd) + '</div></div>';
+
+    if (d.nomor_sp) {
+      html += '<div class="wa-baris"><div class="k">Nomor SP</div><div class="v">' + esc(d.nomor_sp) + '</div></div>';
+    }
+
+    html += '<div class="wa-baris"><div class="k">Tujuan Transfer</div><div class="v">' +
+      (t.nama ? esc(t.nama) : '<span style="color:var(--mut);font-weight:400;">Tidak ditemukan</span>') +
+      '<div style="font-weight:400;color:var(--mut);font-size:12px;margin-top:2px;">' + esc(t.sumber) + '</div></div></div>';
+
+    html += '<div class="wa-baris"><div class="k">Nomor WhatsApp</div><div class="v">' +
+      (t.nomor_tampil ? esc(t.nomor_tampil) : '<span style="color:var(--mut);font-weight:400;">Belum ada</span>') + '</div></div>';
+
+    html += '<div style="margin-top:12px;"><div class="k" style="font-size:12px;color:var(--mut);">Isi pesan</div>' +
+      '<div class="wa-pesan">' + esc(d.pesan) + '</div></div>';
+
+    if (!d.tautan) {
+      // Inilah "popup"-nya: pengiriman ditahan, bukan dikirim ke nomor kosong.
+      const pesanNomor = t.nomor
+        ? 'Nomor handphone yang tersimpan (' + esc(t.nomor) + ') tidak dikenali sebagai nomor yang sah.'
+        : (t.nama
+            ? 'Nomor handphone <b>' + esc(t.nama) + '</b> belum diisi.'
+            : 'Penerima tujuan transfer NPD ini tidak ditemukan di Data Pegawai maupun Data Vendor.');
+
+      const jalanKeluar = d.url_ubah_pegawai
+        ? ' <a href="' + d.url_ubah_pegawai + '" style="color:inherit;text-decoration:underline;">Lengkapi di Data Pegawai</a>, lalu buka lagi halaman ini.'
+        : ' Minta superadmin melengkapinya di Data Pegawai (atau Import Vendor untuk penerima vendor) lebih dulu.';
+
+      html += '<div class="wa-peringatan">' + IKON_PERINGATAN + '<div>' + pesanNomor + jalanKeluar + '</div></div>';
+    }
+
+    if (d.riwayat.length) {
+      html += '<div class="wa-riwayat"><b>Sudah pernah dikirim:</b><br>' +
+        d.riwayat.map(r => esc(r.waktu) + ' &mdash; ' + esc(r.oleh) + ' (' + esc(r.nomor) + ')').join('<br>') + '</div>';
+    }
+
+    waBody.innerHTML = html;
+
+    if (d.tautan) {
+      waBuka.href = d.tautan;
+      waBuka.style.display = '';
+      waBuka.textContent = d.riwayat.length ? 'Buka WhatsApp Lagi' : 'Buka WhatsApp';
+    }
+  }
+
+  // Pencatatan jejak dikirim bersamaan dengan tautannya dibuka. Tautan tetap
+  // dibiarkan berjalan apa adanya supaya WhatsApp tidak diblokir peramban.
+  waBuka.addEventListener('click', function () {
+    if (!waUrl) return;
+
+    fetch(waUrl, {
+      method: 'POST',
+      headers: {'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest'},
+    }).then(res => res.ok ? res.json() : Promise.reject(res.status))
+      .then(() => {
+        // Penanda "sudah pernah dikirim" ikut naik tanpa memuat ulang halaman.
+        if (waBaris) waBaris.notifikasi_terkirim += 1;
+        waTutup();
+        perbarui();
+      })
+      .catch(() => {});
   });
 
   perbarui();
