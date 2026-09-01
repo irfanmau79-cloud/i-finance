@@ -2,6 +2,7 @@
 
 use App\Http\Middleware\EnsureAuthenticatedOrGuestLayanan;
 use App\Http\Middleware\EnsureGerbangLayanan;
+use App\Http\Middleware\EnsureRoleBukanBacaSaja;
 use App\Http\Middleware\EnsureUserHasMenuAccess;
 use App\Http\Middleware\EnsureUserHasRole;
 use Illuminate\Foundation\Application;
@@ -22,6 +23,7 @@ return Application::configure(basePath: dirname(__DIR__))
             'menu-akses' => EnsureUserHasMenuAccess::class,
             'auth.or.guest' => EnsureAuthenticatedOrGuestLayanan::class,
             'gerbang-layanan' => EnsureGerbangLayanan::class,
+            'baca-saja' => EnsureRoleBukanBacaSaja::class,
         ]);
     })
     ->withExceptions(function (Exceptions $exceptions): void {

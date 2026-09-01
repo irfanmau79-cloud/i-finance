@@ -196,6 +196,10 @@ class NpdController extends Controller
         [$ruteDaftar, $activeNav] = match ($role) {
             'bpp' => ['npd.persetujuan', 'persetujuan'],
             'verifikator' => ['npd.verifikasi', 'verifikasi'],
+            // Pengawas memantau lewat Data NPD; Pembuatan NPD tidak dibukanya,
+            // jadi tautan kembalinya harus ke sana - bukan ke npd.index yang
+            // akan berujung 403.
+            User::ROLE_PENGAWAS => ['npd.data', 'npd-data'],
             default => ['npd.index', 'npd'],
         };
 

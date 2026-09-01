@@ -13,7 +13,9 @@
     @endif
 
     <div class="tbl-tools">
+        @if (boleh_ubah())
         <a href="{{ route('pengembalian.create') }}" class="btn prim" style="white-space:nowrap;">+ Input Pengembalian</a>
+        @endif
     </div>
 
     <form method="GET" action="{{ route('pengembalian.index') }}" class="tbl-tools">

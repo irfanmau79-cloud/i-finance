@@ -274,9 +274,13 @@
             </table>
         </div>
 
+        @if (boleh_ubah())
         <div style="display:flex;justify-content:flex-end;margin-top:16px;">
             <button type="submit" class="btn prim">Simpan Simulasi</button>
         </div>
+        @else
+        <div class="sub" style="margin-top:16px;">Anda membuka simulasi ini sebagai pemantau &mdash; perubahan tidak dapat disimpan.</div>
+        @endif
     </form>
 </div>
 

@@ -281,6 +281,147 @@ class RoleAccessMatrixTest extends TestCase
         ]);
     }
 
+    // ---------------- Role Pengawas ----------------
+
+    /** Pengawas memantau seluas superadmin: dashboard, realisasi, NPD, SPM, SPJ, jejak audit. */
+    public function test_pengawas_membuka_seluruh_halaman_pemantauan(): void
+    {
+        $pengawas = $this->buatUser(User::ROLE_PENGAWAS);
+
+        foreach ([
+            'dashboard.index',
+            'dashboard.perjalanan.index',
+            'dashboard.spj.index',
+            'tunjangan.dashboard',
+            'tunjangan.monitoring',
+            'rincian.index',
+            'analisis.index',
+            'simulasi-anggaran.index',
+            'npd.data',
+            'spm.up-gu.index',
+            'spm.ls.index',
+            'pengembalian.index',
+            'inventarisasi-spj.index',
+            'surat-perintah.index',
+            'surat-perintah.monitoring',
+            'audit-log.index',
+            'gaji-tunjangan.rekonsiliasi',
+            'profil.show',
+        ] as $rute) {
+            $this->actingAs($pengawas)->get(route($rute))
+                ->assertOk("Pengawas seharusnya bisa memantau {$rute}.");
+        }
+    }
+
+    /** Detail dan cetak NPD terbuka, tetapi tanpa satu pun tombol aksi. */
+    public function test_pengawas_membaca_detail_npd_tanpa_aksi_workflow(): void
+    {
+        $pengawas = $this->buatUser(User::ROLE_PENGAWAS);
+        $npd = $this->buatNpd();
+
+        $this->actingAs($pengawas)->get(route('npd.show', $npd))
+            ->assertOk()
+            ->assertDontSee('Ajukan ke BPP');
+
+        $this->actingAs($pengawas)->get(route('npd.cetak-npd', $npd))->assertOk();
+
+        $this->actingAs($pengawas)->post(route('npd.transisi', $npd), ['aksi' => 'ajukan_bpp'])->assertForbidden();
+        $this->actingAs($pengawas)->post(route('npd.arsip-spj.store', $npd), [])->assertForbidden();
+
+        $this->assertSame('Draft NPD - PPTK', $npd->fresh()->status);
+    }
+
+    /**
+     * Inti role ini: melihat luas, tidak boleh mengubah apa pun. Termasuk rute
+     * yang HALAMANNYA boleh dibuka Pengawas - daftar SPM, Pengembalian,
+     * Simulasi - sehingga aksi ubahnya harus dijaga terpisah dari halamannya.
+     */
+    public function test_pengawas_ditolak_di_setiap_rute_yang_mengubah_data(): void
+    {
+        $pengawas = $this->buatUser(User::ROLE_PENGAWAS);
+
+        $get = [
+            'spm.up-gu.create', 'spm.ls.create',
+            'pengembalian.create',
+            'simulasi-anggaran.create',
+            'surat-perintah.create',
+            'sp.input.create',
+            'npd.bj.create', 'npd.pd.create', 'npd.ns.create',
+            'npd.index', 'npd.persetujuan', 'npd.verifikasi',
+            'users.index', 'pelimpahan.index',
+            'manajemen-data.index',
+            'manajemen-data.import.master-anggaran.create',
+            'manajemen-data.import.npd-historis.create',
+            'tunjangan.pegawai.index', 'tunjangan.data.index', 'tunjangan.import.create',
+            'versi-pagu.index',
+            'gaji-tunjangan.rincian.index',
+        ];
+        foreach ($get as $rute) {
+            $this->actingAs($pengawas)->get(route($rute))
+                ->assertForbidden("Pengawas seharusnya DITOLAK di {$rute}.");
+        }
+
+        $this->actingAs($pengawas)->post(route('spm.up-gu.store'), [])->assertForbidden();
+        $this->actingAs($pengawas)->post(route('simulasi-anggaran.store'), [])->assertForbidden();
+        $this->actingAs($pengawas)->post(route('surat-perintah.store'), [])->assertForbidden();
+        $this->actingAs($pengawas)->post(route('sp.input.store'), [])->assertForbidden();
+        $this->actingAs($pengawas)->post(route('manajemen-data.reset', 'pagu'))->assertForbidden();
+    }
+
+    /** Halaman yang boleh dibaca tidak boleh menampilkan tombol yang berujung 403. */
+    public function test_halaman_yang_dibaca_pengawas_tidak_menampilkan_tombol_pengubah(): void
+    {
+        $pengawas = $this->buatUser(User::ROLE_PENGAWAS);
+        $bendahara = $this->buatUser(User::ROLE_BENDAHARA_PENGELUARAN);
+
+        // Pembanding: role pengelola tetap melihat tombolnya.
+        $this->actingAs($bendahara)->get(route('spm.up-gu.index'))
+            ->assertOk()->assertSee('Tambah Realisasi SP2D UP/GU/TU');
+
+        $this->actingAs($pengawas)->get(route('spm.up-gu.index'))
+            ->assertOk()->assertDontSee('Tambah Realisasi SP2D UP/GU/TU');
+        $this->actingAs($pengawas)->get(route('spm.ls.index'))
+            ->assertOk()->assertDontSee('Tambah Realisasi SP2D LS');
+        $this->actingAs($pengawas)->get(route('pengembalian.index'))
+            ->assertOk()->assertDontSee('+ Input Pengembalian');
+        $this->actingAs($pengawas)->get(route('simulasi-anggaran.index'))
+            ->assertOk()->assertDontSee('+ Buat Simulasi Baru');
+    }
+
+    public function test_helper_boleh_ubah_membedakan_pengawas_dari_role_pengelola(): void
+    {
+        $this->actingAs($this->buatUser(User::ROLE_PENGAWAS));
+        $this->assertFalse(boleh_ubah());
+
+        $this->actingAs($this->buatUser(User::ROLE_SUPERADMIN));
+        $this->assertTrue(boleh_ubah());
+    }
+
+    public function test_kunci_menu_pengawas_meniadakan_seluruh_menu_pengubah_data(): void
+    {
+        $menu = config('akses.menu.pengawas');
+
+        foreach (['dashboard', 'rincian', 'analisis', 'npd-data', 'spm', 'pengembalian', 'audit-log', 'profil'] as $kunci) {
+            $this->assertContains($kunci, $menu, "Pengawas kehilangan menu pemantauan {$kunci}.");
+        }
+
+        foreach (['npd', 'persetujuan', 'verifikasi', 'sp-input', 'pengembalian-create',
+            'manajemen-data', 'users', 'pelimpahan', 'tk-pegawai', 'tk-data', 'tk-form', 'gt-daftar'] as $kunci) {
+            $this->assertNotContains($kunci, $menu, "Pengawas tidak boleh memegang menu pengubah {$kunci}.");
+        }
+
+        $this->assertContains(User::ROLE_PENGAWAS, config('akses.role_baca_saja'));
+        $this->assertContains(User::ROLE_PENGAWAS, User::ROLE_OPTIONS);
+        $this->assertSame('Pengawas', config('akses.role_label.pengawas'));
+    }
+
+    public function test_schema_role_menerima_pengawas(): void
+    {
+        $pengawas = $this->buatUser(User::ROLE_PENGAWAS);
+
+        $this->assertDatabaseHas('users', ['id' => $pengawas->id, 'role' => User::ROLE_PENGAWAS]);
+    }
+
     public function test_schema_role_menerima_role_baru_dan_menolak_role_bendahara_lama(): void
     {
         $this->buatUser(User::ROLE_SUPERADMIN);

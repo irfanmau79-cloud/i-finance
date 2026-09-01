@@ -11,9 +11,11 @@
         <div class="sumbar ok"><span>{{ session('success') }}</span></div>
     @endif
 
+    @if (boleh_ubah())
     <div class="tbl-tools">
         <a href="{{ route('spm.up-gu.create') }}" class="btn prim" style="white-space:nowrap;">Tambah Realisasi SP2D UP/GU/TU</a>
     </div>
+    @endif
 
     <form method="GET" action="{{ route('spm.up-gu.index') }}" class="tbl-tools">
         <input type="text" name="cari" placeholder="Cari nomor SPM, penerima, atau uraian..." value="{{ request('cari') }}" style="min-width:280px;">
@@ -46,12 +48,16 @@
                         <td>Rp {{ number_format((float) $spm->nominal, 2, ',', '.') }}</td>
                         <td>{{ $spm->uraian ?? '—' }}</td>
                         <td style="display:flex;gap:6px;">
+                            @if (boleh_ubah())
                             <a class="btn" href="{{ route('spm.up-gu.edit', $spm) }}">Edit</a>
                             <form method="POST" action="{{ route('spm.destroy', $spm) }}" onsubmit="return confirm('Hapus SPM {{ $spm->nomor_dokumen }}?');">
                                 @csrf
                                 @method('DELETE')
                                 <button type="submit" class="btn">Hapus</button>
                             </form>
+                            @else
+                            <span class="sub">Lihat saja</span>
+                            @endif
                         </td>
                     </tr>
                 @empty

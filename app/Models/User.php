@@ -55,6 +55,8 @@ class User extends Authenticatable
 
     public const ROLE_KEPEGAWAIAN = 'kepegawaian';
 
+    public const ROLE_PENGAWAS = 'pengawas';
+
     public const ROLE_OPTIONS = [
         self::ROLE_SUPERADMIN,
         self::ROLE_BENDAHARA_PENGELUARAN,
@@ -67,6 +69,7 @@ class User extends Authenticatable
         'inspektur_pembantu',
         'perencanaan',
         self::ROLE_KEPEGAWAIAN,
+        self::ROLE_PENGAWAS,
     ];
 
     /**

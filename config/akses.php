@@ -31,8 +31,23 @@ return [
         'sekretaris' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
         'kasubbag' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
         'inspektur_pembantu' => ['dashboard', 'rincian', 'analisis', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
+        'pengawas' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd-data', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'spm', 'pengembalian', 'audit-log', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'gt-rekon', 'profil'],
         'kepegawaian' => ['dashboard', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-pegawai', 'tk-data', 'tk-form', 'tk-monitor', 'profil'],
         'layanan' => ['dashboard', 'rincian', 'sp-input', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'tk-form'],
+    ],
+
+    /*
+     * Role yang HANYA boleh membaca. Mereka melihat luas - hampir seluas
+     * superadmin - tetapi tidak boleh mengubah apa pun.
+     *
+     * Sebagian besar aksi ubah sudah dijaga daftar-izin role eksplisit,
+     * sehingga role baru otomatis tertutup di sana. Daftar ini menutup celah
+     * yang tersisa: rute pengubah data yang hanya dijaga menu-akses, sehingga
+     * siapa pun yang punya kunci menunya ikut boleh mengubah. Ditegakkan oleh
+     * middleware 'baca-saja' (App\Http\Middleware\EnsureRoleBukanBacaSaja).
+     */
+    'role_baca_saja' => [
+        'pengawas',
     ],
 
     'role_label' => [
@@ -46,6 +61,7 @@ return [
         'kasubbag' => 'Kepala Subbagian Tata Usaha',
         'inspektur_pembantu' => 'Inspektur Pembantu',
         'perencanaan' => 'Perencanaan',
+        'pengawas' => 'Pengawas',
         'kepegawaian' => 'Kepegawaian',
         'layanan' => 'Pengguna Layanan',
     ],
