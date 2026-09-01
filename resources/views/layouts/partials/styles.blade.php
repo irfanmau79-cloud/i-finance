@@ -835,6 +835,31 @@
   table.realisasi tbody tr:nth-child(even){background:#fafcfe;}
   table.realisasi tbody tr:hover{background:#f1f6fb;}
   table.realisasi td.num{text-align:right;white-space:nowrap;}
+
+  /* Tabel data berlebar kolom TETAP.
+
+     Tanpa ini table-layout otomatis melebarkan kolom mengikuti isi terpanjang
+     - satu Uraian panjang saja sudah membuat tabelnya melar melewati kartu
+     dan harus digeser ke kanan. Dengan table-layout:fixed lebar tiap kolom
+     ditentukan <col> di masing-masing tabel, jumlahnya selalu 100%, sehingga
+     tabelnya tidak pernah melebihi lebar kartu dan isinya dibungkus ke bawah.
+
+     Header ikut boleh dibungkus: dengan kolom sempit, white-space:nowrap
+     bawaan th justru merusak lebar yang sudah ditentukan. */
+  table.realisasi.tbl-fixed{table-layout:fixed;width:100%;}
+  table.realisasi.tbl-fixed th,
+  table.realisasi.tbl-fixed td{white-space:normal;overflow-wrap:anywhere;word-break:break-word;vertical-align:top;}
+  table.realisasi.tbl-fixed th.num,
+  table.realisasi.tbl-fixed td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  table.realisasi.tbl-fixed th.mid,
+  table.realisasi.tbl-fixed td.mid{text-align:center;}
+  /* .dash-card .sub memberi margin-bawah 12px - di dalam sel tabel itu
+     membuat barisnya jadi tinggi tanpa alasan. */
+  table.realisasi.tbl-fixed .sub{display:block;margin:2px 0 0;line-height:1.35;}
+  /* Uraian panjang dipotong pada baris ketiga supaya tinggi baris seragam;
+     teks utuhnya tetap terbaca lewat atribut title saat disorot. */
+  .tbl-clamp{display:-webkit-box;-webkit-line-clamp:3;-webkit-box-orient:vertical;overflow:hidden;}
+  .tbl-kosong{color:var(--mut);}
   #pd-rekap-table th.num{text-align:right;}
   #pd-rekap-table th.pd-sort:hover{background:#eef2f6;}
   #pd-rekap-table .pd-sarrow{color:var(--gold);font-size:11px;}

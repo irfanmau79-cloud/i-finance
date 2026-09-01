@@ -26,16 +26,20 @@
     </form>
 
     <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">
-        <table class="realisasi">
+        <table class="realisasi tbl-fixed">
+            <colgroup>
+                <col style="width:10%;"><col style="width:16%;"><col style="width:10%;">
+                <col style="width:14%;"><col style="width:14%;"><col style="width:26%;"><col style="width:10%;">
+            </colgroup>
             <thead>
                 <tr>
                     <th>Tanggal SPM</th>
                     <th>Nomor SPM</th>
                     <th>Tanggal SP2D</th>
                     <th>Nomor SP2D</th>
-                    <th>Nominal</th>
+                    <th class="num">Nominal</th>
                     <th>Uraian</th>
-                    <th>Aksi</th>
+                    <th class="mid">Aksi</th>
                 </tr>
             </thead>
             <tbody>
@@ -45,18 +49,26 @@
                         <td>{{ $spm->nomor_dokumen }}</td>
                         <td>{{ $spm->tanggal_sp2d?->format('d-m-Y') ?? '—' }}</td>
                         <td>{{ $spm->nomor_sp2d ?? '—' }}</td>
-                        <td>Rp {{ number_format((float) $spm->nominal, 2, ',', '.') }}</td>
-                        <td>{{ $spm->uraian ?? '—' }}</td>
-                        <td style="display:flex;gap:6px;">
-                            @if (boleh_ubah())
-                            <a class="btn" href="{{ route('spm.up-gu.edit', $spm) }}">Edit</a>
-                            <form method="POST" action="{{ route('spm.destroy', $spm) }}" onsubmit="return confirm('Hapus SPM {{ $spm->nomor_dokumen }}?');">
-                                @csrf
-                                @method('DELETE')
-                                <button type="submit" class="btn">Hapus</button>
-                            </form>
+                        <td class="num">Rp {{ number_format((float) $spm->nominal, 2, ',', '.') }}</td>
+                        <td>
+                            @if ($spm->uraian)
+                                <span class="tbl-clamp" title="{{ $spm->uraian }}">{{ $spm->uraian }}</span>
                             @else
-                            <span class="sub">Lihat saja</span>
+                                <span class="tbl-kosong">—</span>
+                            @endif
+                        </td>
+                        <td class="mid">
+                            @if (boleh_ubah())
+                                <div style="display:inline-flex;gap:6px;">
+                                    <a class="btn" href="{{ route('spm.up-gu.edit', $spm) }}">Edit</a>
+                                    <form method="POST" action="{{ route('spm.destroy', $spm) }}" onsubmit="return confirm('Hapus SPM {{ $spm->nomor_dokumen }}?');">
+                                        @csrf
+                                        @method('DELETE')
+                                        <button type="submit" class="btn">Hapus</button>
+                                    </form>
+                                </div>
+                            @else
+                                <span class="tbl-kosong">&mdash;</span>
                             @endif
                         </td>
                     </tr>

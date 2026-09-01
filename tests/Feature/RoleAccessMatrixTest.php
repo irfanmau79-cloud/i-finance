@@ -378,10 +378,15 @@ class RoleAccessMatrixTest extends TestCase
         $this->actingAs($bendahara)->get(route('spm.up-gu.index'))
             ->assertOk()->assertSee('Tambah Realisasi SP2D UP/GU/TU');
 
+        // Kolom Aksi untuk pemantau diisi tanda pisah, bukan kalimat.
         $this->actingAs($pengawas)->get(route('spm.up-gu.index'))
-            ->assertOk()->assertDontSee('Tambah Realisasi SP2D UP/GU/TU');
+            ->assertOk()
+            ->assertDontSee('Tambah Realisasi SP2D UP/GU/TU')
+            ->assertDontSee('Lihat saja');
         $this->actingAs($pengawas)->get(route('spm.ls.index'))
-            ->assertOk()->assertDontSee('Tambah Realisasi SP2D LS');
+            ->assertOk()
+            ->assertDontSee('Tambah Realisasi SP2D LS')
+            ->assertDontSee('Lihat saja');
         $this->actingAs($pengawas)->get(route('pengembalian.index'))
             ->assertOk()->assertDontSee('+ Input Pengembalian');
         $this->actingAs($pengawas)->get(route('simulasi-anggaran.index'))
