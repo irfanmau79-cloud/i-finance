@@ -208,7 +208,7 @@ Route::middleware('auth.or.guest')->group(function () {
         ->middleware('menu-akses:gt-daftar')->name('gaji-tunjangan.rincian.destroy');
 
     // Semua role yang login, kecuali "layanan" (layanan tidak login).
-    Route::middleware('role:superadmin,bendahara_pengeluaran,pptk,bpp,verifikator,sekretaris,kasubbag,inspektur,inspektur_pembantu,perencanaan')->group(function () {
+    Route::middleware('role:superadmin,bendahara_pengeluaran,pptk,bpp,verifikator,sekretaris,kasubbag,inspektur,inspektur_pembantu,perencanaan,kepegawaian')->group(function () {
         Route::get('/surat-perintah', [SuratPerintahController::class, 'index'])->name('surat-perintah.index');
         Route::get('/surat-perintah/create', [SuratPerintahController::class, 'create'])->name('surat-perintah.create');
         Route::post('/surat-perintah', [SuratPerintahController::class, 'store'])->name('surat-perintah.store');
@@ -245,7 +245,12 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/manajemen-data/import/npd-historis/{import}/preview', [NpdHistorisImportController::class, 'preview'])->name('manajemen-data.import.npd-historis.preview');
         Route::post('/manajemen-data/import/npd-historis/{import}/confirm', [NpdHistorisImportController::class, 'confirm'])->name('manajemen-data.import.npd-historis.confirm');
         Route::get('/manajemen-data/import/npd-historis/{import}/report/{mode}', [NpdHistorisImportController::class, 'report'])->name('manajemen-data.import.npd-historis.report');
+    });
 
+    // Modul Data Kepegawaian: Data Pegawai, Data Tunjangan Keluarga, dan
+    // impornya. Role Kepegawaian memegang modul ini penuh - sama luasnya
+    // dengan superadmin di sini, tanpa membawa kewenangan superadmin yang lain.
+    Route::middleware('role:superadmin,kepegawaian')->group(function () {
         Route::get('/tunjangan-keluarga/import', [TunjanganKeluargaImportController::class, 'create'])->name('tunjangan.import.create');
         Route::get('/tunjangan-keluarga/import/template', [TunjanganKeluargaImportController::class, 'template'])->name('tunjangan.import.template');
         Route::post('/tunjangan-keluarga/import', [TunjanganKeluargaImportController::class, 'store'])->name('tunjangan.import.store');
@@ -294,18 +299,23 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/audit-log', [AuditLogController::class, 'index'])->name('audit-log.index');
     });
 
-    // Monitoring seluruh NPD: superadmin, Bendahara Pengeluaran, dan PPTK.
-    Route::middleware('role:superadmin,bendahara_pengeluaran,pptk')->group(function () {
-        // Menu yang rumahnya sudah ada tetapi isinya belum - lihat
-        // SegeraHadirController::HALAMAN. Tiap kunci tetap melewati menu-akses,
-        // jadi hak aksesnya sudah benar sejak sekarang.
+    // Menu yang rumahnya sudah ada tetapi isinya belum - lihat
+    // SegeraHadirController::HALAMAN. Tiap kunci tetap melewati menu-akses,
+    // jadi hak aksesnya sudah benar sejak sekarang. Berdiri di grup sendiri
+    // (bukan menumpang grup monitoring NPD) supaya role yang punya kunci
+    // menunya tapi tidak berurusan dengan NPD - Kepegawaian - tetap bisa
+    // membukanya.
+    Route::middleware('role:superadmin,bendahara_pengeluaran,pptk,kepegawaian')->group(function () {
         foreach (array_keys(SegeraHadirController::HALAMAN) as $menuSegera) {
             Route::get('/segera/'.$menuSegera, SegeraHadirController::class)
                 ->defaults('menu', $menuSegera)
                 ->middleware('menu-akses:'.$menuSegera)
                 ->name('segera.'.$menuSegera);
         }
+    });
 
+    // Monitoring seluruh NPD: superadmin, Bendahara Pengeluaran, dan PPTK.
+    Route::middleware('role:superadmin,bendahara_pengeluaran,pptk')->group(function () {
         Route::get('/npd', [NpdController::class, 'index'])->name('npd.index');
     });
 
@@ -368,7 +378,7 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::post('/npd/{npd}/arsip-spj', [InventarisasiSpjController::class, 'store'])->name('npd.arsip-spj.store');
     });
 
-    Route::middleware('role:superadmin,bendahara_pengeluaran')->group(function () {
+    Route::middleware('role:superadmin,bendahara_pengeluaran,kepegawaian')->group(function () {
         Route::post('/tunjangan-keluarga/pengajuan/{pengajuan}/proses', [TunjanganKeluargaController::class, 'proses'])->name('tunjangan.pengajuan.proses');
         Route::get('/tunjangan-keluarga/lampiran/{lampiran}', [TunjanganKeluargaController::class, 'download'])->name('tunjangan.lampiran.download');
     });

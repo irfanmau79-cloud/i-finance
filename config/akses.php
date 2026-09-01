@@ -31,6 +31,7 @@ return [
         'sekretaris' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
         'kasubbag' => ['dashboard', 'rincian', 'analisis', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
         'inspektur_pembantu' => ['dashboard', 'rincian', 'analisis', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
+        'kepegawaian' => ['dashboard', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-pegawai', 'tk-data', 'tk-form', 'tk-monitor', 'profil'],
         'layanan' => ['dashboard', 'rincian', 'sp-input', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'tk-form'],
     ],
 
@@ -45,6 +46,7 @@ return [
         'kasubbag' => 'Kepala Subbagian Tata Usaha',
         'inspektur_pembantu' => 'Inspektur Pembantu',
         'perencanaan' => 'Perencanaan',
+        'kepegawaian' => 'Kepegawaian',
         'layanan' => 'Pengguna Layanan',
     ],
 

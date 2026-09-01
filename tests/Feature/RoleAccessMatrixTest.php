@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
+use App\Models\SuratPerintah;
 use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -131,6 +132,153 @@ class RoleAccessMatrixTest extends TestCase
         $this->assertTrue($superadmin->aktif);
         $this->assertSame(User::ROLE_SUPERADMIN, $superadmin->role);
         $this->assertDatabaseHas('users', ['id' => $superadmin->id]);
+    }
+
+    // ---------------- Role Kepegawaian ----------------
+
+    private function buatSuratPerintah(): SuratPerintah
+    {
+        return SuratPerintah::create([
+            'nomor_sp' => '099/PW.02.01/Sekre',
+            'tanggal_sp' => '2026-08-20',
+            'jenis_permintaan' => SuratPerintah::JENIS_UANG_HARIAN,
+            'unit_kerja' => 'Sekretariat',
+            'lokasi' => 'Kota Bandung',
+            'nama_pengirim' => 'Pengirim Uji',
+            'tujuan_transfer' => 'Koordinator',
+            'irban_dibayar' => false,
+            'rincian_tgl_bayar' => '3 - 4 Agustus 2026',
+            'keterangan' => 'Uji akses Kepegawaian',
+            'status_sp' => 'Baru',
+            'status' => SuratPerintah::STATUS_DITERIMA_PPTK,
+            'pengajuan' => 'Uang Harian',
+            'dipantau' => true,
+            'sumber_npd' => false,
+        ]);
+    }
+
+    /** Cakupan yang diminta: Dashboard, Surat Perintah, dan Data Kepegawaian. */
+    public function test_kepegawaian_membuka_dashboard_surat_perintah_dan_seluruh_data_kepegawaian(): void
+    {
+        $kepegawaian = $this->buatUser(User::ROLE_KEPEGAWAIAN);
+
+        foreach ([
+            'dashboard.index',
+            'surat-perintah.index',
+            'surat-perintah.create',
+            'surat-perintah.monitoring',
+            'cetak-spj.index',
+            'segera.sp-cetaksppd',
+            'tunjangan.pegawai.index',
+            'tunjangan.pegawai.create',
+            'tunjangan.data.index',
+            'tunjangan.monitoring',
+            'tunjangan.form',
+            'tunjangan.import.create',
+            'profil.show',
+        ] as $rute) {
+            $this->actingAs($kepegawaian)->get(route($rute))
+                ->assertOk("Kepegawaian seharusnya bisa membuka {$rute}.");
+        }
+    }
+
+    /** "Full" pada Surat Perintah berhenti di lihat/input/cetak - ubah & hapus tetap milik PPTK. */
+    public function test_kepegawaian_tidak_dapat_mengubah_atau_menghapus_surat_perintah(): void
+    {
+        $kepegawaian = $this->buatUser(User::ROLE_KEPEGAWAIAN);
+        $sp = $this->buatSuratPerintah();
+
+        $this->actingAs($kepegawaian)->get(route('surat-perintah.edit', $sp))->assertForbidden();
+        $this->actingAs($kepegawaian)->delete(route('surat-perintah.destroy', $sp))->assertForbidden();
+        $this->actingAs($kepegawaian)->patch(route('surat-perintah.toggle-pantau', $sp))->assertForbidden();
+        $this->actingAs($kepegawaian)->patch(route('surat-perintah.pengajuan', $sp))->assertForbidden();
+        $this->actingAs($kepegawaian)->patch(route('surat-perintah.toggle-sumber-npd', $sp))->assertForbidden();
+
+        $sp->refresh();
+        $this->assertTrue($sp->dipantau);
+        $this->assertSame('Uang Harian', $sp->pengajuan);
+    }
+
+    /**
+     * Memisahkan modul Data Kepegawaian dari grup superadmin TIDAK boleh
+     * ikut membocorkan kewenangan superadmin yang lain.
+     */
+    public function test_kepegawaian_tertutup_dari_modul_di_luar_cakupannya(): void
+    {
+        $kepegawaian = $this->buatUser(User::ROLE_KEPEGAWAIAN);
+
+        foreach ([
+            'users.index',
+            'pelimpahan.index',
+            'audit-log.index',
+            'manajemen-data.index',
+            'manajemen-data.import.master-anggaran.create',
+            'manajemen-data.import.npd-historis.create',
+            'spm.up-gu.index',
+            'spm.ls.index',
+            'npd.index',
+            'npd.data',
+            'npd.persetujuan',
+            'npd.verifikasi',
+            'npd.bj.create',
+            'rincian.index',
+            'analisis.index',
+            'inventarisasi-spj.index',
+            'pengembalian.index',
+            'dashboard.spj.index',
+            'dashboard.perjalanan.index',
+            'tunjangan.dashboard',
+            'gaji-tunjangan.tabel.gaji',
+            'gaji-tunjangan.rincian.index',
+            'gaji-tunjangan.rekonsiliasi',
+            'versi-pagu.index',
+        ] as $rute) {
+            $this->actingAs($kepegawaian)->get(route($rute))
+                ->assertForbidden("Kepegawaian seharusnya DITOLAK di {$rute}.");
+        }
+    }
+
+    public function test_kunci_menu_kepegawaian_persis_sesuai_cakupan_yang_disepakati(): void
+    {
+        $this->assertSame([
+            'dashboard',
+            'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd',
+            'tk-pegawai', 'tk-data', 'tk-form', 'tk-monitor',
+            'profil',
+        ], config('akses.menu.kepegawaian'));
+
+        $this->assertSame('Kepegawaian', config('akses.role_label.kepegawaian'));
+        $this->assertContains(User::ROLE_KEPEGAWAIAN, User::ROLE_OPTIONS);
+    }
+
+    /** Kolom users.role adalah ENUM - role baru harus ikut terdaftar di skema. */
+    public function test_schema_role_menerima_kepegawaian(): void
+    {
+        $kepegawaian = $this->buatUser(User::ROLE_KEPEGAWAIAN);
+
+        $this->assertDatabaseHas('users', [
+            'id' => $kepegawaian->id,
+            'role' => User::ROLE_KEPEGAWAIAN,
+        ]);
+    }
+
+    /** Superadmin dapat membuat akun Kepegawaian lewat Manajemen Users. */
+    public function test_superadmin_dapat_membuat_akun_kepegawaian(): void
+    {
+        $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
+
+        $this->actingAs($superadmin)->post(route('users.store'), [
+            'username' => 'staf-kepegawaian',
+            'nama' => 'Staf Kepegawaian',
+            'role' => User::ROLE_KEPEGAWAIAN,
+            'password' => 'kata-sandi-uji',
+            'password_confirmation' => 'kata-sandi-uji',
+        ])->assertSessionHasNoErrors();
+
+        $this->assertDatabaseHas('users', [
+            'username' => 'staf-kepegawaian',
+            'role' => User::ROLE_KEPEGAWAIAN,
+        ]);
     }
 
     public function test_schema_role_menerima_role_baru_dan_menolak_role_bendahara_lama(): void
