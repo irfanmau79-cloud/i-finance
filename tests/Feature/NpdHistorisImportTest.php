@@ -363,4 +363,60 @@ class NpdHistorisImportTest extends TestCase
         $this->actingAs($this->admin)->post(route('manajemen-data.import.npd-historis.confirm', $import));
         $this->actingAs($this->admin)->get(route('manajemen-data.import.npd-historis.report', [$import, 'final']))->assertOk()->assertDownload();
     }
+
+    // ---------------- Tampilan halaman pemeriksaan ----------------
+
+    /**
+     * Sebelum diperbaiki, halaman ini tidak pernah menampilkan jumlah_berhasil,
+     * jumlah_dilewati, maupun executed_at - padahal ketiganya sudah lama
+     * disimpan dan justru itulah isi laporan yang dicari setelah menekan
+     * Konfirmasi Import.
+     */
+    public function test_halaman_menampilkan_laporan_hasil_setelah_import_dijalankan(): void
+    {
+        $this->actingAs($this->admin)->post(route('manajemen-data.import.npd-historis.store'), ['file' => $this->workbook([$this->row()])]);
+        $import = NpdHistorisImport::firstOrFail();
+
+        // Sebelum dikonfirmasi: panel hasil belum muncul, tombol konfirmasi ada.
+        $this->actingAs($this->admin)->get(route('manajemen-data.import.npd-historis.preview', $import))
+            ->assertOk()
+            ->assertDontSee('HASIL IMPORT')
+            ->assertSee('Menunggu Konfirmasi')
+            ->assertSee('Konfirmasi Import');
+
+        $this->actingAs($this->admin)->post(route('manajemen-data.import.npd-historis.confirm', $import));
+        $import->refresh();
+
+        $this->assertSame(NpdHistorisImport::STATUS_COMMITTED, $import->status);
+        $this->assertNotNull($import->executed_at);
+
+        $this->actingAs($this->admin)->get(route('manajemen-data.import.npd-historis.preview', $import))
+            ->assertOk()
+            ->assertSee('HASIL IMPORT')
+            ->assertSee($import->jumlah_berhasil.' dokumen')
+            ->assertSee($import->jumlah_dilewati.' baris')
+            ->assertSee($import->executed_at->format('d-m-Y H:i'))
+            ->assertSee('Sudah Diimpor')
+            ->assertSee('Unduh Laporan Final')
+            ->assertDontSee('Konfirmasi Import');
+    }
+
+    /** Nilai enum staging tidak boleh bocor mentah-mentah ke layar. */
+    public function test_halaman_memakai_label_indonesia_bukan_nilai_enum_mentah(): void
+    {
+        $this->actingAs($this->admin)->post(route('manajemen-data.import.npd-historis.store'), ['file' => $this->workbook([$this->row()])]);
+        $import = NpdHistorisImport::firstOrFail();
+
+        $this->assertSame('warning', $import->baris()->firstOrFail()->hasil);
+
+        $response = $this->actingAs($this->admin)->get(route('manajemen-data.import.npd-historis.preview', $import))->assertOk();
+
+        $response->assertSee('Perlu Diperiksa')      // hasil: warning
+            ->assertSee('Cocok penuh')               // mapping_status: exact
+            ->assertSee('Barang/Jasa')               // jenis_kode: bj
+            ->assertSee('Juli');                     // bulan: 7
+
+        // Nama kolom filter memakai bahasa Indonesia, bukan nama kolom database.
+        $response->assertSee('Hasil Pemeriksaan')->assertSee('Jenis NPD')->assertSee('Status Tujuan');
+    }
 }
