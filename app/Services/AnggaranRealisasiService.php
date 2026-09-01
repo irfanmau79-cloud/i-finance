@@ -154,6 +154,162 @@ class AnggaranRealisasiService
     }
 
     /**
+     * Realisasi anggaran pada RENTANG TANGGAL tertentu, dirinci sampai Tagging.
+     *
+     * Berbeda dari rincian() yang menjumlahkan SELURUH transaksi tanpa batas
+     * waktu dan meringkas Program > Sub Kegiatan > Kode Rekening > Tagging, di
+     * sini level Kegiatan ikut tampil sebagai level tersendiri dan seluruh
+     * angka realisasinya dibatasi rentang tanggal.
+     *
+     * TANGGAL YANG DIPAKAI mengikuti kesepakatan yang sudah berlaku di
+     * MasterAnggaran::sisaAnggaranSebelum():
+     *
+     *   - NPD          -> tanggal_npd
+     *   - SPM LS       -> spm.tanggal_dokumen
+     *   - Pengembalian -> tanggal_pengembalian
+     *
+     * Pengembalian ikut dibatasi rentang yang sama karena realisasi di
+     * aplikasi ini selalu NETO: realisasiNpd()/realisasiLs() mengurangkan
+     * pengembalian yang sudah disetujui. Kalau pengembalian tidak ikut
+     * dibatasi, laporan satu bulan bisa dikurangi pengembalian dari bulan lain.
+     *
+     * Kolom pagu adalah pagu TAHUNAN mata anggaran, bukan angka periode -
+     * pagu tidak punya dimensi waktu. Persentasenya karena itu berarti
+     * "berapa persen pagu setahun yang terserap pada periode ini".
+     *
+     * @return array{tree: Collection<int, array<string, mixed>>, total: array<string, float>}
+     */
+    public function realisasiPeriode(string $dari, string $sampai): array
+    {
+        // whereDate, BUKAN whereBetween: kolom tanggalnya bertipe date di
+        // MySQL tetapi tersimpan sebagai '2026-08-31 00:00:00' di SQLite,
+        // sehingga perbandingan string biasa membuang tanggal batas atas.
+        // whereDate membungkus kolomnya jadi tanggal di kedua driver.
+        $masters = MasterAnggaran::query()
+            ->where('aktif', true)
+            ->with('tagging:id,nama')
+            ->withSum([
+                'npd as realisasi_npd_bruto' => fn (Builder $query) => $query
+                    ->where('status', 'Selesai')
+                    ->whereDate('tanggal_npd', '>=', $dari)
+                    ->whereDate('tanggal_npd', '<=', $sampai),
+            ], 'nominal')
+            ->withSum([
+                'spmDetail as realisasi_ls_bruto' => fn (Builder $query) => $query
+                    ->whereHas('spm', fn (Builder $spm) => $spm
+                        ->whereDate('tanggal_dokumen', '>=', $dari)
+                        ->whereDate('tanggal_dokumen', '<=', $sampai)),
+            ], 'nominal')
+            ->withSum([
+                'pengembalianDetail as pengembalian_npd' => fn (Builder $query) => $query
+                    ->whereHas('pengembalian', fn (Builder $p) => $p
+                        ->where('status', 'disetujui')
+                        ->where('dokumen_tipe', 'npd')
+                        ->whereDate('tanggal_pengembalian', '>=', $dari)
+                        ->whereDate('tanggal_pengembalian', '<=', $sampai)),
+            ], 'nominal')
+            ->withSum([
+                'pengembalianDetail as pengembalian_ls' => fn (Builder $query) => $query
+                    ->whereHas('pengembalian', fn (Builder $p) => $p
+                        ->where('status', 'disetujui')
+                        ->where('dokumen_tipe', 'spm_ls')
+                        ->whereDate('tanggal_pengembalian', '>=', $dari)
+                        ->whereDate('tanggal_pengembalian', '<=', $sampai)),
+            ], 'nominal')
+            ->orderBy('sub_kegiatan_normal')
+            ->orderBy('kode_rekening_bersih')
+            ->orderBy('tagging_id')
+            ->get();
+
+        $tree = $masters
+            ->groupBy('program_kunci')
+            ->map(function (Collection $programItems) {
+                $kegiatan = $programItems
+                    ->groupBy('kegiatan_normal')
+                    ->map(function (Collection $kegiatanItems) {
+                        $sub = $kegiatanItems
+                            ->groupBy('sub_kegiatan_kunci')
+                            ->map(function (Collection $subItems) {
+                                $rekening = $subItems
+                                    ->groupBy('kode_rekening_bersih')
+                                    ->map(function (Collection $rekeningItems, string $kode) {
+                                        $tagging = $rekeningItems->map(fn (MasterAnggaran $master) => [
+                                            'nama' => $master->tagging?->nama ?? 'Tanpa Tagging',
+                                            'angka' => $this->angkaPeriode($master),
+                                        ]);
+
+                                        return [
+                                            'nama' => $kode,
+                                            'uraian' => $rekeningItems->first()->uraian_rekening,
+                                            'tagging' => $this->urutNama($tagging),
+                                            'angka' => $this->agregasiPeriode($tagging->pluck('angka')),
+                                        ];
+                                    });
+
+                                $rekening = $this->urutNama($rekening);
+
+                                return [
+                                    'nama' => $subItems->first()->subKegiatanNormal(),
+                                    'rekening' => $rekening,
+                                    'angka' => $this->agregasiPeriode($rekening->pluck('angka')),
+                                ];
+                            });
+
+                        $sub = $this->urutNama($sub);
+
+                        return [
+                            'nama' => $kegiatanItems->first()->kegiatanNormal(),
+                            'sub' => $sub,
+                            'angka' => $this->agregasiPeriode($sub->pluck('angka')),
+                        ];
+                    });
+
+                $kegiatan = $this->urutNama($kegiatan);
+
+                return [
+                    'nama' => $programItems->first()->programNormal(),
+                    'kegiatan' => $kegiatan,
+                    'angka' => $this->agregasiPeriode($kegiatan->pluck('angka')),
+                ];
+            });
+
+        $tree = $this->urutNama($tree);
+
+        return ['tree' => $tree, 'total' => $this->agregasiPeriode($tree->pluck('angka'))];
+    }
+
+    /** Angka satu mata anggaran pada rentang tanggal - selalu NETO pengembalian. */
+    private function angkaPeriode(MasterAnggaran $master): array
+    {
+        $npd = (float) ($master->realisasi_npd_bruto ?? 0) - (float) ($master->pengembalian_npd ?? 0);
+        $ls = (float) ($master->realisasi_ls_bruto ?? 0) - (float) ($master->pengembalian_ls ?? 0);
+        $pagu = $master->nilaiPagu();
+
+        return [
+            'pagu' => $pagu,
+            'realisasi_npd' => $npd,
+            'realisasi_ls' => $ls,
+            'realisasi_aktual' => $npd + $ls,
+            'persentase_realisasi' => MasterAnggaran::hitungPersentaseRealisasi($npd + $ls, $pagu),
+        ];
+    }
+
+    /** @param  Collection<int, array<string, float>>  $items */
+    private function agregasiPeriode(Collection $items): array
+    {
+        $pagu = (float) $items->sum('pagu');
+        $realisasi = (float) $items->sum('realisasi_aktual');
+
+        return [
+            'pagu' => $pagu,
+            'realisasi_npd' => (float) $items->sum('realisasi_npd'),
+            'realisasi_ls' => (float) $items->sum('realisasi_ls'),
+            'realisasi_aktual' => $realisasi,
+            'persentase_realisasi' => MasterAnggaran::hitungPersentaseRealisasi($realisasi, $pagu),
+        ];
+    }
+
+    /**
      * Urut alami berdasarkan nama/kode - padanan urutKode di GAS
      * (localeCompare 'id' dengan numeric:true), sehingga "5.1.2" berada
      * sebelum "5.1.10" alih-alih sesudahnya.

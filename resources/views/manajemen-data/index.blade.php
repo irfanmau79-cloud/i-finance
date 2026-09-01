@@ -27,6 +27,23 @@
     </div>
 @endif
 
+<div class="dash-card" style="margin-bottom:18px;border-left:3px solid var(--navy);">
+    <h3 style="margin-bottom:2px;">
+        <a href="{{ route('manajemen-data.realisasi-periode.index') }}" style="color:inherit;text-decoration:none;">Data Realisasi Anggaran</a>
+    </h3>
+    <div class="sub" style="margin-bottom:12px;">
+        Menarik realisasi seluruh mata anggaran pada rentang tanggal pilihan &mdash; misalnya
+        1 Januari s.d. 31 Agustus, atau 1 s.d. 31 Agustus saja &mdash; dirinci Program,
+        Kegiatan, Sub Kegiatan, Kode Rekening, sampai Tagging. Bukan berkas unggahan:
+        angkanya dihitung dari NPD dan SP2D, bukan dari data yang diimpor.
+    </div>
+    <div style="display:flex;flex-wrap:wrap;gap:8px;">
+        <a class="btn prim" href="{{ route('manajemen-data.realisasi-periode.index') }}">Buka Laporan</a>
+        <a class="btn" href="{{ route('manajemen-data.realisasi-periode.excel') }}">Unduh Excel</a>
+        <a class="btn" target="_blank" href="{{ route('manajemen-data.realisasi-periode.pdf') }}">Cetak PDF</a>
+    </div>
+</div>
+
 <div class="dash-grid">
     @foreach ($tipeData as $key => $meta)
         @php

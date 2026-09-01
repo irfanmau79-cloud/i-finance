@@ -26,6 +26,7 @@ use App\Http\Controllers\PerjalananDinasDashboardController;
 use App\Http\Controllers\PerjalananDinasPegawaiController;
 use App\Http\Controllers\ProfilController;
 use App\Http\Controllers\RakBulananImportController;
+use App\Http\Controllers\RealisasiPeriodeController;
 use App\Http\Controllers\RekonsiliasiGajiController;
 use App\Http\Controllers\RincianPenghasilanController;
 use App\Http\Controllers\RincianRealisasiController;
@@ -485,6 +486,14 @@ Route::middleware('auth.or.guest')->group(function () {
 
         // Formulir rekap Perjalanan Dinas per pegawai. Bukan berkas import -
         // Data Perjalanan Dinas dihitung dari NPD, bukan tabel tersendiri.
+        // Data Realisasi Anggaran: tarik realisasi seluruh mata anggaran pada
+        // rentang tanggal pilihan, dirinci Program > Kegiatan > Sub Kegiatan >
+        // Kode Rekening > Tagging. Ketiganya berbagi rentang tanggal yang sama
+        // (lihat RealisasiPeriodeController::rentang).
+        Route::get('/manajemen-data/realisasi-anggaran', [RealisasiPeriodeController::class, 'index'])->name('manajemen-data.realisasi-periode.index');
+        Route::get('/manajemen-data/realisasi-anggaran/excel', [RealisasiPeriodeController::class, 'excel'])->name('manajemen-data.realisasi-periode.excel');
+        Route::get('/manajemen-data/realisasi-anggaran/pdf', [RealisasiPeriodeController::class, 'pdf'])->name('manajemen-data.realisasi-periode.pdf');
+
         Route::get('/manajemen-data/template/perjalanan-dinas', [ManajemenDataController::class, 'templatePerjalananDinas'])
             ->name('manajemen-data.template.perjalanan-dinas');
 
