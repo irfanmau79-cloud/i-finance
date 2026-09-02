@@ -107,8 +107,8 @@
 
             @if ($resetKeywordIni && auth()->user()->isSuperadmin())
                 @php($konfirmasi = 'HAPUS '.$resetKeywordIni)
-                <div class="reset-data-panel" style="display:none;margin-top:12px;padding:12px;border:1px solid #fecaca;background:#fef2f2;border-radius:8px;">
-                    <div class="sub" style="color:#991b1b;margin:0 0 8px;">
+                <div class="reset-data-panel" style="display:none;margin-top:12px;padding:12px;border:1px solid var(--garis-err);background:var(--err-bg);border-radius:8px;">
+                    <div class="sub" style="color:var(--err-teks);margin:0 0 8px;">
                         Menghapus SEMUA {{ $meta['label'] }} secara permanen. Tindakan ini tidak bisa dibatalkan.
                         @if ($key === 'npd')
                             Data Pengembalian yang terkait NPD ikut terhapus.

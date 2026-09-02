@@ -18,7 +18,7 @@
     <div class="fg">
         <label class="fl" for="username">Username</label>
         @if ($u)
-            <input type="text" id="username" value="{{ $u->username }}" disabled style="background:#f1f3f5;">
+            <input type="text" id="username" value="{{ $u->username }}" disabled style="background:var(--surface-2);">
         @else
             <input type="text" id="username" name="username" value="{{ old('username') }}" placeholder="mis. pptk2" autofocus>
         @endif

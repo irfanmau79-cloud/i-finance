@@ -190,10 +190,10 @@
 <div class="mdl-ov" id="wf-confirm-ov">
     <div class="mdl" style="max-width:380px;">
         <div class="mdl-b" style="padding:24px 20px 6px;text-align:center;">
-            <div style="width:52px;height:52px;border-radius:50%;background:#eef2ff;color:var(--navy);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
+            <div style="width:52px;height:52px;border-radius:50%;background:var(--info-bg);color:var(--tegas);display:flex;align-items:center;justify-content:center;margin:0 auto 14px;">
                 <svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>
             </div>
-            <div style="font-size:16px;font-weight:700;color:var(--navy);margin-bottom:6px;" id="wf-confirm-title">Konfirmasi</div>
+            <div style="font-size:16px;font-weight:700;color:var(--tegas);margin-bottom:6px;" id="wf-confirm-title">Konfirmasi</div>
             <div style="color:var(--mut);font-size:14px;line-height:1.5;" id="wf-confirm-msg">Yakin melanjutkan aksi ini?</div>
         </div>
         <form method="POST" id="wf-confirm-form">
@@ -211,7 +211,7 @@
     .npd-hapus-pop{position:relative;display:inline-block;}
     .npd-hapus-pop summary{list-style:none;}
     .npd-hapus-pop summary::-webkit-details-marker{display:none;}
-    .npd-hapus-pop .npd-hapus-form{position:absolute;right:0;top:calc(100% + 6px);z-index:20;background:#fff;border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.13);padding:12px;width:220px;text-align:left;}
+    .npd-hapus-pop .npd-hapus-form{position:absolute;right:0;top:calc(100% + 6px);z-index:20;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.13);padding:12px;width:220px;text-align:left;}
     .npd-hapus-pop .npd-hapus-form input{width:100%;box-sizing:border-box;}
 </style>
 

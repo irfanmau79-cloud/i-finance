@@ -10,11 +10,11 @@
     <div class="sub">
         Status:
         @if ($versi->status === \App\Models\VersiPagu::STATUS_AKTIF)
-            <span class="badge" style="background:#dcfce7;color:#166534;">BERLAKU</span>
+            <span class="badge" style="background:var(--ok-bg);color:var(--ok-teks);">BERLAKU</span>
         @elseif ($versi->status === \App\Models\VersiPagu::STATUS_DRAFT)
-            <span class="badge" style="background:#fef3c7;color:#92400e;">DRAFT — belum berlaku</span>
+            <span class="badge" style="background:var(--warn-bg);color:var(--warn-teks);">DRAFT — belum berlaku</span>
         @else
-            <span class="badge" style="background:#e5e7eb;color:#374151;">ARSIP</span>
+            <span class="badge" style="background:var(--surface-3);color:var(--ink);">ARSIP</span>
         @endif
     </div>
 

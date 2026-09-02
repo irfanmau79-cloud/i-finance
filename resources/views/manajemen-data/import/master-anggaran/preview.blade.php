@@ -34,13 +34,13 @@
     <div class="kpi-grid">
         <div class="dash-card"><h3>{{ $import->total_baris }}</h3><div class="sub">Baris di File</div></div>
         <div class="dash-card"><h3 style="color:var(--ok);">{{ $import->jumlah_baru }}</h3><div class="sub">Mata Anggaran Baru</div></div>
-        <div class="dash-card"><h3 style="color:var(--navy);">{{ $import->jumlah_update }}</h3><div class="sub">Diperbarui</div></div>
-        <div class="dash-card"><h3 style="color:#92400e;">{{ $import->jumlah_dinolkan }}</h3><div class="sub">Dinolkan</div></div>
-        <div class="dash-card"><h3 style="color:#b91c1c;">{{ $import->jumlah_ditolak }}</h3><div class="sub">Ditolak</div></div>
+        <div class="dash-card"><h3 style="color:var(--tegas);">{{ $import->jumlah_update }}</h3><div class="sub">Diperbarui</div></div>
+        <div class="dash-card"><h3 style="color:var(--warn-teks);">{{ $import->jumlah_dinolkan }}</h3><div class="sub">Dinolkan</div></div>
+        <div class="dash-card"><h3 style="color:var(--err-teks);">{{ $import->jumlah_ditolak }}</h3><div class="sub">Ditolak</div></div>
     </div>
 
     @if ($import->jumlah_dinolkan > 0)
-        <div class="sub" style="background:#fffbeb;border:1px solid #fde68a;border-radius:8px;padding:10px;">
+        <div class="sub" style="background:var(--warn-bg);border:1px solid var(--garis-warn);border-radius:8px;padding:10px;">
             <strong>{{ $import->jumlah_dinolkan }} mata anggaran</strong> ada di data sekarang tapi tidak dicantumkan di file ini.
             Pagunya akan menjadi 0 dan mata anggarannya dinonaktifkan <em>saat tahapan ini diaktifkan</em>.
             Kalau itu tidak disengaja, batalkan dan lengkapi filenya.
@@ -85,13 +85,13 @@
                         <td>{{ $b->nomor_baris > 0 ? $b->nomor_baris : '—' }}</td>
                         <td>
                             @if ($b->aksi === \App\Models\MasterAnggaranImportRow::AKSI_BARU)
-                                <span class="badge" style="background:#dcfce7;color:#166534;">Baru</span>
+                                <span class="badge" style="background:var(--ok-bg);color:var(--ok-teks);">Baru</span>
                             @elseif ($b->aksi === \App\Models\MasterAnggaranImportRow::AKSI_UPDATE)
-                                <span class="badge" style="background:#dbeafe;color:#1e3a8a;">Update</span>
+                                <span class="badge" style="background:var(--info-bg);color:var(--info);">Update</span>
                             @elseif ($b->aksi === \App\Models\MasterAnggaranImportRow::AKSI_DINOLKAN)
-                                <span class="badge" style="background:#fef3c7;color:#92400e;">Dinolkan</span>
+                                <span class="badge" style="background:var(--warn-bg);color:var(--warn-teks);">Dinolkan</span>
                             @else
-                                <span class="badge" style="background:#fee2e2;color:#991b1b;">Ditolak</span>
+                                <span class="badge" style="background:var(--err-bg);color:var(--err-teks);">Ditolak</span>
                             @endif
                         </td>
                         <td>{{ $b->kode_sub_kegiatan ?? '—' }}</td>

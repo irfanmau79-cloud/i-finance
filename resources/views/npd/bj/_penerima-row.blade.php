@@ -52,7 +52,7 @@
         </div>
         <div class="fg">
             <label class="fl">Netto (otomatis)</label>
-            <input type="text" data-netto readonly value="Rp 0" style="background:#f8fafc;font-weight:700;">
+            <input type="text" data-netto readonly value="Rp 0" style="background:var(--surface-2);font-weight:700;">
         </div>
         <div class="fg span2">
             <label class="fl">Keterangan</label>

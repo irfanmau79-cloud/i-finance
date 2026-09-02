@@ -52,9 +52,9 @@
                         <td>{{ $suratPerintah->tanggal_sp->format('d-m-Y') }}</td>
                         <td>
                             @if ($suratPerintah->isReimburse())
-                                <span class="badge" style="background:#fef3c7;color:#92400e;">Reimburse</span>
+                                <span class="badge" style="background:var(--warn-bg);color:var(--warn-teks);">Reimburse</span>
                             @else
-                                <span class="badge" style="background:#e0e7ff;color:#3730a3;">UH/Akomodasi</span>
+                                <span class="badge" style="background:var(--info-bg);color:var(--info);">UH/Akomodasi</span>
                             @endif
                         </td>
                         <td>{{ $suratPerintah->unit_kerja }}</td>

@@ -62,7 +62,7 @@
                         <td>
                             <strong>{{ $pegawai->nama }}</strong>
                             @unless ($pegawai->aktif)
-                                <span class="badge" style="background:#e5e7eb;color:#374151;margin-left:6px;">Non Aktif</span>
+                                <span class="badge" style="background:var(--surface-3);color:var(--ink);margin-left:6px;">Non Aktif</span>
                             @endunless
                         </td>
                         <td>{{ $pegawai->nip ?: '-' }}</td>

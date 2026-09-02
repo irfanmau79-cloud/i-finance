@@ -16,6 +16,6 @@
         <div class="fg"><label class="fl">Tol (Rp)</label><input type="number" step="0.01" min="0" data-tol name="tim[{{ $i }}][tol]" value="{{ old("tim.$i.tol", $row['tol'] ?? '') }}"></div>
         <div class="fg"><label class="fl">Tiket (Rp)</label><input type="number" step="0.01" min="0" data-tiket name="tim[{{ $i }}][tiket]" value="{{ old("tim.$i.tiket", $row['tiket'] ?? '') }}"></div>
         <div class="fg"><label class="fl">Representatif (Rp)</label><input type="number" step="0.01" min="0" data-representatif name="tim[{{ $i }}][representatif]" value="{{ old("tim.$i.representatif", $row['representatif'] ?? '') }}"></div>
-        <div class="fg"><label class="fl">Subtotal (otomatis)</label><input type="text" data-subtotal readonly value="Rp 0" style="background:#f8fafc;font-weight:700;"></div>
+        <div class="fg"><label class="fl">Subtotal (otomatis)</label><input type="text" data-subtotal readonly value="Rp 0" style="background:var(--surface-2);font-weight:700;"></div>
     </div>
 </div>

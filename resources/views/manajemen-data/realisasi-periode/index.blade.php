@@ -14,7 +14,7 @@
     // Program > Kegiatan > Sub Kegiatan > Kode Rekening > Tagging terbaca
     // tanpa perlu kolom tambahan.
     $level = [
-        'program' => ['indent' => 0, 'weight' => 700, 'bg' => 'var(--navy-l)', 'color' => 'var(--navy)'],
+        'program' => ['indent' => 0, 'weight' => 700, 'bg' => 'var(--navy-l)', 'color' => 'var(--tegas)'],
         'kegiatan' => ['indent' => 16, 'weight' => 600, 'bg' => 'transparent', 'color' => 'var(--ink)'],
         'sub' => ['indent' => 32, 'weight' => 600, 'bg' => 'transparent', 'color' => 'var(--ink)'],
         'rekening' => ['indent' => 48, 'weight' => 400, 'bg' => 'transparent', 'color' => 'var(--ink)'],
@@ -160,7 +160,7 @@
             </tbody>
             <tfoot>
                 <tr style="background:var(--navy-l);font-weight:700;">
-                    <td style="color:var(--navy);">TOTAL</td>
+                    <td style="color:var(--tegas);">TOTAL</td>
                     <td class="num">{{ $rp($total['pagu']) }}</td>
                     <td class="num">{{ $rp($total['realisasi_npd']) }}</td>
                     <td class="num">{{ $rp($total['realisasi_ls']) }}</td>

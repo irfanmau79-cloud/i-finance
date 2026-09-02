@@ -77,7 +77,7 @@
                 &ldquo;{{ trim(SuratPerintah::SUFFIX_REIMBURSE) }}&rdquo;. Satu SP induk hanya bisa punya satu entri Reimburse.
             </div>
             @if ($indukJs === [])
-                <div class="sub" style="color:#b45309;margin-top:4px;">
+                <div class="sub" style="color:var(--warn-teks);margin-top:4px;">
                     Belum ada SP Uang Harian/Akomodasi yang memenuhi syarat (punya anggota, Sumber NPD aktif, dan belum punya entri Reimburse).
                 </div>
             @endif
@@ -241,7 +241,7 @@
     </button>
 </section>
 
-<div class="sub" id="sp-anggota-reimburse" hidden style="margin-top:12px;padding:10px;border:1px solid #fde68a;background:#fffbeb;border-radius:8px;">
+<div class="sub" id="sp-anggota-reimburse" hidden style="margin-top:12px;padding:10px;border:1px solid var(--garis-warn);background:var(--warn-bg);border-radius:8px;">
     Anggota akan <strong>disalin otomatis</strong> dari SP induk yang dipilih, jadi tidak perlu diisi di sini.
 </div>
 

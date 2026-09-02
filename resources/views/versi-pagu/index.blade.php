@@ -68,11 +68,11 @@
                         </td>
                         <td>
                             @if ($v->status === \App\Models\VersiPagu::STATUS_AKTIF)
-                                <span class="badge" style="background:#dcfce7;color:#166534;">BERLAKU</span>
+                                <span class="badge" style="background:var(--ok-bg);color:var(--ok-teks);">BERLAKU</span>
                             @elseif ($v->status === \App\Models\VersiPagu::STATUS_DRAFT)
-                                <span class="badge" style="background:#fef3c7;color:#92400e;">DRAFT</span>
+                                <span class="badge" style="background:var(--warn-bg);color:var(--warn-teks);">DRAFT</span>
                             @else
-                                <span class="badge" style="background:#e5e7eb;color:#374151;">ARSIP</span>
+                                <span class="badge" style="background:var(--surface-3);color:var(--ink);">ARSIP</span>
                             @endif
                         </td>
                         <td class="num">Rp {{ fmt_rupiah((float) $v->total_pagu) }}</td>

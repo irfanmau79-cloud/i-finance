@@ -27,13 +27,13 @@
 
 <style>
   .pd-rekap th.pd-sort{cursor:pointer;user-select:none;white-space:nowrap;}
-  .pd-rekap th.pd-sort:hover{color:var(--navy);}
+  .pd-rekap th.pd-sort:hover{color:var(--tegas);}
   .pd-sarrow{font-size:10px;margin-left:2px;}
   .pd-bidang-row{cursor:pointer;}
-  .pd-bidang-row:hover{background:#f8fbff;}
+  .pd-bidang-row:hover{background:var(--surface-2);}
   .pd-bidang-row.pd-open{background:var(--navy-l);}
-  .pd-caret{display:inline-block;width:13px;color:var(--navy);}
-  .pd-anggota-row{background:#fafbfd;}
+  .pd-caret{display:inline-block;width:13px;color:var(--tegas);}
+  .pd-anggota-row{background:var(--surface-2);}
   .pd-anggota-nama{padding-left:30px !important;}
   .pd-anggota-jab{display:block;color:var(--mut);font-size:11px;margin-top:1px;}
   .pd-total-row{background:var(--navy-l);font-weight:700;border-top:2px solid var(--navy);}
@@ -180,6 +180,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+@include('layouts.partials.chart-tema')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     // ---- Dua dropdown yang bisa dicari (port .nsearch dari gas-lama) ----
@@ -371,7 +372,7 @@ document.addEventListener('DOMContentLoaded', function () {
                 datasets: [{
                     label: {{ Illuminate\Support\Js::from($dashboard['metrik_label']) }},
                     data: data.map(x => x.nilai),
-                    backgroundColor: '#15314a',
+                    backgroundColor: warnaGrafik().utama,
                     borderRadius: 4,
                     maxBarThickness: 34,
                     categoryPercentage: 0.6,

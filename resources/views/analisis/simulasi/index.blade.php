@@ -6,8 +6,8 @@
 @section('content')
 <style>
     /* Nama simulasi tetap bisa diklik, tanpa garis bawah pranala. */
-    .sim-nama-tautan{font-weight:600;color:var(--navy);text-decoration:none;}
-    .sim-nama-tautan:hover,.sim-nama-tautan:focus{text-decoration:none;color:var(--navy-d);}
+    .sim-nama-tautan{font-weight:600;color:var(--tegas);text-decoration:none;}
+    .sim-nama-tautan:hover,.sim-nama-tautan:focus{text-decoration:none;color:var(--tegas);}
 
     /* Empat aksi (buka, Excel, PDF, hapus) disusun 2x2. Grid bawaan
        .aksi-wrap tiga kolom, sehingga empat tombol pecah jadi 3 + 1. */

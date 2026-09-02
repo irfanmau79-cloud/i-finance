@@ -32,7 +32,7 @@
         @elseif (! $hasil['ok'] && $hasil['kode'] === \App\Http\Controllers\CetakSpjPerjalananController::KODE_BANYAK)
             {{-- Beberapa SP berawalan sama: dipilih dulu yang mana, baru
                  dokumennya ditampilkan. --}}
-            <div class="sumbar" style="background:var(--navy-l);color:var(--navy);margin-bottom:12px;">
+            <div class="sumbar" style="background:var(--navy-l);color:var(--tegas);margin-bottom:12px;">
                 <span>{{ $hasil['pesan'] }}</span>
             </div>
             <div class="spj-pilihan">

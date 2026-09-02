@@ -44,7 +44,7 @@
         </div>
         <div class="fg">
             <label class="fl">Honor (otomatis)</label>
-            <input type="text" data-honor readonly value="Rp 0" style="background:#f8fafc;font-weight:700;">
+            <input type="text" data-honor readonly value="Rp 0" style="background:var(--surface-2);font-weight:700;">
         </div>
         <div class="fg">
             <label class="fl">Pengganti Transport (Rp)</label>
@@ -52,7 +52,7 @@
         </div>
         <div class="fg">
             <label class="fl">Bruto (otomatis)</label>
-            <input type="text" data-bruto readonly value="Rp 0" style="background:#f8fafc;font-weight:700;">
+            <input type="text" data-bruto readonly value="Rp 0" style="background:var(--surface-2);font-weight:700;">
         </div>
         <div class="fg">
             <label class="fl">PPh Pasal 21 (Rp)</label>
@@ -60,7 +60,7 @@
         </div>
         <div class="fg">
             <label class="fl">Diterima / Netto (otomatis)</label>
-            <input type="text" data-netto readonly value="Rp 0" style="background:#f8fafc;font-weight:700;">
+            <input type="text" data-netto readonly value="Rp 0" style="background:var(--surface-2);font-weight:700;">
         </div>
         <div class="fg span2">
             <label class="fl">Keterangan Lampiran (opsional)</label>

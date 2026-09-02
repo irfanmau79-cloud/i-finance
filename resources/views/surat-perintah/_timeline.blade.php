@@ -12,10 +12,10 @@
 <div class="sp-tl-head">
     Timeline Progres
     @if (($tl['nomor_npd'] ?? '') !== '')
-        &mdash; <span style="color:#475569;">NPD {{ $tl['nomor_npd'] }}</span>
+        &mdash; <span style="color:var(--ink);">NPD {{ $tl['nomor_npd'] }}</span>
     @endif
     @unless ($tl['ada_npd'] ?? false)
-        <span style="color:#b45309;font-weight:600;">(NPD belum dibuat)</span>
+        <span style="color:var(--warn-teks);font-weight:600;">(NPD belum dibuat)</span>
     @endunless
 </div>
 

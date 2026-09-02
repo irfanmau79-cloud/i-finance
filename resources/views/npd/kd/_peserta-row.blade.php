@@ -56,11 +56,11 @@
             <div class="form-grid" style="margin-top:0;">
                 <div class="fg"><label class="fl">Volume Kontribusi</label><input type="number" step="1" min="0" data-vol-kontribusi name="peserta[{{ $i }}][volume_kontribusi]" value="{{ $volKontribusiVal }}"></div>
                 <div class="fg"><label class="fl">Tarif Kontribusi (Rp)</label><input type="number" step="0.01" min="0" data-tarif-kontribusi name="peserta[{{ $i }}][tarif_kontribusi]" value="{{ $tarifKontribusiVal }}"></div>
-                <div class="fg"><label class="fl">Jumlah Kontribusi (otomatis)</label><input type="text" data-jml-kontribusi readonly value="Rp 0" style="background:#f8fafc;font-weight:700;"></div>
+                <div class="fg"><label class="fl">Jumlah Kontribusi (otomatis)</label><input type="text" data-jml-kontribusi readonly value="Rp 0" style="background:var(--surface-2);font-weight:700;"></div>
                 <div class="fg"><label class="fl">Volume MOOC</label><input type="number" step="1" min="0" data-vol-mooc name="peserta[{{ $i }}][volume_mooc]" value="{{ $volMoocVal }}"></div>
                 <div class="fg"><label class="fl">Tarif MOOC (Rp)</label><input type="number" step="0.01" min="0" data-tarif-mooc name="peserta[{{ $i }}][tarif_mooc]" value="{{ $tarifMoocVal }}"></div>
-                <div class="fg"><label class="fl">Jumlah MOOC (otomatis)</label><input type="text" data-jml-mooc readonly value="Rp 0" style="background:#f8fafc;font-weight:700;"></div>
-                <div class="fg span2"><label class="fl">Subtotal Kontribusi (otomatis)</label><input type="text" data-sub-kontribusi readonly value="Rp 0" style="background:#f8fafc;font-weight:700;"></div>
+                <div class="fg"><label class="fl">Jumlah MOOC (otomatis)</label><input type="text" data-jml-mooc readonly value="Rp 0" style="background:var(--surface-2);font-weight:700;"></div>
+                <div class="fg span2"><label class="fl">Subtotal Kontribusi (otomatis)</label><input type="text" data-sub-kontribusi readonly value="Rp 0" style="background:var(--surface-2);font-weight:700;"></div>
             </div>
         </div>
 
@@ -68,15 +68,15 @@
             <div class="form-grid" style="margin-top:0;">
                 <div class="fg"><label class="fl">Jumlah Hari (Uang Harian)</label><input type="number" step="1" min="0" data-hari-uh name="peserta[{{ $i }}][hari_uh]" value="{{ $hariUhVal }}"></div>
                 <div class="fg"><label class="fl">Tarif Uang Harian (Rp)</label><input type="number" step="0.01" min="0" data-tarif-uh name="peserta[{{ $i }}][tarif_uh]" value="{{ $tarifUhVal }}"></div>
-                <div class="fg"><label class="fl">Jumlah Uang Harian (otomatis)</label><input type="text" data-jml-harian readonly value="Rp 0" style="background:#f8fafc;font-weight:700;"></div>
+                <div class="fg"><label class="fl">Jumlah Uang Harian (otomatis)</label><input type="text" data-jml-harian readonly value="Rp 0" style="background:var(--surface-2);font-weight:700;"></div>
                 <div class="fg"><label class="fl">Volume Akomodasi (malam)</label><input type="number" step="1" min="0" data-vol-akomodasi name="peserta[{{ $i }}][volume_akomodasi]" value="{{ $volAkomodasiVal }}"></div>
                 <div class="fg"><label class="fl">Tarif Akomodasi (Rp)</label><input type="number" step="0.01" min="0" data-tarif-akomodasi name="peserta[{{ $i }}][tarif_akomodasi]" value="{{ $tarifAkomodasiVal }}"></div>
-                <div class="fg"><label class="fl">Jumlah Akomodasi (otomatis)</label><input type="text" data-jml-akomodasi readonly value="Rp 0" style="background:#f8fafc;font-weight:700;"></div>
+                <div class="fg"><label class="fl">Jumlah Akomodasi (otomatis)</label><input type="text" data-jml-akomodasi readonly value="Rp 0" style="background:var(--surface-2);font-weight:700;"></div>
                 <div class="fg"><label class="fl">Jumlah Hari (Uang Saku)</label><input type="number" step="1" min="0" data-hari-saku name="peserta[{{ $i }}][hari_saku]" value="{{ $hariSakuVal }}"></div>
                 <div class="fg"><label class="fl">Tarif Uang Saku (Rp)</label><input type="number" step="0.01" min="0" data-tarif-saku name="peserta[{{ $i }}][tarif_saku]" value="{{ $tarifSakuVal }}"></div>
-                <div class="fg"><label class="fl">Jumlah Uang Saku (otomatis)</label><input type="text" data-jml-saku readonly value="Rp 0" style="background:#f8fafc;font-weight:700;"></div>
+                <div class="fg"><label class="fl">Jumlah Uang Saku (otomatis)</label><input type="text" data-jml-saku readonly value="Rp 0" style="background:var(--surface-2);font-weight:700;"></div>
                 <div class="fg"><label class="fl">Transport/BBM/Tiket (Rp, at-cost)</label><input type="number" step="0.01" min="0" data-transport name="peserta[{{ $i }}][transport]" value="{{ $transportVal }}"></div>
-                <div class="fg span2"><label class="fl">Subtotal Perjalanan (otomatis)</label><input type="text" data-sub-perjalanan readonly value="Rp 0" style="background:#f8fafc;font-weight:700;"></div>
+                <div class="fg span2"><label class="fl">Subtotal Perjalanan (otomatis)</label><input type="text" data-sub-perjalanan readonly value="Rp 0" style="background:var(--surface-2);font-weight:700;"></div>
             </div>
         </div>
     </div>

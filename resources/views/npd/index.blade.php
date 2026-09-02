@@ -54,7 +54,7 @@
     @endif
 
     <div style="margin-top:26px;">
-        <div style="font-size:15px;font-weight:700;color:var(--navy);margin-bottom:10px;">Daftar Nota Pencairan Dana</div>
+        <div style="font-size:15px;font-weight:700;color:var(--tegas);margin-bottom:10px;">Daftar Nota Pencairan Dana</div>
 
         {{-- Penyaring jenis & status ada di baris penyaring dalam tabel. --}}
 

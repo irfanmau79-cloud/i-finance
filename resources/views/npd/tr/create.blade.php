@@ -35,7 +35,7 @@
             <div class="fg">
                 <label class="fl" for="npd_induk_id">NPD Perjalanan Dinas Induk</label>
                 @if ($npdEdit)
-                    <input type="text" value="{{ $indukList->first()?->nomor_lengkap ?? '#'.$npdEdit->npd_induk_id }}" disabled style="background:#f8fafc;">
+                    <input type="text" value="{{ $indukList->first()?->nomor_lengkap ?? '#'.$npdEdit->npd_induk_id }}" disabled style="background:var(--surface-2);">
                     <input type="hidden" id="npd_induk_id" name="npd_induk_id" value="{{ $npdEdit->npd_induk_id }}">
                     <div class="sub" style="margin-top:4px;">Induk tidak dapat diganti setelah NPD Transport dibuat.</div>
                 @else
@@ -180,7 +180,7 @@
             + '<div class="fg"><label class="fl">Tol (Rp)</label><input type="number" step="0.01" min="0" data-tol name="tim[' + idx + '][tol]" value=""></div>'
             + '<div class="fg"><label class="fl">Tiket (Rp)</label><input type="number" step="0.01" min="0" data-tiket name="tim[' + idx + '][tiket]" value=""></div>'
             + '<div class="fg"><label class="fl">Representatif (Rp)</label><input type="number" step="0.01" min="0" data-representatif name="tim[' + idx + '][representatif]" value=""></div>'
-            + '<div class="fg"><label class="fl">Subtotal (otomatis)</label><input type="text" data-subtotal readonly value="Rp 0" style="background:#f8fafc;font-weight:700;"></div>'
+            + '<div class="fg"><label class="fl">Subtotal (otomatis)</label><input type="text" data-subtotal readonly value="Rp 0" style="background:var(--surface-2);font-weight:700;"></div>'
             + '</div>'
             + '</div>';
     }

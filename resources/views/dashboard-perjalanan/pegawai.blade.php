@@ -5,10 +5,10 @@
 
 @section('content')
 <style>
-  .rp-head h2{margin:0;color:var(--navy);font-size:22px}.rp-head p{margin:4px 0 16px;color:var(--mut)}
-  .rp-filter{display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:12px;align-items:end}.rp-filter label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:5px}
-  .rp-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:16px 0}.rp-kpi{background:#fff;border:1px solid var(--line);border-radius:13px;padding:15px 16px;box-shadow:var(--shadow)}.rp-kpi small{display:block;color:var(--mut);font-weight:700;text-transform:uppercase}.rp-kpi strong{display:block;color:var(--navy);font-size:20px;margin-top:5px}
-  .rp-table-wrap{overflow:auto}.rp-table{min-width:1050px}.rp-row-link{cursor:pointer}.rp-row-link:hover{background:#fafbfd}.rp-tag{display:inline-block;margin-left:6px;font-size:11px;font-weight:700;color:var(--mut);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
+  .rp-head h2{margin:0;color:var(--tegas);font-size:22px}.rp-head p{margin:4px 0 16px;color:var(--mut)}
+  .rp-filter{display:grid;grid-template-columns:1fr 1fr 1fr 1fr auto;gap:12px;align-items:end}.rp-filter label{display:block;font-size:12px;font-weight:700;color:var(--tegas);margin-bottom:5px}
+  .rp-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:16px 0}.rp-kpi{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:15px 16px;box-shadow:var(--shadow)}.rp-kpi small{display:block;color:var(--mut);font-weight:700;text-transform:uppercase}.rp-kpi strong{display:block;color:var(--tegas);font-size:20px;margin-top:5px}
+  .rp-table-wrap{overflow:auto}.rp-table{min-width:1050px}.rp-row-link{cursor:pointer}.rp-row-link:hover{background:var(--surface-2)}.rp-tag{display:inline-block;margin-left:6px;font-size:11px;font-weight:700;color:var(--mut);border:1px solid var(--line);border-radius:6px;padding:1px 6px}
   .rp-empty{text-align:center;padding:50px 16px;color:var(--mut)}
   @media(max-width:900px){.rp-filter{grid-template-columns:1fr 1fr}.rp-kpis{grid-template-columns:1fr 1fr}}@media(max-width:600px){.rp-filter,.rp-kpis{grid-template-columns:1fr}}
 </style>

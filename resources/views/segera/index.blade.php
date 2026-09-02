@@ -7,25 +7,25 @@
 <style>
   .up-wrap{display:flex;align-items:center;justify-content:center;min-height:56vh;padding:24px;}
   .up-kartu{max-width:520px;width:100%;text-align:center;padding:44px 34px;border:1px solid var(--line);
-    border-radius:18px;background:#fff;box-shadow:var(--shadow);}
+    border-radius:18px;background:var(--surface);box-shadow:var(--shadow);}
 
   /* Ikon gir yang berputar pelan - penanda "sedang dikerjakan" tanpa
      mengganggu; berhenti berputar bila pengguna meminta gerakan dikurangi. */
   .up-gir{position:relative;width:76px;height:76px;margin:0 auto 20px;}
-  .up-gir svg{position:absolute;inset:0;width:100%;height:100%;fill:none;stroke:var(--navy);stroke-width:1.4;
+  .up-gir svg{position:absolute;inset:0;width:100%;height:100%;fill:none;stroke:var(--tegas);stroke-width:1.4;
     stroke-linecap:round;stroke-linejoin:round;animation:up-putar 7s linear infinite;}
   .up-gir svg.kecil{width:38px;height:38px;inset:auto -4px -4px auto;stroke:var(--gold);stroke-width:1.7;
     animation:up-putar-balik 5s linear infinite;}
   @keyframes up-putar{to{transform:rotate(360deg);}}
   @keyframes up-putar-balik{to{transform:rotate(-360deg);}}
 
-  .up-judul{font-size:20px;font-weight:800;color:var(--navy);}
+  .up-judul{font-size:20px;font-weight:800;color:var(--tegas);}
   .up-modul{display:inline-block;margin-top:10px;padding:4px 12px;border-radius:20px;background:var(--navy-l);
-    color:var(--navy);font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;}
+    color:var(--tegas);font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;}
   .up-teks{margin-top:14px;color:var(--mut);font-size:13.5px;line-height:1.6;}
 
   /* Bar tak-tentu: bergerak terus, tidak menyiratkan persentase kemajuan. */
-  .up-bar{position:relative;height:5px;border-radius:3px;background:#eef2f7;overflow:hidden;margin-top:24px;}
+  .up-bar{position:relative;height:5px;border-radius:3px;background:var(--surface-3);overflow:hidden;margin-top:24px;}
   .up-bar i{position:absolute;top:0;bottom:0;width:38%;border-radius:3px;
     background:linear-gradient(90deg,var(--navy),var(--gold));animation:up-geser 1.9s ease-in-out infinite;}
   @keyframes up-geser{0%{left:-40%;}100%{left:102%;}}

@@ -97,7 +97,7 @@
 
         <div class="gtc-actions">
             <button class="gt-btn-tampil" id="gtc-btn" type="submit">Cetak Dokumen</button>
-            <div id="gtc-status" class="sub" style="align-self:center;margin:0;color:#c0392b;">{{ $errors->first() }}</div>
+            <div id="gtc-status" class="sub" style="align-self:center;margin:0;color:var(--err);">{{ $errors->first() }}</div>
         </div>
     </form>
 </div>
@@ -192,7 +192,7 @@
 
             <div class="gtc-actions">
                 <button class="gt-btn-tampil" type="submit">Tambah Penandatangan</button>
-                <div class="sub" style="align-self:center;margin:0;color:#c0392b;">{{ $errors->ttd->first() }}</div>
+                <div class="sub" style="align-self:center;margin:0;color:var(--err);">{{ $errors->ttd->first() }}</div>
             </div>
         </form>
     </div>
@@ -332,7 +332,7 @@
         listPd.innerHTML = bulan.map(function (b) {
             return '<div class="gtc-pd-item"><label>' + esc(NAMA_BULAN[b]) + '</label>' +
                 '<input class="gtc-inp" data-bln="' + b + '" type="text" value="&hellip;" readonly ' +
-                'style="background:#f1f5f9;color:var(--ink);cursor:default;"></div>';
+                'style="background:var(--surface-3);color:var(--ink);cursor:default;"></div>';
         }).join('');
 
         fetch(URL_UH, {

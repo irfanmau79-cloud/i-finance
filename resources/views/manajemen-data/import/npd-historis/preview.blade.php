@@ -81,7 +81,7 @@
                 // .kpi-lbl / .kpi-val hanya berlaku di dalam kartu .kpi
                 // (selector turunan), jadi di luar kartu gayanya ditulis sendiri.
                 $lbl = 'font-size:11px;color:var(--mut);font-weight:600;text-transform:uppercase;letter-spacing:.4px;';
-                $val = 'font-size:21px;font-weight:700;color:var(--navy);letter-spacing:-.3px;line-height:1.15;margin-top:3px;';
+                $val = 'font-size:21px;font-weight:700;color:var(--tegas);letter-spacing:-.3px;line-height:1.15;margin-top:3px;';
             @endphp
             <div style="display:flex;flex-wrap:wrap;gap:22px 34px;margin-top:10px;">
                 <div>

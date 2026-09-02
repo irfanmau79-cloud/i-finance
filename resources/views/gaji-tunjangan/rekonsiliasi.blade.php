@@ -14,23 +14,23 @@
 <style>
     /* Selisih status ditandai supaya barisnya langsung terlihat saat menyisir
        ratusan pegawai; tanpa ini kolom rupiah harus dibaca satu per satu. */
-    .rk-beda { background: #fff7ed !important; }
-    .rk-beda:hover { background: #ffedd5 !important; }
+    .rk-beda { background:var(--warn-bg) !important; }
+    .rk-beda:hover { background:var(--warn-bg) !important; }
     .rk-status { display: inline-block; padding: 2px 9px; border-radius: 50px; font-size: 11.5px; font-weight: 700; }
-    .rk-status.sama { background: var(--navy-l); color: var(--navy); }
-    .rk-status.beda { background: #fee2e2; color: #b3261e; }
-    .rk-status.kosong { background: #f1f5f9; color: #94a3b8; }
+    .rk-status.sama { background: var(--navy-l); color: var(--tegas); }
+    .rk-status.beda { background:var(--err-bg); color:var(--err); }
+    .rk-status.kosong { background:var(--surface-3); color: #94a3b8; }
     .rk-kunci { display: flex; flex-wrap: wrap; gap: 10px 22px; align-items: center;
-        border: 1px solid var(--line); background: #f8fafc; border-radius: 12px;
+        border: 1px solid var(--line); background:var(--surface-2); border-radius: 12px;
         padding: 13px 16px; margin: 6px 0 4px; font-size: 12.5px; }
-    .rk-kunci b { color: var(--navy); }
+    .rk-kunci b { color: var(--tegas); }
     .rk-ringkas { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
         gap: 12px; margin: 12px 0 4px; }
-    .rk-ringkas .k { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background: #fff; }
+    .rk-ringkas .k { border: 1px solid var(--line); border-radius: 12px; padding: 12px 14px; background:var(--surface); }
     .rk-ringkas .k .l { font-size: 11px; font-weight: 700; letter-spacing: .3px;
         text-transform: uppercase; color: var(--mut); }
-    .rk-ringkas .k .v { font-size: 18px; font-weight: 700; color: var(--navy); margin-top: 3px; }
-    .rk-ringkas .k.tekan .v { color: #b3261e; }
+    .rk-ringkas .k .v { font-size: 18px; font-weight: 700; color: var(--tegas); margin-top: 3px; }
+    .rk-ringkas .k.tekan .v { color:var(--err); }
     :root[data-tema="gelap"] .rk-ringkas .k,
     :root[data-tema="gelap"] .rk-kunci { background: var(--surface); border-color: var(--line); }
     :root[data-tema="gelap"] .rk-ringkas .k .v { color: var(--ink); }
@@ -93,7 +93,7 @@
                          DITEKAN. Mengunci terlambat berarti perubahan yang
                          sudah terjadi ikut terpotret, sehingga selisihnya
                          bisa hilang. --}}
-                    <br><b style="color:#b3261e;">Perhatian:</b> tanggal itu sudah lewat
+                    <br><b style="color:var(--err);">Perhatian:</b> tanggal itu sudah lewat
                     {{ $tanggalPenggajian->diffForHumans(['parts' => 1]) }}. Potret memakai data
                     Tunjangan Keluarga <b>saat ini</b>, jadi perubahan yang terjadi sejak
                     awal bulan sudah ikut terekam dan selisihnya bisa tidak terlihat lagi.

@@ -35,7 +35,7 @@
         @if ($terbatas)
             {{-- Bar identitas terverifikasi (#gt-authbar di GAS). --}}
             <div style="flex:0 0 auto;margin:6px 0 4px;display:flex;align-items:center;gap:12px;flex-wrap:wrap;">
-                <span style="font-size:12.5px;color:var(--navy);">Menampilkan data untuk NIP <b>{{ $nipSesi }}</b></span>
+                <span style="font-size:12.5px;color:var(--tegas);">Menampilkan data untuk NIP <b>{{ $nipSesi }}</b></span>
                 <form method="POST" action="{{ route('gaji-tunjangan.ganti-nip') }}" style="margin:0;">
                     @csrf
                     <button class="btn" style="padding:4px 12px;font-size:12px;" type="submit">Ganti NIP</button>

@@ -33,7 +33,7 @@
     @endif
 
     @if ($import->ada_kolom_tagging_lama)
-        <div class="err-box" style="display:block;background:#fef9c3;color:#854d0e;border-color:#fde68a;">
+        <div class="err-box" style="display:block;background:var(--warn-bg);color:var(--warn-teks);border-color:var(--garis-warn);">
             File ini menggunakan format lama yang masih memiliki kolom Tagging. Kolom tersebut sudah <strong>tidak digunakan</strong> dan diabaikan sepenuhnya - RAK Bulanan sekarang hanya sampai tingkat Kode Rekening, tidak dibedakan per Tagging.
         </div>
     @endif
@@ -41,8 +41,8 @@
     <div class="kpi-grid">
         <div class="dash-card"><h3>{{ $import->total_baris }}</h3><div class="sub">Total Baris (per bulan)</div></div>
         <div class="dash-card"><h3 style="color:var(--ok);">{{ $import->jumlah_baru }}</h3><div class="sub">Data Baru</div></div>
-        <div class="dash-card"><h3 style="color:var(--navy);">{{ $import->jumlah_update }}</h3><div class="sub">Diperbarui</div></div>
-        <div class="dash-card"><h3 style="color:#b91c1c;">{{ $import->jumlah_ditolak }}</h3><div class="sub">Ditolak</div></div>
+        <div class="dash-card"><h3 style="color:var(--tegas);">{{ $import->jumlah_update }}</h3><div class="sub">Diperbarui</div></div>
+        <div class="dash-card"><h3 style="color:var(--err-teks);">{{ $import->jumlah_ditolak }}</h3><div class="sub">Ditolak</div></div>
     </div>
 
     @if ($import->status === \App\Models\RakBulananImport::STATUS_STAGED && ! $import->kedaluwarsa())
@@ -80,11 +80,11 @@
                         <td>{{ $labelBulan[$b->bulan] ?? $b->bulan }}</td>
                         <td>
                             @if ($b->aksi === 'baru')
-                                <span class="badge" style="background:#dcfce7;color:#166534;">Baru</span>
+                                <span class="badge" style="background:var(--ok-bg);color:var(--ok-teks);">Baru</span>
                             @elseif ($b->aksi === 'update')
-                                <span class="badge" style="background:#dbeafe;color:#1e3a8a;">Update</span>
+                                <span class="badge" style="background:var(--info-bg);color:var(--info);">Update</span>
                             @else
-                                <span class="badge" style="background:#fee2e2;color:#991b1b;">Ditolak</span>
+                                <span class="badge" style="background:var(--err-bg);color:var(--err-teks);">Ditolak</span>
                             @endif
                         </td>
                         <td>{{ $b->sub_kegiatan ?? '—' }}</td>

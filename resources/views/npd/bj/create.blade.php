@@ -390,7 +390,7 @@
             + '<div data-pph-list></div>'
             + '<button type="button" class="add" style="padding:6px;font-size:11.5px;margin-top:6px;" data-pph-add>+ Tambah PPh</button>'
             + '</div>'
-            + '<div class="fg"><label class="fl">Netto (otomatis)</label><input type="text" data-netto readonly value="Rp 0" style="background:#f8fafc;font-weight:700;"></div>'
+            + '<div class="fg"><label class="fl">Netto (otomatis)</label><input type="text" data-netto readonly value="Rp 0" style="background:var(--surface-2);font-weight:700;"></div>'
             + '<div class="fg span2"><label class="fl">Keterangan</label><input type="text" required name="penerima[' + idx + '][keterangan]" value=""></div>'
             + '</div>'
             + '</div>';

@@ -51,7 +51,7 @@
                         <td>
                             {{ $spm->nomor_dokumen }}
                             @if ($multi)
-                                <span class="pill" data-spm-caret style="margin-top:4px;background:var(--navy-l);color:var(--navy);">&#9656; {{ $spm->detail->count() }} mata anggaran</span>
+                                <span class="pill" data-spm-caret style="margin-top:4px;background:var(--navy-l);color:var(--tegas);">&#9656; {{ $spm->detail->count() }} mata anggaran</span>
                             @endif
                         </td>
                         <td>{{ $spm->tanggal_sp2d?->format('d-m-Y') ?? '—' }}</td>
@@ -86,7 +86,7 @@
                         </td>
                     </tr>
                     @if ($multi)
-                        <tr data-spm-member="spm-ls-{{ $i }}" style="display:none;background:#fafbfd;">
+                        <tr data-spm-member="spm-ls-{{ $i }}" style="display:none;background:var(--surface-2);">
                             <td colspan="8" style="padding:10px 16px 10px 34px;">
                                 <table style="width:100%;table-layout:fixed;">
                                     <colgroup><col style="width:78%;"><col style="width:22%;"></colgroup>

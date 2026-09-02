@@ -6,18 +6,18 @@
 @section('content')
 <style>
   .an-head{display:flex;justify-content:space-between;align-items:flex-start;gap:14px;flex-wrap:wrap;margin-bottom:16px}
-  .an-head h2{margin:0;color:var(--navy);font-size:22px}
+  .an-head h2{margin:0;color:var(--tegas);font-size:22px}
   .an-filter{display:grid;grid-template-columns:minmax(220px,1fr) minmax(220px,1fr) auto;gap:12px;align-items:end}
-  .an-filter label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:5px}
+  .an-filter label{display:block;font-size:12px;font-weight:700;color:var(--tegas);margin-bottom:5px}
   .an-filter-actions{display:flex;gap:8px}.an-filter-actions .btn{padding:9px 14px;white-space:nowrap}
   .an-kpis{display:grid;grid-template-columns:repeat(4,1fr);gap:14px;margin:16px 0}
-  .an-kpi{background:#fff;border:1px solid var(--line);border-radius:13px;padding:15px 16px;box-shadow:var(--shadow)}
+  .an-kpi{background:var(--surface);border:1px solid var(--line);border-radius:13px;padding:15px 16px;box-shadow:var(--shadow)}
   .an-kpi .label{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--mut)}
-  .an-kpi .value{font-size:20px;font-weight:800;color:var(--navy);margin-top:5px;font-variant-numeric:tabular-nums}
+  .an-kpi .value{font-size:20px;font-weight:800;color:var(--tegas);margin-top:5px;font-variant-numeric:tabular-nums}
   .an-kpi .note{font-size:11.5px;color:var(--mut);margin-top:3px}.an-kpi .positive{color:var(--ok)}.an-kpi .negative{color:var(--err)}
-  .an-notice{border-radius:10px;padding:11px 13px;margin:12px 0;font-size:13px;background:var(--warn-bg);color:var(--warn);border:1px solid #f0dcae}
+  .an-notice{border-radius:10px;padding:11px 13px;margin:12px 0;font-size:13px;background:var(--warn-bg);color:var(--warn);border:1px solid var(--garis-warn)}
   .an-chart-head{display:flex;align-items:flex-start;justify-content:space-between;gap:12px;flex-wrap:wrap}
-  .an-chart-head h3{margin:0;color:var(--navy)}
+  .an-chart-head h3{margin:0;color:var(--tegas)}
   .an-chart-box{position:relative;height:430px;margin-top:14px}.an-chart-error,.an-empty{padding:52px 16px;text-align:center;color:var(--mut)}
   .an-chart-error{display:none;color:var(--err)}
   @media(max-width:1050px){.an-kpis{grid-template-columns:1fr 1fr}}
@@ -100,6 +100,7 @@
 </div>
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+@include('layouts.partials.chart-tema')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
     const form = document.getElementById('an-filter-form');
@@ -161,8 +162,8 @@ document.addEventListener('DOMContentLoaded', function () {
     function datasets() {
         const realisasi = mode === 'kumulatif' ? data.realisasi_kumulatif : data.realisasi_bulanan;
         const target = mode === 'kumulatif' ? data.target_kumulatif : data.target_bulanan;
-        const result = [{type:'bar',label:mode === 'kumulatif' ? 'Realisasi Kumulatif' : 'Realisasi Bulanan',data:realisasi,backgroundColor:'#15314a',borderRadius:5,maxBarThickness:42,order:2}];
-        if (data.rak_tersedia) result.push({type:'line',label:mode === 'kumulatif' ? 'Target RAK Kumulatif' : 'Target RAK Bulanan',data:target,borderColor:'#d9a938',backgroundColor:'#d9a938',borderWidth:3,tension:.25,pointRadius:4,pointHoverRadius:6,spanGaps:false,order:1});
+        const result = [{type:'bar',label:mode === 'kumulatif' ? 'Realisasi Kumulatif' : 'Realisasi Bulanan',data:realisasi,backgroundColor:warnaGrafik().utama,borderRadius:5,maxBarThickness:42,order:2}];
+        if (data.rak_tersedia) result.push({type:'line',label:mode === 'kumulatif' ? 'Target RAK Kumulatif' : 'Target RAK Bulanan',data:target,borderColor:warnaGrafik().emas,backgroundColor:'#d9a938',borderWidth:3,tension:.25,pointRadius:4,pointHoverRadius:6,spanGaps:false,order:1});
         return result;
     }
 

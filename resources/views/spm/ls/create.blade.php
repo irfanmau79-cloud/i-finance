@@ -50,7 +50,7 @@
 
   .spm-penerima{display:grid;grid-template-columns:minmax(0,1.6fr) minmax(0,1.4fr) minmax(0,1fr);gap:6px 14px;}
   @media(max-width:820px){.spm-penerima{grid-template-columns:1fr;}}
-  .spm-penerima input[readonly]{background:#f8fafc;color:var(--mut);}
+  .spm-penerima input[readonly]{background:var(--surface-2);color:var(--mut);}
   :root[data-tema="gelap"] .spm-penerima input[readonly]{background:var(--surface-2);}
   .spm-bank-manual{margin-top:6px;}
 
@@ -63,7 +63,7 @@
   .spm-rekap .baris + .baris{border-top:1px solid var(--line);}
   .spm-rekap .v{font-variant-numeric:tabular-nums;font-weight:700;color:var(--ink);}
   .spm-rekap .v.kurang{color:var(--err);}
-  .spm-rekap .netto{padding:12px 0;font-size:14px;font-weight:700;color:var(--navy);}
+  .spm-rekap .netto{padding:12px 0;font-size:14px;font-weight:700;color:var(--tegas);}
   .spm-rekap .netto .v{font-size:17px;color:var(--ok);}
 
   .spm-kosong{padding:20px 12px;text-align:center;font-size:12.5px;color:var(--mut);}
@@ -75,7 +75,7 @@
     .spm-baris-head{display:none;}
     .spm-baris{grid-template-columns:1fr;gap:4px;padding:14px 2px;position:relative;}
     .spm-baris > div::before{content:attr(data-l);display:block;margin-bottom:4px;
-      font-size:11px;font-weight:700;color:var(--navy);}
+      font-size:11px;font-weight:700;color:var(--tegas);}
     .spm-baris .sb-sisa{text-align:left;}
     .spm-baris input[data-ma-nominal]{text-align:left;}
     .spm-baris .ic-btn{position:absolute;top:8px;right:0;}

@@ -7,12 +7,12 @@
 <style>
     .imp-head { display:flex; align-items:flex-start; justify-content:space-between; gap:16px; flex-wrap:wrap; }
     .imp-head h3 { margin:0; }
-    .imp-year { display:inline-block; background:var(--navy-l); color:var(--navy); font-weight:700;
+    .imp-year { display:inline-block; background:var(--navy-l); color:var(--tegas); font-weight:700;
         font-size:12px; letter-spacing:.02em; padding:6px 12px; border-radius:999px; white-space:nowrap; }
     .imp-lead { color:var(--mut); max-width:56ch; margin-top:6px; line-height:1.6; }
 
     .imp-steps { display:grid; grid-template-columns:repeat(auto-fit,minmax(190px,1fr)); gap:12px; margin:20px 0 4px; }
-    .imp-step { border:1px solid var(--line); border-radius:var(--radius-sm); padding:14px 16px; background:#fff; }
+    .imp-step { border:1px solid var(--line); border-radius:var(--radius-sm); padding:14px 16px; background:var(--surface); }
     .imp-step-no { width:24px; height:24px; border-radius:50%; background:var(--navy); color:#fff;
         font-size:12px; font-weight:700; display:flex; align-items:center; justify-content:center; margin-bottom:8px; }
     .imp-step-t { font-weight:600; margin-bottom:2px; }
@@ -20,11 +20,11 @@
 
     .imp-form { margin-top:20px; border-top:1px solid var(--line); padding-top:20px; }
     .imp-drop { position:relative; display:flex; align-items:center; gap:14px; border:1.5px dashed var(--line);
-        border-radius:var(--radius-sm); padding:18px 20px; background:#fbfcfe; cursor:pointer;
+        border-radius:var(--radius-sm); padding:18px 20px; background:var(--surface-2); cursor:pointer;
         transition:border-color .15s, background .15s; }
     .imp-drop:hover, .imp-drop.is-over { border-color:var(--navy); background:var(--navy-l); }
     .imp-drop input[type=file] { position:absolute; inset:0; opacity:0; cursor:pointer; }
-    .imp-drop svg { width:26px; height:26px; stroke:var(--navy); fill:none; stroke-width:1.8;
+    .imp-drop svg { width:26px; height:26px; stroke:var(--tegas); fill:none; stroke-width:1.8;
         stroke-linecap:round; stroke-linejoin:round; flex:none; }
     .imp-drop-t { font-weight:600; }
     .imp-drop-d { color:var(--mut); font-size:13px; margin-top:2px; }

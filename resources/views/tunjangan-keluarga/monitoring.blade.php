@@ -52,7 +52,7 @@
                             @php($anakList = $p->payload['anak'] ?? [])
                             @if (filled($pasangan['nama'] ?? null) || count(array_filter($anakList, fn ($a) => filled($a['nama'] ?? null))) > 0)
                                 <details style="margin-top:6px">
-                                    <summary style="cursor:pointer;color:var(--navy);font-size:12px;font-weight:600;">Data keluarga</summary>
+                                    <summary style="cursor:pointer;color:var(--tegas);font-size:12px;font-weight:600;">Data keluarga</summary>
                                     <div style="margin-top:6px;font-size:12px;color:var(--ink);">
                                         @if (filled($pasangan['nama'] ?? null))
                                             <div style="padding:4px 0;border-bottom:1px dashed var(--line)">

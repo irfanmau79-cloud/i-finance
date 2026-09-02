@@ -531,7 +531,7 @@
     function paketRowHtml(timIdx, pid) {
         return '<div class="paket" data-paket-row data-pid="' + pid + '" style="border:1px solid var(--line);border-radius:8px;padding:10px;margin-top:8px;position:relative;">'
             + '<button type="button" class="del" data-paket-remove style="top:6px;right:6px;width:22px;height:22px;font-size:13px;" title="Hapus paket">&times;</button>'
-            + '<div style="font-size:11px;color:var(--navy);font-weight:600;margin-bottom:4px;">Paket Tujuan</div>'
+            + '<div style="font-size:11px;color:var(--tegas);font-weight:600;margin-bottom:4px;">Paket Tujuan</div>'
             + '<div class="row3">'
             + '<div><label class="fl">Cluster</label><select data-p-cluster name="tim[' + timIdx + '][paket][' + pid + '][cluster]">' + clusterOptionsHtml('') + '</select></div>'
             + '<div><label class="fl">Kab/Kota Tujuan</label><div data-p-wilayah-wrap><select data-p-wilayah name="tim[' + timIdx + '][paket][' + pid + '][wilayah]" disabled><option value="">—</option></select></div></div>'
@@ -542,7 +542,7 @@
             + '<div><label class="fl">Malam</label><input type="number" min="0" data-p-malam name="tim[' + timIdx + '][paket][' + pid + '][malam]" value="0"></div>'
             + '<div><label class="fl">Tarif/malam (Rp)</label><input type="number" step="0.01" min="0" data-p-tarifak name="tim[' + timIdx + '][paket][' + pid + '][tarif_akom]" value="0"></div>'
             + '</div>'
-            + '<div class="mini" style="text-align:right;">Subtotal paket: <span data-p-sub style="font-weight:600;color:var(--navy);">Rp 0</span></div>'
+            + '<div class="mini" style="text-align:right;">Subtotal paket: <span data-p-sub style="font-weight:600;color:var(--tegas);">Rp 0</span></div>'
             + '</div>';
     }
 

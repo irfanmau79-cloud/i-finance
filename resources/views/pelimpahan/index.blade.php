@@ -9,12 +9,12 @@
   @media(max-width:680px){.pl-sub-form{grid-template-columns:1fr;}}
   .pl-add-toggle{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
   .pl-add-toggle h4{margin:0;}
-  .pl-add-form{background:#f8fafc;border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px;}
+  .pl-add-form{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px;}
   .pl-dsk-filter{display:grid;grid-template-columns:repeat(5,minmax(140px,1fr));gap:10px;align-items:end;}
   @media(max-width:1100px){.pl-dsk-filter{grid-template-columns:1fr 1fr;}}
   @media(max-width:620px){.pl-dsk-filter{grid-template-columns:1fr;}}
   .pl-dsk-filter .pl-dsk-filter-actions{display:flex;gap:7px;}
-  table.pl-dsk select{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:#fff;}
+  table.pl-dsk select{width:100%;padding:7px 9px;border:1px solid var(--line);border-radius:8px;font-size:13px;background:var(--surface);}
   table.pl-dsk td{vertical-align:top;}
   table.pl-dsk .sub{display:block;color:var(--mut);font-size:11px;margin-top:4px;}
   #assignment-form .inv-pager{margin-top:12px;border-radius:9px;}
@@ -33,7 +33,7 @@
   .pl-info{margin-top:10px;border:1px solid var(--line);border-radius:10px;background:var(--surface-2);overflow:hidden;}
   .pl-info-baris{display:grid;grid-template-columns:minmax(96px,34%) 1fr;gap:10px;align-items:baseline;padding:9px 12px;}
   .pl-info-baris + .pl-info-baris{border-top:1px solid var(--line);}
-  .pl-info-baris .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--navy);}
+  .pl-info-baris .lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.4px;color:var(--tegas);}
   .pl-info-baris .val{font-size:13px;font-weight:400;color:var(--ink);overflow-wrap:anywhere;}
   @media(max-width:520px){
     .pl-info-baris{grid-template-columns:1fr;gap:2px;}
@@ -139,7 +139,7 @@
     </tbody></table></div>
 
     <div class="pl-add-form" id="kpa-form-wrap" hidden>
-        <div class="pl-add-toggle"><h4 id="kpa-form-title" style="margin:0;font-size:13px;color:var(--navy)">Tambah KPA dan BPP</h4><button type="button" class="btn" id="kpa-cancel">Batal</button></div>
+        <div class="pl-add-toggle"><h4 id="kpa-form-title" style="margin:0;font-size:13px;color:var(--tegas)">Tambah KPA dan BPP</h4><button type="button" class="btn" id="kpa-cancel">Batal</button></div>
         <form method="POST" action="{{ route('pelimpahan.kpa.store') }}" id="kpa-form">
             @csrf
             <div class="pl-sub-form">
@@ -196,7 +196,7 @@
     </tbody></table></div>
 
     <div class="pl-add-form" id="pptk-form-wrap" hidden>
-        <div class="pl-add-toggle"><h4 style="margin:0;font-size:13px;color:var(--navy)">Tambah PPTK</h4><button type="button" class="btn" id="pptk-cancel">Batal</button></div>
+        <div class="pl-add-toggle"><h4 style="margin:0;font-size:13px;color:var(--tegas)">Tambah PPTK</h4><button type="button" class="btn" id="pptk-cancel">Batal</button></div>
         <form method="POST" action="{{ route('pelimpahan.pptk.store') }}" id="pptk-form">
             @csrf
             <label class="fl" for="pptkf-inp">Pejabat Pelaksana Teknis Kegiatan</label>

@@ -14,7 +14,8 @@
   (function(){
     try{
       if(localStorage.getItem('ifinance-sidebar-collapsed')==='1'){document.documentElement.classList.add('sidebar-collapsed');}
-      if(localStorage.getItem('ifinance-tema')==='gelap'){document.documentElement.setAttribute('data-tema','gelap');}
+      var tema=localStorage.getItem('ifinance-tema');
+      if(tema==='gelap'||tema==='terang'){document.documentElement.setAttribute('data-tema',tema);}
     }catch(e){}
   })();
 </script>
@@ -265,7 +266,7 @@
 
     </nav>
     <div style="margin-top:auto;">
-      <div id="sb-userinfo" style="padding:8px 20px;font-size:11.5px;color:#9db8d6;border-top:1px solid rgba(255,255,255,.1);">{{ auth()->user()->nama ?? 'Pengguna Layanan' }} &mdash; {{ config('akses.role_label')[$currentRole] ?? $currentRole }}</div>
+      <div id="sb-userinfo" style="padding:8px 20px;font-size:11.5px;color:var(--sb-teks-lemah);border-top:1px solid var(--sb-sep);">{{ auth()->user()->nama ?? 'Pengguna Layanan' }} &mdash; {{ config('akses.role_label')[$currentRole] ?? $currentRole }}</div>
       <form method="POST" action="{{ route('logout') }}">
         @csrf
         <button type="submit" class="sb-logout" style="width:100%;border:none;background:none;font:inherit;text-align:left;cursor:pointer;">
@@ -290,10 +291,31 @@
       <div class="tb-kanan">
         <span class="tb-tahun">Tahun Anggaran {{ config('anggaran.tahun_aktif') }}</span>
 
-        <button type="button" class="tb-ikon tb-tema" id="tb-tema" title="Ganti mode terang/gelap" aria-label="Ganti mode terang/gelap">
-          <svg class="matahari" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="6.3" y2="6.3"/><line x1="17.7" y1="17.7" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="6.3" y2="17.7"/><line x1="17.7" y1="6.3" x2="19.1" y2="4.9"/></svg>
-          <svg class="bulan" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
-        </button>
+        {{-- Ganti Mode: tiga pilihan tampilan. "Default" berarti tanpa
+             atribut data-tema, yaitu rangka navy seperti sedia kala. --}}
+        <div class="tb-tema-wrap">
+          <button type="button" class="tb-ikon tb-tema" id="tb-tema" title="Ganti Mode"
+                  aria-label="Ganti Mode" aria-haspopup="true" aria-expanded="false">
+            <svg class="matahari" viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="6.3" y2="6.3"/><line x1="17.7" y1="17.7" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="6.3" y2="17.7"/><line x1="17.7" y1="6.3" x2="19.1" y2="4.9"/></svg>
+            <svg class="bulan" viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+          </button>
+
+          <div class="tb-menu tb-menu-tema" id="tb-menu-tema" role="menu" aria-label="Mode tampilan">
+            <div class="nm"><b>Ganti Mode</b><span>Tampilan aplikasi</span></div>
+            <button type="button" role="menuitemradio" aria-checked="false" data-tema-pilih="default">
+              <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="13" rx="2"/><line x1="8" y1="21" x2="16" y2="21"/><line x1="12" y1="17" x2="12" y2="21"/></svg>
+              <span>Default</span><span class="tb-tema-cek" aria-hidden="true">&check;</span>
+            </button>
+            <button type="button" role="menuitemradio" aria-checked="false" data-tema-pilih="gelap">
+              <svg viewBox="0 0 24 24"><path d="M21 12.8A9 9 0 1 1 11.2 3a7 7 0 0 0 9.8 9.8z"/></svg>
+              <span>Gelap</span><span class="tb-tema-cek" aria-hidden="true">&check;</span>
+            </button>
+            <button type="button" role="menuitemradio" aria-checked="false" data-tema-pilih="terang">
+              <svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="4.2"/><line x1="12" y1="2" x2="12" y2="4"/><line x1="12" y1="20" x2="12" y2="22"/><line x1="2" y1="12" x2="4" y2="12"/><line x1="20" y1="12" x2="22" y2="12"/><line x1="4.9" y1="4.9" x2="6.3" y2="6.3"/><line x1="17.7" y1="17.7" x2="19.1" y2="19.1"/><line x1="4.9" y1="19.1" x2="6.3" y2="17.7"/><line x1="17.7" y1="6.3" x2="19.1" y2="4.9"/></svg>
+              <span>Terang</span><span class="tb-tema-cek" aria-hidden="true">&check;</span>
+            </button>
+          </div>
+        </div>
 
         <div class="tb-profil">
           <button type="button" class="tb-avatar" id="tb-avatar" aria-haspopup="true" aria-expanded="false" title="{{ $namaPengguna }}">
@@ -389,13 +411,54 @@
     var akar = document.documentElement;
     var KUNCI_TEMA = 'ifinance-tema';
 
+    /* Ganti Mode: tiga pilihan. 'default' disimpan apa adanya dan berarti
+       TANPA atribut data-tema, sehingga rangka navy bawaan yang berlaku. */
     var tombolTema = document.getElementById('tb-tema');
-    if (tombolTema) {
-      tombolTema.addEventListener('click', function () {
-        var gelap = akar.getAttribute('data-tema') === 'gelap';
-        if (gelap) akar.removeAttribute('data-tema');
-        else akar.setAttribute('data-tema', 'gelap');
-        try { localStorage.setItem(KUNCI_TEMA, gelap ? 'terang' : 'gelap'); } catch (e) {}
+    var menuTema = document.getElementById('tb-menu-tema');
+    if (tombolTema && menuTema) {
+      var pilihanTema = menuTema.querySelectorAll('[data-tema-pilih]');
+
+      var terapkanTema = function (nilai) {
+        if (nilai === 'gelap' || nilai === 'terang') akar.setAttribute('data-tema', nilai);
+        else { nilai = 'default'; akar.removeAttribute('data-tema'); }
+
+        pilihanTema.forEach(function (item) {
+          var aktif = item.dataset.temaPilih === nilai;
+          item.classList.toggle('aktif', aktif);
+          item.setAttribute('aria-checked', String(aktif));
+        });
+
+        return nilai;
+      };
+
+      var temaTersimpan = 'default';
+      try { temaTersimpan = localStorage.getItem(KUNCI_TEMA) || 'default'; } catch (e) {}
+      terapkanTema(temaTersimpan);
+
+      var tutupMenuTema = function () {
+        menuTema.classList.remove('buka');
+        tombolTema.setAttribute('aria-expanded', 'false');
+      };
+
+      tombolTema.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var buka = menuTema.classList.toggle('buka');
+        tombolTema.setAttribute('aria-expanded', String(buka));
+      });
+
+      pilihanTema.forEach(function (item) {
+        item.addEventListener('click', function () {
+          var nilai = terapkanTema(item.dataset.temaPilih);
+          try { localStorage.setItem(KUNCI_TEMA, nilai); } catch (e) {}
+          tutupMenuTema();
+        });
+      });
+
+      document.addEventListener('click', function (e) {
+        if (! menuTema.contains(e.target) && e.target !== tombolTema) tutupMenuTema();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') tutupMenuTema();
       });
     }
 

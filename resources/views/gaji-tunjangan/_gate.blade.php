@@ -7,10 +7,10 @@
     di peramban tidak membuka data pegawai lain.
 --}}
 <form method="POST" action="{{ route('gaji-tunjangan.verifikasi') }}"
-      style="flex:0 0 auto;margin:6px 0 4px;border:1px solid var(--line);background:#f8fafc;border-radius:12px;padding:16px 18px;max-width:640px;">
+      style="flex:0 0 auto;margin:6px 0 4px;border:1px solid var(--line);background:var(--surface-2);border-radius:12px;padding:16px 18px;max-width:640px;">
     @csrf
 
-    <div style="font-weight:700;color:var(--navy);font-size:14px;margin-bottom:4px;">Verifikasi Identitas</div>
+    <div style="font-weight:700;color:var(--tegas);font-size:14px;margin-bottom:4px;">Verifikasi Identitas</div>
     <div class="sub" style="margin-bottom:12px;">
         Untuk menjaga privasi, data penghasilan hanya dapat dilihat oleh pegawai
         yang bersangkutan. Masukkan NIP dan 4 digit terakhir nomor rekening Anda.
@@ -30,5 +30,5 @@
         <button class="gt-btn-tampil" type="submit">Tampilkan</button>
     </div>
 
-    <div style="margin-top:10px;font-size:12.5px;color:#c0392b;">{{ $errors->first() }}</div>
+    <div style="margin-top:10px;font-size:12.5px;color:var(--err);">{{ $errors->first() }}</div>
 </form>

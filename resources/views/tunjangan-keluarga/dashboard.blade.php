@@ -2,7 +2,7 @@
 @section('activeNav','dash-tk')
 @section('title','Dashboard Tunjangan Keluarga')
 @section('content')
-<style>.tk-row{cursor:pointer}.tk-detail{display:none;background:#f8fafc}.tk-detail.open{display:table-row}</style>
+<style>.tk-row{cursor:pointer}.tk-detail{display:none;background:var(--surface-2)}.tk-detail.open{display:table-row}</style>
 
 <div class="page-head">
   <div>

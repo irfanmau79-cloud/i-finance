@@ -9,23 +9,23 @@
     .sim-profil-head{display:flex;align-items:center;gap:14px;margin-bottom:22px}
     .sim-profil-icon{width:46px;height:46px;flex:0 0 46px;border-radius:14px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center}
     .sim-profil-icon svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:1.9;stroke-linecap:round;stroke-linejoin:round}
-    .sim-profil-title{font-size:20px;font-weight:800;color:var(--navy);line-height:1.2}
+    .sim-profil-title{font-size:20px;font-weight:800;color:var(--tegas);line-height:1.2}
     .sim-profil-sub{font-size:12.5px;color:var(--mut);margin-top:3px}
 
     .sim-field{margin-bottom:18px}
     .sim-field-top{display:flex;align-items:baseline;justify-content:space-between;gap:10px;margin-bottom:6px}
-    .sim-field label{font-size:12.5px;font-weight:700;color:var(--navy)}
-    .sim-opsional{font-size:11px;font-weight:600;color:var(--mut);background:#f1f5f9;border-radius:20px;padding:2px 9px}
+    .sim-field label{font-size:12.5px;font-weight:700;color:var(--tegas)}
+    .sim-opsional{font-size:11px;font-weight:600;color:var(--mut);background:var(--surface-3);border-radius:20px;padding:2px 9px}
     .sim-hitung{font-size:11px;color:var(--mut);font-variant-numeric:tabular-nums}
 
     .sim-field input[type=text],.sim-field textarea{
-        width:100%;box-sizing:border-box;background:#fff;border:1.5px solid var(--line);border-radius:11px;
+        width:100%;box-sizing:border-box;background:var(--surface);border:1.5px solid var(--line);border-radius:11px;
         padding:12px 14px;font-family:inherit;font-size:14px;color:var(--ink);
         transition:border-color .15s,box-shadow .15s;
     }
     .sim-field input[type=text]{font-weight:600}
     .sim-field textarea{resize:vertical;min-height:118px;line-height:1.55;font-size:13px;font-weight:400}
-    .sim-field input[type=text]:hover,.sim-field textarea:hover{border-color:#c3d2e1}
+    .sim-field input[type=text]:hover,.sim-field textarea:hover{border-color:var(--line)}
     .sim-field input[type=text]:focus,.sim-field textarea:focus{
         outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(21,49,74,.11);
     }

@@ -5,7 +5,7 @@
 
 @section('content')
 @if($npd->sumber_data === 'import_historis')
-<div class="err-box" style="display:block;background:#eef6ff;color:#15314a;border-color:#bfdbfe;">
+<div class="err-box" style="display:block;background:var(--info-bg);color:var(--info);border-color:var(--info-bg);">
     Dokumen historis dari batch #{{ $npd->import_historis_id }}, baris sumber {{ $npd->import_baris }}. Detail khusus perjalanan/peserta/narasumber/barang tidak dibuat secara fiktif; Lampiran memakai snapshot penerima, rekening, bruto, dan pajak hasil import.
 </div>
 @endif
@@ -49,7 +49,7 @@
             <span>NPD ini menunggu verifikasi Anda. Anda dapat memberi coretan langsung pada dokumen PDF (NPD, Lampiran, Daftar Bayar/SPD) sebelum mengembalikan ke BPP.</span>
         </div>
     @elseif ($adaCoretan)
-        <div class="sumbar" style="background:#eef6ff;color:#15314a;margin-bottom:14px;">
+        <div class="sumbar" style="background:var(--info-bg);color:var(--info);margin-bottom:14px;">
             <span>Dokumen PDF NPD ini memuat coretan dari Verifikator &mdash; buka lewat tombol <b>Cetak NPD</b>, <b>Cetak Lampiran</b>, dsb di bawah (lihat Histori Status untuk catatan revisinya).</span>
         </div>
     @endif

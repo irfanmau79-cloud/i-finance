@@ -42,7 +42,7 @@
             <textarea id="keterangan" name="keterangan" placeholder="Contoh: Menikah / Cerai / Lahir Anak" required>{{ old('keterangan') }}</textarea>
         </div>
 
-        <div style="font-weight:600;color:var(--navy);font-size:13.5px;margin:20px 0 12px;">Anggota Keluarga yang Mendapatkan Tunjangan</div>
+        <div style="font-weight:600;color:var(--tegas);font-size:13.5px;margin:20px 0 12px;">Anggota Keluarga yang Mendapatkan Tunjangan</div>
         <div class="fam-grid" id="fam-grid">
             <div class="fam-card">
                 <div class="fam-head"><span class="fam-ic">&hearts;</span> Pasangan</div>

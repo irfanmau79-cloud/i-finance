@@ -5,9 +5,9 @@
 
 @section('content')
 <style>
-  .dr-filter{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:12px;align-items:end}.dr-filter label{display:block;font-size:12px;font-weight:700;color:var(--navy);margin-bottom:5px}.dr-filter-actions{display:flex;gap:8px}.dr-filter-actions .btn{padding:9px 14px;white-space:nowrap}
-  .dr-donut{height:250px}.dr-notice{border-radius:10px;padding:11px 13px;margin:0 0 16px;font-size:13px;background:var(--warn-bg);color:var(--warn);border:1px solid #f0dcae}.dr-danger{background:var(--err-bg);color:var(--err);border-color:#f1b9b5}
-  .dr-table-wrap{width:100%;max-width:100%;overflow-x:hidden}.dr-table{width:100%;min-width:0;table-layout:fixed}.dr-table th:first-child{width:28%}.dr-table th:not(:first-child){width:12%}.dr-table th a{display:inline-flex;max-width:100%;gap:4px;color:inherit;text-decoration:none;white-space:normal;overflow-wrap:anywhere}.dr-table th.num,.dr-table td.num{text-align:right;white-space:normal;overflow-wrap:anywhere}.dr-table .sub-name{font-weight:700;color:var(--navy);min-width:0;overflow-wrap:anywhere}.dr-table .program{display:block;color:var(--mut);font-size:11px;font-weight:400;margin-top:2px;overflow-wrap:anywhere}.dr-positive{color:var(--ok);font-weight:700}.dr-negative{color:var(--err);font-weight:700}.dr-empty{text-align:center;color:var(--mut);padding:36px 12px}
+  .dr-filter{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr) auto;gap:12px;align-items:end}.dr-filter label{display:block;font-size:12px;font-weight:700;color:var(--tegas);margin-bottom:5px}.dr-filter-actions{display:flex;gap:8px}.dr-filter-actions .btn{padding:9px 14px;white-space:nowrap}
+  .dr-donut{height:250px}.dr-notice{border-radius:10px;padding:11px 13px;margin:0 0 16px;font-size:13px;background:var(--warn-bg);color:var(--warn);border:1px solid var(--garis-warn)}.dr-danger{background:var(--err-bg);color:var(--err);border-color:#f1b9b5}
+  .dr-table-wrap{width:100%;max-width:100%;overflow-x:hidden}.dr-table{width:100%;min-width:0;table-layout:fixed}.dr-table th:first-child{width:28%}.dr-table th:not(:first-child){width:12%}.dr-table th a{display:inline-flex;max-width:100%;gap:4px;color:inherit;text-decoration:none;white-space:normal;overflow-wrap:anywhere}.dr-table th.num,.dr-table td.num{text-align:right;white-space:normal;overflow-wrap:anywhere}.dr-table .sub-name{font-weight:700;color:var(--tegas);min-width:0;overflow-wrap:anywhere}.dr-table .program{display:block;color:var(--mut);font-size:11px;font-weight:400;margin-top:2px;overflow-wrap:anywhere}.dr-positive{color:var(--ok);font-weight:700}.dr-negative{color:var(--err);font-weight:700}.dr-empty{text-align:center;color:var(--mut);padding:36px 12px}
   @media(max-width:720px){.dr-filter{grid-template-columns:1fr}}
 </style>
 
@@ -157,6 +157,7 @@
 @endif
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+@include('layouts.partials.chart-tema')
 <script>
 document.addEventListener('DOMContentLoaded', function () {
   const form=document.getElementById('dr-filter-form');
@@ -233,7 +234,7 @@ document.addEventListener('DOMContentLoaded', function () {
   buatKombo('kode', {{ Illuminate\Support\Js::from($pilihan['kode_rekening_berlabel']) }});
   if(typeof Chart==='undefined') return;
   const data={{ Illuminate\Support\Js::from($dashboard) }};
-  const navy=(getComputedStyle(document.documentElement).getPropertyValue('--navy')||'').trim()||'#15314a';
+  const palet=warnaGrafik();
   const rupiah=value=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(value||0);
   const common={responsive:true,maintainAspectRatio:false,cutout:'68%',plugins:{legend:{display:false},tooltip:{callbacks:{label:item=>item.label+': '+rupiah(item.raw)}}}};
   function renderLegend(elId,labels,colors){
@@ -242,13 +243,13 @@ document.addEventListener('DOMContentLoaded', function () {
   }
   const composition=document.getElementById('dr-composition');
   if(composition){
-    const compColors=[navy,'#d9a938','#dbe5ee'];
+    const compColors=[palet.utama,palet.emas,palet.sisa];
     new Chart(composition,{type:'doughnut',data:{labels:['Realisasi Aktual','NPD Belum Selesai','Sisa Tersedia'],datasets:[{data:[data.total.realisasi_aktual,data.dana_terikat_belum_selesai,Math.max(0,data.total.sisa_tersedia)],backgroundColor:compColors,borderWidth:0}]},options:common});
     renderLegend('dr-composition-legend',['Realisasi Aktual','NPD Belum Selesai','Sisa Tersedia'],compColors);
   }
   const rak=document.getElementById('dr-rak');
   if(rak){
-    const rakColors=[navy,'#e5e9f0'];
+    const rakColors=[palet.utama,palet.sisa];
     new Chart(rak,{type:'doughnut',data:{labels:['Realisasi s.d. Bulan','Sisa Target RAK'],datasets:[{data:[data.realisasi_sd_bulan,Math.max(0,data.target_rak_sd_bulan-data.realisasi_sd_bulan)],backgroundColor:rakColors,borderWidth:0}]},options:common});
     renderLegend('dr-rak-legend',['Realisasi s.d. Bulan','Sisa Target RAK'],rakColors);
   }

@@ -6,21 +6,21 @@
 @section('content')
 <style>
   .dn-kpi{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:14px;margin:16px 0 18px;}
-  .dn-kpi-card{position:relative;padding:16px 18px;border:1px solid var(--line);border-radius:14px;background:#fff;overflow:hidden;text-align:left;font-family:inherit;}
+  .dn-kpi-card{position:relative;padding:16px 18px;border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden;text-align:left;font-family:inherit;}
   .dn-kpi-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--navy);}
   .dn-kpi-card.ok::before{background:var(--ok);}
   .dn-kpi-card.proses::before{background:#2f6fa8;}
   .dn-kpi-card.warn::before{background:var(--warn);}
   .dn-kpi-lbl{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--mut);}
-  .dn-kpi-val{font-size:26px;font-weight:800;color:var(--navy);line-height:1.15;margin-top:6px;font-variant-numeric:tabular-nums;}
+  .dn-kpi-val{font-size:26px;font-weight:800;color:var(--tegas);line-height:1.15;margin-top:6px;font-variant-numeric:tabular-nums;}
   .dn-kpi-card.ok .dn-kpi-val{color:var(--ok);}
-  .dn-kpi-card.proses .dn-kpi-val{color:#2f6fa8;}
+  .dn-kpi-card.proses .dn-kpi-val{color:var(--info);}
   .dn-kpi-card.warn .dn-kpi-val{color:var(--warn);}
   .dn-kpi-sub{font-size:12px;color:var(--mut);margin-top:3px;}
   /* Hanya KPI keempat yang bisa diklik - kartunya jadi tombol. */
   button.dn-kpi-card{width:100%;cursor:pointer;transition:.15s;}
   button.dn-kpi-card:hover{border-color:var(--warn);box-shadow:0 4px 14px rgba(176,125,29,.16);transform:translateY(-1px);}
-  button.dn-kpi-card.aktif{border-color:var(--warn);background:#fdfaf3;box-shadow:0 0 0 3px rgba(176,125,29,.14);}
+  button.dn-kpi-card.aktif{border-color:var(--warn);background:var(--warn-bg);box-shadow:0 0 0 3px rgba(176,125,29,.14);}
   .dn-kpi-aksi{display:inline-flex;align-items:center;gap:5px;margin-top:8px;font-size:11px;font-weight:700;color:var(--warn);}
   .dn-kpi-aksi svg{width:11px;height:11px;fill:none;stroke:currentColor;stroke-width:2.4;stroke-linecap:round;}
   @media(max-width:1000px){.dn-kpi{grid-template-columns:repeat(2,minmax(0,1fr));}}
@@ -32,15 +32,15 @@
   table.dn-tabel td.kol-status{text-align:center;}
 
   /* Baris penyaring per kolom - sama seperti Tabel Rincian SPJ. */
-  table.dn-tabel tr.kolom-saring th{padding:6px 8px;background:#fbfcfe;text-transform:none;letter-spacing:normal;position:static;}
+  table.dn-tabel tr.kolom-saring th{padding:6px 8px;background:var(--surface-2);text-transform:none;letter-spacing:normal;position:static;}
   table.dn-tabel tr.kolom-saring input{width:100%;box-sizing:border-box;border:1px solid var(--line);border-radius:7px;
-    padding:6px 9px;font-family:inherit;font-size:12px;font-weight:400;color:var(--ink);background:#fff;transition:border-color .15s,box-shadow .15s;}
+    padding:6px 9px;font-family:inherit;font-size:12px;font-weight:400;color:var(--ink);background:var(--surface);transition:border-color .15s,box-shadow .15s;}
   table.dn-tabel tr.kolom-saring input::placeholder{color:#a9b6c4;}
   table.dn-tabel tr.kolom-saring input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(21,49,74,.1);}
   table.dn-tabel tr.kolom-saring .saring-kosong{display:flex;justify-content:center;}
-  table.dn-tabel tr.kolom-saring button{border:1px solid var(--line);background:#fff;border-radius:7px;width:30px;height:30px;
+  table.dn-tabel tr.kolom-saring button{border:1px solid var(--line);background:var(--surface);border-radius:7px;width:30px;height:30px;
     display:inline-flex;align-items:center;justify-content:center;color:var(--mut);cursor:pointer;transition:.15s;}
-  table.dn-tabel tr.kolom-saring button:hover{border-color:var(--navy);color:var(--navy);}
+  table.dn-tabel tr.kolom-saring button:hover{border-color:var(--navy);color:var(--tegas);}
   table.dn-tabel tr.kolom-saring button svg{width:13px;height:13px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;}
 
   .dn-lihat{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid var(--navy);
@@ -50,7 +50,7 @@
   /* Aksi berisi dua tombol: Lihat dan Kirim Notifikasi WhatsApp. */
   .dn-aksi{display:inline-flex;align-items:center;justify-content:center;gap:6px;}
   .dn-wa{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;border:1px solid #1f9d55;
-    border-radius:8px;background:#fff;color:#1f9d55;cursor:pointer;transition:.15s;padding:0;position:relative;}
+    border-radius:8px;background:var(--surface);color:#1f9d55;cursor:pointer;transition:.15s;padding:0;position:relative;}
   .dn-wa:hover{background:#1f9d55;color:#fff;transform:translateY(-1px);box-shadow:0 4px 10px rgba(31,157,85,.22);}
   .dn-wa svg{width:15px;height:15px;fill:currentColor;stroke:none;}
   /* Titik kecil penanda "sudah pernah dikirim", supaya kiriman ganda kelihatan sebelum diklik. */
@@ -60,10 +60,10 @@
   .wa-baris:last-child{border-bottom:0;}
   .wa-baris .k{flex:0 0 120px;color:var(--mut);}
   .wa-baris .v{flex:1;color:var(--ink);font-weight:600;word-break:break-word;}
-  .wa-pesan{white-space:pre-wrap;background:#f6f8fb;border:1px solid var(--line);border-radius:10px;padding:12px 14px;
+  .wa-pesan{white-space:pre-wrap;background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:12px 14px;
     font-size:13px;line-height:1.6;color:var(--ink);margin-top:4px;}
-  .wa-peringatan{display:flex;gap:10px;align-items:flex-start;background:#fdf6e7;border:1px solid #e6d3a3;border-radius:10px;
-    padding:12px 14px;font-size:13px;line-height:1.55;color:#7a5b12;margin-top:12px;}
+  .wa-peringatan{display:flex;gap:10px;align-items:flex-start;background:var(--warn-bg);border:1px solid var(--garis-warn);border-radius:10px;
+    padding:12px 14px;font-size:13px;line-height:1.55;color:var(--warn-teks);margin-top:12px;}
   .wa-peringatan svg{flex:0 0 16px;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;margin-top:2px;}
   .wa-riwayat{margin-top:14px;font-size:12px;color:var(--mut);line-height:1.7;}
   .btn.wa{background:#1f9d55;border-color:#1f9d55;color:#fff;}
@@ -71,7 +71,7 @@
   .btn.wa[aria-disabled="true"]{opacity:.5;pointer-events:none;}
   .dn-kaki{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding:12px 2px 0;}
   .dn-perpage{display:flex;align-items:center;gap:7px;font-size:12px;color:var(--mut);}
-  .dn-perpage select{border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-family:inherit;font-size:12px;background:#fff;}
+  .dn-perpage select{border:1px solid var(--line);border-radius:8px;padding:5px 8px;font-family:inherit;font-size:12px;background:var(--surface);}
 </style>
 
 <div class="page-head">

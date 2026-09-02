@@ -19,32 +19,32 @@
        dibiarkan sama seperti yang lain supaya tabelnya tetap tenang. */
     .sim-rek-input{
         width:100%;max-width:190px;text-align:right;box-sizing:border-box;font-variant-numeric:tabular-nums;
-        border:1.5px solid var(--gold);border-radius:9px;padding:8px 11px;background:#fff;
-        font-weight:700;color:var(--navy);transition:border-color .15s,box-shadow .15s;
+        border:1.5px solid var(--gold);border-radius:9px;padding:8px 11px;background:var(--surface);
+        font-weight:700;color:var(--tegas);transition:border-color .15s,box-shadow .15s;
     }
     .sim-rek-input:hover{border-color:var(--gold-d)}
     .sim-rek-input:focus{outline:none;border-color:var(--navy);box-shadow:0 0 0 3px rgba(21,49,74,.13)}
 
-    table.pivot .row-lvl4{background:#fff;color:var(--mut);}
-    .sim-summary{border:1px solid #dbe5ee;border-radius:14px;margin-bottom:16px;overflow:hidden;background:#fff}
-    .sim-summary-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 18px;background:linear-gradient(135deg,#f4f8fc,#eef4f8);border-bottom:1px solid #dbe5ee}
-    .sim-summary-title{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--navy)}
+    table.pivot .row-lvl4{background:var(--surface);color:var(--mut);}
+    .sim-summary{border:1px solid var(--line);border-radius:14px;margin-bottom:16px;overflow:hidden;background:var(--surface)}
+    .sim-summary-head{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:15px 18px;background:linear-gradient(135deg,var(--surface-2),var(--surface-2));border-bottom:1px solid var(--line)}
+    .sim-summary-title{display:flex;align-items:center;gap:10px;font-weight:800;color:var(--tegas)}
     .sim-summary-icon{width:34px;height:34px;border-radius:10px;background:var(--navy);color:#fff;display:flex;align-items:center;justify-content:center}
     .sim-summary-icon svg{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:2}
-    .sim-summary-count{font-size:11px;font-weight:700;color:var(--navy);background:#fff;border:1px solid #dbe5ee;border-radius:20px;padding:4px 10px}
+    .sim-summary-count{font-size:11px;font-weight:700;color:var(--tegas);background:var(--surface);border:1px solid var(--line);border-radius:20px;padding:4px 10px}
     .sim-summary-body{padding:14px}
     .sim-summary-empty{text-align:center;color:var(--mut);padding:24px 12px}
-    .sim-sum-node{border-left:2px solid #dbe5ee;margin-left:10px;padding-left:12px}
+    .sim-sum-node{border-left:2px solid var(--line);margin-left:10px;padding-left:12px}
     .sim-sum-row{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:12px;align-items:center;padding:8px 10px;border-radius:8px}
-    .sim-sum-row:hover{background:#f7f9fc}
+    .sim-sum-row:hover{background:var(--surface-2)}
     .sim-sum-label{min-width:0;overflow-wrap:anywhere}
     .sim-sum-level{display:inline-block;margin-right:7px;color:var(--mut);font-size:9.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px}
     .sim-sum-name{font-size:12.5px;color:var(--ink);font-weight:600}
     .sim-sum-value{text-align:right;white-space:nowrap;font-size:12px;font-weight:800;font-variant-numeric:tabular-nums}
-    .sim-sum-program>.sim-sum-row{background:#eef3f8}.sim-sum-program>.sim-sum-row .sim-sum-name{color:var(--navy);font-size:13.5px;font-weight:800}
-    .sim-sum-kegiatan>.sim-sum-row .sim-sum-name{color:var(--navy);font-weight:700}
-    .sim-sum-rekening>.sim-sum-row{background:#fafbfd}
-    .sim-sum-tagging{margin-left:22px;border-left:2px solid #e8edf3}
+    .sim-sum-program>.sim-sum-row{background:var(--surface-3)}.sim-sum-program>.sim-sum-row .sim-sum-name{color:var(--tegas);font-size:13.5px;font-weight:800}
+    .sim-sum-kegiatan>.sim-sum-row .sim-sum-name{color:var(--tegas);font-weight:700}
+    .sim-sum-rekening>.sim-sum-row{background:var(--surface-2)}
+    .sim-sum-tagging{margin-left:22px;border-left:2px solid var(--line)}
     .sim-sum-tagging .sim-sum-row{grid-template-columns:minmax(0,1fr) minmax(230px,auto)}
     .sim-sum-flow{display:flex;align-items:center;justify-content:flex-end;gap:7px;color:var(--mut);font-size:11px;font-weight:500}
     .sim-sum-flow b{color:var(--ink);font-variant-numeric:tabular-nums}.sim-sum-flow .arrow{color:var(--mut)}
@@ -62,15 +62,15 @@
     table.rr-tree col.c-selisih{width:10%}
     table.rr-tree .rr-label{overflow-wrap:anywhere;}
     table.rr-tree .rr-num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums}
-    .rr-toggle{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;border:0;background:transparent;color:var(--navy);cursor:pointer;border-radius:5px;flex:0 0 22px;}
+    .rr-toggle{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;padding:0;border:0;background:transparent;color:var(--tegas);cursor:pointer;border-radius:5px;flex:0 0 22px;}
     .rr-toggle:hover{background:rgba(21,49,74,.09)}
     .rr-toggle svg{width:14px;height:14px;transition:transform .15s;stroke:currentColor;fill:none;stroke-width:2.2}
     .rr-toggle[aria-expanded="true"] svg{transform:rotate(90deg)}
     .rr-empty{text-align:center;padding:34px 16px;color:var(--mut)}
     table.pivot .ind3{padding-left:70px;}
     table.pivot .ind4{padding-left:94px;color:var(--mut);}
-    table.pivot .row-lvl3{background:#fff;cursor:pointer;}
-    table.pivot .row-lvl3:hover{background:#f6f9fc;}
+    table.pivot .row-lvl3{background:var(--surface);cursor:pointer;}
+    table.pivot .row-lvl3:hover{background:var(--surface-2);}
 </style>
 
 <div class="dash-card wf-card">
