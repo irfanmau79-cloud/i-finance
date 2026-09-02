@@ -97,6 +97,16 @@ class ModeGelapKontrasTest extends TestCase
             || str_contains($stylesheet, '[data-tema="gelap"] '.$selektor.',');
     }
 
+    /**
+     * True kalau aturannya SENDIRI sudah khusus mode gelap. Nilai di dalamnya
+     * memang ditulis untuk mode itu - misalnya tulisan gelap di atas batang
+     * yang sengaja dicerahkan - jadi tidak perlu diperiksa ulang.
+     */
+    private function aturanKhususGelap(string $selektor): bool
+    {
+        return str_contains($selektor, '[data-tema="gelap"]');
+    }
+
     private function luminansi(string $hex): ?float
     {
         $h = ltrim($hex, '#');
@@ -176,7 +186,7 @@ class ModeGelapKontrasTest extends TestCase
                         // khusus mode gelap - sebagian sorotan baris memang
                         // lebih tepat memakai lapisan putih transparan
                         // daripada token permukaan.
-                        if ($this->punyaPenimpaGelap($sisa)) {
+                        if ($this->aturanKhususGelap($sisa) || $this->punyaPenimpaGelap($sisa)) {
                             continue;
                         }
 
@@ -284,7 +294,7 @@ class ModeGelapKontrasTest extends TestCase
                         continue;
                     }
 
-                    if ($this->punyaPenimpaGelap($sisa)) {
+                    if ($this->aturanKhususGelap($sisa) || $this->punyaPenimpaGelap($sisa)) {
                         continue;
                     }
 

@@ -6,9 +6,18 @@
 @section('content')
 <style>
   .spj-filter{display:grid;grid-template-columns:1fr 180px 1.4fr auto;gap:12px;align-items:end}.spj-filter label{display:block;font-size:12px;font-weight:700;color:var(--tegas);margin-bottom:5px}
-  .spj-grid{display:grid;grid-template-columns:minmax(300px,.8fr) minmax(0,1.5fr);gap:16px}.spj-progress{margin:16px 0}.spj-progress-head{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px}.spj-bar{height:22px;background:var(--surface-3);border-radius:6px;overflow:hidden}.spj-bar span{height:100%;display:block;background:linear-gradient(90deg,#3f6187,#15314a)}
+  /* Mengikuti GAS: kartu per bidang melebar penuh DI ATAS tabel, bukan
+     berdampingan. Batangnya 26px dengan persentase tercetak di dalam
+     batang; kalau batangnya terlalu pendek, angkanya pindah ke luar. */
+  .spj-bidang-list{display:flex;flex-direction:column;gap:16px;margin-top:14px}
+  .spj-progress-head{display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px}
+  .spj-progress-head strong{font-weight:700;color:var(--tegas)}
+  .spj-progress-head span{color:var(--mut);font-size:12.5px}
+  .spj-bar{height:26px;background:var(--surface-3);border-radius:6px;overflow:hidden;position:relative}
+  .spj-bar i{height:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:10px;box-sizing:border-box;border-radius:6px;min-width:4px;background:linear-gradient(90deg,#3f6187,#15314a);color:#fff;font-size:12.5px;font-weight:700}
+  .spj-bar b{position:absolute;top:50%;transform:translateY(-50%);color:var(--tegas);font-weight:700;font-size:12.5px}
   .spj-table-wrap{overflow:auto}.spj-table{min-width:1050px}.spj-empty{text-align:center;padding:46px;color:var(--mut)}
-  @media(max-width:960px){.spj-grid{grid-template-columns:1fr}.spj-filter{grid-template-columns:1fr 1fr}}@media(max-width:600px){.spj-filter{grid-template-columns:1fr}}
+  @media(max-width:960px){.spj-filter{grid-template-columns:1fr 1fr}}@media(max-width:600px){.spj-filter{grid-template-columns:1fr}}
 </style>
 
 <div class="page-head">
@@ -49,7 +58,31 @@
 </div>
 
 @if($dashboard['kosong'])<div class="dash-card spj-empty">Belum ada NPD Perjalanan Dinas berstatus Selesai untuk filter ini. Status NPD Selesai tidak otomatis berarti SPJ terverifikasi.</div>@else
-<div class="spj-grid"><div class="dash-card"><h3 style="margin:0;color:var(--tegas)">Rekap per Bidang</h3>@foreach($dashboard['bidang'] as $bidang)<div class="spj-progress"><div class="spj-progress-head"><strong>{{ $bidang['bidang'] }}</strong><span>{{ $bidang['terverifikasi'] }}/{{ $bidang['total'] }} ({{ number_format($bidang['persen'],1,',','.') }}%)</span></div><div class="spj-bar"><span style="width:{{ min(100,$bidang['persen']) }}%"></span></div></div>@endforeach</div>
-<div class="dash-card"><h3 style="margin:0;color:var(--tegas)">Daftar Detail SPJ</h3><div class="sub">Verifikasi SPJ tidak mengubah status NPD pada alur persetujuan.</div><div class="spj-table-wrap"><table class="realisasi spj-table"><thead><tr><th>Tanggal / Nomor NPD</th><th>Nomor SP</th><th>Bidang</th><th>Sub Kegiatan / Uraian</th><th class="num">Nominal</th><th>Status SPJ</th><th>Aksi</th></tr></thead><tbody>@foreach($dashboard['rows'] as $row)<tr><td>{{ $row['tanggal']->format('d-m-Y') }}<br><strong>{{ $row['nomor_npd'] }}</strong></td><td>{{ $row['nomor_sp'] }}</td><td>{{ $row['bidang'] }}</td><td>{{ $row['sub_kegiatan'] }}<br><small>{{ $row['uraian'] }}</small></td><td class="num">{{ fmt_rupiah($row['nominal']) }}</td><td>@if($row['status_spj']==='terverifikasi')<span class="badge st-selesai">TERVERIFIKASI</span><small style="display:block;margin-top:4px">{{ $row['verified_at']->format('d-m-Y H:i') }} · {{ $row['verified_by'] }}</small>@else<span class="badge st-verifikasi">BELUM</span>@endif</td><td>@if($bolehVerifikasi)<form method="POST" action="{{ route('dashboard.spj.verify',$row['id']) }}">@csrf<input type="hidden" name="aksi" value="{{ $row['status_spj']==='terverifikasi'?'batalkan':'verifikasi' }}"><button class="btn {{ $row['status_spj']==='terverifikasi'?'':'prim' }}" onclick="return confirm('{{ $row['status_spj']==='terverifikasi'?'Batalkan verifikasi SPJ ini?':'Verifikasi SPJ ini sebagai selesai?' }}')">{{ $row['status_spj']==='terverifikasi'?'Batalkan':'Verifikasi' }}</button></form>@else<span class="sub">Lihat saja</span>@endif</td></tr>@endforeach</tbody></table></div></div></div>
+<div class="dash-card" style="margin-bottom:16px;">
+  <h3 style="margin:0;color:var(--tegas)">Persentase SPJ Selesai per Bidang</h3>
+  <div class="sub">Progres verifikasi SPJ dikelompokkan per bidang pelaksana.</div>
+  <div class="spj-bidang-list">
+    @foreach($dashboard['bidang'] as $bidang)
+      @php
+        $lebar = max(0, min(100, (float) $bidang['persen']));
+        // Angka persen muat di dalam batang hanya kalau batangnya cukup
+        // panjang; di bawah itu dicetak di sebelah kanannya - sama seperti GAS.
+        $didalam = $lebar >= 14;
+        $teks = number_format($bidang['persen'], 1, ',', '.').'%';
+      @endphp
+      <div>
+        <div class="spj-progress-head">
+          <strong>{{ $bidang['bidang'] }}</strong>
+          <span>{{ $bidang['terverifikasi'] }} / {{ $bidang['total'] }} selesai</span>
+        </div>
+        <div class="spj-bar">
+          <i style="width:{{ $lebar }}%">{{ $didalam ? $teks : '' }}</i>
+          @unless($didalam)<b style="left:calc({{ $lebar }}% + 8px)">{{ $teks }}</b>@endunless
+        </div>
+      </div>
+    @endforeach
+  </div>
+</div>
+<div class="dash-card"><h3 style="margin:0;color:var(--tegas)">Daftar Detail SPJ</h3><div class="sub">Verifikasi SPJ tidak mengubah status NPD pada alur persetujuan.</div><div class="spj-table-wrap"><table class="realisasi spj-table"><thead><tr><th>Tanggal / Nomor NPD</th><th>Nomor SP</th><th>Bidang</th><th>Sub Kegiatan / Uraian</th><th class="num">Nominal</th><th>Status SPJ</th><th>Aksi</th></tr></thead><tbody>@foreach($dashboard['rows'] as $row)<tr><td>{{ $row['tanggal']->format('d-m-Y') }}<br><strong>{{ $row['nomor_npd'] }}</strong></td><td>{{ $row['nomor_sp'] }}</td><td>{{ $row['bidang'] }}</td><td>{{ $row['sub_kegiatan'] }}<br><small>{{ $row['uraian'] }}</small></td><td class="num">{{ fmt_rupiah($row['nominal']) }}</td><td>@if($row['status_spj']==='terverifikasi')<span class="badge st-selesai">TERVERIFIKASI</span><small style="display:block;margin-top:4px">{{ $row['verified_at']->format('d-m-Y H:i') }} · {{ $row['verified_by'] }}</small>@else<span class="badge st-verifikasi">BELUM</span>@endif</td><td>@if($bolehVerifikasi)<form method="POST" action="{{ route('dashboard.spj.verify',$row['id']) }}">@csrf<input type="hidden" name="aksi" value="{{ $row['status_spj']==='terverifikasi'?'batalkan':'verifikasi' }}"><button class="btn {{ $row['status_spj']==='terverifikasi'?'':'prim' }}" onclick="return confirm('{{ $row['status_spj']==='terverifikasi'?'Batalkan verifikasi SPJ ini?':'Verifikasi SPJ ini sebagai selesai?' }}')">{{ $row['status_spj']==='terverifikasi'?'Batalkan':'Verifikasi' }}</button></form>@else<span class="sub">Lihat saja</span>@endif</td></tr>@endforeach</tbody></table></div></div>
 @endif
 @endsection

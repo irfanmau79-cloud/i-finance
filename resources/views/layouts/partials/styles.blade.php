@@ -191,6 +191,9 @@
   :root[data-tema="gelap"] .inv-paper .pp-sheet{border-color:#33414f;}
   :root[data-tema="gelap"] .inv-paper .pp-s3{background:#212c39;}
   :root[data-tema="gelap"] .inv-paper .pp-s2{background:#26313f;}
+  /* Batang persentase Dashboard SPJ: gradien navy pekat cocok di atas track
+     terang, tetapi lenyap di atas track gelap - dicerahkan di mode gelap. */
+  :root[data-tema="gelap"] .spj-bar i{background:linear-gradient(90deg,#4d80b5,#7cb3e4);color:#0f1826;}
 
   /* Kotak isian nominal Simulasi: latarnya dibuat lebih terang daripada
      barisnya supaya jelas sel mana yang bisa diisi - di mode gelap keduanya
