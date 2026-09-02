@@ -107,7 +107,7 @@
       @endif
 
       @php($analisisVisible = in_array('analisis', $akses, true))
-      @php($analisisOpen = in_array($activeNav, ['tren-realisasi', 'simulasi-pergeseran'], true))
+      @php($analisisOpen = in_array($activeNav, ['tren-realisasi', 'simulasi-pergeseran', 'simulasi-realisasi'], true))
       @if ($analisisVisible)
       <div class="sb-group{{ $analisisOpen ? ' open' : '' }}">
         <div class="sb-item sb-parent" id="nav-analisis-parent">
@@ -118,6 +118,7 @@
         <div class="sb-sub">
           <a class="sb-item sub{{ $activeNav === 'tren-realisasi' ? ' active' : '' }}" href="{{ route('analisis.index') }}">Tren Realisasi</a>
           <a class="sb-item sub{{ $activeNav === 'simulasi-pergeseran' ? ' active' : '' }}" href="{{ route('simulasi-anggaran.index') }}">Simulasi Pergeseran/Perubahan</a>
+          <a class="sb-item sub{{ $activeNav === 'simulasi-realisasi' ? ' active' : '' }}" href="{{ route('simulasi-realisasi.index') }}">Simulasi Realisasi</a>
         </div>
       </div>
       @endif

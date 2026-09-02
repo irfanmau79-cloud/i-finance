@@ -32,6 +32,7 @@ use App\Http\Controllers\RincianPenghasilanController;
 use App\Http\Controllers\RincianRealisasiController;
 use App\Http\Controllers\SegeraHadirController;
 use App\Http\Controllers\SimulasiAnggaranController;
+use App\Http\Controllers\SimulasiRealisasiController;
 use App\Http\Controllers\SpjDashboardController;
 use App\Http\Controllers\SpmController;
 use App\Http\Controllers\SpmImportController;
@@ -128,6 +129,30 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/{simulasiAnggaran}/export-excel', [SimulasiAnggaranController::class, 'exportExcel'])->name('export-excel');
         Route::get('/{simulasiAnggaran}/export-pdf', [SimulasiAnggaranController::class, 'exportPdf'])->name('export-pdf');
     });
+    // Simulasi Realisasi: memperkirakan capaian akhir tahun. Menumpang kunci
+    // menu 'analisis' yang sama dengan Simulasi Pergeseran karena secara peran
+    // keduanya satu modul. Urutan pendaftaran menaruh 'create' sebelum
+    // /{simulasiRealisasi} - kalau terbalik, kata "create" tertangkap sebagai
+    // parameter dan halamannya jadi 404.
+    Route::middleware('menu-akses:analisis')->prefix('analisis-tren/simulasi-realisasi')->name('simulasi-realisasi.')->group(function () {
+        Route::get('/', [SimulasiRealisasiController::class, 'index'])->name('index');
+
+        Route::middleware('baca-saja')->group(function () {
+            Route::get('/create', [SimulasiRealisasiController::class, 'create'])->name('create');
+            Route::post('/', [SimulasiRealisasiController::class, 'store'])->name('store');
+        });
+
+        Route::get('/{simulasiRealisasi}', [SimulasiRealisasiController::class, 'show'])->name('show');
+
+        Route::middleware('baca-saja')->group(function () {
+            Route::put('/{simulasiRealisasi}', [SimulasiRealisasiController::class, 'update'])->name('update');
+            Route::delete('/{simulasiRealisasi}', [SimulasiRealisasiController::class, 'destroy'])->name('destroy');
+        });
+
+        Route::get('/{simulasiRealisasi}/export-excel', [SimulasiRealisasiController::class, 'exportExcel'])->name('export-excel');
+        Route::get('/{simulasiRealisasi}/export-pdf', [SimulasiRealisasiController::class, 'exportPdf'])->name('export-pdf');
+    });
+
     Route::get('/dashboard/perjalanan-dinas', PerjalananDinasDashboardController::class)
         ->middleware('menu-akses:dashpd')
         ->name('dashboard.perjalanan.index');
