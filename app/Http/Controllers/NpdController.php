@@ -1068,16 +1068,30 @@ class NpdController extends Controller
             }
         }
 
-        // ---- II. Uang Akomodasi ----
+        // ---- II. Uang Akomodasi (hanya peserta dgn akomodasi > 0) ----
+        //
+        // Peserta yang menginap nol malam TIDAK dicetak di sini. Dulu seluruh
+        // daftar nama diulang penuh walau nominalnya 0, dan pada tim belasan
+        // orang itu saja sudah menambah satu halaman. Bila SEMUA peserta nol,
+        // header "II. Uang Akomodasi" tetap tampil dengan jumlah 0 - jadi
+        // bagiannya tidak pernah hilang, hanya barisnya yang menyusut.
         $no = 0;
         foreach ($tim as $anggota) {
-            $no++;
             $h = $anggota->hitung();
-            $paket = $h['paket'] ?: [['malam' => 0, 'tarif_akom' => 0, 'sub_akom' => 0]];
+            $paket = array_values(array_filter(
+                $h['paket'] ?: [],
+                fn (array $p) => (float) $p['sub_akom'] > 0
+            ));
+
+            if ($paket === []) {
+                continue;
+            }
+
+            $no++;
             $nP = count($paket);
             $jab = e($anggota->jabatan);
 
-            foreach (array_values($paket) as $idx => $p) {
+            foreach ($paket as $idx => $p) {
                 $tAk += $p['sub_akom'];
                 $rowsAk .= '<tr class="dat">';
                 if ($idx === 0) {
@@ -1510,10 +1524,19 @@ class NpdController extends Controller
     }
 
     /**
-     * Data Lampiran NPD Kontribusi Diklat: SATU baris transfer ke penerima
-     * dana terpilih (bukan per peserta) senilai nominal NPD (subtotal mode),
-     * dengan PPN/PPh/biaya lain manual. Port dari blok "3. Lampiran" di
-     * buatNPDKontribusiDiklat() gas-lama/CodeKontribusiDiklat.gs.
+     * Data Lampiran NPD Kontribusi Diklat.
+     *
+     * Mode Kontribusi: SATU baris transfer ke penerima dana terpilih (bukan
+     * per peserta) senilai nominal NPD.
+     *
+     * Mode Perjalanan Dinas: satu baris per Tujuan Transfer yang diisi -
+     * pembayaran perjalanan bisa dibagi ke beberapa orang, atau dikumpulkan
+     * ke satu koordinator. PPN/PPh/biaya lain adalah potongan TINGKAT
+     * DOKUMEN, jadi seluruhnya dibebankan ke baris pertama saja; kalau
+     * disebar ke tiap baris, jumlahnya berlipat sebanyak penerimanya.
+     *
+     * Port dari blok "3. Lampiran" di buatNPDKontribusiDiklat()
+     * gas-lama/CodeKontribusiDiklat.gs.
      */
     private function bangunLampiranKontribusiDiklat(Npd $npd): array
     {
@@ -1528,17 +1551,27 @@ class NpdController extends Controller
         $bruto = (float) $npd->nominal;
         $transfer = $bruto - $ppn - $pphNilai - $biayaLain;
 
+        // NPD lama (sebelum fitur multi-penerima) tidak punya kunci ini, dan
+        // mode Kontribusi memang tidak memakainya - keduanya jatuh ke satu
+        // baris seperti sebelumnya.
+        $daftarPenerima = array_values(array_filter(
+            $detail['penerima_transfer'] ?? [],
+            fn ($p) => trim((string) ($p['nama'] ?? '')) !== ''
+        ));
+
         $namaPelatihan = $detail['nama_pelatihan'] ?? '';
         $isPerjalanan = $npd->mode_kd === 'perjalanan';
         $periode = 'terhitung tanggal '.$this->tanggalIndo($detail['tanggal_mulai'] ?? null).' s.d '.$this->tanggalIndo($detail['tanggal_selesai'] ?? null);
+        $atasNama = $daftarPenerima !== []
+            ? implode(', ', array_column($daftarPenerima, 'nama'))
+            : ($penerima->nama ?? '');
         $ketDefault = ($isPerjalanan ? 'Transfer Pembayaran Belanja Perjalanan Dinas' : 'Transfer Pembayaran Belanja Kontribusi Diklat')
-            .' dalam rangka Mengikuti '.$namaPelatihan.' '.$periode.' an. '.($penerima->nama ?? '');
+            .' dalam rangka Mengikuti '.$namaPelatihan.' '.$periode.' an. '.$atasNama;
 
         $keterangan = filled($detail['keterangan_lampiran'] ?? null) ? $detail['keterangan_lampiran'] : $ketDefault;
 
-        return [
-            'kolomPph' => [$pphJenis],
-            'rows' => [[
+        if ($daftarPenerima === []) {
+            $rows = [[
                 'nama' => $penerima->nama ?? '',
                 'rekening' => $penerima->rekening ?? '',
                 'bruto' => $bruto,
@@ -1547,8 +1580,37 @@ class NpdController extends Controller
                 'biaya' => $biayaLain,
                 'transfer' => $transfer,
                 'keterangan' => $keterangan,
-            ]],
-            'totals' => ['bruto' => $bruto, 'ppn' => $ppn, 'biaya' => $biayaLain, 'transfer' => $transfer],
+            ]];
+        } else {
+            $rows = [];
+            foreach ($daftarPenerima as $i => $p) {
+                $brutoBaris = (float) ($p['nominal'] ?? 0);
+                $ppnBaris = $i === 0 ? $ppn : 0.0;
+                $pphBaris = $i === 0 ? $pphNilai : 0.0;
+                $biayaBaris = $i === 0 ? $biayaLain : 0.0;
+
+                $rows[] = [
+                    'nama' => $p['nama'],
+                    'rekening' => $p['rekening'] ?? '',
+                    'bruto' => $brutoBaris,
+                    'ppn' => $ppnBaris,
+                    'pph' => [$pphJenis => $pphBaris],
+                    'biaya' => $biayaBaris,
+                    'transfer' => $brutoBaris - $ppnBaris - $pphBaris - $biayaBaris,
+                    'keterangan' => $keterangan,
+                ];
+            }
+        }
+
+        return [
+            'kolomPph' => [$pphJenis],
+            'rows' => $rows,
+            'totals' => [
+                'bruto' => array_sum(array_column($rows, 'bruto')),
+                'ppn' => $ppn,
+                'biaya' => $biayaLain,
+                'transfer' => array_sum(array_column($rows, 'transfer')),
+            ],
             'totalsPph' => [$pphJenis => $pphNilai],
             'nominalColspan' => 4 + 1,
         ];

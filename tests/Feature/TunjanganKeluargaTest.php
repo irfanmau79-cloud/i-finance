@@ -3,6 +3,7 @@
 namespace Tests\Feature;
 
 use App\Models\AnggotaKeluarga;
+use App\Models\GajiInduk;
 use App\Models\Pegawai;
 use App\Models\PengajuanPerubahanTunjangan;
 use App\Models\TunjanganKeluarga;
@@ -257,5 +258,113 @@ class TunjanganKeluargaTest extends TestCase
     private function user(string $role): User
     {
         return User::create(['username' => 'tk-'.$role, 'nama' => $role, 'role' => $role, 'password' => 'rahasia']);
+    }
+
+    // ---------------- Gerbang privasi Dashboard ----------------
+
+    /** Pegawai + keluarganya + baris gaji yang jadi acuan verifikasi. */
+    private function pegawaiBergaji(string $nip, string $rekening, string $namaAnak): Pegawai
+    {
+        $pegawai = $this->pegawai($nip);
+
+        $keluarga = TunjanganKeluarga::create([
+            'pegawai_id' => $pegawai->id,
+            'nama_pegawai' => $pegawai->nama,
+            'nip' => $nip,
+        ]);
+        AnggotaKeluarga::create([
+            'tunjangan_keluarga_id' => $keluarga->id,
+            'hubungan' => 'anak',
+            'nama' => $namaAnak,
+            'tanggal_lahir' => '2015-05-05',
+        ]);
+
+        GajiInduk::create([
+            'bulan' => 8, 'tahun' => 2026,
+            'nama_pegawai' => $pegawai->nama,
+            'nip' => $nip,
+            'nomor_rekening_bank_pegawai' => $rekening,
+        ]);
+
+        return $pegawai;
+    }
+
+    public function test_dashboard_tk_terkunci_untuk_role_di_luar_daftar(): void
+    {
+        $this->pegawaiBergaji('199001012015011001', '0001234567', 'Anak Rahasia');
+
+        $this->actingAs($this->user('pptk'))->get(route('tunjangan.dashboard'))
+            ->assertOk()
+            ->assertSee('Verifikasi Identitas')
+            // Nama anak pegawai lain tidak boleh ikut terkirim ke browser.
+            ->assertDontSee('Anak Rahasia');
+    }
+
+    public function test_role_penuh_melihat_dashboard_tk_tanpa_verifikasi(): void
+    {
+        $this->pegawaiBergaji('199001012015011001', '0001234567', 'Anak Rahasia');
+
+        $this->actingAs($this->user('superadmin'))->get(route('tunjangan.dashboard'))
+            ->assertOk()
+            ->assertDontSee('Verifikasi Identitas')
+            ->assertSee('Anak Rahasia');
+
+        $this->actingAs($this->user('sekretaris'))->get(route('tunjangan.dashboard'))
+            ->assertOk()
+            ->assertSee('Anak Rahasia');
+
+        // Kepegawaian ada di daftar bebas gerbang karena merekalah yang
+        // memelihara data ini - tetapi kunci menu dashboardnya memang belum
+        // diberikan, jadi hari ini halamannya tetap tertutup untuk mereka.
+        $this->assertContains('kepegawaian', config('akses.role_tk_data_penuh'));
+        $this->assertNotContains('dash-tk', config('akses.menu')['kepegawaian']);
+    }
+
+    public function test_verifikasi_benar_membuka_baris_sendiri_saja(): void
+    {
+        $this->pegawaiBergaji('199001012015011001', '0001234567', 'Anak Sendiri');
+        $this->pegawaiBergaji('198505052010012002', '0009876543', 'Anak Orang Lain');
+        $pptk = $this->user('pptk');
+
+        $this->actingAs($pptk)
+            ->post(route('tunjangan.dashboard.verifikasi'), ['nip' => '199001012015011001', 'rek4' => '4567'])
+            ->assertSessionHasNoErrors();
+
+        $halaman = $this->actingAs($pptk)->get(route('tunjangan.dashboard'))->assertOk();
+
+        $halaman->assertSee('Anak Sendiri');
+        $halaman->assertDontSee('Anak Orang Lain');
+        $halaman->assertSee('Ganti NIP');
+        // Kartu agregat tetap menghitung SELURUH pegawai - statistik kantor,
+        // bukan data pribadi siapa pun.
+        $halaman->assertSee('Jumlah Pegawai');
+        $this->assertStringContainsString('>2</div>', $halaman->getContent());
+    }
+
+    public function test_verifikasi_salah_ditolak_dan_halaman_tetap_terkunci(): void
+    {
+        $this->pegawaiBergaji('199001012015011001', '0001234567', 'Anak Rahasia');
+        $pptk = $this->user('pptk');
+
+        $this->actingAs($pptk)
+            ->post(route('tunjangan.dashboard.verifikasi'), ['nip' => '199001012015011001', 'rek4' => '9999'])
+            ->assertSessionHasErrors('nip');
+
+        $this->actingAs($pptk)->get(route('tunjangan.dashboard'))
+            ->assertSee('Verifikasi Identitas')
+            ->assertDontSee('Anak Rahasia');
+    }
+
+    public function test_ganti_nip_mengunci_kembali_dashboard(): void
+    {
+        $this->pegawaiBergaji('199001012015011001', '0001234567', 'Anak Sendiri');
+        $pptk = $this->user('pptk');
+
+        $this->actingAs($pptk)->post(route('tunjangan.dashboard.verifikasi'), ['nip' => '199001012015011001', 'rek4' => '4567']);
+        $this->actingAs($pptk)->post(route('tunjangan.dashboard.ganti-nip'));
+
+        $this->actingAs($pptk)->get(route('tunjangan.dashboard'))
+            ->assertSee('Verifikasi Identitas')
+            ->assertDontSee('Anak Sendiri');
     }
 }

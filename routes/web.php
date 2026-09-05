@@ -8,6 +8,7 @@ use App\Http\Controllers\DashboardRealisasiController;
 use App\Http\Controllers\GajiTunjanganController;
 use App\Http\Controllers\GajiTunjanganImportController;
 use App\Http\Controllers\InventarisasiSpjController;
+use App\Http\Controllers\KebutuhanController;
 use App\Http\Controllers\ManajemenDataController;
 use App\Http\Controllers\MasterAnggaranImportController;
 use App\Http\Controllers\NpdBjController;
@@ -24,6 +25,8 @@ use App\Http\Controllers\PengembalianController;
 use App\Http\Controllers\PengumumanController;
 use App\Http\Controllers\PerjalananDinasDashboardController;
 use App\Http\Controllers\PerjalananDinasPegawaiController;
+use App\Http\Controllers\PkptController;
+use App\Http\Controllers\PkptImportController;
 use App\Http\Controllers\ProfilController;
 use App\Http\Controllers\RakBulananImportController;
 use App\Http\Controllers\RealisasiPeriodeController;
@@ -153,6 +156,29 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/{simulasiRealisasi}/export-pdf', [SimulasiRealisasiController::class, 'exportPdf'])->name('export-pdf');
     });
 
+    // Monitoring PKPT: sub menu ke-4 Analisis dan Tren. Kunci menunya SENDIRI
+    // ('pkpt', bukan menumpang 'analisis') karena cakupan rolenya memang beda -
+    // Pengguna Layanan punya 'rincian' tapi tidak boleh melihat PKPT.
+    Route::get('/analisis-tren/monitoring-pkpt', [PkptController::class, 'index'])
+        ->middleware('menu-akses:pkpt')
+        ->name('pkpt.index');
+
+    // Estimasi Kebutuhan Kegiatan Pengawasan: sub menu ke-5 & ke-6 Analisis
+    // dan Tren. Dua kunci menu berbeda - 'keb-data' (rekap, dibaca juga oleh
+    // Perencanaan & Bendahara) dan 'keb-input' (formulir, hanya Irban).
+    // Penyimpanan & penghapusan tetap diperiksa ulang di controller: unit
+    // kerjanya diambil dari role, bukan dari isian.
+    Route::get('/analisis-tren/kebutuhan-anggaran', [KebutuhanController::class, 'index'])
+        ->middleware('menu-akses:keb-data')
+        ->name('kebutuhan.index');
+    Route::delete('/analisis-tren/kebutuhan-anggaran/{kebutuhan}', [KebutuhanController::class, 'destroy'])
+        ->middleware(['menu-akses:keb-data', 'baca-saja'])
+        ->name('kebutuhan.destroy');
+    Route::middleware(['menu-akses:keb-input', 'baca-saja'])->group(function () {
+        Route::get('/analisis-tren/kebutuhan-anggaran/input', [KebutuhanController::class, 'create'])->name('kebutuhan.create');
+        Route::post('/analisis-tren/kebutuhan-anggaran', [KebutuhanController::class, 'store'])->name('kebutuhan.store');
+    });
+
     Route::get('/dashboard/perjalanan-dinas', PerjalananDinasDashboardController::class)
         ->middleware('menu-akses:dashpd')
         ->name('dashboard.perjalanan.index');
@@ -176,6 +202,13 @@ Route::middleware('auth.or.guest')->group(function () {
     });
     Route::get('/tunjangan-keluarga/dashboard', [TunjanganKeluargaController::class, 'dashboard'])
         ->middleware('menu-akses:dash-tk')->name('tunjangan.dashboard');
+    // Gerbang privasi dashboard. Berdiri sendiri, tidak menumpang rute Data
+    // Gaji, karena ada role yang memegang dash-tk tanpa memegang gt-gaji.
+    // Dibatasi lajunya supaya NIP + 4 digit rekening tidak bisa ditebak beruntun.
+    Route::post('/tunjangan-keluarga/dashboard/verifikasi', [TunjanganKeluargaController::class, 'verifikasi'])
+        ->middleware(['menu-akses:dash-tk', 'throttle:10,1'])->name('tunjangan.dashboard.verifikasi');
+    Route::post('/tunjangan-keluarga/dashboard/ganti-nip', [TunjanganKeluargaController::class, 'gantiNip'])
+        ->middleware('menu-akses:dash-tk')->name('tunjangan.dashboard.ganti-nip');
     Route::get('/tunjangan-keluarga/monitoring', [TunjanganKeluargaController::class, 'monitoring'])
         ->middleware('menu-akses:tk-monitor')->name('tunjangan.monitoring');
 
@@ -506,7 +539,7 @@ Route::middleware('auth.or.guest')->group(function () {
     Route::middleware('role:superadmin,bendahara_pengeluaran')->group(function () {
         Route::get('/manajemen-data', [ManajemenDataController::class, 'index'])->name('manajemen-data.index');
         Route::get('/manajemen-data/export/{jenis}', [ManajemenDataController::class, 'export'])
-            ->whereIn('jenis', ['master-anggaran', 'rak-bulanan', 'npd', 'perjalanan-dinas', 'spj-perjalanan-dinas', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'tunjangan-keluarga'])
+            ->whereIn('jenis', ['master-anggaran', 'rak-bulanan', 'npd', 'perjalanan-dinas', 'spj-perjalanan-dinas', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'pkpt', 'kebutuhan-anggaran', 'tunjangan-keluarga'])
             ->name('manajemen-data.export');
 
         // Formulir rekap Perjalanan Dinas per pegawai. Bukan berkas import -
@@ -526,7 +559,7 @@ Route::middleware('auth.or.guest')->group(function () {
         // daripada import/export, sengaja dibatasi superadmin saja (bukan
         // ikut role:superadmin,bendahara_pengeluaran di grup ini).
         Route::post('/manajemen-data/reset/{jenis}', [ManajemenDataController::class, 'reset'])
-            ->whereIn('jenis', ['pagu', 'rak', 'npd', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'tunjangan-keluarga'])
+            ->whereIn('jenis', ['pagu', 'rak', 'npd', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'pkpt', 'kebutuhan-anggaran', 'tunjangan-keluarga'])
             ->middleware('role:superadmin')
             ->name('manajemen-data.reset');
 
@@ -585,6 +618,16 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/manajemen-data/import/vendor/{import}/preview', [VendorImportController::class, 'preview'])->name('manajemen-data.import.vendor.preview');
         Route::post('/manajemen-data/import/vendor/{import}/konfirmasi', [VendorImportController::class, 'konfirmasi'])->name('manajemen-data.import.vendor.konfirmasi');
         Route::delete('/manajemen-data/import/vendor/{import}', [VendorImportController::class, 'batalkan'])->name('manajemen-data.import.vendor.batalkan');
+
+        // Import Data PKPT: pilih Tahun Anggaran, unggah berkas PKPT ->
+        // staging (preview/dry-run) -> konfirmasi simpan. Baris dikenali dari
+        // Tahun + Unit Kerja + Nomor.
+        Route::get('/manajemen-data/import/pkpt', [PkptImportController::class, 'create'])->name('manajemen-data.import.pkpt.create');
+        Route::get('/manajemen-data/import/pkpt/template', [PkptImportController::class, 'template'])->name('manajemen-data.import.pkpt.template');
+        Route::post('/manajemen-data/import/pkpt', [PkptImportController::class, 'store'])->name('manajemen-data.import.pkpt.store');
+        Route::get('/manajemen-data/import/pkpt/{import}/preview', [PkptImportController::class, 'preview'])->name('manajemen-data.import.pkpt.preview');
+        Route::post('/manajemen-data/import/pkpt/{import}/konfirmasi', [PkptImportController::class, 'konfirmasi'])->name('manajemen-data.import.pkpt.konfirmasi');
+        Route::delete('/manajemen-data/import/pkpt/{import}', [PkptImportController::class, 'batalkan'])->name('manajemen-data.import.pkpt.batalkan');
 
         // Import Data Gaji & Tunjangan: pilih jenis + bulan + tahun, unggah
         // berkas SIPD apa adanya -> staging (preview/dry-run) -> konfirmasi.

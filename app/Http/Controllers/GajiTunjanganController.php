@@ -26,8 +26,14 @@ use Illuminate\View\View;
  */
 class GajiTunjanganController extends Controller
 {
-    /** Kunci session penyimpan NIP yang sudah terverifikasi. */
-    private const SESI_NIP = 'gt_nip_terverifikasi';
+    /**
+     * Kunci session penyimpan NIP yang sudah terverifikasi.
+     *
+     * Publik karena gerbang yang sama dipakai Dashboard Tunjangan Keluarga:
+     * sekali verifikasi berlaku untuk seluruh sesi, jadi pegawai tidak
+     * mengetik NIP dua kali hanya karena berpindah menu.
+     */
+    public const SESI_NIP = 'gt_nip_terverifikasi';
 
     private const PER_HALAMAN = 10;
 
@@ -122,6 +128,12 @@ class GajiTunjanganController extends Controller
     public static function bolehDataPenuh(): bool
     {
         return in_array(GuestSession::role(), config('gaji_tunjangan.role_data_penuh'), true);
+    }
+
+    /** NIP yang sudah lolos gerbang pada sesi ini, atau null. */
+    public static function nipTerverifikasi(): ?string
+    {
+        return session(self::SESI_NIP);
     }
 
     /** @param  array<string, mixed>  $baris */

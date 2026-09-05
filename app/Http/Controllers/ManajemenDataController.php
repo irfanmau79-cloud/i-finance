@@ -2,11 +2,13 @@
 
 namespace App\Http\Controllers;
 
+use App\Exports\KebutuhanAnggaranExport;
 use App\Exports\MasterAnggaranExport;
 use App\Exports\NpdExport;
 use App\Exports\PegawaiExport;
 use App\Exports\PerjalananDinasExport;
 use App\Exports\PerjalananDinasTemplateExport;
+use App\Exports\PkptExport;
 use App\Exports\RakBulananExport;
 use App\Exports\SpjPerjalananDinasExport;
 use App\Exports\SpmLsExport;
@@ -33,6 +35,8 @@ class ManajemenDataController extends Controller
         'spm-ls' => ['label' => 'Data Surat Perintah Membayar (SPM) LS', 'class' => SpmLsExport::class],
         'pegawai' => ['label' => 'Data Pegawai', 'class' => PegawaiExport::class],
         'vendor' => ['label' => 'Data Vendor', 'class' => VendorExport::class],
+        'pkpt' => ['label' => 'Data PKPT', 'class' => PkptExport::class],
+        'kebutuhan-anggaran' => ['label' => 'Data Kebutuhan Anggaran Pengawasan', 'class' => KebutuhanAnggaranExport::class],
         'tunjangan-keluarga' => ['label' => 'Data Tunjangan Keluarga', 'class' => TunjanganKeluargaExport::class],
     ];
 
@@ -113,6 +117,23 @@ class ManajemenDataController extends Controller
             'import_create' => ['manajemen-data.import.vendor.create', null],
             'import_template' => ['manajemen-data.import.vendor.template', null],
         ],
+        'pkpt' => [
+            'label' => 'Data PKPT',
+            'export_jenis' => 'pkpt',
+            'import_create' => ['manajemen-data.import.pkpt.create', null],
+            'import_template' => ['manajemen-data.import.pkpt.template', null],
+            'import_note' => 'Program Kerja Pengawasan Tahunan yang dipantau di Analisis dan Tren > Monitoring PKPT, sekaligus sumber daftar kegiatan pada Estimasi Kebutuhan Kegiatan Pengawasan. Tahun Anggaran dipilih di formulir import.',
+        ],
+        // Satu-satunya kartu tanpa Import: datanya LAHIR di aplikasi, lewat
+        // formulir Irban yang mengunci unit kerja ke akun pengisinya. Jalur
+        // unggah akan melewati kunci itu, jadi sengaja tidak disediakan.
+        'kebutuhan-anggaran' => [
+            'label' => 'Data Kebutuhan Anggaran Pengawasan',
+            'export_jenis' => 'kebutuhan-anggaran',
+            'import_create' => null,
+            'import_template' => null,
+            'import_note' => 'Diisi oleh tiap Inspektur Pembantu lewat Analisis dan Tren > Estimasi Kebutuhan Kegiatan Pengawasan. Unduhan berisi satu baris per rincian sehingga bisa langsung dijumlah dengan pivot.',
+        ],
         'tunjangan-keluarga' => [
             'label' => 'Data Tunjangan Keluarga',
             'export_jenis' => 'tunjangan-keluarga',
@@ -147,6 +168,8 @@ class ManajemenDataController extends Controller
         'spm-ls' => 'SPM LS',
         'pegawai' => 'PEGAWAI',
         'vendor' => 'VENDOR',
+        'pkpt' => 'PKPT',
+        'kebutuhan-anggaran' => 'KEBUTUHAN ANGGARAN',
         'tunjangan-keluarga' => 'TUNJANGAN KELUARGA',
     ];
 
@@ -250,6 +273,8 @@ class ManajemenDataController extends Controller
             'spm-ls' => $this->resetSpm('ls'),
             'pegawai' => $this->hapusTabel('pegawai'),
             'vendor' => $this->hapusTabel('vendor'),
+            'pkpt' => $this->hapusTabel('pkpt'),
+            'kebutuhan-anggaran' => $this->hapusTabel('kebutuhan_anggaran'),
             'tunjangan-keluarga' => $this->hapusTabel('tunjangan_keluarga'),
         };
     }

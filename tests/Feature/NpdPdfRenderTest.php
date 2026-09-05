@@ -620,6 +620,19 @@ class NpdPdfRenderTest extends TestCase
             'tanggal_selesai' => '2026-08-05',
             'penerima_index' => 0,
             'peserta' => $peserta,
+            // Tiga Tujuan Transfer sekaligus: Lampiran mode Perjalanan Dinas
+            // memang berbaris-baris, dan justru baris-baris itu yang perlu
+            // ikut dirender - PPN/PPh/biaya hanya boleh menempel di baris
+            // pertama. Total 10 x 4.900.000 + 5 x 350.000 = 50.750.000.
+            'ppn' => 250_000,
+            'pph_jenis' => 'PPh Pasal 21',
+            'pph_nilai' => 125_000,
+            'biaya_lain' => 15_000,
+            'penerima_transfer' => [
+                ['nama' => 'Andi Saputra, S.E.', 'rekening' => '4100000000', 'nominal' => 20_000_000],
+                ['nama' => 'Rina Marlina, S.H.', 'rekening' => '4100000001', 'nominal' => 20_000_000],
+                ['nama' => 'Budi Hartono, S.T.', 'rekening' => '4100000002', 'nominal' => 10_750_000],
+            ],
         ];
 
         $response = $this->actingAs($pptk)->post(route('npd.kd.store'), $payload);

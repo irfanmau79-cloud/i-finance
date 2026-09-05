@@ -65,12 +65,13 @@
 
   <table>
     <colgroup>
-      {{-- Lebar kolom diukur langsung dari dokumen tertandatangani di
-           storage/app/acuan-pdf, bukan dari tpl_pd_daftar.html yang ternyata
-           sudah tertinggal dari dokumen yang benar-benar dipakai kantor. --}}
-      <col style="width:3%;"><col style="width:12%;"><col style="width:8%;"><col style="width:4%;">
-      <col style="width:9.5%;"><col style="width:10%;"><col style="width:4%;"><col style="width:8%;">
-      <col style="width:9%;"><col style="width:8%;"><col style="width:8.5%;"><col style="width:8%;"><col style="width:8%;">
+      {{-- Lebar & bunyi header mengikuti tpl_pd_daftar.html (GAS) setelah
+           penyetelan kolom di changelog #34: NAMA dan JABATAN dilebarkan,
+           enam kolom nominal dipangkas sebagai gantinya. Dokumen acuan di
+           storage/app/acuan-pdf lebih tua dari penyetelan itu. --}}
+      <col style="width:3%;"><col style="width:17%;"><col style="width:10%;"><col style="width:4%;">
+      <col style="width:7.5%;"><col style="width:8%;"><col style="width:4%;"><col style="width:8%;">
+      <col style="width:8%;"><col style="width:6.5%;"><col style="width:8%;"><col style="width:8%;"><col style="width:8%;">
     </colgroup>
     <thead>
       <tr>
@@ -78,21 +79,21 @@
              sehingga tabel jatuh ke pelebaran otomatis dan kolomnya meleset
              jauh dari dokumen aslinya. --}}
         <th rowspan="2" style="width:3%;">NO</th>
-        <th rowspan="2" style="width:12%;">NAMA</th>
-        <th rowspan="2" style="width:8%;">JABATAN</th>
+        <th rowspan="2" style="width:17%;">NAMA</th>
+        <th rowspan="2" style="width:10%;">JABATAN</th>
         <th colspan="6">RINCIAN PERHITUNGAN</th>
-        <th rowspan="2" style="width:8%;">UANG REPRE-<br>SENTATIF (Rp)</th>
-        <th rowspan="2" style="width:8.5%;">TRANSPORT<br>/BBM/TIKET</th>
+        <th rowspan="2" style="width:6.5%;">UANG REPRE-<br>SENTATIF (Rp)</th>
+        <th rowspan="2" style="width:8%;">TRANSPORT<br>/BBM/TIKET (Rp)</th>
         <th rowspan="2" style="width:8%;">JUMLAH YANG<br>DITERIMA (Rp)</th>
         <th rowspan="2" style="width:8%;">TANDA TANGAN</th>
       </tr>
       <tr>
         <th style="width:4%;">JML<br>HARI</th>
-        <th style="width:9.5%;">UANG HARIAN<br>DLM/LUAR<br>DAERAH (Rp)</th>
-        <th style="width:10%;">JML UANG<br>HARIAN DLM/<br>LUAR DAERAH<br>(Rp)</th>
+        <th style="width:7.5%;">UANG HARIAN<br>(Rp)</th>
+        <th style="width:8%;">JUMLAH UANG<br>HARIAN (Rp)</th>
         <th style="width:4%;">JML<br>MLM</th>
         <th style="width:8%;">UANG<br>AKOMODASI<br>(Rp)</th>
-        <th style="width:9%;">JUMLAH UANG<br>AKOMODASI<br>(Rp)</th>
+        <th style="width:8%;">JUMLAH UANG<br>AKOMODASI<br>(Rp)</th>
       </tr>
     </thead>
     <tbody>

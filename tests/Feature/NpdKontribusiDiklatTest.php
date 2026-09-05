@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Http\Controllers\NpdController;
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use ReflectionMethod;
 use Tests\TestCase;
 
 class NpdKontribusiDiklatTest extends TestCase
@@ -101,6 +103,11 @@ class NpdKontribusiDiklatTest extends TestCase
                     'tarif_saku' => 100_000,
                     'transport' => 350_000,
                 ],
+            ],
+            // Mode Perjalanan Dinas wajib menyebut Tujuan Transfer, dan
+            // jumlahnya harus menghabiskan Total Bruto.
+            'penerima_transfer' => [
+                ['nama' => 'Andi Saputra', 'rekening' => '1112223334', 'nominal' => 5_250_000],
             ],
         ];
     }
@@ -335,5 +342,119 @@ class NpdKontribusiDiklatTest extends TestCase
         ]);
 
         $this->actingAs($pptk)->get(route('npd.cetak-daftar-kd', $npdBj))->assertNotFound();
+    }
+
+    // ---------------- Tujuan Transfer (mode Perjalanan Dinas) ----------------
+
+    public function test_tujuan_transfer_boleh_dibagi_ke_beberapa_penerima(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-trf-bagi');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payloadPerjalanan($masterAnggaran);
+        $payload['penerima_transfer'] = [
+            ['nama' => 'Andi Saputra', 'rekening' => '1112223334', 'nominal' => 3_000_000],
+            ['nama' => 'Bendahara Tim', 'rekening' => '9998887776', 'nominal' => 2_250_000],
+        ];
+
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $payload)->assertSessionHasNoErrors();
+
+        $npd = Npd::where('mode_kd', 'perjalanan')->sole();
+        $penerima = $npd->detail_json['penerima_transfer'];
+
+        $this->assertCount(2, $penerima);
+        $this->assertSame('Bendahara Tim', $penerima[1]['nama']);
+        // assertEquals, bukan assertSame: nilainya kembali dari kolom JSON,
+        // dan bilangan bulat di sana terbaca sebagai int.
+        $this->assertEquals(2_250_000.0, $penerima[1]['nominal']);
+        // Nominal NPD tetap dari subtotal peserta, bukan dari daftar penerima.
+        $this->assertEquals(5_250_000.0, (float) $npd->nominal);
+    }
+
+    public function test_total_tujuan_transfer_harus_sama_dengan_total_bruto(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-trf-selisih');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payloadPerjalanan($masterAnggaran);
+        $payload['penerima_transfer'] = [['nama' => 'Andi Saputra', 'nominal' => 4_000_000]];
+
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $payload)
+            ->assertSessionHasErrors('penerima_transfer');
+
+        $this->assertSame(0, Npd::count());
+    }
+
+    public function test_penerima_tanpa_nama_ditolak(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-trf-tanpa-nama');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payloadPerjalanan($masterAnggaran);
+        $payload['penerima_transfer'] = [['nama' => '', 'nominal' => 5_250_000]];
+
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $payload)
+            ->assertSessionHasErrors('penerima_transfer.0.nama');
+    }
+
+    public function test_mode_kontribusi_tidak_terpengaruh_tujuan_transfer(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-trf-kontribusi');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        // Baris sisa dari mode Perjalanan Dinas ikut terkirim saat pengguna
+        // berpindah mode; mode Kontribusi harus mengabaikannya, bukan gagal.
+        $payload = $this->payloadKontribusi($masterAnggaran);
+        $payload['penerima_transfer'] = [['nama' => '', 'nominal' => 0]];
+
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $payload)->assertSessionHasNoErrors();
+
+        $this->assertNull(Npd::sole()->detail_json['penerima_transfer']);
+    }
+
+    public function test_lampiran_multi_penerima_membebankan_pajak_di_baris_pertama(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-trf-lampiran');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payloadPerjalanan($masterAnggaran);
+        $payload['ppn'] = 100_000;
+        $payload['pph_jenis'] = 'PPh Pasal 21';
+        $payload['pph_nilai'] = 50_000;
+        $payload['biaya_lain'] = 10_000;
+        $payload['penerima_transfer'] = [
+            ['nama' => 'Andi Saputra', 'nominal' => 3_000_000],
+            ['nama' => 'Bendahara Tim', 'nominal' => 2_250_000],
+        ];
+
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $payload);
+        $npd = Npd::with('peserta')->sole();
+
+        $metode = new ReflectionMethod(NpdController::class, 'bangunLampiranKontribusiDiklat');
+        $metode->setAccessible(true);
+        $lampiran = $metode->invoke(app(NpdController::class), $npd);
+
+        $this->assertCount(2, $lampiran['rows']);
+
+        // Potongan adalah beban tingkat dokumen: seluruhnya di baris pertama,
+        // nol di baris berikutnya - kalau disebar, jumlahnya berlipat.
+        $this->assertSame(100_000.0, $lampiran['rows'][0]['ppn']);
+        $this->assertSame(0.0, $lampiran['rows'][1]['ppn']);
+        $this->assertSame(50_000.0, $lampiran['rows'][0]['pph']['PPh Pasal 21']);
+        $this->assertSame(0.0, $lampiran['rows'][1]['pph']['PPh Pasal 21']);
+        $this->assertSame(10_000.0, $lampiran['rows'][0]['biaya']);
+
+        $this->assertSame(2_840_000.0, $lampiran['rows'][0]['transfer']);
+        $this->assertSame(2_250_000.0, $lampiran['rows'][1]['transfer']);
+        $this->assertSame(5_250_000.0, $lampiran['totals']['bruto']);
+        $this->assertSame(5_090_000.0, $lampiran['totals']['transfer']);
+
+        // Keterangan otomatis menyebut seluruh penerimanya.
+        $this->assertStringContainsString('an. Andi Saputra, Bendahara Tim', $lampiran['rows'][0]['keterangan']);
     }
 }

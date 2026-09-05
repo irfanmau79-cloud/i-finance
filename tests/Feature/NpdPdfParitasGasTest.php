@@ -21,17 +21,18 @@ class NpdPdfParitasGasTest extends TestCase
     private const FOLDER_GAS = 'C:/laragon/www/i-finance gas';
 
     /**
-     * Daftar Bayar Perjalanan Dinas SENGAJA tidak dibandingkan ke
-     * tpl_pd_daftar.html. Dokumen tertandatangani di storage/app/acuan-pdf
-     * membuktikan template itu sudah tertinggal: judul kolomnya masih
-     * "UANG HARIAN (Rp)" sedangkan dokumen resminya "UANG HARIAN DLM/LUAR
-     * DAERAH (Rp)", dan lebar kolomnya pun berbeda. Yang berlaku adalah
-     * dokumennya - lihat test_daftar_bayar_pd_mengikuti_dokumen_asli().
+     * Daftar Bayar Perjalanan Dinas kini IKUT dibandingkan ke
+     * tpl_pd_daftar.html. Sebelumnya dikecualikan karena dokumen
+     * tertandatangani di storage/app/acuan-pdf memakai judul "UANG HARIAN
+     * DLM/LUAR DAERAH (Rp)" dan lebar kolom yang berbeda - tapi dokumen itu
+     * lebih tua dari penyetelan kolom GAS (changelog #34) yang memendekkan
+     * judul dan melebarkan NAMA/JABATAN. Yang berlaku sekarang GAS-nya.
      */
     private const PASANGAN = [
         'tpl_npd.html' => 'npd.blade.php',
         'tpl_lampiran.html' => 'lampiran.blade.php',
         'tpl_pd_spd.html' => 'pd-spd.blade.php',
+        'tpl_pd_daftar.html' => 'pd-daftar.blade.php',
         'tpl_kd_daftar.html' => 'kd-daftar.blade.php',
         'tpl_kd_pd_daftar.html' => 'kd-pd-daftar.blade.php',
         'tpl_nara_daftar.html' => 'ns-daftar.blade.php',
@@ -101,12 +102,11 @@ class NpdPdfParitasGasTest extends TestCase
 
     public function test_lebar_kolom_tabel_utama_sama_dengan_gas(): void
     {
-        // Hanya dokumen bertabel lebar yang punya <col> eksplisit. pd-daftar
-        // tidak ikut - lebarnya mengikuti dokumen tertandatangani, bukan
-        // template GAS yang sudah tertinggal.
+        // Hanya dokumen bertabel lebar yang punya <col> eksplisit.
         foreach ([
             'tpl_kd_daftar.html' => 'kd-daftar.blade.php',
             'tpl_kd_pd_daftar.html' => 'kd-pd-daftar.blade.php',
+            'tpl_pd_daftar.html' => 'pd-daftar.blade.php',
             'tpl_pd_spd.html' => 'pd-spd.blade.php'] as $gas => $laravel) {
             $this->assertSame(
                 $this->lebarKolom($this->isiGas($gas)),
@@ -117,22 +117,27 @@ class NpdPdfParitasGasTest extends TestCase
     }
 
     /**
-     * Daftar Bayar Perjalanan Dinas mengikuti DOKUMEN yang sudah
-     * ditandatangani, bukan template GAS. Angka-angka di bawah diukur
-     * langsung dari berkas acuan (posisi garis vertikal tabelnya).
+     * mPDF mengabaikan <colgroup>, jadi lebar yang sesungguhnya berlaku
+     * adalah yang menempel di tiap <th>. Kalau keduanya berselisih, cetakan
+     * diam-diam melenceng dari GAS walau test lebar kolom di atas hijau.
      */
-    public function test_daftar_bayar_pd_mengikuti_dokumen_asli(): void
+    public function test_lebar_th_pd_daftar_mengikuti_colgroup(): void
     {
         $isi = $this->isiLaravel('pd-daftar.blade.php');
 
-        $this->assertSame(
-            ['3%', '12%', '8%', '4%', '9.5%', '10%', '4%', '8%', '9%', '8%', '8.5%', '8%', '8%'],
-            $this->lebarKolom($isi)
-        );
+        preg_match_all('/<th\b[^>]*style="width:([^";]+);?"/i', $isi, $m);
 
-        $this->assertStringContainsString('UANG HARIAN<br>DLM/LUAR<br>DAERAH (Rp)', $isi);
-        $this->assertStringContainsString('JML UANG<br>HARIAN DLM/<br>LUAR DAERAH<br>(Rp)', $isi);
-        $this->assertStringContainsString('TRANSPORT<br>/BBM/TIKET', $isi);
+        // Urutan <th> mengikuti baris header: baris pertama menaruh NO, NAMA,
+        // JABATAN lalu empat kolom kanan; baris kedua enam kolom rincian.
+        [$no, $nama, $jabatan, $repre, $transport, $diterima, $ttd,
+            $jmlHari, $uh, $jmlUh, $jmlMlm, $akom, $jmlAkom] = $m[1];
+
+        $this->assertSame(
+            $this->lebarKolom($isi),
+            [$no, $nama, $jabatan, $jmlHari, $uh, $jmlUh, $jmlMlm, $akom, $jmlAkom,
+                $repre, $transport, $diterima, $ttd],
+            'Lebar pada <th> tidak sama dengan <colgroup> pd-daftar.'
+        );
 
         // Label "Rp" tetap disembunyikan - dokumen aslinya hanya angka.
         $this->assertStringNotContainsString('rpwrap', $isi);

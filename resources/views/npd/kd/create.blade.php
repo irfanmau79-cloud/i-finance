@@ -5,6 +5,19 @@
 @section('title', $npdEdit ? 'Edit Nota Pencairan Dana Kontribusi Diklat' : 'Buat Nota Pencairan Dana Kontribusi Diklat')
 
 @section('content')
+<style>
+  .trf-ringkas{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin-bottom:10px}
+  .trf-badge{background:var(--surface-3);border-radius:8px;padding:5px 12px;font-size:12.5px;color:var(--mut)}
+  .trf-badge b{color:var(--tegas);font-weight:800}
+  .trf-selisih{font-size:12.5px;font-weight:700}
+  .trf-selisih.pas{color:var(--ok)}
+  .trf-selisih.beda{color:var(--err)}
+  .trf-baris{position:relative;border:1px solid var(--line);border-radius:10px;padding:12px 14px;margin-bottom:10px;background:var(--surface-2)}
+  .trf-baris .del{position:absolute;top:8px;right:10px;border:none;background:none;color:var(--err);font-size:18px;line-height:1;cursor:pointer}
+  .trf-grid{display:grid;grid-template-columns:2fr 1fr 1fr;gap:12px}
+  @media(max-width:860px){.trf-grid{grid-template-columns:1fr}}
+  .trf-aksi{display:flex;gap:10px;flex-wrap:wrap;align-items:center}
+</style>
 <div class="dash-card">
     <h3>{{ $npdEdit ? 'Edit' : 'Buat' }} Nota Pencairan Dana Kontribusi Diklat</h3>
     <div class="sub">Pilih mode, lengkapi data pelatihan, lalu tambahkan peserta.</div>
@@ -174,6 +187,34 @@
                 @endforeach
             </div>
             <button type="button" class="add" id="peserta-add">+ Tambah Peserta</button>
+
+            {{-- Tujuan Transfer hanya untuk mode Perjalanan Dinas. Pembayaran
+                 perjalanan boleh dikumpulkan ke satu koordinator atau dibagi ke
+                 beberapa orang, sehingga penerimanya tidak selalu satu peserta.
+                 Mode Kontribusi tetap memakai radio "Penerima Dana" di kartu
+                 peserta. --}}
+            <div class="kd-sec kd-sec-perjalanan" style="display:none;">
+                <h3 style="margin-top:22px;">Tujuan Transfer</h3>
+                <div class="sub" style="margin-bottom:10px;">
+                    Ke rekening siapa uangnya dikirim. Jumlah seluruh nominal di sini wajib sama dengan Total Bruto.
+                </div>
+
+                <div class="trf-ringkas">
+                    <span class="trf-badge">Total Bruto: <b id="trf-bruto">Rp 0</b></span>
+                    <span class="trf-badge">Total Penerima: <b id="trf-total">Rp 0</b></span>
+                    <span id="trf-selisih" class="trf-selisih"></span>
+                </div>
+
+                <div id="trf-list"></div>
+
+                <div class="trf-aksi">
+                    <button type="button" class="add" id="trf-add">+ Tambah Penerima</button>
+                    <button type="button" class="btn" id="trf-semua">Transfer ke Setiap Peserta</button>
+                </div>
+                @error('penerima_transfer')
+                    <div class="err-box" style="display:block;margin-top:10px;">{{ $message }}</div>
+                @enderror
+            </div>
 
             <h3 style="margin-top:22px;">Rincian Lampiran (opsional)</h3>
             <div class="form-grid">
@@ -494,7 +535,7 @@
             + '<div class="fg"><label class="fl">Pangkat/Golongan</label><input type="text" data-pangkat name="peserta[' + idx + '][pangkat]" value=""></div>'
             + '<div class="fg"><label class="fl">NIP</label><input type="text" data-nip name="peserta[' + idx + '][nip]" value=""></div>'
             + '<div class="fg"><label class="fl">No. Rekening</label><input type="text" data-rekening name="peserta[' + idx + '][rekening]" value=""></div>'
-            + '<div class="fg"><label class="fl">Penerima Dana</label><label style="display:flex;align-items:center;gap:6px;margin-top:8px;"><input type="radio" name="penerima_index" value="' + idx + '" data-penerima-radio' + (idx === 0 ? ' checked' : '') + '><span>Jadikan penerima transfer</span></label></div>'
+            + '<div class="fg kd-sec kd-sec-kontribusi"><label class="fl">Penerima Dana</label><label style="display:flex;align-items:center;gap:6px;margin-top:8px;"><input type="radio" name="penerima_index" value="' + idx + '" data-penerima-radio' + (idx === 0 ? ' checked' : '') + '><span>Jadikan penerima transfer</span></label></div>'
             + '<div class="fg span2 kd-sec kd-sec-kontribusi">'
             + '<div class="form-grid" style="margin-top:0;">'
             + '<div class="fg"><label class="fl">Volume Kontribusi</label><input type="number" step="1" min="0" data-vol-kontribusi name="peserta[' + idx + '][volume_kontribusi]" value=""></div>'
@@ -595,6 +636,10 @@
             }
         });
         document.getElementById('total-nominal').textContent = formatRupiah(total);
+        // Total Bruto pada Tujuan Transfer ikut angka ini. Dipanggil lewat
+        // window karena recalcTotal() sudah jalan saat halaman dimuat,
+        // sebelum modul Tujuan Transfer di bawah sempat menyiapkan diri.
+        if (window.__trfHitung) window.__trfHitung();
     }
 
     function attachRowEvents(row) {
@@ -737,6 +782,158 @@
         goStep(3);
     });
     document.getElementById('wiz-b3').addEventListener('click', () => goStep(2));
+    // ================= Tujuan Transfer (mode Perjalanan Dinas) =================
+    //
+    // Nominal per penerima diketik sendiri, TIDAK diturunkan dari subtotal
+    // peserta: pembayaran boleh dikumpulkan ke satu koordinator atau dibagi
+    // dengan pembagian yang tidak sama persis dengan rincian per peserta.
+    // Yang dijaga cuma satu hal - jumlahnya harus menghabiskan Total Bruto.
+    const trfList = document.getElementById('trf-list');
+    const trfSelisih = document.getElementById('trf-selisih');
+    let TRF = @json(old('penerima_transfer', $detail['penerima_transfer'] ?? [])) || [];
+    TRF = (Array.isArray(TRF) ? TRF : Object.values(TRF)).map(p => ({
+        nama: p.nama || '', rekening: p.rekening || '', nominal: p.nominal ?? '',
+    }));
+
+    /** Total bruto = subtotal perjalanan seluruh peserta (angka yang sama dengan Nominal Total NPD). */
+    function trfBruto() {
+        let total = 0;
+        pesertaList.querySelectorAll('[data-peserta-row]').forEach(row => {
+            const n = (sel) => parseFloat(row.querySelector(sel).value) || 0;
+            total += (n('[data-hari-uh]') * n('[data-tarif-uh]'))
+                + (n('[data-vol-akomodasi]') * n('[data-tarif-akomodasi]'))
+                + (n('[data-hari-saku]') * n('[data-tarif-saku]'))
+                + n('[data-transport]');
+        });
+        return total;
+    }
+
+    /** Peserta yang sudah diinput, jadi sumber pilihan nama penerima. */
+    function trfPeserta() {
+        return Array.from(pesertaList.querySelectorAll('[data-peserta-row]')).map(row => {
+            const n = (sel) => parseFloat(row.querySelector(sel).value) || 0;
+            return {
+                nama: (row.querySelector('[data-name-input]').value || '').trim(),
+                rekening: (row.querySelector('[data-rekening]').value || '').trim(),
+                sub: (n('[data-hari-uh]') * n('[data-tarif-uh]'))
+                    + (n('[data-vol-akomodasi]') * n('[data-tarif-akomodasi]'))
+                    + (n('[data-hari-saku]') * n('[data-tarif-saku]'))
+                    + n('[data-transport]'),
+            };
+        }).filter(p => p.nama !== '');
+    }
+
+    function trfBarisHtml(p, i) {
+        return '<div class="trf-baris" data-trf-baris="' + i + '">'
+            + '<button type="button" class="del" data-trf-hapus title="Hapus penerima">&times;</button>'
+            + '<div class="trf-grid">'
+            + '<div class="fg"><label class="fl">Nama Penerima</label>'
+            + '<div class="nsearch" data-trf-search>'
+            + '<svg class="ns-ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>'
+            + '<input type="text" class="ns-inp" data-trf-nama autocomplete="off" placeholder="Pilih peserta, atau ketik nama manual..."'
+            + ' name="penerima_transfer[' + i + '][nama]" value="' + escapeHtml(p.nama) + '">'
+            + '<div class="ns-drop" data-trf-drop></div>'
+            + '</div></div>'
+            + '<div class="fg"><label class="fl">No. Rekening</label>'
+            + '<input type="text" data-trf-rekening name="penerima_transfer[' + i + '][rekening]" value="' + escapeHtml(p.rekening) + '"></div>'
+            + '<div class="fg"><label class="fl">Nominal (Rp)</label>'
+            + '<input type="number" step="0.01" min="0" data-trf-nominal name="penerima_transfer[' + i + '][nominal]" value="' + escapeHtml(p.nominal) + '"></div>'
+            + '</div></div>';
+    }
+
+    function trfRender() {
+        trfList.innerHTML = TRF.map(trfBarisHtml).join('');
+        trfHitung();
+    }
+
+    function trfHitung() {
+        const bruto = trfBruto();
+        const total = TRF.reduce((a, p) => a + (parseFloat(p.nominal) || 0), 0);
+        document.getElementById('trf-bruto').textContent = formatRupiah(bruto);
+        document.getElementById('trf-total').textContent = formatRupiah(total);
+
+        const beda = Math.round((total - bruto) * 100) / 100;
+        if (Math.abs(beda) <= 1) {
+            trfSelisih.className = 'trf-selisih pas';
+            trfSelisih.textContent = TRF.length ? 'Sesuai dengan Total Bruto' : '';
+        } else {
+            trfSelisih.className = 'trf-selisih beda';
+            trfSelisih.textContent = (beda < 0 ? 'Kurang ' : 'Lebih ') + formatRupiah(Math.abs(beda)) + ' dari Total Bruto';
+        }
+    }
+
+    document.getElementById('trf-add').addEventListener('click', () => {
+        TRF.push({ nama: '', rekening: '', nominal: '' });
+        trfRender();
+    });
+
+    // Satu baris per peserta, nominalnya diisi subtotal perjalanan peserta itu.
+    // Menimpa daftar yang ada supaya tidak menghasilkan penerima ganda.
+    document.getElementById('trf-semua').addEventListener('click', () => {
+        TRF = trfPeserta().map(p => ({ nama: p.nama, rekening: p.rekening, nominal: p.sub || '' }));
+        if (! TRF.length) TRF = [{ nama: '', rekening: '', nominal: '' }];
+        trfRender();
+    });
+
+    trfList.addEventListener('click', (e) => {
+        const tombol = e.target.closest('[data-trf-hapus]');
+        if (! tombol) return;
+        TRF.splice(Number(tombol.closest('[data-trf-baris]').dataset.trfBaris), 1);
+        trfRender();
+    });
+
+    trfList.addEventListener('input', (e) => {
+        const baris = e.target.closest('[data-trf-baris]');
+        if (! baris) return;
+        const p = TRF[Number(baris.dataset.trfBaris)];
+        if (e.target.matches('[data-trf-nama]')) {
+            p.nama = e.target.value;
+            trfDrop(baris, e.target);
+        } else if (e.target.matches('[data-trf-rekening]')) {
+            p.rekening = e.target.value;
+        } else if (e.target.matches('[data-trf-nominal]')) {
+            p.nominal = e.target.value;
+            trfHitung();
+        }
+    });
+
+    trfList.addEventListener('focusin', (e) => {
+        if (e.target.matches('[data-trf-nama]')) trfDrop(e.target.closest('[data-trf-baris]'), e.target);
+    });
+    trfList.addEventListener('focusout', (e) => {
+        const kotak = e.target.closest('[data-trf-search]');
+        if (! kotak) return;
+        const drop = kotak.querySelector('[data-trf-drop]');
+        if (drop) setTimeout(() => drop.classList.remove('show'), 150);
+    });
+
+    function trfDrop(baris, input) {
+        const drop = baris.querySelector('[data-trf-drop]');
+        const q = (input.value || '').toLowerCase();
+        const hit = trfPeserta().filter(p => p.nama.toLowerCase().includes(q));
+        drop.innerHTML = hit.length
+            ? hit.map(p => '<div class="ns-item" data-nama="' + escapeHtml(p.nama) + '" data-rek="' + escapeHtml(p.rekening) + '">'
+                + escapeHtml(p.nama) + '<span class="sub">' + formatRupiah(p.sub) + '</span></div>').join('')
+            : '<div class="ns-empty">Ketik nama penerima secara manual.</div>';
+        drop.classList.add('show');
+    }
+
+    trfList.addEventListener('mousedown', (e) => {
+        const item = e.target.closest('.ns-item');
+        if (! item) return;
+        e.preventDefault();
+        const baris = item.closest('[data-trf-baris]');
+        const p = TRF[Number(baris.dataset.trfBaris)];
+        p.nama = item.dataset.nama;
+        if (! p.rekening) p.rekening = item.dataset.rek || '';
+        baris.querySelector('[data-trf-nama]').value = p.nama;
+        baris.querySelector('[data-trf-rekening]').value = p.rekening;
+        baris.querySelector('[data-trf-drop]').classList.remove('show');
+    });
+
+    window.__trfHitung = trfHitung;
+    trfRender();
+
     document.getElementById('wiz-n3').addEventListener('click', () => {
         if (! document.getElementById('nama_pelatihan').value.trim() || ! tanggalInput.value) {
             showStepErr('err-3', 'Lengkapi nama pelatihan dan tanggal NPD.');

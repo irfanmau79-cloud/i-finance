@@ -57,6 +57,19 @@ class User extends Authenticatable
 
     public const ROLE_PENGAWAS = 'pengawas';
 
+    /**
+     * Role Irban per unit kerja. Terikat ke satu unit (lihat
+     * BidangOrganisasi::unitRole) sehingga modul Estimasi Kebutuhan bisa
+     * mengunci input dan menyaring data tanpa menanyakan unitnya ke pengguna.
+     */
+    public const ROLE_IRBAN = [
+        'irban1',
+        'irban2',
+        'irban3',
+        'irban4',
+        'irban_inv',
+    ];
+
     public const ROLE_OPTIONS = [
         self::ROLE_SUPERADMIN,
         self::ROLE_BENDAHARA_PENGELUARAN,
@@ -67,6 +80,11 @@ class User extends Authenticatable
         'sekretaris',
         'kasubbag',
         'inspektur_pembantu',
+        'irban1',
+        'irban2',
+        'irban3',
+        'irban4',
+        'irban_inv',
         'perencanaan',
         self::ROLE_KEPEGAWAIAN,
         self::ROLE_PENGAWAS,

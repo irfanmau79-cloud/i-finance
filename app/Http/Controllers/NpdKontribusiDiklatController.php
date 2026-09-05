@@ -66,7 +66,11 @@ class NpdKontribusiDiklatController extends Controller
             return back()->withInput()->withErrors(['peserta' => "{$label} harus lebih dari 0."]);
         }
 
-        $detailJson = $this->buatDetailJson($data);
+        if ($galat = $this->periksaPenerimaTransfer($data, $mode, $nominal)) {
+            return back()->withInput()->withErrors($galat);
+        }
+
+        $detailJson = $this->buatDetailJson($data, $mode);
 
         $npd = DB::transaction(function () use ($data, $masterAnggaran, $keu, $mode, $referensiId, $nominal, $peserta, $detailJson, $request) {
             $masterAnggaran = MasterAnggaran::query()->lockForUpdate()->findOrFail($masterAnggaran->id);
@@ -178,7 +182,11 @@ class NpdKontribusiDiklatController extends Controller
             return back()->withInput()->withErrors(['peserta' => "{$label} harus lebih dari 0."]);
         }
 
-        $detailJson = $this->buatDetailJson($data);
+        if ($galat = $this->periksaPenerimaTransfer($data, $mode, $nominal)) {
+            return back()->withInput()->withErrors($galat);
+        }
+
+        $detailJson = $this->buatDetailJson($data, $mode);
 
         DB::transaction(function () use ($request, $npd, $data, $mode, $referensiId, $peserta, $nominal, $detailJson) {
             $npd = Npd::query()->lockForUpdate()->findOrFail($npd->id);
@@ -246,13 +254,68 @@ class NpdKontribusiDiklatController extends Controller
         return view('npd.kd.create', compact('masterAnggaran', 'pegawai', 'bulanList', 'npd', 'pesertaAwal', 'detailAwal', 'referensiList'));
     }
 
-    private function buatDetailJson(array $data): array
+    /**
+     * Tujuan Transfer mode Perjalanan Dinas harus menghabiskan Total Bruto.
+     *
+     * Ini pertahanan yang sama dengan formulir, diulang di server. Selain
+     * mencegah dana bocor, aturan ini otomatis menutup baris penerima
+     * bernominal 0 - baris seperti itu membuat totalnya tidak lagi cocok, dan
+     * dulu ikut tercetak di Lampiran sebagai penerima yang tidak menerima apa
+     * pun. Toleransi Rp1 untuk pembulatan.
+     *
+     * @return array<string, string>|null galat siap dikirim ke withErrors()
+     */
+    private function periksaPenerimaTransfer(array $data, string $mode, float $nominal): ?array
+    {
+        if ($mode !== 'perjalanan') {
+            return null;
+        }
+
+        $penerima = $this->siapkanPenerimaTransfer($data);
+
+        if ($penerima === []) {
+            return ['penerima_transfer' => 'Isi minimal satu Tujuan Transfer untuk mode Perjalanan Dinas.'];
+        }
+
+        $jumlah = round(array_sum(array_column($penerima, 'nominal')), 2);
+
+        if (abs($jumlah - $nominal) > 1) {
+            return ['penerima_transfer' => 'Total Tujuan Transfer (Rp '.number_format($jumlah, 2, ',', '.')
+                .') harus sama dengan Total Bruto (Rp '.number_format($nominal, 2, ',', '.').').'];
+        }
+
+        return null;
+    }
+
+    /**
+     * Penerima transfer yang benar-benar terisi. Baris kosong sepenuhnya
+     * (nama maupun nominal) dibuang lebih dulu supaya baris sisa yang tidak
+     * jadi dipakai tidak menggagalkan penyimpanan.
+     *
+     * @return array<int, array{nama: string, rekening: string|null, nominal: float}>
+     */
+    private function siapkanPenerimaTransfer(array $data): array
+    {
+        return array_values(array_filter(
+            array_map(fn (array $p) => [
+                'nama' => trim((string) ($p['nama'] ?? '')),
+                'rekening' => trim((string) ($p['rekening'] ?? '')) ?: null,
+                'nominal' => round((float) ($p['nominal'] ?? 0), 2),
+            ], $data['penerima_transfer'] ?? []),
+            fn (array $p) => $p['nama'] !== '' || $p['nominal'] > 0
+        ));
+    }
+
+    private function buatDetailJson(array $data, string $mode): array
     {
         return [
             'nama_pelatihan' => $data['nama_pelatihan'],
             'tanggal_mulai' => $data['tanggal_mulai'],
             'tanggal_selesai' => $data['tanggal_selesai'],
             'penerima_index' => (int) $data['penerima_index'],
+            // Hanya mode Perjalanan Dinas yang punya daftar penerima; mode
+            // Kontribusi tetap memakai penerima_index seperti semula.
+            'penerima_transfer' => $mode === 'perjalanan' ? $this->siapkanPenerimaTransfer($data) : null,
             'keterangan_lampiran' => $data['keterangan_lampiran'] ?? null,
             'ppn' => (float) ($data['ppn'] ?? 0),
             'pph_jenis' => $data['pph_jenis'] ?? null,

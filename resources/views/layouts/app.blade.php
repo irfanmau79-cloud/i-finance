@@ -106,9 +106,17 @@
       </a>
       @endif
 
+      {{-- Analisis dan Tren menampung enam sub menu dengan TIGA kunci akses
+           berbeda: 'analisis' (tren + dua simulasi), 'pkpt', dan kebutuhan
+           anggaran ('keb-data'/'keb-input'). Grupnya tampil begitu salah satu
+           kuncinya dipegang - Irban misalnya tidak punya 'analisis' tapi tetap
+           harus melihat Monitoring PKPT dan formulir kebutuhannya. --}}
       @php($analisisVisible = in_array('analisis', $akses, true))
-      @php($analisisOpen = in_array($activeNav, ['tren-realisasi', 'simulasi-pergeseran', 'simulasi-realisasi'], true))
-      @if ($analisisVisible)
+      @php($pkptVisible = in_array('pkpt', $akses, true))
+      @php($kebDataVisible = in_array('keb-data', $akses, true))
+      @php($kebInputVisible = in_array('keb-input', $akses, true))
+      @php($analisisOpen = in_array($activeNav, ['tren-realisasi', 'simulasi-pergeseran', 'simulasi-realisasi', 'pkpt', 'keb-data', 'keb-input'], true))
+      @if ($analisisVisible || $pkptVisible || $kebDataVisible || $kebInputVisible)
       <div class="sb-group{{ $analisisOpen ? ' open' : '' }}">
         <div class="sb-item sb-parent" id="nav-analisis-parent">
           <svg viewBox="0 0 24 24"><line x1="18" y1="20" x2="18" y2="10"/><line x1="12" y1="20" x2="12" y2="4"/><line x1="6" y1="20" x2="6" y2="14"/><line x1="3" y1="20" x2="21" y2="20"/></svg>
@@ -116,9 +124,20 @@
           <svg class="chev" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
         <div class="sb-sub">
+          @if ($analisisVisible)
           <a class="sb-item sub{{ $activeNav === 'tren-realisasi' ? ' active' : '' }}" href="{{ route('analisis.index') }}">Tren Realisasi</a>
           <a class="sb-item sub{{ $activeNav === 'simulasi-pergeseran' ? ' active' : '' }}" href="{{ route('simulasi-anggaran.index') }}">Simulasi Pergeseran/Perubahan</a>
           <a class="sb-item sub{{ $activeNav === 'simulasi-realisasi' ? ' active' : '' }}" href="{{ route('simulasi-realisasi.index') }}">Simulasi Realisasi</a>
+          @endif
+          @if ($pkptVisible)
+          <a class="sb-item sub{{ $activeNav === 'pkpt' ? ' active' : '' }}" href="{{ route('pkpt.index') }}">Monitoring PKPT</a>
+          @endif
+          @if ($kebDataVisible)
+          <a class="sb-item sub{{ $activeNav === 'keb-data' ? ' active' : '' }}" href="{{ route('kebutuhan.index') }}">Data Kebutuhan Anggaran Pengawasan</a>
+          @endif
+          @if ($kebInputVisible)
+          <a class="sb-item sub{{ $activeNav === 'keb-input' ? ' active' : '' }}" href="{{ route('kebutuhan.create') }}">Estimasi Kebutuhan Kegiatan Pengawasan</a>
+          @endif
         </div>
       </div>
       @endif

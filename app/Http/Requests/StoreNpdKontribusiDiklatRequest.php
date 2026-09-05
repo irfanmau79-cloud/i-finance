@@ -40,6 +40,22 @@ class StoreNpdKontribusiDiklatRequest extends FormRequest
             'tanggal_mulai' => ['required', 'date'],
             'tanggal_selesai' => ['required', 'date', 'after_or_equal:tanggal_mulai'],
             'penerima_index' => ['required', 'integer', 'min:0'],
+
+            /*
+             * Tujuan Transfer mode Perjalanan Dinas: BOLEH lebih dari satu
+             * penerima, masing-masing dengan nominalnya sendiri - satu
+             * koordinator menerima semuanya, atau dibagi ke beberapa orang.
+             * Mode Kontribusi tidak berubah: tetap satu penerima lewat
+             * penerima_index.
+             *
+             * Jumlah seluruh nominalnya wajib sama persis dengan Total Bruto;
+             * itu diperiksa di controller karena butuh subtotal peserta.
+             */
+            'penerima_transfer' => ['exclude_unless:mode,perjalanan', 'required', 'array', 'min:1', 'max:100'],
+            'penerima_transfer.*.nama' => ['exclude_unless:mode,perjalanan', 'required', 'string', 'max:255'],
+            'penerima_transfer.*.rekening' => ['exclude_unless:mode,perjalanan', 'nullable', 'string', 'max:100'],
+            'penerima_transfer.*.nominal' => ['exclude_unless:mode,perjalanan', 'required', 'numeric', 'min:0'],
+
             'keterangan_lampiran' => ['nullable', 'string'],
             'ppn' => ['nullable', 'numeric', 'min:0'],
             'pph_jenis' => ['nullable', 'string', 'max:50'],
@@ -81,6 +97,9 @@ class StoreNpdKontribusiDiklatRequest extends FormRequest
             'tanggal_mulai' => 'Tanggal Mulai',
             'tanggal_selesai' => 'Tanggal Selesai',
             'penerima_index' => 'Penerima Dana',
+            'penerima_transfer' => 'Tujuan Transfer',
+            'penerima_transfer.*.nama' => 'Nama Penerima Transfer',
+            'penerima_transfer.*.nominal' => 'Nominal Penerima Transfer',
             'peserta.*.nama' => 'Nama Peserta',
         ];
     }

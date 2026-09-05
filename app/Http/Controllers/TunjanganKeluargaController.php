@@ -10,6 +10,7 @@ use App\Models\LampiranTunjangan;
 use App\Models\Pegawai;
 use App\Models\PengajuanPerubahanTunjangan;
 use App\Models\TunjanganKeluarga;
+use App\Services\GajiTunjanganService;
 use App\Services\TunjanganKeluargaService;
 use Illuminate\Http\RedirectResponse;
 use Illuminate\Http\Request;
@@ -69,9 +70,71 @@ class TunjanganKeluargaController extends Controller
         ]);
     }
 
+    /**
+     * Dashboard Tunjangan Keluarga.
+     *
+     * GERBANG PRIVASI. Halaman ini memuat nama dan tanggal lahir anak seluruh
+     * pegawai. Role di luar config('akses.role_tk_data_penuh') harus melewati
+     * gerbang NIP + 4 digit akhir rekening lebih dulu - gerbang yang SAMA
+     * dengan Data Gaji & Tunjangan, sehingga sekali verifikasi berlaku untuk
+     * kedua menu - lalu hanya menerima barisnya sendiri.
+     *
+     * Kartu agregat tetap tampil setelah verifikasi: angkanya statistik
+     * seluruh kantor dan tidak membuka identitas siapa pun. Yang disaring
+     * adalah tabel rinciannya, dan penyaringan itu dilakukan DI SINI - bukan
+     * di tampilan - supaya baris pegawai lain tidak pernah sampai ke browser.
+     */
     public function dashboard(TunjanganKeluargaService $service): View
     {
-        return view('tunjangan-keluarga.dashboard', ['dashboard' => $service->dashboard()]);
+        $penuh = in_array(GuestSession::role(), config('akses.role_tk_data_penuh'), true);
+        $nipSesi = $penuh ? null : GajiTunjanganController::nipTerverifikasi();
+        $terkunci = ! $penuh && $nipSesi === null;
+
+        $dashboard = $service->dashboard();
+
+        if ($terkunci) {
+            // Belum terverifikasi: kartu dikosongkan juga, bukan cuma tabelnya.
+            $dashboard['rincian'] = [];
+        } elseif ($nipSesi !== null) {
+            $dashboard['rincian'] = array_values(array_filter(
+                $dashboard['rincian'],
+                fn (array $r) => preg_replace('/\D/', '', (string) ($r['nip'] ?? '')) === $nipSesi
+            ));
+        }
+
+        return view('tunjangan-keluarga.dashboard', [
+            'dashboard' => $dashboard,
+            'terkunci' => $terkunci,
+            'terbatas' => ! $penuh && ! $terkunci,
+            'nipSesi' => $nipSesi,
+        ]);
+    }
+
+    /** Gerbang privasi dashboard: cek NIP + 4 digit akhir rekening. */
+    public function verifikasi(Request $request, GajiTunjanganService $gaji): RedirectResponse
+    {
+        $request->validate([
+            'nip' => ['required', 'string', 'max:30'],
+            'rek4' => ['required', 'string', 'max:10'],
+        ], [], ['nip' => 'NIP', 'rek4' => '4 digit akhir rekening']);
+
+        $hasil = $gaji->verifikasi($request->string('nip'), $request->string('rek4'));
+
+        if (! $hasil['ok']) {
+            return back()->withErrors(['nip' => $hasil['err']]);
+        }
+
+        session([GajiTunjanganController::SESI_NIP => $hasil['nip']]);
+
+        return back();
+    }
+
+    /** Lupakan identitas terverifikasi supaya bisa memeriksa NIP lain. */
+    public function gantiNip(): RedirectResponse
+    {
+        session()->forget(GajiTunjanganController::SESI_NIP);
+
+        return back();
     }
 
     /**

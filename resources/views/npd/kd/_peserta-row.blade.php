@@ -44,7 +44,10 @@
             <label class="fl">No. Rekening</label>
             <input type="text" data-rekening name="peserta[{{ $i }}][rekening]" value="{{ $rekeningVal }}">
         </div>
-        <div class="fg">
+        {{-- Penerima tunggal hanya berlaku pada mode Kontribusi. Mode
+             Perjalanan Dinas memakai bagian "Tujuan Transfer" tersendiri yang
+             boleh berisi beberapa penerima dengan nominal masing-masing. --}}
+        <div class="fg kd-sec kd-sec-kontribusi">
             <label class="fl">Penerima Dana</label>
             <label style="display:flex;align-items:center;gap:6px;margin-top:8px;">
                 <input type="radio" name="penerima_index" value="{{ $i }}" data-penerima-radio @checked($penerimaIndexVal === (string) $i)>

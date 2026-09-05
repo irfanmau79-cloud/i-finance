@@ -73,6 +73,11 @@ Role login:
 - `bpp` — Bendahara Pengeluaran Pembantu, level KPA. Aktif di alur NPD
   (teruskan/setuju/selesai).
 - `pptk`, `verifikator`, `layanan` — seperti biasa. `layanan` = tanpa login.
+- `irban1`..`irban4`, `irban_inv` — Inspektur Pembantu I-IV & Investigasi.
+  Beda dari `inspektur_pembantu` yang generik: kelima role ini TERIKAT ke satu
+  unit kerja (`BidangOrganisasi::unitRole()`), dan modul Estimasi Kebutuhan
+  memakai ikatan itu untuk mengunci Unit Kerja pada formulir serta menyaring
+  data yang boleh dilihat/dihapus — unitnya tidak pernah diambil dari isian.
 
 ---
 
@@ -149,7 +154,19 @@ Folder terpisah dari project Laravel — JANGAN di-track git project ini.
 (export + import preview/dry-run), Rincian Realisasi, Analisis & Tren,
 Dashboard Realisasi Anggaran, Dashboard Perjalanan Dinas, Dashboard SPJ
 Pengawasan, Inventarisasi SPJ, Tunjangan Keluarga, Manajemen Users, Profil
-Saya, Pelimpahan.
+Saya, Pelimpahan, Monitoring PKPT, Estimasi Kebutuhan Kegiatan Pengawasan.
+
+Dua modul terakhir (adopsi GAS #54-64, 5 September 2026) tinggal di bawah grup
+"Analisis dan Tren":
+- **Monitoring PKPT** — baca-saja. Datanya masuk lewat Manajemen Data > Data
+  PKPT (import preview/dry-run + export); baris dikenali dari Tahun + Unit
+  Kerja + Nomor. Urutan unit tetap Irban I..IV lalu Investigasi.
+- **Estimasi Kebutuhan Kegiatan Pengawasan** — Irban mengisi, Perencanaan/
+  Bendahara membaca semua unit. Rincian per jenis anggota disimpan sebagai
+  TABEL sendiri (bukan JSON seperti GAS) supaya bisa dijumlah & diekspor.
+  SELURUH angka dihitung ulang di server; tarif uang harian dibatasi standar
+  biaya di `config/kebutuhan.php`, tarif akomodasi boleh manual.
+  Manajemen Data hanya menyediakan Export — datanya lahir di aplikasi.
 
 Migration untuk restrukturisasi SPM LS (header/detail) & tabel Pengembalian
 sudah jalan di DB. Status eksekusi fitur di level kode BELUM tentu final —

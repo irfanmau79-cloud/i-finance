@@ -366,4 +366,61 @@ class NpdPdTest extends TestCase
         ]);
         $this->assertSame('Draft NPD - PPTK', $suratPerintah->fresh()->status);
     }
+
+    /** Baris SPD Rampung, hasil rowsSpdRampung() yang private. */
+    private function barisSpd(Npd $npd): array
+    {
+        $metode = new \ReflectionMethod(\App\Http\Controllers\NpdController::class, 'rowsSpdRampung');
+        $metode->setAccessible(true);
+
+        return $metode->invoke(app(\App\Http\Controllers\NpdController::class), $npd->load('tim.paket')->tim);
+    }
+
+    public function test_spd_rampung_hanya_mencetak_peserta_yang_menginap(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-akomodasi');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payload($masterAnggaran);
+        // Anggota Pertama pergi-pulang tanpa menginap; Anggota Kedua menginap.
+        $payload['tim'][0]['paket'][0]['malam'] = 0;
+        $payload['tim'][0]['paket'][0]['tarif_akom'] = 0;
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload);
+        $baris = $this->barisSpd(Npd::sole());
+
+        // Bagian I tetap memuat keduanya - uang hariannya tetap dibayar.
+        $this->assertStringContainsString('Anggota Pertama', $baris['rows_uh']);
+        $this->assertStringContainsString('Anggota Kedua', $baris['rows_uh']);
+
+        // Bagian II hanya yang menginap, dan nomor urutnya mulai lagi dari 1.
+        $this->assertStringNotContainsString('Anggota Pertama', $baris['rows_ak']);
+        $this->assertStringContainsString('Anggota Kedua', $baris['rows_ak']);
+        $this->assertSame(1, substr_count($baris['rows_ak'], '<tr class="dat">'));
+        $this->assertStringContainsString('rowspan="1">1</td>', $baris['rows_ak']);
+        $this->assertSame(500_000.0, (float) $baris['t_ak']);
+    }
+
+    public function test_spd_rampung_menyisakan_bagian_akomodasi_kosong_bila_tak_ada_yang_menginap(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-tanpa-akomodasi');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payload($masterAnggaran);
+        foreach ([0, 1] as $i) {
+            $payload['tim'][$i]['paket'][0]['malam'] = 0;
+            $payload['tim'][$i]['paket'][0]['tarif_akom'] = 0;
+        }
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload);
+        $baris = $this->barisSpd(Npd::sole());
+
+        // Tak satu pun baris peserta, tapi jumlahnya tetap 0 - judul bagian II
+        // beserta baris "Jumlah Uang Akomodasi" dicetak dari blade, bukan dari
+        // sini, jadi bagiannya tidak pernah hilang dari dokumen.
+        $this->assertSame('', $baris['rows_ak']);
+        $this->assertSame(0.0, (float) $baris['t_ak']);
+    }
 }
