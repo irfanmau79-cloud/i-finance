@@ -41,10 +41,12 @@
   .gt-table thead th:last-child{border-right:none;}
   .gt-table tbody td{padding:8px 11px;font-size:12.5px;border-bottom:1px solid var(--surface-3);border-right:1px solid var(--surface-3);vertical-align:top;color:var(--ink);}
   .gt-table tbody td:last-child{border-right:none;}
-  .gt-table tbody tr:nth-child(even){background:var(--surface-2);}
+  /* Tanpa belang baris: tiap sel di tabel ini sudah punya garis kanan, jadi
+     strukturnya terbaca dari kisi-kisinya - belang cuma menambah keramaian.
+     Seragam dengan table.realisasi di styles.blade.php. */
   .gt-table tbody tr:hover{background:var(--navy-l);}
   .gt-table tbody tr:last-child td{border-bottom:none;}
-  .gt-num{text-align:right;white-space:nowrap;}
+  .gt-num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
   .gt-ctr{text-align:center;white-space:nowrap;}
   .gt-peg{min-width:150px;max-width:210px;}
   .gt-peg .n{font-weight:700;color:var(--tegas);font-size:12.5px;line-height:1.25;}
@@ -109,7 +111,6 @@
   :root[data-tema="gelap"] .gt-pager button,
   :root[data-tema="gelap"] .gt-pager a{background:var(--surface);color:var(--ink);border-color:var(--line);}
   :root[data-tema="gelap"] .gt-table tbody td{color:var(--ink);border-bottom-color:var(--line);border-right-color:var(--line);}
-  :root[data-tema="gelap"] .gt-table tbody tr:nth-child(even){background:var(--surface-2);}
   :root[data-tema="gelap"] .gt-table tbody tr:hover{background:var(--navy-l);}
   :root[data-tema="gelap"] .gt-peg .n,
   :root[data-tema="gelap"] .gt-strong{color:var(--ink);}
