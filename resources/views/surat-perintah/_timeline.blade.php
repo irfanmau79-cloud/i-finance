@@ -25,7 +25,7 @@
             @php
                 $tercapai = (bool) ($p['tercapai'] ?? false);
                 $isRevisi = ($p['label'] ?? '') === 'Revisi';
-                $warna = $tercapai ? ($isRevisi ? '#b45309' : '#0f6e56') : '#cbd5e1';
+                $warna = $tercapai ? ($isRevisi ? '#b45309' : '#059669') : '#cbd5e1';
             @endphp
             <div class="sp-tl-node">
                 @unless ($loop->last)

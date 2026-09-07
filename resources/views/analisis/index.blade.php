@@ -163,7 +163,7 @@ document.addEventListener('DOMContentLoaded', function () {
         const realisasi = mode === 'kumulatif' ? data.realisasi_kumulatif : data.realisasi_bulanan;
         const target = mode === 'kumulatif' ? data.target_kumulatif : data.target_bulanan;
         const result = [{type:'bar',label:mode === 'kumulatif' ? 'Realisasi Kumulatif' : 'Realisasi Bulanan',data:realisasi,backgroundColor:warnaGrafik().utama,borderRadius:5,maxBarThickness:42,order:2}];
-        if (data.rak_tersedia) result.push({type:'line',label:mode === 'kumulatif' ? 'Target RAK Kumulatif' : 'Target RAK Bulanan',data:target,borderColor:warnaGrafik().emas,backgroundColor:'#d9a938',borderWidth:3,tension:.25,pointRadius:4,pointHoverRadius:6,spanGaps:false,order:1});
+        if (data.rak_tersedia) result.push({type:'line',label:mode === 'kumulatif' ? 'Target RAK Kumulatif' : 'Target RAK Bulanan',data:target,borderColor:warnaGrafik().emas,backgroundColor:'#f59e0b',borderWidth:3,tension:.25,pointRadius:4,pointHoverRadius:6,spanGaps:false,order:1});
         return result;
     }
 

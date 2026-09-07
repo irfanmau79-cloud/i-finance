@@ -85,7 +85,7 @@
 
   /* ---------- Panel rincian & edit ---------- */
   .spj-detail-modal,.spj-edit-modal{max-width:920px;background:var(--surface-2);}
-  .spj-detail-modal .mdl-h,.spj-edit-modal .mdl-h{padding:20px 24px 16px;background:linear-gradient(135deg,var(--navy),#24527a);color:#fff;border-radius:14px 14px 0 0;}
+  .spj-detail-modal .mdl-h,.spj-edit-modal .mdl-h{padding:20px 24px 16px;background:linear-gradient(135deg,var(--navy),#1e293b);color:#fff;border-radius:14px 14px 0 0;}
   .spj-detail-modal .mdl-b,.spj-edit-modal .mdl-b{padding:20px 24px;max-height:74vh;overflow:auto;}
   .spj-detail-head-sub{display:block;margin-top:3px;color:#c9d9e8;font-size:11.5px;font-weight:400;}
   .spj-detail-section{margin-bottom:16px;}

@@ -53,19 +53,32 @@ class RangkaAplikasiTest extends TestCase
      * Bilah atas tetap terlihat saat digulir, dan dimulai TEPAT di tepi kanan
      * sidebar - bukan menutupinya. Tepi kirinya ikut menyesuaikan saat sidebar
      * menyusut jadi rel ikon.
+     *
+     * Ketiga ukuran itu (lebar sidebar, lebar rel ikon, tinggi bilah) dipakai
+     * di beberapa aturan sekaligus, jadi yang dijaga di sini BUKAN angkanya
+     * melainkan bahwa semuanya menunjuk token yang sama. Menyetel satu angka
+     * lalu lupa menyetel pasangannya adalah cara lama bilah atas berakhir
+     * menutupi sidebar.
      */
     public function test_bilah_atas_tetap_dan_dimulai_setelah_sidebar(): void
     {
         $isi = $this->halaman();
 
-        $this->assertMatchesRegularExpression('/\.topbar\{position:fixed;top:0;left:255px;right:0;/', $isi);
-        $this->assertStringContainsString('html.sidebar-collapsed .topbar{left:64px;}', $isi);
+        // Ukurannya lahir sebagai token, bukan angka yang ditulis berulang.
+        $this->assertMatchesRegularExpression('/--rel:\d+px; --rel-kecil:\d+px; --tb-h:\d+px;/', $isi);
 
-        // Sidebar tetap penuh dari puncak layar.
+        $this->assertMatchesRegularExpression('/\.topbar\{position:fixed;top:0;left:var\(--rel\);right:0;/', $isi);
+        $this->assertStringContainsString('html.sidebar-collapsed .topbar{left:var(--rel-kecil);}', $isi);
+        $this->assertMatchesRegularExpression('/\.topbar\{[^}]*height:var\(--tb-h\);/', $isi);
+
+        // Sidebar tetap penuh dari puncak layar dan selebar token yang sama.
+        $this->assertMatchesRegularExpression('/\.sidebar\{width:var\(--rel\);/', $isi);
         $this->assertMatchesRegularExpression('/\.sidebar\{[^}]*position:sticky;top:0;[^}]*height:100vh;/', $isi);
 
-        // Isi halaman diberi ruang setinggi bilah atas.
-        $this->assertStringContainsString('.main{flex:1;min-width:0;padding:84px 14px 22px;}', $isi);
+        // Isi halaman diberi ruang setinggi bilah atas - dihitung dari token
+        // yang sama, sehingga tidak mungkin tertinggal saat bilahnya disetel.
+        $this->assertStringContainsString(
+            '.main{flex:1;min-width:0;padding:calc(var(--tb-h) + var(--isi-y)) var(--isi-x) var(--sp-7);}', $isi);
     }
 
     public function test_teks_berjalan_memuat_nama_pengguna(): void
@@ -161,7 +174,7 @@ class RangkaAplikasiTest extends TestCase
     {
         $isi = $this->halaman();
 
-        $this->assertStringContainsString('html.sidebar-collapsed .sidebar{width:64px;}', $isi);
+        $this->assertStringContainsString('html.sidebar-collapsed .sidebar{width:var(--rel-kecil);}', $isi);
         $this->assertStringNotContainsString('html.sidebar-collapsed .sidebar{width:0', $isi);
 
         // Logo menjadi tombol pembentang, dan tombol panah lama dihapus.

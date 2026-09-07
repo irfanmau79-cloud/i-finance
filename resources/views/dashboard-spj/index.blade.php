@@ -14,7 +14,7 @@
   .spj-progress-head strong{font-weight:700;color:var(--tegas)}
   .spj-progress-head span{color:var(--mut);font-size:12.5px}
   .spj-bar{height:26px;background:var(--surface-3);border-radius:6px;overflow:hidden;position:relative}
-  .spj-bar i{height:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:10px;box-sizing:border-box;border-radius:6px;min-width:4px;background:linear-gradient(90deg,#3f6187,#15314a);color:#fff;font-size:12.5px;font-weight:700}
+  .spj-bar i{height:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:10px;box-sizing:border-box;border-radius:6px;min-width:4px;background:linear-gradient(90deg,#334155,#0f172a);color:#fff;font-size:12.5px;font-weight:700}
   .spj-bar b{position:absolute;top:50%;transform:translateY(-50%);color:var(--tegas);font-weight:700;font-size:12.5px}
   .spj-table-wrap{overflow:auto}.spj-table{min-width:1050px}.spj-empty{text-align:center;padding:46px;color:var(--mut)}
   @media(max-width:960px){.spj-filter{grid-template-columns:1fr 1fr}}@media(max-width:600px){.spj-filter{grid-template-columns:1fr}}
@@ -38,7 +38,7 @@
 </form></div>
 
 <div class="kpi-grid">
-  <div class="kpi" style="--kc:#15314a;--kbg:#15314a14;">
+  <div class="kpi" style="--kc:#0f172a;--kbg:#0f172a14;">
     <div class="kpi-top"><div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div><div class="kpi-lbl">Total SPJ</div></div></div>
     <div class="kpi-val">{{ $dashboard['total'] }}</div>
   </div>
@@ -47,11 +47,11 @@
     <div class="kpi-val">{{ $dashboard['terverifikasi'] }}</div>
     <div class="kpi-note">sudah diverifikasi</div>
   </div>
-  <div class="kpi" style="--kc:#b3261e;--kbg:#b3261e14;">
+  <div class="kpi" style="--kc:#e11d48;--kbg:#e11d4814;">
     <div class="kpi-top"><div class="kpi-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div><div class="kpi-lbl">SPJ Belum Selesai</div></div></div>
     <div class="kpi-val">{{ $dashboard['belum'] }}</div>
   </div>
-  <div class="kpi" style="--kc:#0f6e56;--kbg:#0f6e5614;">
+  <div class="kpi" style="--kc:#059669;--kbg:#05966914;">
     <div class="kpi-top"><div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M22 12A10 10 0 1 1 12 2"/><path d="M22 2 12 12"/></svg></div><div><div class="kpi-lbl">% Selesai</div></div></div>
     <div class="kpi-val">{{ number_format($dashboard['persen'],1,',','.') }}%</div>
   </div>

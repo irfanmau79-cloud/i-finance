@@ -70,22 +70,22 @@
 </div>
 
 <div class="kpi-grid">
-    <div class="kpi" style="--kc:#15314a;--kbg:#15314a14;">
+    <div class="kpi" style="--kc:#0f172a;--kbg:#0f172a14;">
         <div class="kpi-top"><div><div class="kpi-lbl">Pagu Setahun</div></div></div>
         <div class="kpi-val">{{ $rp($total['pagu']) }}</div>
         <div class="kpi-note">Seluruh mata anggaran aktif</div>
     </div>
-    <div class="kpi" style="--kc:#0f6e56;--kbg:#0f6e5614;">
+    <div class="kpi" style="--kc:#059669;--kbg:#05966914;">
         <div class="kpi-top"><div><div class="kpi-lbl">Realisasi NPD</div></div></div>
         <div class="kpi-val">{{ $rp($total['realisasi_npd']) }}</div>
         <div class="kpi-note">NPD Selesai pada periode ini</div>
     </div>
-    <div class="kpi" style="--kc:#7c3aed;--kbg:#7c3aed14;">
+    <div class="kpi" style="--kc:#4f46e5;--kbg:#4f46e514;">
         <div class="kpi-top"><div><div class="kpi-lbl">Realisasi LS</div></div></div>
         <div class="kpi-val">{{ $rp($total['realisasi_ls']) }}</div>
         <div class="kpi-note">SP2D LS pada periode ini</div>
     </div>
-    <div class="kpi" style="--kc:#b07d1d;--kbg:#b07d1d14;">
+    <div class="kpi" style="--kc:#d97706;--kbg:#d9770614;">
         <div class="kpi-top"><div><div class="kpi-lbl">Realisasi Aktual</div></div></div>
         <div class="kpi-val">{{ $rp($total['realisasi_aktual']) }}</div>
         <div class="kpi-note">{{ number_format($total['persentase_realisasi'], 2, ',', '.') }}% dari pagu setahun</div>

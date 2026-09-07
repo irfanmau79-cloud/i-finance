@@ -61,15 +61,15 @@
 @endif
 
 <div class="kpi-grid">
-  <div class="kpi" style="--kc:#15314a;--kbg:#15314a14;">
+  <div class="kpi" style="--kc:#0f172a;--kbg:#0f172a14;">
     <div class="kpi-top"><div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><div><div class="kpi-lbl">Jumlah Pegawai</div></div></div>
     <div class="kpi-val">{{ $terkunci ? "—" : $dashboard['jumlah_pegawai'] }}</div>
   </div>
-  <div class="kpi" style="--kc:#7c3aed;--kbg:#7c3aed14;">
+  <div class="kpi" style="--kc:#4f46e5;--kbg:#4f46e514;">
     <div class="kpi-top"><div class="kpi-ic"><svg viewBox="0 0 24 24"><circle cx="9" cy="7" r="3"/><circle cx="16" cy="7" r="3"/><path d="M2 21v-2a4 4 0 0 1 4-4h4M14 21v-2a4 4 0 0 1 4-4"/></svg></div><div><div class="kpi-lbl">Jumlah Pasangan</div></div></div>
     <div class="kpi-val">{{ $terkunci ? "—" : $dashboard['jumlah_pasangan'] }}</div>
   </div>
-  <div class="kpi" style="--kc:#0f6e56;--kbg:#0f6e5614;">
+  <div class="kpi" style="--kc:#059669;--kbg:#05966914;">
     <div class="kpi-top"><div class="kpi-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M6 21v-1a6 6 0 0 1 12 0v1"/></svg></div><div><div class="kpi-lbl">Anak Tanggungan</div></div></div>
     <div class="kpi-val">{{ $terkunci ? "—" : $dashboard['jumlah_anak_aktif'] }}</div>
     <div class="kpi-note">hanya tunjangan aktif</div>
@@ -89,7 +89,7 @@
     <div class="kpi-val">{{ $terkunci ? "—" : $dashboard['bucket']['21to25'] }}</div>
     <div class="kpi-note">wajib surat kuliah</div>
   </div>
-  <div class="kpi" style="--kc:#b3261e;--kbg:#b3261e14;">
+  <div class="kpi" style="--kc:#e11d48;--kbg:#e11d4814;">
     <div class="kpi-top"><div class="kpi-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="15" y1="9" x2="9" y2="15"/><line x1="9" y1="9" x2="15" y2="15"/></svg></div><div><div class="kpi-lbl">Anak &gt; 25 Tahun</div></div></div>
     <div class="kpi-val">{{ $terkunci ? "—" : $dashboard['bucket']['gt25'] }}</div>
     <div class="kpi-note">tidak berhak</div>

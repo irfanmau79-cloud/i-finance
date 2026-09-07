@@ -285,15 +285,25 @@
       @endif
 
     </nav>
-    <div style="margin-top:auto;">
-      <div id="sb-userinfo" style="padding:8px 20px;font-size:11.5px;color:var(--sb-teks-lemah);border-top:1px solid var(--sb-sep);">{{ auth()->user()->nama ?? 'Pengguna Layanan' }} &mdash; {{ config('akses.role_label')[$currentRole] ?? $currentRole }}</div>
-      <form method="POST" action="{{ route('logout') }}">
-        @csrf
-        <button type="submit" class="sb-logout" style="width:100%;border:none;background:none;font:inherit;text-align:left;cursor:pointer;">
-          <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
-          <span>Keluar</span>
-        </button>
-      </form>
+    {{-- Kaki sidebar: identitas pemakai sebagai kartu kecil (avatar, nama,
+         lencana peran) dengan tombol keluar sebagai ikon di ujungnya. Saat
+         sidebar menyusut jadi rel ikon, yang tersisa avatar dan ikonnya. --}}
+    @php($namaSidebar = auth()->user()->nama ?? 'Pengguna Layanan')
+    <div class="sb-kaki" style="margin-top:auto;">
+      <div class="sb-kartu">
+        <div class="sb-av" aria-hidden="true">{{ \Illuminate\Support\Str::of($namaSidebar)->trim()->substr(0, 1)->upper() }}</div>
+        <div class="sb-idn" id="sb-userinfo">
+          <div class="nm" title="{{ $namaSidebar }}">{{ $namaSidebar }}</div>
+          <span class="rl">{{ config('akses.role_label')[$currentRole] ?? $currentRole }}</span>
+        </div>
+        <form method="POST" action="{{ route('logout') }}">
+          @csrf
+          <button type="submit" class="sb-logout" title="Keluar" style="border:none;background:none;font:inherit;cursor:pointer;">
+            <svg viewBox="0 0 24 24"><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/><polyline points="16 17 21 12 16 7"/><line x1="21" y1="12" x2="9" y2="12"/></svg>
+            <span>Keluar</span>
+          </button>
+        </form>
+      </div>
     </div>
   </aside>
 
@@ -305,6 +315,15 @@
     @php($namaSapaan = auth()->user()?->namaSapaan() ?: $namaPengguna)
     <div class="topbar">
       <div class="burger" id="sb-burger"><svg viewBox="0 0 24 24"><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="18" x2="21" y2="18"/></svg></div>
+
+      {{-- Remah jejak memakai @yield('title') yang sudah diisi tiap halaman,
+           jadi tidak ada satu pun blade yang perlu menambah section baru. --}}
+      <div class="tb-crumb" aria-hidden="true">
+        <span>Beranda</span>
+        <svg viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        <b>@yield('title', 'i-Finance')</b>
+      </div>
+      <div class="tb-pisah" aria-hidden="true"></div>
 
       <div class="tb-ketik"><span id="tb-teks"></span><span class="kursor" aria-hidden="true"></span></div>
 
@@ -366,6 +385,11 @@
 
     <div class="page show">
       @yield('content')
+
+      <footer class="app-foot">
+        <span>&copy; {{ config('anggaran.tahun_aktif') }} Inspektorat Daerah Provinsi Jawa Barat.</span>
+        <span class="kanan">Sistem Penatausahaan Keuangan Daerah Terpadu</span>
+      </footer>
     </div>
   </div>
 </div>

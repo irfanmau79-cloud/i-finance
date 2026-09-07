@@ -130,7 +130,7 @@
 
 {{-- ---------------- Ringkasan pemeriksaan ---------------- --}}
 <div class="kpi-grid">
-    <div class="kpi" style="--kc:#15314a;--kbg:#15314a14;">
+    <div class="kpi" style="--kc:#0f172a;--kbg:#0f172a14;">
         <div class="kpi-top">
             <div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div>
             <div><div class="kpi-lbl">Total Baris</div></div>
@@ -139,7 +139,7 @@
         <div class="kpi-note">Baris data di berkas</div>
     </div>
 
-    <div class="kpi" style="--kc:#0f6e56;--kbg:#0f6e5614;">
+    <div class="kpi" style="--kc:#059669;--kbg:#05966914;">
         <div class="kpi-top">
             <div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
             <div><div class="kpi-lbl">{{ $sudahDiimpor ? 'Tersimpan' : 'Siap Diimpor' }}</div></div>
@@ -148,7 +148,7 @@
         <div class="kpi-note">{{ $import->jumlah_valid }} valid &middot; {{ $import->jumlah_warning }} perlu diperiksa</div>
     </div>
 
-    <div class="kpi" style="--kc:#b3261e;--kbg:#b3261e14;">
+    <div class="kpi" style="--kc:#e11d48;--kbg:#e11d4814;">
         <div class="kpi-top">
             <div class="kpi-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div>
             <div><div class="kpi-lbl">Bermasalah</div></div>
@@ -168,15 +168,15 @@
 </div>
 
 <div class="kpi-grid" style="grid-template-columns:repeat(3,1fr);">
-    <div class="kpi" style="--kc:#15314a;--kbg:#15314a14;">
+    <div class="kpi" style="--kc:#0f172a;--kbg:#0f172a14;">
         <div class="kpi-top"><div><div class="kpi-lbl">Nominal Bruto</div></div></div>
         <div class="kpi-val">Rp {{ fmt_rupiah($import->total_nominal) }}</div>
     </div>
-    <div class="kpi" style="--kc:#7c3aed;--kbg:#7c3aed14;">
+    <div class="kpi" style="--kc:#4f46e5;--kbg:#4f46e514;">
         <div class="kpi-top"><div><div class="kpi-lbl">PPN</div></div></div>
         <div class="kpi-val">Rp {{ fmt_rupiah($import->total_ppn) }}</div>
     </div>
-    <div class="kpi" style="--kc:#b07d1d;--kbg:#b07d1d14;">
+    <div class="kpi" style="--kc:#d97706;--kbg:#d9770614;">
         <div class="kpi-top"><div><div class="kpi-lbl">Total PPh</div></div></div>
         <div class="kpi-val">Rp {{ fmt_rupiah($import->total_pph) }}</div>
     </div>

@@ -117,7 +117,7 @@
         </div>
 
         <div class="sim-kpis">
-            <div class="kpi" style="--kc:#15314a;--kbg:#15314a14;">
+            <div class="kpi" style="--kc:#0f172a;--kbg:#0f172a14;">
                 <div class="kpi-top">
                     <div class="kpi-ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/></svg></div>
                     <div class="kpi-lbl">Pagu Anggaran</div>
@@ -125,7 +125,7 @@
                 <div class="kpi-val" id="sim-total-eksisting">{{ $rupiah($totalEksisting) }}</div>
                 <div class="kpi-note">Eksisting saat ini</div>
             </div>
-            <div class="kpi" style="--kc:#0f6e56;--kbg:#0f6e5614;">
+            <div class="kpi" style="--kc:#059669;--kbg:#05966914;">
                 <div class="kpi-top">
                     <div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.1-4-4L3 15.5"/></svg></div>
                     <div class="kpi-lbl">Pagu Anggaran (Simulasi)</div>
@@ -133,7 +133,7 @@
                 <div class="kpi-val" id="sim-total-simulasi">{{ $rupiah($totalSimulasi) }}</div>
                 <div class="kpi-note">Hasil percobaan di bawah</div>
             </div>
-            <div class="kpi" id="sim-kpi-selisih" style="--kc:{{ $totalSelisih > 0 ? '#0f6e56' : ($totalSelisih < 0 ? '#b3261e' : '#64748b') }};--kbg:{{ $totalSelisih > 0 ? '#0f6e5614' : ($totalSelisih < 0 ? '#b3261e14' : '#64748b14') }};">
+            <div class="kpi" id="sim-kpi-selisih" style="--kc:{{ $totalSelisih > 0 ? '#059669' : ($totalSelisih < 0 ? '#e11d48' : '#64748b') }};--kbg:{{ $totalSelisih > 0 ? '#05966914' : ($totalSelisih < 0 ? '#e11d4814' : '#64748b14') }};">
                 <div class="kpi-top">
                     <div class="kpi-ic"><svg viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><polyline points="19 12 12 19 5 12"/></svg></div>
                     <div class="kpi-lbl">Selisih</div>
@@ -448,8 +448,8 @@
         const selisihCard = document.getElementById('sim-total-selisih');
         selisihCard.textContent = (grandSelisih > 0 ? '+' : '') + formatRupiah(grandSelisih);
         const kpiSelisih = document.getElementById('sim-kpi-selisih');
-        kpiSelisih.style.setProperty('--kc', grandSelisih > 0 ? '#0f6e56' : (grandSelisih < 0 ? '#b3261e' : '#64748b'));
-        kpiSelisih.style.setProperty('--kbg', grandSelisih > 0 ? '#0f6e5614' : (grandSelisih < 0 ? '#b3261e14' : '#64748b14'));
+        kpiSelisih.style.setProperty('--kc', grandSelisih > 0 ? '#059669' : (grandSelisih < 0 ? '#e11d48' : '#64748b'));
+        kpiSelisih.style.setProperty('--kbg', grandSelisih > 0 ? '#05966914' : (grandSelisih < 0 ? '#e11d4814' : '#64748b14'));
 
         const listEl = document.getElementById('sim-summary-list');
         const countEl = document.getElementById('sim-summary-count');

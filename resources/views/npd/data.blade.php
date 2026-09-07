@@ -9,7 +9,7 @@
   .dn-kpi-card{position:relative;padding:16px 18px;border:1px solid var(--line);border-radius:14px;background:var(--surface);overflow:hidden;text-align:left;font-family:inherit;}
   .dn-kpi-card::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--navy);}
   .dn-kpi-card.ok::before{background:var(--ok);}
-  .dn-kpi-card.proses::before{background:#2f6fa8;}
+  .dn-kpi-card.proses::before{background:#0284c7;}
   .dn-kpi-card.warn::before{background:var(--warn);}
   .dn-kpi-lbl{font-size:11px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--mut);}
   .dn-kpi-val{font-size:26px;font-weight:800;color:var(--tegas);line-height:1.15;margin-top:6px;font-variant-numeric:tabular-nums;}

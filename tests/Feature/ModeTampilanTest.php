@@ -79,11 +79,11 @@ class ModeTampilanTest extends TestCase
         $html = $this->halaman();
 
         foreach ([
-            '.sidebar{width:255px;flex:0 0 auto;background:var(--sb-bg);',
+            '.sidebar{width:var(--rel);flex:0 0 auto;background:var(--sb-bg);',
             'color:var(--sb-teks);cursor:pointer;',
             '.sb-item:hover{background:var(--sb-hover);color:var(--sb-teks-kuat);}',
             '.sb-head .t1{color:var(--sb-teks-kuat);',
-            '.tb-ketik{flex:1 1 auto;min-width:0;color:var(--tb-teks);',
+            'flex:0 1 auto;min-width:0;color:var(--tb-teks);',
             '.tb-ikon:hover{background:var(--tb-chip-hover);}',
         ] as $potongan) {
             $this->assertStringContainsString($potongan, $html,

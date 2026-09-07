@@ -19,7 +19,7 @@
   .pkpt-progress-head strong{font-weight:700;color:var(--tegas)}
   .pkpt-progress-head span{color:var(--mut);font-size:12.5px}
   .pkpt-bar{height:26px;background:var(--surface-3);border-radius:6px;overflow:hidden;position:relative}
-  .pkpt-bar i{height:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:10px;box-sizing:border-box;border-radius:6px;min-width:4px;background:linear-gradient(90deg,#3f6187,#15314a);color:#fff;font-size:12.5px;font-weight:700}
+  .pkpt-bar i{height:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:10px;box-sizing:border-box;border-radius:6px;min-width:4px;background:linear-gradient(90deg,#334155,#0f172a);color:#fff;font-size:12.5px;font-weight:700}
   .pkpt-bar b{position:absolute;top:50%;transform:translateY(-50%);color:var(--tegas);font-weight:700;font-size:12.5px}
 
   .pkpt-filter{display:grid;grid-template-columns:repeat(4,1fr) auto;gap:12px;align-items:end;margin-top:14px}
@@ -57,7 +57,7 @@
 </div>
 
 <div class="kpi-grid pkpt-kpi">
-  <div class="kpi" style="--kc:#15314a;--kbg:#15314a14;">
+  <div class="kpi" style="--kc:#0f172a;--kbg:#0f172a14;">
     <div class="kpi-top"><div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><div><div class="kpi-lbl">Total Kegiatan</div></div></div>
     <div class="kpi-val">{{ number_format($kartu['total_kegiatan'], 0, ',', '.') }}</div>
     <div class="kpi-note">Tahun Anggaran {{ $tahun }}</div>
@@ -75,7 +75,7 @@
     <div class="kpi-top"><div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="m19 9-5 5-4-4-3 3"/></svg></div><div><div class="kpi-lbl">Total Realisasi</div></div></div>
     <div class="kpi-val rp">{{ $rp($kartu['total_realisasi']) }}</div>
   </div>
-  <div class="kpi" style="--kc:#b3261e;--kbg:#b3261e14;">
+  <div class="kpi" style="--kc:#e11d48;--kbg:#e11d4814;">
     <div class="kpi-top"><div class="kpi-ic"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg></div><div><div class="kpi-lbl">Estimasi Anggaran PKPT Belum Terealisasi</div></div></div>
     <div class="kpi-val rp">{{ $rp($kartu['belum_terealisasi']) }}</div>
   </div>

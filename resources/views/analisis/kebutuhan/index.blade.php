@@ -5,8 +5,12 @@
 
 @section('content')
 <style>
-  .keb-table-wrap{overflow:auto;border:1px solid var(--line);border-radius:8px;margin-top:12px}
+  .keb-table-wrap{overflow:auto;border:1px solid var(--line);border-radius:var(--r-md);margin-top:12px}
   .keb-table{min-width:1100px;table-layout:fixed}
+  /* Lebar kolom dikunci lewat <col>, jadi judul sepanjang "Uang Harian Dalam
+     Daerah" tidak muat pada satu baris dan - selama th-nya nowrap - meluber
+     menabrak judul sebelahnya. Di tabel berkolom tetap, judulnya membungkus. */
+  .keb-table th{white-space:normal;vertical-align:bottom}
   .keb-unit{font-size:12px;font-weight:600;color:var(--tegas)}
   .keb-hapus{display:inline}
 </style>

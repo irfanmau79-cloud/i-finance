@@ -77,7 +77,7 @@
 </div>
 
 <div class="kpi-grid">
-  <div class="kpi" style="--kc:#15314a;--kbg:#15314a14;">
+  <div class="kpi" style="--kc:#0f172a;--kbg:#0f172a14;">
     <div class="kpi-top">
       <div class="kpi-ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="14" x2="8" y2="16"/><line x1="12" y1="14" x2="12" y2="16"/><line x1="16" y1="14" x2="16" y2="16"/></svg></div>
       <div><div class="kpi-lbl">Pagu Anggaran</div></div>
@@ -85,7 +85,7 @@
     <div class="kpi-val">{{ $rupiah($dashboard['total']['pagu']) }}</div>
     <div class="kpi-note">Realisasi {{ $rupiah($dashboard['total']['realisasi_aktual']) }}</div>
   </div>
-  <div class="kpi" style="--kc:#0f6e56;--kbg:#0f6e5614;">
+  <div class="kpi" style="--kc:#059669;--kbg:#05966914;">
     <div class="kpi-top">
       <div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M22 12h-4l-3 9L9 3l-3 9H2"/></svg></div>
       <div><div class="kpi-lbl">Realisasi SP2D</div></div>
@@ -93,7 +93,7 @@
     <div class="kpi-val">{{ $rupiah($dashboard['realisasi_sp2d']['nominal']) }}</div>
     <div class="kpi-note">{{ $persen($dashboard['realisasi_sp2d']['persentase']) }}</div>
   </div>
-  <div class="kpi" style="--kc:#7c3aed;--kbg:#7c3aed14;">
+  <div class="kpi" style="--kc:#4f46e5;--kbg:#4f46e514;">
     <div class="kpi-top">
       <div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M22 11.08V12a10 10 0 1 1-5.93-9.14"/><polyline points="22 4 12 14.01 9 11.01"/></svg></div>
       <div><div class="kpi-lbl">Realisasi SPJ3</div></div>
@@ -101,7 +101,7 @@
     <div class="kpi-val">{{ $rupiah($dashboard['total']['realisasi_aktual']) }}</div>
     <div class="kpi-note">{{ $persen($dashboard['total']['persentase_realisasi']) }}</div>
   </div>
-  <div class="kpi" style="--kc:#b07d1d;--kbg:#b07d1d14;">
+  <div class="kpi" style="--kc:#d97706;--kbg:#d9770614;">
     <div class="kpi-top">
       <div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M3 21h18"/><path d="M5 21V7l7-4 7 4v14"/><path d="M9 21v-6h6v6"/></svg></div>
       <div><div class="kpi-lbl">Sisa Anggaran</div></div>
@@ -120,21 +120,31 @@
 @else
 <div class="dash-grid">
   <div class="dash-card">
-    <h3>Realisasi 1 Tahun</h3>
-    <div class="sub">Tahun Anggaran {{ $dashboard['tahun'] }}</div>
+    <div class="kepala">
+      <div>
+        <h3>Realisasi 1 Tahun</h3>
+        <div class="sub">Tahun Anggaran {{ $dashboard['tahun'] }} &middot; Keseluruhan Belanja</div>
+      </div>
+      <span class="cap">Tahunan</span>
+    </div>
     <div class="donut-wrap dr-donut"><canvas id="dr-composition"></canvas>
       <div class="donut-center"><div class="big">{{ $persen($dashboard['total']['persentase_realisasi']) }}</div><div class="lbl">realisasi / pagu</div></div>
     </div>
-    <div class="dash-legend" id="dr-composition-legend"></div>
+    <div class="dash-ubin" id="dr-composition-legend"></div>
   </div>
   <div class="dash-card">
-    <h3>Realisasi terhadap RAK</h3>
-    <div class="sub">Target kumulatif s.d. {{ $dashboard['bulan_acuan_label'] }} {{ $dashboard['tahun'] }}</div>
+    <div class="kepala">
+      <div>
+        <h3>Realisasi terhadap RAK</h3>
+        <div class="sub">Target kumulatif s.d. {{ $dashboard['bulan_acuan_label'] }} {{ $dashboard['tahun'] }}</div>
+      </div>
+      <span class="cap">Kumulatif RAK</span>
+    </div>
     @if($dashboard['target_rak_sd_bulan'] !== null && $dashboard['target_rak_sd_bulan'] > 0)
       <div class="donut-wrap dr-donut"><canvas id="dr-rak"></canvas>
         <div class="donut-center"><div class="big">{{ $persen($dashboard['persentase_target_rak']) }}</div><div class="lbl">{{ $ringkas($dashboard['realisasi_sd_bulan']) }}/{{ $ringkas($dashboard['target_rak_sd_bulan']) }}</div></div>
       </div>
-      <div class="dash-legend" id="dr-rak-legend"></div>
+      <div class="dash-ubin" id="dr-rak-legend"></div>
     @elseif($dashboard['target_rak_sd_bulan'] === 0.0)
       <div class="dr-empty">Target RAK resmi sampai bulan berjalan bernilai nol. Persentase tidak dapat dihitung.</div>
     @else
@@ -237,21 +247,40 @@ document.addEventListener('DOMContentLoaded', function () {
   const palet=warnaGrafik();
   const rupiah=value=>new Intl.NumberFormat('id-ID',{style:'currency',currency:'IDR',maximumFractionDigits:0}).format(value||0);
   const common={responsive:true,maintainAspectRatio:false,cutout:'68%',plugins:{legend:{display:false},tooltip:{callbacks:{label:item=>item.label+': '+rupiah(item.raw)}}}};
-  function renderLegend(elId,labels,colors){
+  // Keterangan grafik berbentuk ubin: label, warna, DAN angkanya. Deretan
+  // titik yang lama memaksa mata menaksir sendiri besar tiap segmen dari
+  // lingkarannya - yang justru hal yang paling sulit dibaca dari donat.
+  function renderLegend(elId,labels,colors,values){
     const el=document.getElementById(elId); if(!el) return;
-    el.innerHTML=labels.map((label,i)=>'<div class="li"><span class="dot" style="background:'+colors[i]+'"></span>'+label+'</div>').join('');
+    el.innerHTML=labels.map((label,i)=>
+      '<div class="ubin"><div class="k"><i style="background:'+colors[i]+'"></i>'+label+'</div>'
+      +'<div class="v">'+(values&&values[i]!==undefined?values[i]:'')+'</div></div>').join('');
   }
+  const persenTeks=(bagian,penyebut)=>penyebut>0
+    ? new Intl.NumberFormat('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}).format(bagian/penyebut*100)+'%'
+    : '0,00%';
+  const ringkas=nilai=>{
+    const n=Math.abs(nilai||0);
+    const fmt=(v,satuan)=>'Rp '+new Intl.NumberFormat('id-ID',{minimumFractionDigits:2,maximumFractionDigits:2}).format(v)+satuan;
+    if(n>=1e12) return fmt((nilai||0)/1e12,' T');
+    if(n>=1e9) return fmt((nilai||0)/1e9,' M');
+    if(n>=1e6) return fmt((nilai||0)/1e6,' Jt');
+    return 'Rp '+new Intl.NumberFormat('id-ID').format(Math.round(nilai||0));
+  };
   const composition=document.getElementById('dr-composition');
   if(composition){
     const compColors=[palet.utama,palet.emas,palet.sisa];
-    new Chart(composition,{type:'doughnut',data:{labels:['Realisasi Aktual','NPD Belum Selesai','Sisa Tersedia'],datasets:[{data:[data.total.realisasi_aktual,data.dana_terikat_belum_selesai,Math.max(0,data.total.sisa_tersedia)],backgroundColor:compColors,borderWidth:0}]},options:common});
-    renderLegend('dr-composition-legend',['Realisasi Aktual','NPD Belum Selesai','Sisa Tersedia'],compColors);
+    const compNilai=[data.total.realisasi_aktual,data.dana_terikat_belum_selesai,Math.max(0,data.total.sisa_tersedia)];
+    new Chart(composition,{type:'doughnut',data:{labels:['Realisasi Aktual','NPD Belum Selesai','Sisa Tersedia'],datasets:[{data:compNilai,backgroundColor:compColors,borderWidth:0}]},options:common});
+    renderLegend('dr-composition-legend',['Realisasi Aktual','NPD Belum Selesai','Sisa Tersedia'],compColors,
+      compNilai.map(nilai=>persenTeks(nilai,data.total.pagu)));
   }
   const rak=document.getElementById('dr-rak');
   if(rak){
     const rakColors=[palet.utama,palet.sisa];
-    new Chart(rak,{type:'doughnut',data:{labels:['Realisasi s.d. Bulan','Sisa Target RAK'],datasets:[{data:[data.realisasi_sd_bulan,Math.max(0,data.target_rak_sd_bulan-data.realisasi_sd_bulan)],backgroundColor:rakColors,borderWidth:0}]},options:common});
-    renderLegend('dr-rak-legend',['Realisasi s.d. Bulan','Sisa Target RAK'],rakColors);
+    const rakNilai=[data.realisasi_sd_bulan,Math.max(0,data.target_rak_sd_bulan-data.realisasi_sd_bulan)];
+    new Chart(rak,{type:'doughnut',data:{labels:['Realisasi s.d. Bulan','Sisa Target RAK'],datasets:[{data:rakNilai,backgroundColor:rakColors,borderWidth:0}]},options:common});
+    renderLegend('dr-rak-legend',['Realisasi s.d. Bulan','Sisa Target RAK'],rakColors,rakNilai.map(ringkas));
   }
 });
 </script>
