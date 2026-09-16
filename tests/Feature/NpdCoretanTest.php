@@ -311,4 +311,146 @@ class NpdCoretanTest extends TestCase
         $response->assertDontSee('Daftar Pembayaran', false);
         $response->assertDontSee('SPD Rampung', false);
     }
+
+    /**
+     * Keempat jenis coretan harus SAMPAI KE PDF, bukan cuma tersimpan di
+     * basis data. Diperiksa lewat jumlah operator gambar & teks di dalam
+     * aliran isi PDF: dokumen tanpa coretan dibanding dokumen dengan
+     * coretan. Memeriksa "PDF-nya berbeda" saja tidak cukup - satu jenis
+     * bisa hilang tanpa membuat berkasnya sama.
+     */
+    public function test_pena_stabilo_teks_dan_sticky_ikut_tercetak_di_pdf(): void
+    {
+        $verifikator = $this->buatUser('verifikator', 'coret-4jenis-verif');
+        $npd = $this->buatNpd();
+
+        $sebelum = $this->actingAs($verifikator)->get(route('npd.cetak-npd', $npd))->getContent();
+
+        $this->actingAs($verifikator)
+            ->post(route('npd.transisi', $npd), [
+                'aksi' => 'kembali_bpp',
+                'catatan' => 'Revisi dengan empat jenis coretan',
+                'coretan_json' => json_encode(['strokes' => [
+                    ['dokumen' => 'npd', 'jenis' => 'pena', 'page' => 1, 'color' => '#e11d48',
+                        'width' => 0.004, 'points' => [[0.1, 0.1], [0.3, 0.2]]],
+                    ['dokumen' => 'npd', 'jenis' => 'stabilo', 'page' => 1, 'color' => '#f59e0b',
+                        'width' => 0.03, 'points' => [[0.2, 0.4], [0.7, 0.4]]],
+                    ['dokumen' => 'npd', 'jenis' => 'teks', 'page' => 1, 'color' => '#1d4ed8',
+                        'x' => 0.15, 'y' => 0.55, 'ukuran' => 0.02, 'teks' => 'PERIKSA ULANG NOMINAL'],
+                    ['dokumen' => 'npd', 'jenis' => 'sticky', 'page' => 1,
+                        'x' => 0.45, 'y' => 0.7, 'lebar' => 0.28, 'ukuran' => 0.018,
+                        'teks' => 'Kuitansi asli belum dilampirkan'],
+                ]]),
+            ])
+            ->assertSessionHasNoErrors();
+
+        $sesudah = $this->actingAs($verifikator)->get(route('npd.cetak-npd', $npd))->getContent();
+
+        // Aliran isi PDF dipadatkan mPDF, jadi harus dimekarkan dulu - pada
+        // berkas mentah, operator gambar & teksnya tidak terlihat sama sekali.
+        $isiSebelum = $this->isiPdf($sebelum);
+        $isiSesudah = $this->isiPdf($sesudah);
+
+        // Dua garis (pena + stabilo) -> operator "lineto" dan "stroke" bertambah.
+        $this->assertGreaterThan(
+            preg_match_all('#\sl\s#', $isiSebelum),
+            preg_match_all('#\sl\s#', $isiSesudah),
+            'Garis pena/stabilo tidak sampai ke PDF.',
+        );
+        $this->assertGreaterThan(
+            preg_match_all('#\sS\s#', $isiSebelum),
+            preg_match_all('#\sS\s#', $isiSesudah),
+        );
+
+        // Transparansi stabilo lahir sebagai ExtGState /CA (alpha GARIS,
+        // huruf besar - /ca yang kecil itu alpha ISIAN) di kamus objek, bukan
+        // di aliran, jadi dibaca dari berkas mentah. Tanpa ini stabilo
+        // berubah jadi penutup tinta yang menghalangi tulisan.
+        $this->assertSame(0, preg_match_all('#/CA\s+0?\.\d+#', $sebelum));
+        $this->assertSame(1, preg_match_all('#/CA\s+0\.35#', $sesudah), 'Transparansi stabilo tidak sampai ke PDF.');
+
+        // Teks & sticky menambah operator penulisan teks.
+        $this->assertGreaterThan(
+            preg_match_all('#\bT[jJ]\b#', $isiSebelum),
+            preg_match_all('#\bT[jJ]\b#', $isiSesudah),
+            'Teks/sticky tidak sampai ke PDF.',
+        );
+
+        // Kotak kuning sticky: persegi TERISI (operator "f").
+        $this->assertGreaterThan(
+            preg_match_all('#\sf\s#', $isiSebelum),
+            preg_match_all('#\sf\s#', $isiSesudah),
+            'Kotak sticky tidak sampai ke PDF.',
+        );
+    }
+
+    /** Coretan lama tanpa key 'jenis' tetap tercetak - NPD yang sudah dikembalikan tidak boleh berubah. */
+    public function test_coretan_lama_tanpa_key_jenis_tetap_tercetak(): void
+    {
+        $verifikator = $this->buatUser('verifikator', 'coret-lama-verif');
+        $npd = $this->buatNpd();
+
+        $sebelum = $this->actingAs($verifikator)->get(route('npd.cetak-npd', $npd))->getContent();
+
+        $this->actingAs($verifikator)
+            ->post(route('npd.transisi', $npd), [
+                'aksi' => 'kembali_bpp',
+                'catatan' => 'Revisi format lama',
+                // Bentuk data sebelum ada stabilo/teks/sticky.
+                'coretan_json' => json_encode(['strokes' => [
+                    ['page' => 1, 'color' => '#e11d48', 'width' => 0.004, 'points' => [[0.1, 0.1], [0.4, 0.4]]],
+                ]]),
+            ])
+            ->assertSessionHasNoErrors();
+
+        $sesudah = $this->actingAs($verifikator)->get(route('npd.cetak-npd', $npd))->getContent();
+        $this->assertNotSame($sebelum, $sesudah);
+    }
+
+    /**
+     * Halaman coret: alat-alat baru ada, mode awalnya GESER, dan dua
+     * keterangan lama yang diminta dihapus benar-benar tidak muncul lagi.
+     */
+    public function test_halaman_coret_memuat_alat_baru_dan_tanpa_keterangan_lama(): void
+    {
+        $verifikator = $this->buatUser('verifikator', 'coret-alat-verif');
+        $npd = $this->buatNpd();
+
+        $isi = $this->actingAs($verifikator)->get(route('npd.coret', $npd))->assertOk()->getContent();
+
+        // Enam mode, dengan Geser sebagai mode awal.
+        foreach (['geser', 'pena', 'stabilo', 'teks', 'sticky', 'hapus'] as $mode) {
+            $this->assertStringContainsString('data-mode="'.$mode.'"', $isi);
+        }
+        $this->assertStringContainsString('class="ct-mode aktif" data-mode="geser"', $isi);
+
+        // Pilih warna, ketebalan, zoom, dan kotak isian teks/sticky.
+        $this->assertStringContainsString('data-warna="#e11d48"', $isi);
+        $this->assertStringContainsString('id="ct-warna-lain"', $isi);
+        $this->assertStringContainsString('data-tebal="3"', $isi);
+        $this->assertStringContainsString('id="ct-zoom-masuk"', $isi);
+        $this->assertStringContainsString('id="ct-pop-tempel"', $isi);
+
+        // Dua keterangan lama yang diminta dihapus.
+        $this->assertStringNotContainsString('Gambar bebas (freehand) langsung di atas dokumen PDF', $isi);
+        $this->assertStringNotContainsString('hanya halaman 1 tiap dokumen yang bisa dicoret', $isi);
+        $this->assertStringNotContainsString('Semua dokumen siap', $isi);
+    }
+
+    /** Isi PDF beserta seluruh aliran yang sudah dimekarkan, untuk memeriksa operator gambar & teks. */
+    private function isiPdf(string $pdf): string
+    {
+        $isi = $pdf;
+
+        if (preg_match_all('#stream\r?\n(.*?)\r?\nendstream#s', $pdf, $aliran)) {
+            foreach ($aliran[1] as $blok) {
+                $mekar = @gzuncompress($blok);
+                if (is_string($mekar) && $mekar !== '') {
+                    $isi .= "\n".$mekar;
+                }
+            }
+        }
+
+        return $isi;
+    }
 }

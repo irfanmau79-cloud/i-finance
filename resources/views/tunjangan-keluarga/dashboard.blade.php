@@ -61,7 +61,7 @@
 @endif
 
 <div class="kpi-grid">
-  <div class="kpi" style="--kc:#0f172a;--kbg:#0f172a14;">
+  <div class="kpi" style="--kc:#1b3161;--kbg:#1b316114;">
     <div class="kpi-top"><div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg></div><div><div class="kpi-lbl">Jumlah Pegawai</div></div></div>
     <div class="kpi-val">{{ $terkunci ? "—" : $dashboard['jumlah_pegawai'] }}</div>
   </div>

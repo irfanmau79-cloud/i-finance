@@ -12,10 +12,6 @@
 </div>
 
 <div class="dash-card">
-    <div class="sub" style="margin-bottom:14px;">
-        Gambar bebas (freehand) langsung di atas dokumen PDF di bawah ({{ collect($dokumenList)->pluck('label')->implode(', ') }}), lalu isi Catatan Revisi dan klik &ldquo;Kembalikan ke BPP&rdquo;. Coretan akan tersimpan langsung ke masing-masing file PDF &mdash; hanya halaman 1 tiap dokumen yang bisa dicoret.
-    </div>
-
     @if ($errors->any())
         <div class="err-box" style="display:block;">
             <strong>Gagal memproses aksi:</strong>
@@ -27,15 +23,88 @@
         </div>
     @endif
 
-    <div style="display:flex;flex-wrap:wrap;align-items:center;gap:12px;margin-bottom:14px;padding:12px;border:1px solid var(--line);border-radius:8px;">
-        <label class="fl" style="margin:0;">Warna Pena</label>
-        <input type="color" id="coret-color" value="#e11d48">
-        <button type="button" class="ic-btn" id="coret-undo-btn" title="Undo Coretan Terakhir"><svg viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg></button>
-        <button type="button" class="ic-btn danger" id="coret-clear-btn" title="Hapus Semua Coretan Baru"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
-        <span class="sub" id="coret-status" style="margin-left:auto;">Memuat dokumen&hellip;</span>
+    {{-- Bilah alat menempel di atas saat halaman digulung: dokumennya panjang,
+         dan alat yang hilang dari layar memaksa pemakai menggulung balik
+         setiap kali ganti warna atau mode. --}}
+    <div class="ct-bar" id="ct-bar">
+        <div class="ct-grup" role="group" aria-label="Mode alat">
+            {{-- GESER adalah mode awal, dan itu keputusan yang menentukan:
+                 dengan mode mencoret sebagai mode awal, satu gerakan menggulung
+                 halaman dengan tetikus yang tertekan sudah meninggalkan
+                 coretan di dokumen yang akan ditandatangani. --}}
+            <button type="button" class="ct-mode aktif" data-mode="geser" title="Geser / gulung dokumen (tidak mencoret)">
+                <svg viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
+                <span>Geser</span>
+            </button>
+            <button type="button" class="ct-mode" data-mode="pena" title="Pena (coret bebas)">
+                <svg viewBox="0 0 24 24"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
+                <span>Pena</span>
+            </button>
+            <button type="button" class="ct-mode" data-mode="stabilo" title="Stabilo (sorot tulisan, tembus pandang)">
+                <svg viewBox="0 0 24 24"><path d="m9 11-6 6v3h9l3-3"/><path d="m22 12-4.6 4.6a2 2 0 0 1-2.8 0l-5.2-5.2a2 2 0 0 1 0-2.8L14 4"/></svg>
+                <span>Stabilo</span>
+            </button>
+            <button type="button" class="ct-mode" data-mode="teks" title="Tulis teks di dokumen">
+                <svg viewBox="0 0 24 24"><polyline points="4 7 4 4 20 4 20 7"/><line x1="9" y1="20" x2="15" y2="20"/><line x1="12" y1="4" x2="12" y2="20"/></svg>
+                <span>Teks</span>
+            </button>
+            <button type="button" class="ct-mode" data-mode="sticky" title="Tempel catatan sticky">
+                <svg viewBox="0 0 24 24"><path d="M15.5 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2V8.5z"/><polyline points="15 3 15 9 21 9"/></svg>
+                <span>Sticky</span>
+            </button>
+            <button type="button" class="ct-mode" data-mode="hapus" title="Hapus satu coretan (klik coretannya)">
+                <svg viewBox="0 0 24 24"><path d="M20 20H7L3 16a2 2 0 0 1 0-2.8l7.6-7.6a2 2 0 0 1 2.8 0l6.2 6.2a2 2 0 0 1 0 2.8L13 20"/><line x1="18" y1="20" x2="21" y2="20"/></svg>
+                <span>Hapus</span>
+            </button>
+        </div>
+
+        <span class="ct-pisah" aria-hidden="true"></span>
+
+        <div class="ct-grup ct-warna" role="group" aria-label="Warna">
+            @foreach (['#e11d48' => 'Merah', '#1d4ed8' => 'Biru', '#15803d' => 'Hijau', '#111827' => 'Hitam', '#f59e0b' => 'Kuning'] as $hex => $nama)
+                <button type="button" class="ct-swatch{{ $hex === '#e11d48' ? ' aktif' : '' }}" data-warna="{{ $hex }}"
+                        style="--sw:{{ $hex }}" title="{{ $nama }}" aria-label="Warna {{ $nama }}"></button>
+            @endforeach
+            <input type="color" id="ct-warna-lain" value="#e11d48" title="Warna lain">
+        </div>
+
+        <span class="ct-pisah" aria-hidden="true"></span>
+
+        <div class="ct-grup ct-tebal" role="group" aria-label="Ketebalan">
+            <button type="button" class="ct-tb" data-tebal="1" title="Tipis"><i style="height:2px"></i></button>
+            <button type="button" class="ct-tb aktif" data-tebal="2" title="Sedang"><i style="height:4px"></i></button>
+            <button type="button" class="ct-tb" data-tebal="3" title="Tebal"><i style="height:7px"></i></button>
+        </div>
+
+        <span class="ct-pisah" aria-hidden="true"></span>
+
+        <div class="ct-grup" role="group" aria-label="Perbesaran">
+            <button type="button" class="ic-btn" id="ct-zoom-keluar" title="Perkecil">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="8" y1="11" x2="14" y2="11"/><line x1="20" y1="20" x2="16.7" y2="16.7"/></svg>
+            </button>
+            <span class="ct-zoom-nilai" id="ct-zoom-nilai">80%</span>
+            <button type="button" class="ic-btn" id="ct-zoom-masuk" title="Perbesar">
+                <svg viewBox="0 0 24 24"><circle cx="11" cy="11" r="7"/><line x1="8" y1="11" x2="14" y2="11"/><line x1="11" y1="8" x2="11" y2="14"/><line x1="20" y1="20" x2="16.7" y2="16.7"/></svg>
+            </button>
+        </div>
+
+        <span class="ct-pisah" aria-hidden="true"></span>
+
+        <div class="ct-grup">
+            <button type="button" class="ic-btn" id="ct-undo" title="Batalkan coretan terakhir">
+                <svg viewBox="0 0 24 24"><polyline points="9 14 4 9 9 4"/><path d="M20 20v-7a4 4 0 0 0-4-4H4"/></svg>
+            </button>
+            <button type="button" class="ic-btn danger" id="ct-bersih" title="Hapus semua coretan baru">
+                <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+            </button>
+        </div>
+
+        <span class="ct-status" id="ct-status">Memuat dokumen&hellip;</span>
     </div>
 
-    <div id="coret-dokumen-list"></div>
+    <div class="ct-petunjuk" id="ct-petunjuk">Mode <b>Geser</b> aktif &mdash; dokumen aman dari coretan. Pilih <b>Pena</b>, <b>Stabilo</b>, <b>Teks</b>, atau <b>Sticky</b> untuk mulai mencoret.</div>
+
+    <div id="ct-daftar"></div>
 
     <form method="POST" action="{{ route('npd.transisi', $npd) }}" id="coret-form" style="margin-top:16px;max-width:560px;">
         @csrf
@@ -52,60 +121,594 @@
     </form>
 </div>
 
+{{-- Kotak isian teks/sticky. Satu kotak dipakai bersama kedua mode dan
+     dipindahkan ke titik yang diklik, bukan prompt() peramban: prompt tidak
+     bisa memuat beberapa baris, dan tidak terlihat sebagai bagian dokumen. --}}
+<div class="ct-pop" id="ct-pop" hidden>
+    <div class="ct-pop-judul" id="ct-pop-judul">Tulis teks</div>
+    <textarea id="ct-pop-teks" rows="3" maxlength="600" placeholder="Ketik catatan&hellip;"></textarea>
+    <div class="ct-pop-aksi" style="justify-content:space-between;">
+        {{-- Hapus hanya muncul saat menyunting catatan yang sudah ada. --}}
+        <button type="button" class="btn danger" id="ct-pop-hapus" hidden>Hapus</button>
+        <button type="button" class="btn" id="ct-pop-batal">Batal</button>
+        <button type="button" class="btn prim" id="ct-pop-tempel">Tempel</button>
+    </div>
+</div>
+
+<style>
+  .ct-bar{position:sticky;top:calc(var(--tb-h) + 4px);z-index:30;display:flex;flex-wrap:wrap;
+    align-items:center;gap:var(--sp-2);padding:var(--sp-3);margin-bottom:var(--sp-3);
+    border:1px solid var(--line);border-radius:var(--r-md);background:var(--surface);
+    box-shadow:var(--shadow);}
+  .ct-grup{display:flex;align-items:center;gap:4px;}
+  .ct-pisah{width:1px;align-self:stretch;background:var(--line);margin:0 2px;}
+
+  .ct-mode{display:inline-flex;align-items:center;gap:6px;padding:7px 11px;border:1px solid var(--line);
+    border-radius:var(--r-sm);background:var(--surface);color:var(--ink);font-size:12.5px;
+    font-weight:600;cursor:pointer;transition:.15s;}
+  .ct-mode svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;
+    stroke-linecap:round;stroke-linejoin:round;}
+  .ct-mode:hover{border-color:var(--aksen);color:var(--aksen-d);}
+  .ct-mode.aktif{background:var(--navy);border-color:var(--navy);color:#fff;}
+  .ct-mode.aktif:hover{color:#fff;}
+  @media(max-width:1180px){.ct-mode span{display:none;}.ct-mode{padding:7px 9px;}}
+
+  .ct-swatch{width:22px;height:22px;padding:0;border-radius:50%;border:2px solid var(--line);
+    background:var(--sw);cursor:pointer;transition:.15s;}
+  .ct-swatch:hover{transform:scale(1.12);}
+  /* Warna terpilih ditandai CINCIN di luar bulatannya, bukan dengan
+     mengubah warnanya - warnanya sendiri adalah informasinya. */
+  .ct-swatch.aktif{border-color:var(--surface);box-shadow:0 0 0 2px var(--tegas);}
+  .ct-warna input[type=color]{width:26px;height:26px;padding:0;border:1px solid var(--line);
+    border-radius:var(--r-sm);background:none;cursor:pointer;}
+
+  .ct-tb{display:inline-flex;align-items:center;justify-content:center;width:30px;height:30px;
+    padding:0;border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface);cursor:pointer;}
+  .ct-tb i{display:block;width:16px;border-radius:99px;background:var(--ink);}
+  .ct-tb.aktif{border-color:var(--navy);background:var(--navy-l);}
+  .ct-zoom-nilai{min-width:44px;text-align:center;font-size:12.5px;font-weight:700;color:var(--tegas);
+    font-variant-numeric:tabular-nums;}
+  .ct-status{margin-left:auto;font-size:12.5px;color:var(--mut);}
+
+  .ct-petunjuk{font-size:12.5px;color:var(--mut);background:var(--aksen-l);border:1px solid var(--aksen-garis);
+    border-radius:var(--r-sm);padding:8px 12px;margin-bottom:var(--sp-4);}
+  .ct-petunjuk b{color:var(--tegas);}
+
+  .ct-dok{margin-bottom:var(--sp-6);}
+  .ct-dok-judul{display:flex;align-items:center;gap:var(--sp-2);margin-bottom:var(--sp-2);
+    font-size:14px;font-weight:700;color:var(--tegas);}
+  .ct-dok-jml{font-size:11px;font-weight:700;color:var(--mut);background:var(--surface-3);
+    border-radius:999px;padding:2px 8px;}
+  /* Kanvas dokumen dibungkus wadah yang menggulung SENDIRI dan dibatasi
+     tingginya: dokumen F4 pada 100% masih lebih tinggi dari layar, dan
+     halaman yang ikut menggulung membuat bilah alat menjauh dari kanvas. */
+  .ct-kertas{display:flex;flex-direction:column;align-items:center;gap:var(--sp-4);
+    background:var(--surface-3);border:1px solid var(--line);border-radius:var(--r-md);
+    padding:var(--sp-4);max-height:76vh;overflow:auto;}
+  .ct-halaman{position:relative;background:var(--kertas);box-shadow:0 2px 10px rgba(16,29,57,.18);}
+  .ct-halaman canvas{position:absolute;top:0;left:0;}
+  .ct-halaman canvas.ct-latar{position:relative;display:block;}
+  /* Kanvas coretan hanya menerima tetikus saat mode mencoret aktif. Dengan
+     pointer-events:none, gerakan menggulung & memilih teks jatuh ke wadah di
+     bawahnya - itulah mode Geser, tanpa perlu logika pan sendiri. */
+  .ct-halaman canvas.ct-coret{pointer-events:none;touch-action:none;}
+  body[data-ct-mode="pena"] .ct-halaman canvas.ct-coret,
+  body[data-ct-mode="stabilo"] .ct-halaman canvas.ct-coret{pointer-events:auto;cursor:crosshair;}
+  body[data-ct-mode="teks"] .ct-halaman canvas.ct-coret,
+  body[data-ct-mode="sticky"] .ct-halaman canvas.ct-coret{pointer-events:auto;cursor:copy;}
+  body[data-ct-mode="hapus"] .ct-halaman canvas.ct-coret{pointer-events:auto;cursor:pointer;}
+  /* Halaman selain 1 tidak bisa dicoret - lihat CoretanPdf. */
+  .ct-halaman.ct-terkunci canvas.ct-coret{pointer-events:none !important;}
+  .ct-hal-label{text-align:center;font-size:11.5px;color:var(--mut);margin-top:6px;}
+
+  .ct-pop{position:fixed;z-index:200;width:280px;padding:var(--sp-3);border:1px solid var(--line);
+    border-radius:var(--r-md);background:var(--surface);box-shadow:var(--shadow-float);}
+  .ct-pop-judul{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;
+    color:var(--mut);margin-bottom:6px;}
+  .ct-pop textarea{width:100%;box-sizing:border-box;font-size:13px;}
+  .ct-pop-aksi{display:flex;justify-content:flex-end;gap:6px;margin-top:8px;}
+</style>
+
 <script type="module">
 import * as pdfjsLib from '/vendor/pdfjs/pdf.min.mjs';
 pdfjsLib.GlobalWorkerOptions.workerSrc = '/vendor/pdfjs/pdf.worker.min.mjs';
 
 const dokumenList = @json($dokumenList);
 const strokesSebelumnya = @json($strokesSebelumnya);
-const listEl = document.getElementById('coret-dokumen-list');
-const statusEl = document.getElementById('coret-status');
 
-let color = '#e11d48';
-let newStrokes = [];
-const pageStates = [];
+const daftarEl = document.getElementById('ct-daftar');
+const statusEl = document.getElementById('ct-status');
+const petunjukEl = document.getElementById('ct-petunjuk');
+const popEl = document.getElementById('ct-pop');
+const popTeksEl = document.getElementById('ct-pop-teks');
+const popJudulEl = document.getElementById('ct-pop-judul');
+const popTempelEl = document.getElementById('ct-pop-tempel');
+const popHapusEl = document.getElementById('ct-pop-hapus');
 
-document.getElementById('coret-color').addEventListener('input', function (e) {
-    color = e.target.value;
-});
-document.getElementById('coret-undo-btn').addEventListener('click', function () {
-    newStrokes.pop();
-    redrawAll();
-});
-document.getElementById('coret-clear-btn').addEventListener('click', function () {
-    newStrokes = [];
-    redrawAll();
+/* Lebar acuan kertas di layar pada zoom 100%. Jauh lebih kecil daripada
+   1.5x skala PDF yang dipakai sebelumnya: dokumen selebar layar membuat
+   setiap gerakan tetikus mendarat di atas kertas, dan itu sumber coretan
+   yang tidak disengaja. */
+const LEBAR_ACUAN = 640;
+const ZOOM_PILIHAN = [0.6, 0.7, 0.8, 0.9, 1, 1.2, 1.4];
+
+const state = {
+    mode: 'geser',
+    warna: '#e11d48',
+    tebal: 2,
+    zoomIdx: 2, // 0.8
+};
+
+/* Coretan BARU pada kunjungan ini. Coretan lama tidak ada di sini dan tidak
+   digambar ulang: pratinjau PDF diambil dari rute cetak yang sudah
+   menyisipkan coretan lama ke dalam dokumennya, jadi ia sudah terlihat
+   sebagai bagian latar. Itu juga alasan mode Hapus hanya bisa menghapus
+   coretan baru - yang lama sudah menyatu dengan dokumen yang dikembalikan
+   sebelumnya. */
+let butirBaru = [];
+const halamanState = [];
+
+const TEBAL_PENA = { 1: 1.5, 2: 3, 3: 6 };       // px pada lebar acuan
+const TEBAL_STABILO = { 1: 10, 2: 16, 3: 24 };
+const UKURAN_TEKS = { 1: 11, 2: 14, 3: 18 };     // px pada lebar acuan
+
+/* Kertas tempel BERUKURAN TETAP: lebarnya sekian bagian dari lebar halaman,
+   tingginya 1,5 kali lebarnya (perbandingan tinggi:lebar 3:2).
+
+   Angkanya DIAMBIL DARI PHP, bukan ditulis ulang di sini: layar dan PDF
+   wajib memakai ukuran yang sama, dan dua tetapan kembar dengan komentar
+   "harus sama" adalah cara paling lazim keduanya diam-diam berbeda. */
+const STICKY_LEBAR = {{ \App\Support\CoretanPdf::STICKY_LEBAR }};
+const STICKY_RASIO = {{ \App\Support\CoretanPdf::STICKY_RASIO }};
+/* Hurufnya lebih kecil daripada mode Teks: kertasnya sempit dan tetap, jadi
+   huruf sebesar teks lepas hanya memuat tiga-empat kata per baris. */
+const STICKY_UKURAN = { 1: 8.5, 2: 10.5, 3: 13 };
+
+/* ------------------------------------------------------------- bilah alat */
+
+function setMode(mode) {
+    state.mode = mode;
+    document.body.dataset.ctMode = mode;
+    document.querySelectorAll('.ct-mode').forEach(function (b) {
+        b.classList.toggle('aktif', b.dataset.mode === mode);
+    });
+    tutupPop();
+
+    const pesan = {
+        geser: 'Mode <b>Geser</b> aktif &mdash; dokumen aman dari coretan. Pilih <b>Pena</b>, <b>Stabilo</b>, <b>Teks</b>, atau <b>Sticky</b> untuk mulai mencoret.',
+        pena: 'Mode <b>Pena</b> &mdash; tekan lalu tarik di atas dokumen untuk mencoret.',
+        stabilo: 'Mode <b>Stabilo</b> &mdash; sapu di atas tulisan; warnanya tembus pandang sehingga tulisan tetap terbaca.',
+        teks: 'Mode <b>Teks</b> &mdash; klik di dokumen, lalu ketik teksnya.',
+        sticky: 'Mode <b>Sticky</b> &mdash; klik di dokumen untuk menempel catatan; tarik catatan yang sudah ada untuk memindahkannya, atau klik sekali untuk mengubah isinya.',
+        hapus: 'Mode <b>Hapus</b> &mdash; klik satu coretan baru untuk menghapusnya. Coretan dari pengembalian sebelumnya sudah menyatu dengan dokumen dan tidak bisa dihapus di sini.',
+    };
+    petunjukEl.innerHTML = pesan[mode];
+}
+
+document.querySelectorAll('.ct-mode').forEach(function (btn) {
+    btn.addEventListener('click', function () { setMode(btn.dataset.mode); });
 });
 
-function redrawAll() {
-    pageStates.forEach(function (ps) {
-        ps.ctx.clearRect(0, 0, ps.canvas.width, ps.canvas.height);
-        newStrokes
-            .filter(function (s) { return s.dokumen === ps.dokumen && s.page === ps.pageNumber; })
-            .forEach(function (s) { drawStroke(ps, s); });
+document.querySelectorAll('.ct-swatch').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        state.warna = btn.dataset.warna;
+        document.getElementById('ct-warna-lain').value = state.warna;
+        document.querySelectorAll('.ct-swatch').forEach(function (b) {
+            b.classList.toggle('aktif', b === btn);
+        });
+    });
+});
+
+document.getElementById('ct-warna-lain').addEventListener('input', function (e) {
+    state.warna = e.target.value;
+    document.querySelectorAll('.ct-swatch').forEach(function (b) { b.classList.remove('aktif'); });
+});
+
+document.querySelectorAll('.ct-tb').forEach(function (btn) {
+    btn.addEventListener('click', function () {
+        state.tebal = Number(btn.dataset.tebal);
+        document.querySelectorAll('.ct-tb').forEach(function (b) { b.classList.toggle('aktif', b === btn); });
+    });
+});
+
+document.getElementById('ct-undo').addEventListener('click', function () {
+    butirBaru.pop();
+    gambarUlang();
+});
+
+document.getElementById('ct-bersih').addEventListener('click', function () {
+    if (butirBaru.length && ! window.confirm('Hapus semua coretan baru pada kunjungan ini?')) return;
+    butirBaru = [];
+    gambarUlang();
+});
+
+document.getElementById('ct-zoom-masuk').addEventListener('click', function () { ubahZoom(1); });
+document.getElementById('ct-zoom-keluar').addEventListener('click', function () { ubahZoom(-1); });
+
+function ubahZoom(arah) {
+    const baru = Math.min(ZOOM_PILIHAN.length - 1, Math.max(0, state.zoomIdx + arah));
+    if (baru === state.zoomIdx) return;
+    state.zoomIdx = baru;
+    document.getElementById('ct-zoom-nilai').textContent = Math.round(zoom() * 100) + '%';
+    terapkanZoom();
+}
+
+function zoom() { return ZOOM_PILIHAN[state.zoomIdx]; }
+
+/* Zoom hanya mengubah ukuran TAMPIL kanvas lewat CSS, bukan me-render ulang
+   PDF-nya. Koordinat coretan tersimpan relatif (0..1), jadi tidak ada satu
+   pun coretan yang perlu dihitung ulang saat diperbesar. */
+function terapkanZoom() {
+    halamanState.forEach(function (hs) {
+        const lebar = hs.lebarAsli * zoom();
+        hs.wrap.style.width = lebar + 'px';
+        hs.wrap.style.height = (lebar / hs.rasio) + 'px';
+        [hs.latar, hs.canvas].forEach(function (c) {
+            c.style.width = lebar + 'px';
+            c.style.height = (lebar / hs.rasio) + 'px';
+        });
     });
 }
 
-function drawStroke(ps, stroke) {
-    if (!stroke.points || stroke.points.length < 2) return;
-    ps.ctx.strokeStyle = stroke.color;
-    ps.ctx.lineWidth = stroke.width * ps.canvas.width;
-    ps.ctx.lineCap = 'round';
-    ps.ctx.lineJoin = 'round';
-    ps.ctx.beginPath();
-    stroke.points.forEach(function (p, i) {
-        var x = p[0] * ps.canvas.width, y = p[1] * ps.canvas.height;
-        if (i === 0) { ps.ctx.moveTo(x, y); } else { ps.ctx.lineTo(x, y); }
+/* ------------------------------------------------------- menggambar kanvas */
+
+function gambarUlang() {
+    halamanState.forEach(function (hs) {
+        hs.ctx.clearRect(0, 0, hs.canvas.width, hs.canvas.height);
+        butirBaru
+            .filter(function (b) { return b.dokumen === hs.dokumen && b.page === hs.pageNumber; })
+            .forEach(function (b) { gambarButir(hs, b); });
     });
-    ps.ctx.stroke();
 }
 
-function posFromEvent(ps, e) {
-    var rect = ps.canvas.getBoundingClientRect();
-    var clientX = e.touches ? e.touches[0].clientX : e.clientX;
-    var clientY = e.touches ? e.touches[0].clientY : e.clientY;
-    var x = rect.width ? (clientX - rect.left) / rect.width : 0;
-    var y = rect.height ? (clientY - rect.top) / rect.height : 0;
+function gambarButir(hs, butir) {
+    const ctx = hs.ctx;
+    const W = hs.canvas.width;
+    const H = hs.canvas.height;
+
+    if (butir.jenis === 'teks') {
+        ctx.save();
+        ctx.fillStyle = butir.color;
+        ctx.font = '700 ' + (butir.ukuran * W) + 'px system-ui,Segoe UI,Arial,sans-serif';
+        ctx.textBaseline = 'top';
+        bungkusTeks(ctx, butir.teks, W - butir.x * W - 8).forEach(function (baris, i) {
+            ctx.fillText(baris, butir.x * W, butir.y * H + i * butir.ukuran * W * 1.25);
+        });
+        ctx.restore();
+        return;
+    }
+
+    if (butir.jenis === 'sticky') {
+        gambarSticky(hs, butir);
+        return;
+    }
+
+    if (! butir.points || butir.points.length < 2) return;
+
+    ctx.save();
+    ctx.strokeStyle = butir.color;
+    ctx.lineWidth = butir.width * W;
+    if (butir.jenis === 'stabilo') {
+        // Sama seperti di PDF: tembus pandang dan berujung persegi.
+        ctx.globalAlpha = 0.35;
+        ctx.lineCap = 'butt';
+        ctx.lineJoin = 'round';
+    } else {
+        ctx.lineCap = 'round';
+        ctx.lineJoin = 'round';
+    }
+    ctx.beginPath();
+    butir.points.forEach(function (p, i) {
+        const x = p[0] * W, y = p[1] * H;
+        if (i === 0) { ctx.moveTo(x, y); } else { ctx.lineTo(x, y); }
+    });
+    ctx.stroke();
+    ctx.restore();
+}
+
+/**
+ * Geometri satu kertas tempel dalam piksel kanvas. Satu-satunya tempat
+ * ukuran sticky dihitung: digambar, diuji-tabrak, dan digeser memakai
+ * angka yang sama, jadi kotak yang terlihat tidak pernah beda dari kotak
+ * yang bisa diklik.
+ */
+function geometriSticky(hs, butir) {
+    const W = hs.canvas.width, H = hs.canvas.height;
+    const lebar = (butir.lebar || STICKY_LEBAR) * W;
+    const tinggi = lebar * STICKY_RASIO;
+
+    return {
+        x: butir.x * W, y: butir.y * H,
+        lebar: lebar, tinggi: tinggi,
+        // Dalam satuan relatif, untuk penjepitan posisi saat digeser.
+        lebarRel: lebar / W, tinggiRel: tinggi / H,
+        ukuranPx: butir.ukuran * W,
+    };
+}
+
+/**
+ * Kertas tempel bergaya benda nyata: bayangan jatuh, gradien cahaya dari
+ * atas, dan sudut kanan-bawah yang terlipat. Digambar dengan urutan yang
+ * sama seperti di PDF (lihat CoretanPdf::sticky) supaya pratinjau dan hasil
+ * cetak tidak berbeda bentuk.
+ */
+function gambarSticky(hs, butir) {
+    const ctx = hs.ctx;
+    const g = geometriSticky(hs, butir);
+    const padding = g.lebar * 0.08;
+    const lipat = g.lebar * 0.2;
+
+    ctx.save();
+
+    // 1. Bayangan jatuh. Di layar boleh diburamkan - di PDF tidak bisa, jadi
+    //    di sana dipakai kertas kedua yang digeser; keduanya membaca sama.
+    ctx.save();
+    ctx.shadowColor = 'rgba(15,23,42,.35)';
+    ctx.shadowBlur = g.lebar * 0.09;
+    ctx.shadowOffsetX = g.lebar * 0.035;
+    ctx.shadowOffsetY = g.lebar * 0.045;
+    ctx.fillStyle = '#fef3b0';
+    ctx.fillRect(g.x, g.y, g.lebar, g.tinggi);
+    ctx.restore();
+
+    // 2. Kertasnya sendiri: gradien kuning muda ke kuning tua.
+    const gradien = ctx.createLinearGradient(g.x, g.y, g.x, g.y + g.tinggi);
+    gradien.addColorStop(0, '#fefce8');
+    gradien.addColorStop(0.55, '#fef3b0');
+    gradien.addColorStop(1, '#fde68a');
+    ctx.fillStyle = gradien;
+    ctx.fillRect(g.x, g.y, g.lebar, g.tinggi);
+    ctx.strokeStyle = '#e6c34a';
+    ctx.lineWidth = Math.max(1, g.lebar * 0.006);
+    ctx.strokeRect(g.x, g.y, g.lebar, g.tinggi);
+
+    // 3. Teksnya, dipotong pada baris yang masih muat - kertasnya tidak
+    //    melebar, jadi yang harus mengalah teksnya.
+    ctx.font = g.ukuranPx + 'px system-ui,Segoe UI,Arial,sans-serif';
+    ctx.fillStyle = '#6b4e12';
+    ctx.textBaseline = 'top';
+    const tinggiBaris = g.ukuranPx * 1.3;
+    const maksBaris = Math.max(1, Math.floor((g.tinggi - padding * 2 - lipat * 0.4) / tinggiBaris));
+    const baris = potongBaris(bungkusTeks(ctx, butir.teks, g.lebar - padding * 2), maksBaris);
+    baris.forEach(function (satu, i) {
+        ctx.fillText(satu, g.x + padding, g.y + padding + i * tinggiBaris);
+    });
+    // Baris tersimpan supaya PDF memecah di tempat yang SAMA - lebar huruf
+    // hanya benar-benar terukur di sini.
+    butir.baris = baris;
+
+    // 4. Sudut terlipat: sisi kertas yang terangkat, lalu bidang di baliknya.
+    const sx = g.x + g.lebar, sy = g.y + g.tinggi;
+    ctx.beginPath();
+    ctx.moveTo(sx - lipat, sy);
+    ctx.lineTo(sx, sy);
+    ctx.lineTo(sx, sy - lipat);
+    ctx.closePath();
+    ctx.fillStyle = '#e6c34a';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(sx - lipat, sy);
+    ctx.lineTo(sx, sy - lipat);
+    ctx.lineTo(sx - lipat, sy - lipat);
+    ctx.closePath();
+    ctx.fillStyle = '#fbe89a';
+    ctx.fill();
+
+    ctx.restore();
+}
+
+/** Sisakan baris yang muat; baris terakhir diberi elipsis kalau ada yang dibuang. */
+function potongBaris(baris, maks) {
+    if (baris.length <= maks) return baris;
+    const dipotong = baris.slice(0, maks);
+    dipotong[maks - 1] = dipotong[maks - 1].replace(/\s+\S*$/, '') + '…';
+    return dipotong;
+}
+
+/** Pecah teks jadi baris yang muat pada lebar tertentu (satuan px kanvas). */
+function bungkusTeks(ctx, teks, lebarMuat) {
+    const hasil = [];
+    String(teks || '').split('\n').forEach(function (paragraf) {
+        const kata = paragraf.split(/\s+/).filter(Boolean);
+        if (! kata.length) { hasil.push(''); return; }
+        let baris = kata[0];
+        for (let i = 1; i < kata.length; i++) {
+            const calon = baris + ' ' + kata[i];
+            if (ctx.measureText(calon).width > lebarMuat && baris) {
+                hasil.push(baris);
+                baris = kata[i];
+            } else {
+                baris = calon;
+            }
+        }
+        hasil.push(baris);
+    });
+    return hasil;
+}
+
+/* ------------------------------------------------------------ teks & sticky */
+
+/* popTarget menyimpan APA yang sedang diisi: butir baru pada titik tertentu
+   ({hs, x, y, jenis}) atau butir yang sudah ada dan sedang disunting
+   ({hs, indeks}). Satu kotak isian dipakai keduanya. */
+let popTarget = null;
+
+function bukaPop(target, klienX, klienY) {
+    popTarget = target;
+
+    const menyunting = typeof target.indeks === 'number';
+    const butir = menyunting ? butirBaru[target.indeks] : null;
+    const jenis = menyunting ? butir.jenis : target.jenis;
+
+    popJudulEl.textContent = (menyunting ? 'Ubah ' : 'Tulis ')
+        + (jenis === 'sticky' ? 'catatan sticky' : 'teks');
+    popTeksEl.value = menyunting ? butir.teks : '';
+    popHapusEl.hidden = ! menyunting;
+    popTempelEl.textContent = menyunting ? 'Simpan' : 'Tempel';
+
+    popEl.hidden = false;
+    // Dijaga tetap di dalam layar: titik klik bisa berada di tepi kanan/bawah.
+    const lebar = 280, tinggi = popEl.offsetHeight || 170;
+    popEl.style.left = Math.min(window.innerWidth - lebar - 12, Math.max(12, klienX + 8)) + 'px';
+    popEl.style.top = Math.min(window.innerHeight - tinggi - 12, Math.max(12, klienY + 8)) + 'px';
+    popTeksEl.focus();
+    popTeksEl.select();
+}
+
+function tutupPop() {
+    popEl.hidden = true;
+    popTarget = null;
+}
+
+document.getElementById('ct-pop-batal').addEventListener('click', tutupPop);
+popTempelEl.addEventListener('click', tempelPop);
+popHapusEl.addEventListener('click', function () {
+    if (popTarget && typeof popTarget.indeks === 'number') {
+        butirBaru.splice(popTarget.indeks, 1);
+        gambarUlang();
+    }
+    tutupPop();
+});
+popTeksEl.addEventListener('keydown', function (e) {
+    // Enter menempel, Shift+Enter baris baru - kebiasaan kotak catatan.
+    if (e.key === 'Enter' && ! e.shiftKey) { e.preventDefault(); tempelPop(); }
+    if (e.key === 'Escape') { e.preventDefault(); tutupPop(); }
+});
+
+function tempelPop() {
+    if (! popTarget) return;
+    const teks = popTeksEl.value.trim();
+
+    // Menyunting jadi kosong = membuang catatannya. Kertas tempel tanpa
+    // tulisan tidak menyampaikan apa pun, dan kalau dibiarkan ia jadi kotak
+    // kuning yang tidak bisa dijelaskan oleh siapa pun yang membacanya.
+    if (typeof popTarget.indeks === 'number') {
+        if (teks) {
+            butirBaru[popTarget.indeks].teks = teks;
+        } else {
+            butirBaru.splice(popTarget.indeks, 1);
+        }
+        tutupPop();
+        gambarUlang();
+        return;
+    }
+
+    if (! teks) { tutupPop(); return; }
+
+    const ukuranRel = popTarget.jenis === 'sticky'
+        ? STICKY_UKURAN[state.tebal] / LEBAR_ACUAN
+        : UKURAN_TEKS[state.tebal] / LEBAR_ACUAN;
+
+    if (popTarget.jenis === 'sticky') {
+        butirBaru.push({
+            dokumen: popTarget.hs.dokumen, page: 1, jenis: 'sticky',
+            x: popTarget.x, y: popTarget.y, lebar: STICKY_LEBAR,
+            ukuran: ukuranRel, teks: teks, color: '#6b4e12',
+        });
+        jepitSticky(popTarget.hs, butirBaru[butirBaru.length - 1]);
+    } else {
+        butirBaru.push({
+            dokumen: popTarget.hs.dokumen, page: 1, jenis: 'teks',
+            x: popTarget.x, y: popTarget.y,
+            ukuran: ukuranRel, teks: teks, color: state.warna,
+        });
+    }
+
+    tutupPop();
+    gambarUlang();
+}
+
+/* ------------------------------------------------- menggeser kertas tempel */
+
+/** Tahan kertas tempel supaya seluruh badannya tetap di dalam halaman. */
+function jepitSticky(hs, butir) {
+    const g = geometriSticky(hs, butir);
+    butir.x = Math.max(0, Math.min(1 - g.lebarRel, butir.x));
+    butir.y = Math.max(0, Math.min(1 - g.tinggiRel, butir.y));
+}
+
+/** Indeks kertas tempel paling atas yang memuat titik (x,y) relatif. */
+function stickyDiTitik(hs, x, y) {
+    const W = hs.canvas.width, H = hs.canvas.height;
+
+    for (let i = butirBaru.length - 1; i >= 0; i--) {
+        const b = butirBaru[i];
+        if (b.jenis !== 'sticky' || b.dokumen !== hs.dokumen || b.page !== hs.pageNumber) continue;
+
+        const g = geometriSticky(hs, b);
+        const px = x * W, py = y * H;
+        if (px >= g.x && px <= g.x + g.lebar && py >= g.y && py <= g.y + g.tinggi) return i;
+    }
+
+    return -1;
+}
+
+/* ----------------------------------------------------------------- menghapus */
+
+/** Jarak titik ke segmen garis, dalam satuan relatif. */
+function jarakKeSegmen(px, py, ax, ay, bx, by) {
+    const dx = bx - ax, dy = by - ay;
+    const panjang = dx * dx + dy * dy;
+    let t = panjang ? ((px - ax) * dx + (py - ay) * dy) / panjang : 0;
+    t = Math.max(0, Math.min(1, t));
+    const cx = ax + t * dx, cy = ay + t * dy;
+    return Math.hypot(px - cx, py - cy);
+}
+
+/**
+ * Butir baru yang kena klik pada titik (x,y) relatif. Dicari dari yang
+ * PALING BARU supaya coretan yang tertumpuk di atas yang dihapus lebih dulu -
+ * sesuai dengan apa yang dilihat pemakai.
+ */
+function butirTerkena(hs, x, y) {
+    const W = hs.canvas.width, H = hs.canvas.height;
+    // Pengali untuk menyamakan satuan: x sudah relatif LEBAR, y relatif
+    // TINGGI, jadi keduanya harus dibawa ke satuan yang sama sebelum
+    // jaraknya dihitung - kalau tidak, ambang sentuh pada halaman F4 jadi
+    // 1,5 kali lebih longgar secara tegak daripada mendatar.
+    const keSatuanLebar = H / W;
+
+    for (let i = butirBaru.length - 1; i >= 0; i--) {
+        const b = butirBaru[i];
+        if (b.dokumen !== hs.dokumen || b.page !== hs.pageNumber) continue;
+
+        if (b.jenis === 'sticky') {
+            // Bentuk sticky dihitung satu tempat saja - geometriSticky -
+            // supaya kotak yang bisa diklik selalu sama dengan yang terlihat.
+            const g = geometriSticky(hs, b);
+            if (x * W >= g.x && x * W <= g.x + g.lebar && y * H >= g.y && y * H <= g.y + g.tinggi) return i;
+            continue;
+        }
+
+        if (b.jenis === 'teks') {
+            const lebar = Math.min(0.5, b.ukuran * 12);
+            const tinggi = (b.ukuran * 1.6) / keSatuanLebar;
+            if (x >= b.x && x <= b.x + lebar && y >= b.y && y <= b.y + tinggi) return i;
+            continue;
+        }
+
+        if (! b.points || b.points.length < 2) continue;
+        // Ambang sentuh mengikuti tebal garisnya, dengan batas bawah supaya
+        // garis tipis pun masih bisa dikenai tanpa harus tepat sekali.
+        const ambang = Math.max(0.008, (b.width || 0.005) * 0.8);
+        for (let j = 1; j < b.points.length; j++) {
+            const d = jarakKeSegmen(
+                x, y * keSatuanLebar,
+                b.points[j - 1][0], b.points[j - 1][1] * keSatuanLebar,
+                b.points[j][0], b.points[j][1] * keSatuanLebar
+            );
+            if (d <= ambang) return i;
+        }
+    }
+    return -1;
+}
+
+/* --------------------------------------------------------------- render PDF */
+
+function posisiRelatif(hs, e) {
+    const rect = hs.canvas.getBoundingClientRect();
+    const x = rect.width ? (e.clientX - rect.left) / rect.width : 0;
+    const y = rect.height ? (e.clientY - rect.top) / rect.height : 0;
     return [Math.min(Math.max(x, 0), 1), Math.min(Math.max(y, 0), 1)];
 }
 
@@ -116,134 +719,224 @@ function withTimeout(promise, ms, pesan) {
     ]);
 }
 
+function pasangInteraksi(hs) {
+    const canvas = hs.canvas;
+    let sedang = null;   // garis yang sedang ditarik
+    let geser = null;    // { indeks, dx, dy, bergerak } kertas tempel yang sedang digeser
+
+    canvas.addEventListener('pointerdown', function (e) {
+        if (state.mode === 'geser') return;
+        e.preventDefault();
+        const [x, y] = posisiRelatif(hs, e);
+
+        if (state.mode === 'sticky') {
+            // Klik di atas kertas tempel yang SUDAH ADA berarti memindahkan
+            // atau menyuntingnya - bukan menumpuk kertas baru di atasnya.
+            // Yang menentukan mana dari keduanya: apakah jarinya sempat
+            // bergerak sebelum diangkat (lihat pointerup).
+            const indeks = stickyDiTitik(hs, x, y);
+
+            if (indeks >= 0) {
+                const b = butirBaru[indeks];
+                geser = { indeks: indeks, dx: x - b.x, dy: y - b.y, bergerak: false };
+                canvas.setPointerCapture(e.pointerId);
+                return;
+            }
+
+            // Kertas baru ditempel dengan titik klik sebagai PUSATNYA, bukan
+            // sudut kiri-atas: yang diniatkan pemakai adalah "taruh di sini".
+            const g = { lebarRel: STICKY_LEBAR, tinggiRel: STICKY_LEBAR * STICKY_RASIO * (hs.canvas.width / hs.canvas.height) };
+            bukaPop({
+                hs: hs, jenis: 'sticky',
+                x: x - g.lebarRel / 2,
+                y: y - g.tinggiRel / 2,
+            }, e.clientX, e.clientY);
+            return;
+        }
+
+        if (state.mode === 'teks') {
+            bukaPop({ hs: hs, jenis: 'teks', x: x, y: y }, e.clientX, e.clientY);
+            return;
+        }
+
+        if (state.mode === 'hapus') {
+            const idx = butirTerkena(hs, x, y);
+            if (idx >= 0) { butirBaru.splice(idx, 1); gambarUlang(); }
+            return;
+        }
+
+        const stabilo = state.mode === 'stabilo';
+        const tebalPx = stabilo ? TEBAL_STABILO[state.tebal] : TEBAL_PENA[state.tebal];
+        sedang = {
+            dokumen: hs.dokumen, page: 1, jenis: stabilo ? 'stabilo' : 'pena',
+            color: state.warna, width: tebalPx / LEBAR_ACUAN, points: [[x, y]],
+        };
+        butirBaru.push(sedang);
+        canvas.setPointerCapture(e.pointerId);
+    });
+
+    canvas.addEventListener('pointermove', function (e) {
+        const [x, y] = posisiRelatif(hs, e);
+
+        if (geser) {
+            e.preventDefault();
+            const b = butirBaru[geser.indeks];
+            const sebelumX = b.x, sebelumY = b.y;
+            b.x = x - geser.dx;
+            b.y = y - geser.dy;
+            jepitSticky(hs, b);
+            if (Math.abs(b.x - sebelumX) > 0.0005 || Math.abs(b.y - sebelumY) > 0.0005) {
+                geser.bergerak = true;
+            }
+            gambarUlang();
+            return;
+        }
+
+        if (sedang) {
+            e.preventDefault();
+            sedang.points.push([x, y]);
+            gambarUlang();
+            return;
+        }
+
+        // Penunjuk berubah jadi "bisa digeser" saat melewati kertas tempel,
+        // supaya pemakai tahu benda itu bisa dipindahkan tanpa harus mencoba.
+        if (state.mode === 'sticky') {
+            canvas.style.cursor = stickyDiTitik(hs, x, y) >= 0 ? 'move' : 'copy';
+        }
+    });
+
+    const selesai = function (e) {
+        if (geser) {
+            // Diangkat tanpa sempat bergerak = niatnya menyunting, bukan
+            // memindahkan.
+            if (! geser.bergerak && e && e.clientX !== undefined) {
+                bukaPop({ hs: hs, indeks: geser.indeks }, e.clientX, e.clientY);
+            }
+            geser = null;
+            return;
+        }
+
+        if (! sedang) return;
+
+        // Satu titik tunggal (klik tanpa menarik) tidak akan pernah terlihat
+        // di PDF - polyline butuh dua titik - jadi dibuang daripada ikut
+        // tersimpan sebagai coretan hantu.
+        if (sedang.points.length < 2) {
+            const i = butirBaru.indexOf(sedang);
+            if (i >= 0) butirBaru.splice(i, 1);
+            gambarUlang();
+        }
+        sedang = null;
+    };
+    canvas.addEventListener('pointerup', selesai);
+    canvas.addEventListener('pointercancel', selesai);
+    canvas.addEventListener('pointerleave', selesai);
+}
+
 async function renderDokumen(dok) {
-    var section = document.createElement('div');
-    section.style.marginBottom = '24px';
+    const bagian = document.createElement('div');
+    bagian.className = 'ct-dok';
 
-    var heading = document.createElement('h3');
-    heading.style.marginBottom = '8px';
-    heading.textContent = dok.label;
-    section.appendChild(heading);
+    const judul = document.createElement('div');
+    judul.className = 'ct-dok-judul';
+    judul.textContent = dok.label;
+    bagian.appendChild(judul);
 
-    var pagesWrap = document.createElement('div');
-    pagesWrap.style.display = 'flex';
-    pagesWrap.style.flexDirection = 'column';
-    pagesWrap.style.alignItems = 'center';
-    pagesWrap.style.gap = '16px';
-    pagesWrap.style.background = '#e5e7eb';
-    pagesWrap.style.padding = '16px';
-    pagesWrap.style.borderRadius = '8px';
-    pagesWrap.style.overflow = 'auto';
-    section.appendChild(pagesWrap);
+    const kertas = document.createElement('div');
+    kertas.className = 'ct-kertas';
+    bagian.appendChild(kertas);
+    daftarEl.appendChild(bagian);
 
-    listEl.appendChild(section);
-
+    let pdf;
     try {
-        var resp = await fetch(dok.url);
-        var bytes = await resp.arrayBuffer();
-        var pdf = await withTimeout(pdfjsLib.getDocument({ data: bytes }).promise, 20000, 'Render PDF terlalu lama (timeout).');
+        const resp = await fetch(dok.url);
+        const bytes = await resp.arrayBuffer();
+        pdf = await withTimeout(pdfjsLib.getDocument({ data: bytes }).promise, 20000, 'Render PDF terlalu lama (timeout).');
     } catch (err) {
-        pagesWrap.innerHTML = '';
-        pagesWrap.style.background = 'transparent';
-        pagesWrap.style.padding = '0';
-        var errBox = document.createElement('div');
+        kertas.className = '';
+        const errBox = document.createElement('div');
         errBox.className = 'err-box';
         errBox.style.display = 'block';
         errBox.innerHTML = 'Gagal menampilkan pratinjau &ldquo;' + dok.label + '&rdquo; untuk dicoret (' + err.message + '). '
             + 'Dokumen ini tidak akan dicoret pada pengiriman ini &mdash; Anda tetap bisa membukanya lewat '
             + '<a href="' + dok.url + '" target="_blank">tautan PDF asli</a>.';
-        pagesWrap.appendChild(errBox);
+        kertas.appendChild(errBox);
         return;
     }
 
-    for (var n = 1; n <= pdf.numPages; n++) {
-        var page = await pdf.getPage(n);
-        var viewport = page.getViewport({ scale: 1.5 });
+    const jml = document.createElement('span');
+    jml.className = 'ct-dok-jml';
+    jml.textContent = pdf.numPages + ' halaman';
+    judul.appendChild(jml);
 
-        var wrap = document.createElement('div');
-        wrap.style.position = 'relative';
-        wrap.style.background = '#fff';
-        wrap.style.boxShadow = '0 2px 10px rgba(15,23,42,.15)';
-        wrap.style.width = viewport.width + 'px';
-        wrap.style.height = viewport.height + 'px';
+    for (let n = 1; n <= pdf.numPages; n++) {
+        const page = await pdf.getPage(n);
 
-        var bg = document.createElement('canvas');
-        bg.width = viewport.width;
-        bg.height = viewport.height;
-        bg.style.position = 'absolute';
-        bg.style.top = '0';
-        bg.style.left = '0';
+        /* Dirender pada skala yang menghasilkan lebar acuan, lalu dikalikan
+           2 untuk ketajaman - kanvas beresolusi dua kali lalu diperkecil
+           lewat CSS, supaya tulisan dokumen tetap terbaca di layar padat
+           piksel tanpa menaikkan ukuran tampilnya. */
+        const dasar = page.getViewport({ scale: 1 });
+        const skala = (LEBAR_ACUAN * 2) / dasar.width;
+        const viewport = page.getViewport({ scale: skala });
 
-        var draw = document.createElement('canvas');
-        draw.width = viewport.width;
-        draw.height = viewport.height;
-        draw.style.position = 'absolute';
-        draw.style.top = '0';
-        draw.style.left = '0';
-        draw.style.cursor = n === 1 ? 'crosshair' : 'not-allowed';
+        const wrap = document.createElement('div');
+        wrap.className = 'ct-halaman' + (n === 1 ? '' : ' ct-terkunci');
 
-        wrap.appendChild(bg);
-        wrap.appendChild(draw);
+        const latar = document.createElement('canvas');
+        latar.className = 'ct-latar';
+        latar.width = viewport.width;
+        latar.height = viewport.height;
 
-        var label = document.createElement('div');
-        label.className = 'sub';
-        label.style.textAlign = 'center';
-        label.textContent = 'Halaman ' + n + (n > 1 ? ' (coretan hanya didukung di halaman 1)' : '');
+        const coret = document.createElement('canvas');
+        coret.className = 'ct-coret';
+        coret.width = viewport.width;
+        coret.height = viewport.height;
 
-        var col = document.createElement('div');
-        col.appendChild(wrap);
-        col.appendChild(label);
-        pagesWrap.appendChild(col);
+        wrap.appendChild(latar);
+        wrap.appendChild(coret);
+
+        const label = document.createElement('div');
+        label.className = 'ct-hal-label';
+        label.textContent = n === 1 ? 'Halaman 1' : 'Halaman ' + n + ' — tidak bisa dicoret';
+
+        const kolom = document.createElement('div');
+        kolom.appendChild(wrap);
+        kolom.appendChild(label);
+        kertas.appendChild(kolom);
 
         try {
-            await withTimeout(page.render({ canvasContext: bg.getContext('2d'), viewport: viewport }).promise, 20000, 'Render halaman terlalu lama (timeout).');
+            await withTimeout(page.render({ canvasContext: latar.getContext('2d'), viewport: viewport }).promise, 20000, 'Render halaman terlalu lama (timeout).');
         } catch (err) {
             label.textContent = 'Halaman ' + n + ' gagal dirender (' + err.message + ') — tidak bisa dicoret.';
             console.error(err);
             continue;
         }
 
-        var ctx = draw.getContext('2d');
-        var ps = { dokumen: dok.key, pageNumber: n, canvas: draw, ctx: ctx };
-        pageStates.push(ps);
+        const hs = {
+            dokumen: dok.key, pageNumber: n,
+            canvas: coret, ctx: coret.getContext('2d'), latar: latar, wrap: wrap,
+            lebarAsli: LEBAR_ACUAN, rasio: viewport.width / viewport.height,
+        };
+        halamanState.push(hs);
 
-        if (n === 1) {
-            (function (ps, draw) {
-                var drawing = false, current = null;
-
-                function begin(e) {
-                    drawing = true;
-                    current = { dokumen: ps.dokumen, page: 1, color: color, width: 3 / draw.width, points: [posFromEvent(ps, e)] };
-                    newStrokes.push(current);
-                }
-                function move(e) {
-                    if (!drawing) return;
-                    current.points.push(posFromEvent(ps, e));
-                    redrawAll();
-                }
-                function end() {
-                    drawing = false;
-                    current = null;
-                }
-
-                draw.addEventListener('mousedown', begin);
-                draw.addEventListener('touchstart', function (e) { e.preventDefault(); begin(e); }, { passive: false });
-                draw.addEventListener('mousemove', move);
-                draw.addEventListener('touchmove', function (e) { e.preventDefault(); move(e); }, { passive: false });
-                window.addEventListener('mouseup', end);
-                window.addEventListener('touchend', end);
-            })(ps, draw);
-        }
+        if (n === 1) pasangInteraksi(hs);
     }
+
+    terapkanZoom();
 }
 
 async function init() {
+    setMode('geser');
+    document.getElementById('ct-zoom-nilai').textContent = Math.round(zoom() * 100) + '%';
+
     try {
-        for (var i = 0; i < dokumenList.length; i++) {
+        for (let i = 0; i < dokumenList.length; i++) {
             statusEl.textContent = 'Memuat ' + dokumenList[i].label + '… (' + (i + 1) + '/' + dokumenList.length + ')';
             await renderDokumen(dokumenList[i]);
         }
-        statusEl.textContent = 'Semua dokumen siap — coret langsung di halaman 1 tiap dokumen.';
+        statusEl.textContent = dokumenList.length + ' dokumen dimuat';
     } catch (err) {
         statusEl.textContent = 'Gagal memuat dokumen: ' + err.message;
         console.error(err);
@@ -251,9 +944,11 @@ async function init() {
 }
 
 document.getElementById('coret-form').addEventListener('submit', function () {
-    var finalStrokes = strokesSebelumnya.concat(newStrokes);
-    document.getElementById('coret-json-field').value = finalStrokes.length ? JSON.stringify({ strokes: finalStrokes }) : '';
+    const semua = strokesSebelumnya.concat(butirBaru);
+    document.getElementById('coret-json-field').value = semua.length ? JSON.stringify({ strokes: semua }) : '';
 });
+
+window.addEventListener('resize', terapkanZoom);
 
 init();
 </script>

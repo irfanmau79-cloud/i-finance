@@ -10,6 +10,7 @@ use App\Models\Pegawai;
 use App\Models\Spm;
 use App\Models\Vendor;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
 class SpmController extends Controller
@@ -131,11 +132,75 @@ class SpmController extends Controller
         return redirect()->route('spm.ls.index')->with('success', 'SPM LS berhasil diperbarui.');
     }
 
+    /** Rincian satu SPM LS: kepala dokumen, pajak, dan seluruh baris mata anggarannya. */
+    public function showLs(Spm $spm)
+    {
+        abort_unless($spm->jenis_spm === 'ls', 404);
+
+        $spm->load(['detail.masterAnggaran.tagging', 'dibuatOleh', 'divalidasiOleh', 'penerimaPegawai', 'penerimaVendor']);
+
+        return view('spm.ls.show', compact('spm'));
+    }
+
+    /**
+     * Tandai SPM sudah dicocokkan dengan berkas SP2D aslinya.
+     *
+     * Dikunci lewat lockForUpdate lalu diperiksa ULANG di dalam transaksi:
+     * dua orang yang menekan Validasi pada baris yang sama tidak boleh
+     * saling menimpa nama & waktu validasinya.
+     */
+    public function validasi(Request $request, Spm $spm)
+    {
+        DB::transaction(function () use ($request, $spm) {
+            $terkunci = Spm::query()->lockForUpdate()->findOrFail($spm->id);
+
+            if ($terkunci->divalidasi()) {
+                return;
+            }
+
+            $terkunci->update([
+                'divalidasi_oleh' => $request->user()->id,
+                'divalidasi_at' => now(),
+            ]);
+
+            AuditLog::catat('Validasi SPM', 'Jenis: '.strtoupper($terkunci->jenis_spm).', Nomor: '.$terkunci->nomor_dokumen);
+        });
+
+        return back()->with('success', 'SPM '.$spm->nomor_dokumen.' ditandai sudah divalidasi dan tidak lagi bisa dihapus.');
+    }
+
+    /**
+     * Batalkan validasi - HANYA superadmin.
+     *
+     * Ada karena validasi mematikan tombol hapus: tanpa jalan keluar, satu
+     * klik keliru pada baris yang salah membuat baris itu terkunci
+     * selamanya. Dibatasi superadmin supaya kuncinya tetap berarti.
+     */
+    public function batalValidasi(Request $request, Spm $spm)
+    {
+        abort_unless($request->user()->isSuperadmin(), 403);
+
+        $spm->update(['divalidasi_oleh' => null, 'divalidasi_at' => null]);
+
+        AuditLog::catat('Batal Validasi SPM', 'Jenis: '.strtoupper($spm->jenis_spm).', Nomor: '.$spm->nomor_dokumen);
+
+        return back()->with('success', 'Validasi SPM '.$spm->nomor_dokumen.' dibatalkan.');
+    }
+
     public function destroy(Request $request, Spm $spm)
     {
         $jenis = $spm->jenis_spm;
         $nomor = $spm->nomor_dokumen;
         $routeIndex = $jenis === 'ls' ? 'spm.ls.index' : 'spm.up-gu.index';
+
+        // Penjagaan di BACKEND, bukan sekadar tombol yang disembunyikan:
+        // rute hapus bisa dipanggil langsung, dan yang dijaga di sini adalah
+        // angka realisasi anggaran yang dihitung dari baris ini.
+        if ($spm->divalidasi()) {
+            return back()->withErrors([
+                'spm' => 'SPM '.$nomor.' sudah divalidasi, jadi tidak bisa dihapus. Batalkan validasinya lebih dulu (hanya superadmin).',
+            ]);
+        }
 
         $spm->delete();
 

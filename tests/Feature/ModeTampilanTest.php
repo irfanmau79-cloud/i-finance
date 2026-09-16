@@ -64,9 +64,9 @@ class ModeTampilanTest extends TestCase
 
         // Sidebar dan bilah atas jadi putih, tulisannya navy.
         $this->assertStringContainsString('--sb-bg:#ffffff;', $html);
-        $this->assertStringContainsString('--sb-teks-kuat:var(--navy);', $html);
+        $this->assertStringContainsString('--sb-teks-kuat:var(--tegas);', $html);
         $this->assertStringContainsString('--tb-kiri:#ffffff;', $html);
-        $this->assertStringContainsString('--tb-teks:var(--navy);', $html);
+        $this->assertStringContainsString('--tb-teks:var(--tegas);', $html);
     }
 
     /**

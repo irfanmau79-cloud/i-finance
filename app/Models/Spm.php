@@ -28,6 +28,11 @@ use RuntimeException;
     'nomor_rekening',
     'uraian',
     'dibuat_oleh',
+    // Penanda validasi ikut fillable karena disetel lewat update() di
+    // SpmController::validasi(); tanpa ini nilainya dibuang diam-diam oleh
+    // mass assignment dan tombol Validasi tampak tidak berfungsi.
+    'divalidasi_oleh',
+    'divalidasi_at',
 ])]
 class Spm extends Model
 {
@@ -52,7 +57,25 @@ class Spm extends Model
             'ppn' => 'decimal:2',
             'pph1' => 'decimal:2',
             'pph2' => 'decimal:2',
+            'divalidasi_at' => 'datetime',
         ];
+    }
+
+    /**
+     * SPM yang sudah dicocokkan dengan berkas SP2D aslinya.
+     *
+     * Sengaja dibaca dari tanggalnya, bukan dari kolom boolean terpisah:
+     * satu sumber kebenaran, jadi tidak mungkin ada baris yang "tervalidasi"
+     * tapi tidak diketahui kapan.
+     */
+    public function divalidasi(): bool
+    {
+        return $this->divalidasi_at !== null;
+    }
+
+    public function divalidasiOleh(): BelongsTo
+    {
+        return $this->belongsTo(User::class, 'divalidasi_oleh');
     }
 
     /** Baris mata anggaran (HANYA untuk jenis_spm 'ls' - lihat Spm::buatLs()). */

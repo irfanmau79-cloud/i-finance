@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\SpjBerkasService;
 use App\Models\Npd;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -41,6 +42,10 @@ class StoreNpdTransportRequest extends FormRequest
             'tim.*.tol' => ['nullable', 'numeric', 'min:0'],
             'tim.*.tiket' => ['nullable', 'numeric', 'min:0'],
             'tim.*.representatif' => ['nullable', 'numeric', 'min:0'],
+            // Unggah SPJ - OPSIONAL, lihat App\Services\SpjBerkasService.
+            // Aturannya diambil dari service supaya kelima jenis NPD dan
+            // pintu unggah di Inventarisasi SPJ tidak bisa berbeda-beda.
+            ...SpjBerkasService::aturan(),
         ];
     }
 
@@ -54,6 +59,7 @@ class StoreNpdTransportRequest extends FormRequest
             'tahun' => 'Tahun',
             'sisa_anggaran_manual' => 'Sisa Anggaran (cetak PDF)',
             'penerima_index' => 'Penerima Dana',
+            ...SpjBerkasService::labelIsian(),
         ];
     }
 }

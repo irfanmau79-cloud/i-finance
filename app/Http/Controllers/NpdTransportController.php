@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\SpjBerkasService;
 use App\Helpers\AuditLog;
 use App\Helpers\NpdPerjalananHitung;
 use App\Helpers\Terbilang;
@@ -19,7 +20,7 @@ class NpdTransportController extends Controller
         return $this->form();
     }
 
-    public function store(StoreNpdTransportRequest $request)
+    public function store(StoreNpdTransportRequest $request, SpjBerkasService $spj)
     {
         $data = $request->validated();
 
@@ -117,6 +118,11 @@ class NpdTransportController extends Controller
 
         AuditLog::catat('Buat NPD', 'Jenis: Transport, Induk: '.($induk->nomor_lengkap ?? "#{$induk->id}").', Nominal: Rp '.number_format((float) $nominal, 2, ',', '.'));
 
+        // Berkas SPJ (opsional) disimpan SESUDAH NPD-nya tersimpan: berkas
+        // yang sudah tertulis ke disk tidak ikut ter-rollback kalau
+        // transaksi penyimpanan NPD gagal.
+        $spj->simpan($npd, $request->file('spj') ?? [], $request->user());
+
         return redirect()->route('npd.show', $npd)->with('success', 'NPD Transport berhasil disimpan sebagai draft.');
     }
 
@@ -138,7 +144,7 @@ class NpdTransportController extends Controller
         return $this->form($npd, $timAwal);
     }
 
-    public function update(StoreNpdTransportRequest $request, Npd $npd)
+    public function update(StoreNpdTransportRequest $request, Npd $npd, SpjBerkasService $spj)
     {
         abort_unless($npd->jenis === 'tr', 404);
         abort_unless($npd->dapatDieditOleh($request->user()), 403);
@@ -207,6 +213,11 @@ class NpdTransportController extends Controller
         });
 
         AuditLog::catat('Edit NPD', 'Jenis: Transport, NPD #'.$npd->id);
+
+        // Berkas SPJ (opsional) disimpan SESUDAH NPD-nya tersimpan: berkas
+        // yang sudah tertulis ke disk tidak ikut ter-rollback kalau
+        // transaksi penyimpanan NPD gagal.
+        $spj->simpan($npd, $request->file('spj') ?? [], $request->user());
 
         return redirect()->route('npd.show', $npd)->with('success', 'Draft NPD Transport berhasil diperbarui.');
     }

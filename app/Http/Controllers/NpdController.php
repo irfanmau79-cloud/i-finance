@@ -13,6 +13,7 @@ use App\Models\NpdTim;
 use App\Models\Pengembalian;
 use App\Models\User;
 use App\Services\NotifikasiNpdService;
+use App\Services\SpjBerkasService;
 use App\Support\CoretanPdf;
 use App\Support\MpdfFont;
 use App\Support\PdfGabung;
@@ -28,6 +29,12 @@ use Mpdf\Output\Destination;
 
 class NpdController extends Controller
 {
+    /**
+     * Berkas SPJ dipegang sebagai properti karena dipakai dua tempat yang
+     * harus sepakat: daftar dokumen cetak (dokumenCetak) dan halaman detail.
+     */
+    public function __construct(private readonly SpjBerkasService $spjBerkas) {}
+
     /**
      * Pembuatan NPD: satu halaman gabungan pemilih jenis + daftar NPD, port
      * 1:1 dari #page-npd di gas-lama/index.html (bukan dua halaman terpisah
@@ -188,7 +195,7 @@ class NpdController extends Controller
 
     public function show(Request $request, Npd $npd)
     {
-        $npd->load(['masterAnggaran.tagging', 'penerima.pphList', 'tim.paket', 'narasumber', 'peserta', 'referensi', 'turunanPerjalanan', 'induk', 'turunanTransport', 'dibuatOleh', 'historiStatus.user', 'arsipSpj.ditetapkanOleh']);
+        $npd->load(['masterAnggaran.tagging', 'penerima.pphList', 'tim.paket', 'narasumber', 'peserta', 'referensi', 'turunanPerjalanan', 'induk', 'turunanTransport', 'dibuatOleh', 'historiStatus.user', 'arsipSpj.ditetapkanOleh', 'spjBerkas']);
 
         $role = $request->user()->role;
         $aksiTersedia = $npd->aksiTersedia($role);
@@ -470,6 +477,12 @@ class NpdController extends Controller
 
         $identitas = $npd->nomor_lengkap ?: "NPD #{$npd->id}";
         $id = $npd->id;
+
+        // Isi disk dibersihkan SEBELUM transaksi: barisnya ikut terhapus
+        // sendiri lewat cascade, tapi basis data tidak bisa menghapus berkas
+        // di storage, dan sesudah NPD-nya hilang path-nya tidak bisa dibaca
+        // lagi.
+        $this->spjBerkas->hapusMilikNpd($npd);
 
         DB::transaction(function () use ($npd) {
             $npd = Npd::query()->lockForUpdate()->findOrFail($npd->id);
@@ -800,7 +813,13 @@ class NpdController extends Controller
     public function cetakGabungan(Npd $npd)
     {
         $dokumen = $this->dokumenCetak($npd);
-        $isi = array_map(static fn (array $d) => ($d['isi'])(), $dokumen);
+        // Berkas SPJ bisa mengembalikan null kalau berkasnya sudah tidak ada
+        // di disk. Itu tidak boleh menggagalkan pencetakan seluruh bendel -
+        // dokumen NPD-nya sendiri tetap harus bisa dicetak.
+        $isi = array_values(array_filter(
+            array_map(static fn (array $d) => ($d['isi'])(), $dokumen),
+            static fn (?string $pdf) => is_string($pdf) && $pdf !== '',
+        ));
 
         AuditLog::catat(
             'Cetak Gabungan NPD',
@@ -833,6 +852,18 @@ class NpdController extends Controller
             $dokumen[] = ['judul' => 'Daftar Pembayaran', 'isi' => fn (): string => $this->pdfDaftarNarasumber($npd)];
         } elseif ($npd->jenis === 'kd') {
             $dokumen[] = ['judul' => 'Daftar Bayar', 'isi' => fn (): string => $this->pdfDaftarKontribusiDiklat($npd)];
+        }
+
+        // Berkas SPJ yang sudah diunggah ikut di PALING BELAKANG, satu entri
+        // per berkas. Urutan itu mengikuti bendel fisiknya di kantor:
+        // dokumen NPD dulu, buktinya menyusul. Kalau belum ada berkas yang
+        // diunggah, daftar ini tidak bertambah sama sekali - jadi hasil
+        // "Cetak Semua" NPD lama tetap persis seperti sebelum fitur ini ada.
+        foreach ($this->spjBerkas->daftar($npd) as $nomor => $berkas) {
+            $dokumen[] = [
+                'judul' => 'SPJ '.($nomor + 1),
+                'isi' => fn (): ?string => $this->spjBerkas->pdf($berkas),
+            ];
         }
 
         return $dokumen;

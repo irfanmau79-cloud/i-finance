@@ -154,6 +154,208 @@ class AnggaranRealisasiService
     }
 
     /**
+     * Realisasi SPJ3 per BULAN untuk tiap mata anggaran pada satu tahun
+     * anggaran - sumber data "Realisasi Periodik".
+     *
+     * Berbeda dari rincian() yang menjawab "berapa total sampai hari ini"
+     * dalam bentuk pohon empat tingkat, di sini tiap mata anggaran jadi SATU
+     * baris dengan dua belas kolom bulan. Hierarkinya tidak hilang, cuma
+     * pindah tempat: Program/Sub Kegiatan/Kodering jadi kolom, bukan baris
+     * yang bisa dibuka-tutup.
+     *
+     * SPJ3 = realisasi_npd + realisasi_ls, mengikuti MODEL REALISASI kantor.
+     * NPD selain "Selesai" TIDAK dihitung (itu dana terikat, bukan
+     * realisasi), dan SPM UP/GU/TU juga tidak - spm_detail hanya lahir dari
+     * SPM LS (lihat MasterAnggaran::spmDetail()).
+     *
+     * TANGGAL PENENTU BULAN, sama dengan realisasiPeriode() & analisis():
+     *
+     *   - NPD          -> tanggal_npd
+     *   - SPM LS       -> spm.tanggal_dokumen
+     *   - Pengembalian -> tanggal_pengembalian
+     *
+     * Pengembalian yang sudah disetujui MENGURANGI bulan pengembalian itu
+     * sendiri, bukan menulis ulang bulan dokumen asalnya - sama seperti
+     * analisis(), supaya angka bulan yang sudah dilaporkan tidak berubah
+     * belakangan. Akibatnya satu bulan BISA negatif kalau pengembaliannya
+     * lebih besar dari realisasi bulan itu; itu memang kejadian nyata, jangan
+     * dijepit ke nol.
+     *
+     * Kolom Anggaran adalah pagu SETAHUN - pagu tidak punya dimensi waktu.
+     *
+     * @param  array{sub_kegiatan?: string, kode_rekening?: string, tagging?: string, q?: string}  $filters
+     * Dua bentuk keluaran dari SATU kali hitung: 'baris' datar (satu baris
+     * per mata anggaran, dipakai ekspor & pengujian) dan 'pohon' dua tingkat
+     * Sub Kegiatan > Kodering yang dipakai tampilan buka-tutup.
+     *
+     * @return array{tahun: int, bulan: array<int, string>, baris: Collection<int, array<string, mixed>>, pohon: Collection<int, array<string, mixed>>, total: array<string, mixed>}
+     */
+    public function realisasiBulanan(array $filters, int $tahun): array
+    {
+        $masters = $this->masterQuery($filters)->with('tagging:id,nama')->get();
+        $ids = $masters->pluck('id');
+
+        // [master_anggaran_id][0..11] => nominal. Dijumlahkan di PHP, bukan
+        // lewat GROUP BY MONTH(), karena fungsi bulan SQL berbeda antara
+        // MySQL (produksi) dan SQLite (test) - pola yang sama dipakai
+        // analisis().
+        $bulanan = [];
+        $tambah = function (int $masterId, int $bulan, float $nominal) use (&$bulanan): void {
+            if (! isset($bulanan[$masterId])) {
+                $bulanan[$masterId] = array_fill(0, 12, 0.0);
+            }
+            $bulanan[$masterId][$bulan - 1] += $nominal;
+        };
+
+        if ($ids->isNotEmpty()) {
+            Npd::query()
+                ->where('status', 'Selesai')
+                ->whereYear('tanggal_npd', $tahun)
+                ->whereIn('master_anggaran_id', $ids)
+                ->get(['master_anggaran_id', 'tanggal_npd', 'nominal'])
+                ->each(fn (Npd $npd) => $tambah(
+                    (int) $npd->master_anggaran_id,
+                    (int) $npd->tanggal_npd->month,
+                    (float) $npd->nominal,
+                ));
+
+            SpmDetail::query()
+                ->whereIn('master_anggaran_id', $ids)
+                ->whereHas('spm', fn (Builder $query) => $query->whereYear('tanggal_dokumen', $tahun))
+                ->with('spm:id,tanggal_dokumen')
+                ->get(['id', 'spm_id', 'master_anggaran_id', 'nominal'])
+                ->each(fn (SpmDetail $detail) => $tambah(
+                    (int) $detail->master_anggaran_id,
+                    (int) $detail->spm->tanggal_dokumen->month,
+                    (float) $detail->nominal,
+                ));
+
+            PengembalianDetail::query()
+                ->whereIn('master_anggaran_id', $ids)
+                ->whereHas('pengembalian', fn (Builder $query) => $query
+                    ->where('status', 'disetujui')
+                    ->whereYear('tanggal_pengembalian', $tahun))
+                ->with('pengembalian:id,tanggal_pengembalian')
+                ->get(['id', 'pengembalian_id', 'master_anggaran_id', 'nominal'])
+                ->each(fn (PengembalianDetail $detail) => $tambah(
+                    (int) $detail->master_anggaran_id,
+                    (int) $detail->pengembalian->tanggal_pengembalian->month,
+                    -(float) $detail->nominal,
+                ));
+        }
+
+        $baris = $masters
+            ->map(function (MasterAnggaran $master) use ($bulanan) {
+                $nilai = $bulanan[$master->id] ?? array_fill(0, 12, 0.0);
+
+                return [
+                    // Program TIDAK dibawa: Realisasi Periodik tidak
+                    // menampilkannya (satu OPD praktis satu-dua program, jadi
+                    // kolomnya cuma memakan lebar), dan data yang tidak
+                    // dipakai siapa pun lebih baik tidak ada daripada
+                    // menunggu pembaca berikutnya menduga-duga gunanya.
+                    'sub_kegiatan' => $master->subKegiatanNormal(),
+                    'kodering' => (string) $master->kode_rekening_bersih,
+                    'uraian_rekening' => (string) $master->uraian_rekening,
+                    'tagging' => $master->tagging?->nama ?? 'Tanpa Tagging',
+                    'pagu' => $master->nilaiPagu(),
+                    'bulanan' => $nilai,
+                    'realisasi' => (float) array_sum($nilai),
+                ];
+            })
+            // Urut alami berjenjang: "5.1.10" sesudah "5.1.2", bukan
+            // sebelumnya - padanan urutNama() yang dipakai pohon Rincian.
+            ->sort(function (array $a, array $b) {
+                foreach (['sub_kegiatan', 'kodering', 'tagging'] as $kunci) {
+                    $beda = strnatcasecmp($a[$kunci], $b[$kunci]);
+                    if ($beda !== 0) {
+                        return $beda;
+                    }
+                }
+
+                return 0;
+            })
+            ->values();
+
+        $totalBulanan = [];
+        for ($i = 0; $i < 12; $i++) {
+            $totalBulanan[] = (float) $baris->sum(fn (array $row) => $row['bulanan'][$i]);
+        }
+        $totalPagu = (float) $baris->sum('pagu');
+        $totalRealisasi = (float) array_sum($totalBulanan);
+
+        return [
+            'tahun' => $tahun,
+            'bulan' => self::BULAN,
+            'baris' => $baris,
+            'pohon' => $this->pohonBulanan($baris),
+            'total' => [
+                'pagu' => $totalPagu,
+                'bulanan' => $totalBulanan,
+                'realisasi' => $totalRealisasi,
+                'persentase_realisasi' => MasterAnggaran::hitungPersentaseRealisasi($totalRealisasi, $totalPagu),
+            ],
+        ];
+    }
+
+    /**
+     * Susun baris datar hasil realisasiBulanan() jadi pohon dua tingkat
+     * Sub Kegiatan > Kodering, dengan baris Tagging sebagai daunnya.
+     *
+     * Agregat tiap level dihitung DI SINI, bukan di Blade: dua belas kolom
+     * bulan berarti dua belas penjumlahan per baris induk, dan menaruh itu di
+     * tampilan berarti mengulangnya di setiap tempat yang kelak menampilkan
+     * tabel yang sama (mis. ekspor Excel).
+     *
+     * @param  Collection<int, array<string, mixed>>  $baris
+     * @return Collection<int, array<string, mixed>>
+     */
+    private function pohonBulanan(Collection $baris): Collection
+    {
+        $jumlahkanBulan = function (Collection $items): array {
+            $hasil = array_fill(0, 12, 0.0);
+            foreach ($items as $item) {
+                foreach ($item['bulanan'] as $i => $nilai) {
+                    $hasil[$i] += (float) $nilai;
+                }
+            }
+
+            return $hasil;
+        };
+
+        return $baris
+            ->groupBy('sub_kegiatan')
+            ->map(function (Collection $subItems, string $subKegiatan) use ($jumlahkanBulan) {
+                $kodering = $subItems
+                    ->groupBy('kodering')
+                    ->map(function (Collection $kodeItems, string $kode) use ($jumlahkanBulan) {
+                        $bulanan = $jumlahkanBulan($kodeItems);
+
+                        return [
+                            'kodering' => $kode,
+                            'uraian_rekening' => (string) $kodeItems->first()['uraian_rekening'],
+                            'tagging' => $kodeItems->values(),
+                            'pagu' => (float) $kodeItems->sum('pagu'),
+                            'bulanan' => $bulanan,
+                            'realisasi' => (float) array_sum($bulanan),
+                        ];
+                    })
+                    ->values();
+
+                $bulanan = $jumlahkanBulan($kodering);
+
+                return [
+                    'sub_kegiatan' => $subKegiatan,
+                    'kodering' => $kodering,
+                    'pagu' => (float) $kodering->sum('pagu'),
+                    'bulanan' => $bulanan,
+                    'realisasi' => (float) array_sum($bulanan),
+                ];
+            })
+            ->values();
+    }
+
+    /**
      * Realisasi anggaran pada RENTANG TANGGAL tertentu, dirinci sampai Tagging.
      *
      * Berbeda dari rincian() yang menjumlahkan SELURUH transaksi tanpa batas

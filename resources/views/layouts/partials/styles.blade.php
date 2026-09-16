@@ -8,18 +8,27 @@
        terang, jadi hal paling terang di layar adalah angka dan tabelnya.
 
        --navy dipertahankan sebagai NAMA token supaya ratusan aturan lama
-       tidak perlu disisir satu per satu; nilainya kini slate-900, tinta
-       yang nyaris hitam, bukan biru pemerintahan. */
-    --navy:#0f172a; --navy-d:#0a1128; --navy-l:#eef2f7;
+       tidak perlu disisir satu per satu. Nilainya PERNAH slate-900 - tinta
+       yang nyaris hitam - dan hasilnya rangka aplikasi terbaca abu gelap
+       tanpa nada biru sama sekali. Sekarang kembali ke navy sungguhan
+       (hue ~220, terang 20%): nadanya jelas biru tua, tapi gelapnya
+       setara slate-900 sehingga sidebar tidak ikut menerang. */
+    --navy:#17294d; --navy-d:#101d39; --navy-l:#eaeff8;
     /* Warna TULISAN yang ditekankan - judul kartu, angka KPI, penekanan di
        tabel. Dipisahkan dari --navy karena --navy punya dua tugas: warna
        merek untuk LATAR (sidebar, tombol utama) dan warna TEKS. Di mode
        gelap latarnya harus tetap gelap sementara tulisannya wajib terang,
-       jadi keduanya tidak bisa memakai satu token yang sama. */
-    --tegas:#0f172a;
+       jadi keduanya tidak bisa memakai satu token yang sama.
+       Sengaja SEDIKIT lebih terang dari --navy: sebagai tulisan, navy
+       pekat 20% membaca sama hitamnya dengan tinta biasa, jadi nada
+       birunya baru terasa pada terang ~24%. Kontras di atas putih tetap
+       12:1, jauh di atas ambang AA. */
+    --tegas:#1b3161;
     /* Palet grafik. Dipisahkan dari --navy karena batang dan segmen grafik
-       harus tetap terlihat di atas kanvas gelap. */
-    --chart-utama:#0f172a; --chart-sisa:#e2e8f0;
+       harus tetap terlihat di atas kanvas gelap.
+       Segmen pokok donat memakai navy yang dinaikkan sekali lagi: sebagai
+       BIDANG lebar (bukan garis atau tulisan) navy 20% tampak hitam. */
+    --chart-utama:#20406f; --chart-sisa:#e3e9f3;
     /* AKSEN INTERAKTIF. Peran yang dulu dipegang emas - penanda menu aktif,
        cincin fokus, pranala - pindah ke biru langit. Emas di atas putih
        kontrasnya tipis dan terlanjur terbaca sebagai peringatan; biru
@@ -29,7 +38,9 @@
        lencana peringatan. Nadanya dinaikkan ke amber supaya tidak kusam di
        atas latar putih. */
     --gold:#f59e0b; --gold-d:#d97706;
-    --ink:#1e293b; --mut:#64748b; --line:#e2e8f0;
+    /* Tinta isi & tulisan redup ikut diberi nada biru yang sama supaya
+       judul navy tidak berdiri sendiri di antara teks abu netral. */
+    --ink:#26334c; --mut:#5f7089; --line:#e3e8f1;
     --ok:#059669; --ok-bg:#ecfdf5; --warn:#d97706; --warn-bg:#fffbeb; --err:#e11d48; --err-bg:#fff1f2;
     /* SKALA SPASI. Sebelumnya padding dipilih satu per satu dengan perkiraan
        (6, 9, 11, 13, 18, 22, ...) sehingga tidak ada ritme yang berulang -
@@ -59,16 +70,27 @@
        kartu adalah ciri antarmuka 2016-an; sisanya di sini cuma untuk
        memberi kesan permukaan, hampir tak terlihat. --shadow-float khusus
        elemen yang benar-benar mengambang di atas halaman (dropdown, modal). */
-    --shadow:0 1px 3px rgba(15,23,42,.04);
-    --shadow-float:0 12px 32px rgba(15,23,42,.14);
+    --shadow:0 1px 3px rgba(16,29,57,.05);
+    --shadow-float:0 12px 32px rgba(16,29,57,.15);
     /* Warna permukaan dipisahkan jadi token supaya mode gelap cukup menukar
        nilainya di sini, bukan menyisir ulang tiap halaman. */
-    --bg:#f8fafc; --surface:#fff; --surface-2:#f8fafc; --surface-3:#f1f5f9;
+    --bg:#f7f9fc; --surface:#fff; --surface-2:#f7f9fc; --surface-3:#f0f4fa;
     /* Nada status. Latar pastel dan tulisannya dipasangkan sebagai token
        supaya lencana, kotak pesan, dan baris tabel berstatus ikut terbalik
        di mode gelap - sebelumnya nilainya dipatok langsung sehingga tulisan
        hijau tua tetap tercetak di atas hijau muda yang sudah jadi gelap. */
     --ok-teks:#047857; --warn-teks:#b45309; --err-teks:#be123c;
+    /* KERTAS: latar pratinjau halaman PDF (halaman coret Verifikator).
+       Sengaja TETAP putih di mode gelap - yang digambar di situ adalah
+       halaman PDF yang memang putih, dan menggelapkannya berarti pratinjau
+       tidak lagi sama dengan dokumen yang akan dicetak. Dijadikan token
+       supaya keputusan itu tertulis, bukan tampak seperti #fff yang lupa
+       disisir. */
+    --kertas:#ffffff;
+    /* Warna satu tombol contekan warna di bilah alat coret. Nilainya
+       DITIMPA per tombol lewat atribut style; yang di sini cuma nilai
+       bawaannya. */
+    --sw:#e11d48;
     --info:#4338ca; --info-bg:#eef2ff;
     --garis-ok:#a7f3d0; --garis-warn:#fde68a; --garis-err:#fecdd3;
     /* Bilah atas: PUTIH, bukan balok navy kedua. Kedua tokennya disamakan
@@ -78,11 +100,16 @@
     /* Rangka aplikasi: sidebar dan bilah atas. Dipisahkan jadi token supaya
        mode Terang & Gelap cukup menukar nilainya di sini, bukan menyisir
        ulang tiap aturan. Nilai bawaan di bawah = tampilan Default. */
-    --sb-bg:linear-gradient(180deg,var(--navy-d) 0%,#0d1633 46%,var(--navy) 100%);
-    --sb-teks:#94a3b8; --sb-teks-kuat:#f8fafc; --sb-teks-lemah:#8296ad; --sb-teks-logout:#94a3b8;
+    /* Arah gradien: navy PEKAT di atas (dekat logo) lalu MEMUDA ke navy
+       yang lebih hidup di kaki sidebar. Nada birunya justru paling terbaca
+       di ujung terang itu - susunan lama yang gelap di atas DAN di bawah
+       (#0a1128 -> #0d1633 -> slate-900) tidak punya ujung terang sama
+       sekali, itu sebabnya sidebar terbaca hampir hitam. */
+    --sb-bg:linear-gradient(180deg,var(--navy-d) 0%,var(--navy) 52%,#1d3564 100%);
+    --sb-teks:#a5b8d6; --sb-teks-kuat:#f4f8ff; --sb-teks-lemah:#8ea2c2; --sb-teks-logout:#a5b8d6;
     --sb-garis:rgba(255,255,255,.08); --sb-sep:rgba(255,255,255,.08);
     --sb-hover:rgba(255,255,255,.05); --sb-aktif:rgba(255,255,255,.10);
-    --sb-bayang:1px 0 0 rgba(2,6,23,.85), 2px 0 16px rgba(15,23,42,.10);
+    --sb-bayang:1px 0 0 rgba(10,21,45,.85), 2px 0 16px rgba(16,29,57,.12);
     --sb-scroll:rgba(255,255,255,.14); --sb-scroll-hover:rgba(255,255,255,.28);
     /* Kartu identitas di kaki sidebar & bingkai menu aktif. */
     --sb-kartu:rgba(255,255,255,.05); --sb-kartu-garis:rgba(255,255,255,.10);
@@ -93,10 +120,10 @@
     --sb-tanda:linear-gradient(180deg,#38bdf8,#34d399);
     --sb-avatar-bg:rgba(245,158,11,.22); --sb-avatar-garis:rgba(245,158,11,.42); --sb-avatar-teks:#fcd34d;
     --sb-lencana-bg:rgba(2,132,199,.22); --sb-lencana-teks:#7dd3fc; --sb-lencana-garis:rgba(56,189,248,.32);
-    --tb-teks:#0f172a; --tb-teks-lemah:#475569;
-    --tb-chip:#f1f5f9; --tb-chip-hover:#e2e8f0;
-    --tb-garis:#e2e8f0; --tb-bayang:0 1px 2px rgba(15,23,42,.05);
-    --tb-avatar-garis:rgba(15,23,42,.08); --tb-avatar-garis-hover:rgba(15,23,42,.24);
+    --tb-teks:var(--tegas); --tb-teks-lemah:#4a5a78;
+    --tb-chip:#f0f4fa; --tb-chip-hover:#e3e8f1;
+    --tb-garis:#e3e8f1; --tb-bayang:0 1px 2px rgba(16,29,57,.06);
+    --tb-avatar-garis:rgba(23,41,77,.10); --tb-avatar-garis-hover:rgba(23,41,77,.26);
   }
 
   /* MODE TERANG. Bedanya dengan Default tinggal SATU hal: sidebarnya ikut
@@ -111,18 +138,18 @@
     /* Teks rangka digelapkan mendekati tinta. Ikon menu memakai
        stroke:currentColor, jadi menggelapkan --sb-teks otomatis ikut
        menggelapkan ikonnya - tidak perlu aturan terpisah. */
-    --sb-teks:#475569; --sb-teks-kuat:var(--navy); --sb-teks-lemah:#64748b; --sb-teks-logout:#475569;
-    --sb-garis:#e8edf3; --sb-sep:#e8edf3;
-    --sb-hover:#f1f5f9; --sb-aktif:#e0f2fe;
-    --sb-bayang:1px 0 0 #e2e8f0;
-    --sb-scroll:rgba(15,23,42,.18); --sb-scroll-hover:rgba(15,23,42,.34);
-    --sb-kartu:#f8fafc; --sb-kartu-garis:#e8edf3;
-    --sb-aktif-garis:#bae0fd; --sb-rel:#e8edf3;
+    --sb-teks:#48597c; --sb-teks-kuat:var(--tegas); --sb-teks-lemah:#5f7089; --sb-teks-logout:#48597c;
+    --sb-garis:#e6ecf5; --sb-sep:#e6ecf5;
+    --sb-hover:#f0f4fa; --sb-aktif:#e0f2fe;
+    --sb-bayang:1px 0 0 #e3e8f1;
+    --sb-scroll:rgba(23,41,77,.20); --sb-scroll-hover:rgba(23,41,77,.36);
+    --sb-kartu:#f7f9fc; --sb-kartu-garis:#e6ecf5;
+    --sb-aktif-garis:#bae0fd; --sb-rel:#e6ecf5;
     --sb-avatar-bg:#fef3c7; --sb-avatar-garis:#fcd34d; --sb-avatar-teks:#b45309;
     --sb-lencana-bg:#e0f2fe; --sb-lencana-teks:#0369a1; --sb-lencana-garis:#bae0fd;
     --tb-kiri:#ffffff; --tb-kanan:#ffffff;
-    --tb-teks:var(--navy); --tb-teks-lemah:#475569;
-    --bg:#f1f5f9;
+    --tb-teks:var(--tegas); --tb-teks-lemah:#4a5a78;
+    --bg:#eef3fa;
   }
   /* Ikon menu memakai stroke:currentColor sehingga warnanya sudah ikut
      --sb-teks yang digelapkan. Yang tidak ikut adalah ketebalan garisnya:
@@ -137,14 +164,14 @@
      langsung - mis. #fff di dalam <style> per halaman - belum ikut berubah
      dan perlu disisir menyusul. */
   :root[data-tema="gelap"]{
-    --navy:#111c2e; --navy-d:#0a1220; --navy-l:#1e2b3d;
-    --tegas:#e2e8f0;
+    --navy:#152744; --navy-d:#0d1a30; --navy-l:#1e304c;
+    --tegas:#e4eaf5;
     --aksen:#38bdf8; --aksen-d:#7dd3fc; --aksen-l:#0c2b3f; --aksen-garis:#1e4258;
     --chart-utama:#7dd3fc; --chart-sisa:#334155;
-    --ink:#e2e8f0; --mut:#94a3b8; --line:#26334a;
-    --bg:#0b1220; --surface:#111a2b; --surface-2:#16202f;
+    --ink:#e4eaf5; --mut:#96a6c2; --line:#27344e;
+    --bg:#0a1322; --surface:#111d33; --surface-2:#162238;
     --ok-bg:#0d2b22; --warn-bg:#2e250f; --err-bg:#2f1620;
-    --surface-3:#1c2738;
+    --surface-3:#1c2a42;
     --ok:#34d399; --warn:#fbbf24; --err:#fb7185;
     --ok-teks:#6ee7b7; --warn-teks:#fcd34d; --err-teks:#fda4af;
     --info:#a5b4fc; --info-bg:#1e1b4b;
@@ -152,12 +179,12 @@
     /* Bilah atas ikut jadi permukaan gelap yang sama dengan kartu - tidak
        lagi biru: yang membedakannya dari halaman tinggal garis bawah dan
        bayangan tipisnya. */
-    --tb-kiri:#111a2b; --tb-kanan:#111a2b;
-    --tb-teks:#e2e8f0; --tb-teks-lemah:#94a3b8;
-    --tb-chip:#1c2738; --tb-chip-hover:#26334a;
-    --tb-garis:#26334a; --tb-bayang:0 1px 2px rgba(0,0,0,.4);
+    --tb-kiri:#111d33; --tb-kanan:#111d33;
+    --tb-teks:#e4eaf5; --tb-teks-lemah:#96a6c2;
+    --tb-chip:#1c2a42; --tb-chip-hover:#27344e;
+    --tb-garis:#27344e; --tb-bayang:0 1px 2px rgba(0,0,0,.4);
     --tb-avatar-garis:rgba(255,255,255,.12); --tb-avatar-garis-hover:rgba(255,255,255,.32);
-    --sb-bayang:1px 0 0 #26334a;
+    --sb-bayang:1px 0 0 #27344e;
     --shadow:0 1px 2px rgba(0,0,0,.4);
     --shadow-float:0 12px 32px rgba(0,0,0,.6);
   }
@@ -977,7 +1004,7 @@
   /* Level 3: kartu dokumen terbuka */
   .inv-doc-card{max-width:640px;margin:0 auto;background:var(--surface);border:1px solid var(--line);border-radius:var(--r-sm);
     box-shadow:0 12px 30px rgba(0,0,0,.12);overflow:hidden;animation:invOpen .3s cubic-bezier(.2,.8,.2,1);transform-origin:top center;}
-  .inv-doc-card .dc-head{background:linear-gradient(135deg,var(--navy),#1e293b);color:#fff;padding:16px 20px;}
+  .inv-doc-card .dc-head{background:linear-gradient(135deg,var(--navy),#27467d);color:#fff;padding:16px 20px;}
   .inv-doc-card .dc-head .t{font-size:16px;font-weight:800;}
   .inv-doc-card .dc-head .s{font-size:12px;color:#cbd5e1;margin-top:3px;}
   .inv-doc-card .dc-body{padding:6px 20px 18px;}
@@ -1064,7 +1091,7 @@
              box-shadow:var(--shadow);padding:var(--sp-6);}
   /* Profil Saya (full-width, satu kartu seperti Manajemen Users) */
   .profil-top{display:flex;align-items:center;gap:16px;}
-  .profil-av{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--navy),#334155);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:23px;flex:0 0 64px;box-shadow:0 4px 14px rgba(15,23,42,.22);}
+  .profil-av{width:64px;height:64px;border-radius:50%;background:linear-gradient(135deg,var(--navy),#2c4d86);color:#fff;display:flex;align-items:center;justify-content:center;font-weight:800;font-size:23px;flex:0 0 64px;box-shadow:0 4px 14px rgba(15,23,42,.22);}
   .profil-id-nama{font-weight:800;color:var(--tegas);font-size:18px;line-height:1.25;}
   .profil-id-role{display:inline-block;margin-top:6px;font-size:12px;font-weight:600;color:var(--aksen-d);background:var(--aksen-l);padding:4px 12px;border-radius:20px;}
   .profil-sec-title{font-size:14px;font-weight:700;color:var(--tegas);margin-bottom:14px;}
@@ -1390,6 +1417,116 @@
   .btn:hover{background:var(--surface-2);}
   .btn.prim{background:var(--navy);color:#fff;border-color:var(--navy);}
   .btn.prim:hover{background:var(--navy-d);}
+  /* ===== REALISASI SP2D (SPM LS & UP/GU) =====
+     Dipakai dua daftar dan satu halaman rincian, jadi gayanya di sini. */
+  .spm-cari{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center;flex:1 1 320px;}
+  .spm-cari input[type=text]{flex:1 1 260px;min-width:220px;}
+  .spm-aksi{display:inline-flex;align-items:center;gap:6px;}
+  /* Tombol validasi memakai nada "selesai", bukan biru aksen: yang
+     ditandainya memang keadaan akhir, bukan tautan biasa. */
+  .ic-btn.ok svg{stroke:var(--ok);}
+  .ic-btn.ok:hover{background:var(--ok-bg);border-color:var(--ok);}
+
+  /* Pemicu buka-tutup baris SPM: caret DIPUTAR mengikuti aria-expanded.
+     Arah caret sengaja tidak pernah ditulis sebagai teks - versi lama
+     menyusunnya ulang tiap klik dan panahnya menumpuk. */
+  .spm-tgl{display:flex;align-items:flex-start;gap:6px;width:100%;text-align:left;background:none;
+    border:0;padding:0;font:inherit;color:inherit;cursor:pointer;}
+  .spm-tgl svg{width:13px;height:13px;flex:0 0 13px;margin-top:3px;stroke:var(--aksen);fill:none;
+    stroke-width:2.5;transition:transform .15s ease;}
+  .spm-tgl[aria-expanded="true"] svg{transform:rotate(90deg);}
+  .spm-tgl:hover{color:var(--aksen-d);}
+  .spm-tgl:focus-visible{outline:2px solid var(--aksen);outline-offset:2px;border-radius:var(--r-sm);}
+  .spm-nomor{display:block;font-weight:600;color:var(--tegas);overflow-wrap:anywhere;}
+  .spm-jml{display:block;font-size:11px;font-weight:700;color:var(--aksen-d);margin-top:2px;}
+  .spm-sub{display:block;font-size:11.5px;color:var(--mut);margin-top:2px;overflow-wrap:anywhere;}
+
+  .spm-lencana{display:inline-flex;align-items:center;gap:4px;margin-top:4px;padding:2px 8px;
+    border-radius:999px;background:var(--ok-bg);border:1px solid var(--garis-ok);color:var(--ok-teks);
+    font-size:10.5px;font-weight:800;text-transform:uppercase;letter-spacing:.5px;}
+  .spm-lencana svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:3;}
+  .spm-lencana.belum{background:var(--warn-bg);border-color:var(--garis-warn);color:var(--warn-teks);}
+  /* Baris tervalidasi diberi pita kiri hijau - sekali lihat tahu baris mana
+     yang sudah terkunci, tanpa membaca lencananya satu per satu. */
+  table.spm-tabel tr.spm-tervalidasi > td:first-child{box-shadow:inset 3px 0 0 var(--ok);}
+
+  table.spm-tabel tr.spm-rincian > td{background:var(--surface-2);padding:10px 16px 10px 34px;}
+  .spm-rincian-tabel{width:100%;table-layout:fixed;border-collapse:collapse;}
+  .spm-rincian-tabel td{padding:5px 8px;border-bottom:1px solid var(--line);vertical-align:top;
+    overflow-wrap:anywhere;font-size:12px;}
+  .spm-rincian-tabel tr:last-child td{border-bottom:0;}
+  .spm-rincian-tabel td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  .spm-rincian-tabel td.spm-kode{font-weight:600;color:var(--tegas);}
+  .spm-rincian-tabel tr.spm-rincian-total td{font-weight:800;color:var(--tegas);border-top:1px solid var(--line);}
+
+  .spm-hapus{position:relative;}
+  .spm-hapus summary{list-style:none;}
+  .spm-hapus summary::-webkit-details-marker{display:none;}
+  .spm-hapus-form{position:absolute;right:0;top:calc(100% + 6px);z-index:20;background:var(--surface);
+    border:1px solid var(--line);border-radius:var(--r-sm);box-shadow:var(--shadow-float);
+    padding:12px;width:240px;text-align:left;}
+
+  /* Halaman rincian SPM */
+  .spm-kepala{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-3);margin-bottom:var(--sp-2);}
+  .spm-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(200px,1fr));gap:var(--sp-3);
+    margin-top:var(--sp-3);}
+  .spm-item{border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);
+    padding:var(--sp-3);}
+  .spm-item.lebar{grid-column:1/-1;}
+  .spm-item .k{display:block;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.5px;
+    color:var(--mut);margin-bottom:3px;}
+  .spm-item .v{display:block;font-size:13px;font-weight:600;color:var(--tegas);overflow-wrap:anywhere;}
+  .spm-kaki{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:var(--sp-2);margin-top:var(--sp-5);}
+
+  /* ===== BERKAS SPJ (fitur pembantu, opsional) =====
+     Dipakai formulir kelima jenis NPD, halaman detail NPD, dan modul
+     Inventarisasi SPJ - karena itu gayanya di sini, bukan di salah satu
+     halaman. Lencana "opsional" ikut ditulis di sini supaya tidak ada
+     halaman yang lupa memasangnya dan pemakai menyangka SPJ wajib. */
+  .spj-ops{display:inline-block;margin-left:8px;padding:2px 8px;border-radius:999px;
+    background:var(--surface-3);color:var(--mut);font-size:10.5px;font-weight:700;
+    text-transform:uppercase;letter-spacing:.6px;vertical-align:middle;}
+  .spj-unggah{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-3);margin-top:var(--sp-3);}
+  /* Isian file bawaan peramban tidak bisa digayakan; yang ditampilkan adalah
+     <label> ini, sementara <input type=file>-nya disembunyikan. Karena
+     label-nya menunjuk id input, klik pada label tetap membuka pemilih
+     berkas tanpa satu baris JavaScript pun. */
+  .spj-pilih{display:inline-flex;align-items:center;gap:var(--sp-2);padding:9px 16px;
+    border:1px dashed var(--aksen-garis);border-radius:var(--r-sm);background:var(--aksen-l);
+    color:var(--aksen-d);font-size:13px;font-weight:700;cursor:pointer;transition:.15s;}
+  .spj-pilih:hover{background:var(--surface);border-color:var(--aksen);border-style:solid;}
+  .spj-pilih svg{width:16px;height:16px;stroke:currentColor;fill:none;stroke-width:2;}
+  .spj-pilihan{font-size:12.5px;color:var(--mut);}
+  .spj-daftar{margin-top:var(--sp-3);display:flex;flex-direction:column;gap:var(--sp-2);}
+  .spj-daftar-judul{font-size:11px;font-weight:700;color:var(--mut);text-transform:uppercase;letter-spacing:.6px;}
+  .spj-item{display:inline-flex;align-items:center;gap:var(--sp-2);padding:8px 12px;
+    border:1px solid var(--line);border-radius:var(--r-sm);background:var(--surface-2);
+    text-decoration:none;color:var(--tegas);font-size:12.5px;max-width:100%;}
+  .spj-item:hover{border-color:var(--aksen);background:var(--aksen-l);}
+  .spj-item svg,.spj-tautan svg{width:15px;height:15px;flex:0 0 15px;stroke:var(--aksen-d);fill:none;stroke-width:2;}
+  .spj-baris{display:flex;flex-wrap:wrap;align-items:center;gap:var(--sp-3);padding:10px 0;
+    border-bottom:1px solid var(--line);}
+  .spj-baris:last-child{border-bottom:0;}
+  .spj-no{font-size:10.5px;font-weight:800;color:var(--mut);text-transform:uppercase;
+    letter-spacing:.6px;min-width:52px;}
+  .spj-tautan{display:inline-flex;align-items:center;gap:var(--sp-2);text-decoration:none;
+    color:var(--tegas);font-size:13px;font-weight:600;flex:1 1 220px;min-width:0;}
+  .spj-tautan:hover{color:var(--aksen-d);}
+  .spj-nama{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+  .spj-meta{font-size:11.5px;color:var(--mut);}
+  .spj-hapus{position:relative;}
+  .spj-hapus summary{list-style:none;}
+  .spj-hapus summary::-webkit-details-marker{display:none;}
+  /* Penanda "ada berkas SPJ" di tabel Inventarisasi - klip kertas + jumlah. */
+  .spj-klip{display:inline-flex;align-items:center;gap:3px;margin-left:6px;padding:1px 6px;
+    border-radius:999px;background:var(--aksen-l);color:var(--aksen-d);font-size:10.5px;font-weight:800;
+    vertical-align:middle;}
+  .spj-klip svg{width:11px;height:11px;stroke:currentColor;fill:none;stroke-width:2.2;}
+  .spj-kosong{font-size:12.5px;color:var(--mut);}
+  .spj-hapus-form{position:absolute;right:0;top:calc(100% + 6px);z-index:20;background:var(--surface);
+    border:1px solid var(--line);border-radius:var(--r-sm);box-shadow:var(--shadow-float);
+    padding:12px;width:230px;text-align:left;}
+
   .btn.danger{background:#dc2626;color:#fff;border-color:#dc2626;}
   .btn.danger:hover{background:#b91c1c;border-color:#b91c1c;}
   .btn:disabled{opacity:.45;cursor:not-allowed;}

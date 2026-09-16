@@ -70,7 +70,7 @@
 </div>
 
 <div class="kpi-grid">
-    <div class="kpi" style="--kc:#0f172a;--kbg:#0f172a14;">
+    <div class="kpi" style="--kc:#1b3161;--kbg:#1b316114;">
         <div class="kpi-top"><div><div class="kpi-lbl">Pagu Setahun</div></div></div>
         <div class="kpi-val">{{ $rp($total['pagu']) }}</div>
         <div class="kpi-note">Seluruh mata anggaran aktif</div>

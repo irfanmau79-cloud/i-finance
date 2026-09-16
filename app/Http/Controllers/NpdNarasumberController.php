@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\SpjBerkasService;
 use App\Helpers\AuditLog;
 use App\Helpers\Terbilang;
 use App\Http\Requests\StoreNpdNarasumberRequest;
@@ -21,7 +22,7 @@ class NpdNarasumberController extends Controller
         return $this->form();
     }
 
-    public function store(StoreNpdNarasumberRequest $request)
+    public function store(StoreNpdNarasumberRequest $request, SpjBerkasService $spj)
     {
         $data = $request->validated();
 
@@ -86,6 +87,11 @@ class NpdNarasumberController extends Controller
 
         AuditLog::catat('Buat NPD', 'Jenis: Narasumber, Nominal: Rp '.number_format((float) $nominal, 2, ',', '.'));
 
+        // Berkas SPJ (opsional) disimpan SESUDAH NPD-nya tersimpan: berkas
+        // yang sudah tertulis ke disk tidak ikut ter-rollback kalau
+        // transaksi penyimpanan NPD gagal.
+        $spj->simpan($npd, $request->file('spj') ?? [], $request->user());
+
         return redirect()->route('npd.show', $npd)->with('success', 'NPD Narasumber berhasil disimpan sebagai draft.');
     }
 
@@ -112,7 +118,7 @@ class NpdNarasumberController extends Controller
         return $this->form($npd, $narasumberAwal);
     }
 
-    public function update(StoreNpdNarasumberRequest $request, Npd $npd)
+    public function update(StoreNpdNarasumberRequest $request, Npd $npd, SpjBerkasService $spj)
     {
         abort_unless($npd->jenis === 'ns', 404);
         abort_unless($npd->dapatDieditOleh($request->user()), 403);
@@ -170,6 +176,11 @@ class NpdNarasumberController extends Controller
         });
 
         AuditLog::catat('Edit NPD', 'Jenis: Narasumber, NPD #'.$npd->id);
+
+        // Berkas SPJ (opsional) disimpan SESUDAH NPD-nya tersimpan: berkas
+        // yang sudah tertulis ke disk tidak ikut ter-rollback kalau
+        // transaksi penyimpanan NPD gagal.
+        $spj->simpan($npd, $request->file('spj') ?? [], $request->user());
 
         return redirect()->route('npd.show', $npd)->with('success', 'Draft NPD Narasumber berhasil diperbarui.');
     }

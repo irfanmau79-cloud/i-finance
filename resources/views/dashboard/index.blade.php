@@ -77,7 +77,7 @@
 </div>
 
 <div class="kpi-grid">
-  <div class="kpi" style="--kc:#0f172a;--kbg:#0f172a14;">
+  <div class="kpi" style="--kc:#1b3161;--kbg:#1b316114;">
     <div class="kpi-top">
       <div class="kpi-ic"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><line x1="3" y1="9" x2="21" y2="9"/><line x1="8" y1="14" x2="8" y2="16"/><line x1="12" y1="14" x2="12" y2="16"/><line x1="16" y1="14" x2="16" y2="16"/></svg></div>
       <div><div class="kpi-lbl">Pagu Anggaran</div></div>

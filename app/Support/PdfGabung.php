@@ -18,7 +18,8 @@ use setasign\Fpdi\PdfParser\StreamReader;
  * gabungan harus sama persis dengan hasil cetak satu-satu.
  *
  * Ukuran dan orientasi tiap halaman diambil dari halaman sumbernya, jadi
- * dokumen yang kelak memakai kertas atau orientasi lain tetap ikut utuh.
+ * dokumen yang memakai kertas atau orientasi lain - mis. berkas SPJ hasil
+ * pindaian mendatar - tetap ikut utuh.
  */
 class PdfGabung
 {
@@ -54,8 +55,22 @@ class PdfGabung
                 $cetakan = $mpdf->importPage($halaman);
                 $ukuran = $mpdf->getTemplateSize($cetakan);
 
+                // orientation SELALU 'P', bukan $ukuran['orientation'].
+                //
+                // Ini bukan berarti halamannya dipaksa tegak - justru
+                // sebaliknya. Mpdf::_setPageSize() MENUKAR sisi yang diberikan
+                // begitu orientasinya 'L' (wPt = fhPt, hPt = fwPt), karena ia
+                // mengharapkan ukuran kertas dalam susunan tegak lalu
+                // memutarnya sendiri. Mengirim ukuran yang SUDAH mendatar
+                // (330x215) BERSAMA orientation 'L' berarti penukaran itu
+                // terjadi dua kali, dan halamannya berakhir tegak 215x330 -
+                // sementara isinya tetap ditempel selebar 330mm, jadi bagian
+                // kanannya terpotong. Itulah yang terjadi pada SPJ mendatar.
+                //
+                // Dengan 'P', ukuran dipakai apa adanya: halaman jadi persis
+                // sebesar halaman sumbernya, mendatar maupun tegak.
                 $mpdf->AddPageByArray([
-                    'orientation' => $ukuran['orientation'],
+                    'orientation' => 'P',
                     'sheet-size' => [$ukuran['width'], $ukuran['height']],
                 ]);
 

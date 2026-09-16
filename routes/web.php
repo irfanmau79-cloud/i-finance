@@ -37,6 +37,7 @@ use App\Http\Controllers\SegeraHadirController;
 use App\Http\Controllers\SimulasiAnggaranController;
 use App\Http\Controllers\SimulasiRealisasiController;
 use App\Http\Controllers\SpjDashboardController;
+use App\Http\Controllers\SpjBerkasController;
 use App\Http\Controllers\SpmController;
 use App\Http\Controllers\SpmImportController;
 use App\Http\Controllers\SuratPerintahController;
@@ -97,9 +98,15 @@ Route::middleware('auth.or.guest')->group(function () {
     Route::get('/dashboard', DashboardRealisasiController::class)
         ->middleware('menu-akses:dashboard')
         ->name('dashboard.index');
-    Route::get('/rincian-realisasi', RincianRealisasiController::class)
-        ->middleware('menu-akses:rincian')
-        ->name('rincian.index');
+    // Dua sub menu Rincian Realisasi berbagi satu kunci akses 'rincian':
+    // angkanya sama, cuma dipotong berbeda (kumulatif setahun vs per bulan),
+    // jadi tidak ada peran yang boleh melihat satu tapi tidak yang lain.
+    Route::middleware('menu-akses:rincian')->group(function () {
+        Route::get('/rincian-realisasi', [RincianRealisasiController::class, 'index'])
+            ->name('rincian.index');
+        Route::get('/rincian-realisasi/periodik', [RincianRealisasiController::class, 'periodik'])
+            ->name('rincian.periodik');
+    });
     Route::get('/analisis-tren', AnalisisTrenController::class)
         ->middleware('menu-akses:analisis')
         ->name('analisis.index');
@@ -454,13 +461,22 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/npd/{npd}/cetak-spd', [NpdController::class, 'cetakSpd'])->name('npd.cetak-spd');
         Route::get('/npd/{npd}/cetak-daftar-nara', [NpdController::class, 'cetakDaftarNarasumber'])->name('npd.cetak-daftar-nara');
         Route::get('/npd/{npd}/cetak-daftar-kd', [NpdController::class, 'cetakDaftarKontribusiDiklat'])->name('npd.cetak-daftar-kd');
-        // Seluruh dokumen di atas dalam satu berkas, berurutan.
+        // Seluruh dokumen di atas dalam satu berkas, berurutan - berkas SPJ
+        // yang sudah diunggah ikut di dalamnya.
         Route::get('/npd/{npd}/cetak-gabungan', [NpdController::class, 'cetakGabungan'])->name('npd.cetak-gabungan');
+
+        // MELIHAT berkas SPJ ikut kelompok ini (Pengawas termasuk): isinya
+        // lampiran dokumen yang sudah boleh mereka baca lewat tombol cetak.
+        Route::get('/npd/{npd}/spj-berkas/{berkas}', [SpjBerkasController::class, 'show'])->name('npd.spj-berkas.show');
     });
 
     // Mengarsipkan SPJ mengubah data, jadi tetap di luar jangkauan Pengawas.
+    // Mengunggah & menghapus berkas SPJ sekelompok di sini dengan alasan yang
+    // sama - fitur pembantu, tapi tetap mengubah data.
     Route::middleware('role:superadmin,bendahara_pengeluaran,pptk,bpp,verifikator')->group(function () {
         Route::post('/npd/{npd}/arsip-spj', [InventarisasiSpjController::class, 'store'])->name('npd.arsip-spj.store');
+        Route::post('/npd/{npd}/spj-berkas', [SpjBerkasController::class, 'store'])->name('npd.spj-berkas.store');
+        Route::delete('/npd/{npd}/spj-berkas/{berkas}', [SpjBerkasController::class, 'destroy'])->name('npd.spj-berkas.destroy');
     });
 
     Route::middleware('role:superadmin,bendahara_pengeluaran,kepegawaian')->group(function () {
@@ -486,6 +502,13 @@ Route::middleware('auth.or.guest')->group(function () {
     Route::middleware('role:superadmin,bendahara_pengeluaran,pengawas')->group(function () {
         Route::get('/spm/up-gu', [SpmController::class, 'indexUpGu'])->name('spm.up-gu.index');
         Route::get('/spm/ls', [SpmController::class, 'indexLs'])->name('spm.ls.index');
+        // Rincian SPM LS ikut boleh dibaca Pengawas, sama seperti daftarnya.
+        //
+        // whereNumber WAJIB: rute ini terdaftar SEBELUM /spm/ls/create, dan
+        // tanpa batasan itu "create" akan tertangkap sebagai id SPM sehingga
+        // formulir tambah SPM LS berubah jadi 404.
+        Route::get('/spm/ls/{spm}', [SpmController::class, 'showLs'])
+            ->whereNumber('spm')->name('spm.ls.show');
     });
 
     // Membuat, mengubah, dan menghapus SPM: superadmin dan Bendahara Pengeluaran.
@@ -501,6 +524,12 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::put('/spm/ls/{spm}', [SpmController::class, 'updateLs'])->name('spm.ls.update');
 
         Route::delete('/spm/{spm}', [SpmController::class, 'destroy'])->name('spm.destroy');
+
+        // Validasi = menyatakan angkanya sudah cocok dengan berkas SP2D, dan
+        // sejak itu barisnya tidak bisa dihapus. Membatalkannya dibatasi
+        // superadmin (lihat SpmController::batalValidasi).
+        Route::post('/spm/{spm}/validasi', [SpmController::class, 'validasi'])->name('spm.validasi');
+        Route::delete('/spm/{spm}/validasi', [SpmController::class, 'batalValidasi'])->name('spm.validasi.batal');
     });
 
     // Pengembalian: Bendahara Pengeluaran dan BPP boleh input & lihat; HANYA

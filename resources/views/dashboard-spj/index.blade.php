@@ -14,7 +14,7 @@
   .spj-progress-head strong{font-weight:700;color:var(--tegas)}
   .spj-progress-head span{color:var(--mut);font-size:12.5px}
   .spj-bar{height:26px;background:var(--surface-3);border-radius:6px;overflow:hidden;position:relative}
-  .spj-bar i{height:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:10px;box-sizing:border-box;border-radius:6px;min-width:4px;background:linear-gradient(90deg,#334155,#0f172a);color:#fff;font-size:12.5px;font-weight:700}
+  .spj-bar i{height:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:10px;box-sizing:border-box;border-radius:6px;min-width:4px;background:linear-gradient(90deg,#2c4d86,#1b3161);color:#fff;font-size:12.5px;font-weight:700}
   .spj-bar b{position:absolute;top:50%;transform:translateY(-50%);color:var(--tegas);font-weight:700;font-size:12.5px}
   .spj-table-wrap{overflow:auto}.spj-table{min-width:1050px}.spj-empty{text-align:center;padding:46px;color:var(--mut)}
   @media(max-width:960px){.spj-filter{grid-template-columns:1fr 1fr}}@media(max-width:600px){.spj-filter{grid-template-columns:1fr}}
@@ -38,7 +38,7 @@
 </form></div>
 
 <div class="kpi-grid">
-  <div class="kpi" style="--kc:#0f172a;--kbg:#0f172a14;">
+  <div class="kpi" style="--kc:#1b3161;--kbg:#1b316114;">
     <div class="kpi-top"><div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg></div><div><div class="kpi-lbl">Total SPJ</div></div></div>
     <div class="kpi-val">{{ $dashboard['total'] }}</div>
   </div>

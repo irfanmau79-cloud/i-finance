@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Models\BantexSpj;
 use App\Models\Npd;
+use App\Models\SpjBerkas;
 use App\Models\SpjDetail;
 use App\Support\BidangOrganisasi;
 use Illuminate\Support\Collection;
@@ -20,6 +21,10 @@ class InventarisasiSpjService
                 'tim.pegawai', 'narasumber.pegawai', 'narasumber.vendor', 'peserta.pegawai',
                 'suratPerintah', 'induk.suratPerintah', 'arsipSpj', 'arsipSpjAktif', 'spjDetail',
             ])
+            // Cuma JUMLAHNYA yang dibutuhkan tabel (penanda "ada berkas"),
+            // bukan barisnya - withCount menghindari memuat ribuan baris
+            // berkas hanya untuk menggambar satu ikon per baris.
+            ->withCount('spjBerkas')
             ->where('status', 'Selesai')
             ->orderByDesc('tanggal_npd')
             ->get()
@@ -165,6 +170,7 @@ class InventarisasiSpjService
             'masterAnggaran.tagging', 'penerima.pegawai', 'penerima.vendor',
             'tim.pegawai', 'tim.paket', 'narasumber', 'peserta',
             'suratPerintah.anggota', 'induk.suratPerintah.anggota', 'spjDetail',
+            'spjBerkas',
         ]);
 
         $rupiah = fn ($n) => 'Rp '.number_format((float) $n, 2, ',', '.');
@@ -231,6 +237,18 @@ class InventarisasiSpjService
             'lokasi' => $npd->spjDetail?->lokasi ?? $this->lokasiDefault($npd),
             'status' => $npd->spjDetail?->status ?? SpjDetail::STATUS_BELUM_LENGKAP,
             'catatan' => $npd->spjDetail?->catatan,
+            // Berkas SPJ hasil unggahan (fitur pembantu, boleh kosong).
+            // Ikut di JSON ini supaya panel Rincian & Edit bisa menampilkan
+            // tautannya tanpa permintaan kedua ke server.
+            'berkas_spj' => $npd->spjBerkas->map(fn (SpjBerkas $berkas) => [
+                'id' => $berkas->id,
+                'nama' => $berkas->nama_asli,
+                'jenis' => $berkas->pdf() ? 'PDF' : 'JPG',
+                'ukuran' => $berkas->ukuranTerbaca(),
+                'url' => route('npd.spj-berkas.show', [$npd, $berkas]),
+                'url_hapus' => route('npd.spj-berkas.destroy', [$npd, $berkas]),
+            ])->values()->all(),
+            'url_unggah_spj' => route('npd.spj-berkas.store', $npd),
         ];
     }
 
@@ -267,6 +285,7 @@ class InventarisasiSpjService
             'tanggal' => $npd->tanggal_npd->format('Y-m-d'),
             'bulan' => (int) $npd->tanggal_npd->month,
             'bulan_label' => $npd->tanggal_npd->locale('id')->translatedFormat('F'),
+            'berkas_spj_jumlah' => (int) ($npd->spj_berkas_count ?? $npd->spjBerkas()->count()),
             'nomor_npd' => $npd->nomor_lengkap ?: 'NPD #'.$npd->id,
             'jenis_dokumen' => $jenis,
             'program' => $npd->masterAnggaran->programNormal(),

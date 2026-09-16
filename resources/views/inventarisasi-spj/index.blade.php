@@ -85,7 +85,7 @@
 
   /* ---------- Panel rincian & edit ---------- */
   .spj-detail-modal,.spj-edit-modal{max-width:920px;background:var(--surface-2);}
-  .spj-detail-modal .mdl-h,.spj-edit-modal .mdl-h{padding:20px 24px 16px;background:linear-gradient(135deg,var(--navy),#1e293b);color:#fff;border-radius:14px 14px 0 0;}
+  .spj-detail-modal .mdl-h,.spj-edit-modal .mdl-h{padding:20px 24px 16px;background:linear-gradient(135deg,var(--navy),#27467d);color:#fff;border-radius:14px 14px 0 0;}
   .spj-detail-modal .mdl-b,.spj-edit-modal .mdl-b{padding:20px 24px;max-height:74vh;overflow:auto;}
   .spj-detail-head-sub{display:block;margin-top:3px;color:#c9d9e8;font-size:11.5px;font-weight:400;}
   .spj-detail-section{margin-bottom:16px;}
@@ -347,6 +347,32 @@
         </div>
       </form>
 
+      {{-- Berkas SPJ: OPSIONAL, pintu unggah kedua di samping formulir NPD.
+           Sengaja di LUAR #spj-edit-form: unggahnya berjalan sendiri lewat
+           fetch, jadi menyimpan lokasi/status/catatan tidak ikut mengunggah
+           berkas dan sebaliknya - dua hal yang memang tidak berhubungan. --}}
+      <div class="spj-edit-section" id="inv-spj-panel">
+        <div class="spj-edit-section-title">Berkas SPJ <span class="spj-ops">opsional</span></div>
+        <div class="sub" style="margin:-4px 0 10px;">
+          Hasil pindaian SPJ (PDF/JPG). Berkas di sini ikut tercetak pada &ldquo;Cetak Semua
+          (1 Berkas)&rdquo; di halaman detail NPD.
+        </div>
+        <div class="spj-unggah">
+          <label class="spj-pilih" for="inv-spj-input">
+            <svg viewBox="0 0 24 24" aria-hidden="true">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <span>Upload SPJ</span>
+          </label>
+          <input type="file" id="inv-spj-input" accept="application/pdf,image/jpeg,.pdf,.jpg,.jpeg" multiple hidden>
+          <span class="spj-pilihan" id="inv-spj-pilihan">Belum ada berkas dipilih</span>
+          <button type="button" class="btn prim" id="inv-spj-kirim" disabled>Simpan Berkas</button>
+        </div>
+        <div class="err-box" id="inv-spj-err"></div>
+        <div id="inv-spj-daftar"></div>
+      </div>
+
       <div class="spj-edit-actions">
         <button type="button" class="btn" onclick="spjModalClose()">Batal</button>
         <button type="submit" form="spj-edit-form" class="btn prim">Simpan Perubahan</button>
@@ -579,7 +605,11 @@ document.addEventListener('DOMContentLoaded', function () {
 
     tbody.innerHTML = potong.length ? potong.map(r =>
       '<tr>' +
-        '<td class="cell-npd">' + esc(r.nomor_npd) + '</td>' +
+        '<td class="cell-npd">' + esc(r.nomor_npd) +
+          // Penanda kecil bahwa NPD ini punya berkas SPJ terunggah, supaya
+          // tidak perlu membuka panel satu per satu untuk tahu yang mana.
+          (r.berkas_spj_jumlah ? ' <span class="spj-klip" title="' + r.berkas_spj_jumlah + ' berkas SPJ terunggah"><svg viewBox="0 0 24 24"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>' + r.berkas_spj_jumlah + '</span>' : '') +
+        '</td>' +
         '<td class="cell-clip" title="' + esc(r.koordinator) + '">' + esc(r.koordinator) + '</td>' +
         '<td><span class="spj-lokasi"><svg viewBox="0 0 24 24"><path d="M20 10c0 5-8 12-8 12S4 15 4 10a8 8 0 1 1 16 0Z"/><circle cx="12" cy="10" r="2.5"/></svg>' + esc(r.lokasi || 'Belum Ditetapkan') + '</span></td>' +
         '<td>' + lencanaStatus(r.status) + '</td>' +
@@ -780,7 +810,7 @@ document.addEventListener('DOMContentLoaded', function () {
   const bagian = (judul, isi) => '<section class="spj-detail-section"><div class="spj-detail-section-title">' + judul + '</div><div class="spj-detail-grid">' + isi + '</div></section>';
 
   /** Rincian NPD baca-saja: dipakai bersama oleh panel Lihat Rincian dan panel Edit. */
-  function rincianHtml(d) {
+  function rincianHtml(d, tanpaBerkas) {
     let html = bagian('Identitas Nota Pencairan Dana',
       item('Nomor NPD', d.nomor_npd) + item('Tanggal', d.tanggal) +
       item('Jenis NPD', d.jenis) + item('Status NPD', d.status_npd) +
@@ -813,11 +843,43 @@ document.addEventListener('DOMContentLoaded', function () {
         '</tbody></table></section>';
     }
 
-    return html + bagian('Inventarisasi SPJ',
+    html += bagian('Inventarisasi SPJ',
       item('Lokasi Penyimpanan', d.lokasi || 'Belum Ditetapkan') +
       item('Status SPJ', statusLabel[d.status] || '-') +
       item('Catatan', d.catatan || 'Tidak ada catatan', true)
     );
+
+    // Berkas SPJ hanya digambar pada panel BACA (Lihat Rincian). Panel Edit
+    // punya bagiannya sendiri yang bisa mengunggah & menghapus, jadi kalau
+    // ikut digambar di sini pemakai melihat dua daftar yang sama.
+    if (! tanpaBerkas) {
+      html += '<section class="spj-detail-section"><div class="spj-detail-section-title">Berkas SPJ</div>' +
+        berkasDaftarHtml(d.berkas_spj, false) + '</section>';
+    }
+
+    return html;
+  }
+
+  /**
+   * Daftar tautan berkas SPJ. $bolehHapus menentukan ada atau tidaknya tombol
+   * hapus - dipakai panel Edit saja.
+   */
+  function berkasDaftarHtml(berkas, bolehHapus) {
+    if (! berkas || ! berkas.length) {
+      return '<div class="spj-kosong">Belum ada berkas SPJ yang diunggah.</div>';
+    }
+
+    return '<div class="spj-daftar">' + berkas.map((b, i) =>
+      '<div class="spj-baris">' +
+        '<span class="spj-no">SPJ ' + (i + 1) + '</span>' +
+        '<a class="spj-tautan" href="' + esc(b.url) + '" target="_blank" rel="noopener">' +
+          '<svg viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>' +
+          '<span class="spj-nama">' + esc(b.nama) + '</span>' +
+        '</a>' +
+        '<span class="spj-meta">' + esc(b.jenis) + ' &middot; ' + esc(b.ukuran) + '</span>' +
+        (bolehHapus ? '<button type="button" class="ic-btn danger" data-spj-hapus="' + esc(b.url_hapus) + '" title="Hapus berkas ini"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6l-1 14a2 2 0 0 1-2 2H8a2 2 0 0 1-2-2L5 6"/></svg></button>' : '') +
+      '</div>'
+    ).join('') + '</div>';
   }
 
   const cacheRincian = {};
@@ -869,7 +931,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
       ambilRincian(npdId)
         .then(d => {
-          baca.innerHTML = rincianHtml(d);
+          baca.innerHTML = rincianHtml(d, true);
+          pasangBerkas(npdId, d);
           // Nilai dari peladen menang atas salinan di tabel.
           fLokasi.value = d.lokasi || '';
           fStatus.value = d.status;
@@ -877,6 +940,97 @@ document.addEventListener('DOMContentLoaded', function () {
         })
         .catch(() => { baca.innerHTML = '<div class="spj-memuat">Rincian NPD gagal dimuat.</div>'; });
     }
+
+    /* ------------------- Berkas SPJ (unggah & hapus) -------------------
+       Dikerjakan lewat fetch, bukan submit formulir biasa: submit akan
+       memuat ulang halaman dan menutup modal, sehingga pemakai kehilangan
+       tempatnya di tabel setiap kali menambah satu lembar pindaian. */
+    const csrf = document.querySelector('meta[name="csrf-token"]')?.content || '';
+    const spjInput = document.getElementById('inv-spj-input');
+    const spjLabel = document.getElementById('inv-spj-pilihan');
+    const spjKirim = document.getElementById('inv-spj-kirim');
+    const spjDaftar = document.getElementById('inv-spj-daftar');
+    const spjErr = document.getElementById('inv-spj-err');
+    let spjNpdId = null;
+    let spjUrlUnggah = null;
+
+    function resetPilihan() {
+      spjInput.value = '';
+      spjLabel.textContent = 'Belum ada berkas dipilih';
+      spjKirim.disabled = true;
+    }
+
+    function pesanGalat(teks) {
+      spjErr.textContent = teks || '';
+      spjErr.style.display = teks ? 'block' : 'none';
+    }
+
+    function pasangBerkas(npdId, d) {
+      spjNpdId = npdId;
+      spjUrlUnggah = d.url_unggah_spj;
+      spjDaftar.innerHTML = berkasDaftarHtml(d.berkas_spj, true);
+      resetPilihan();
+      pesanGalat('');
+    }
+
+    /** Muat ulang daftar berkas dari peladen - cache rincian dibuang dulu. */
+    function segarkanBerkas() {
+      delete cacheRincian[spjNpdId];
+
+      return ambilRincian(spjNpdId).then(d => {
+        spjDaftar.innerHTML = berkasDaftarHtml(d.berkas_spj, true);
+        // Penanda jumlah di tabel ikut disegarkan tanpa memuat ulang
+        // halaman, supaya ikon klip tidak berbohong.
+        [semuaBaris, tersaring].forEach(kumpulan => kumpulan
+          .filter(r => r.npd_id === spjNpdId)
+          .forEach(r => { r.berkas_spj_jumlah = d.berkas_spj.length; }));
+        gambarTabel();
+      });
+    }
+
+    spjInput.addEventListener('change', function () {
+      const n = spjInput.files ? spjInput.files.length : 0;
+      spjKirim.disabled = n === 0;
+      spjLabel.textContent = n === 0
+        ? 'Belum ada berkas dipilih'
+        : (n === 1 ? spjInput.files[0].name : n + ' berkas dipilih');
+    });
+
+    spjKirim.addEventListener('click', function () {
+      if (! spjUrlUnggah || ! spjInput.files.length) return;
+
+      const data = new FormData();
+      Array.prototype.forEach.call(spjInput.files, f => data.append('spj[]', f));
+
+      spjKirim.disabled = true;
+      spjKirim.textContent = 'Mengunggah…';
+      pesanGalat('');
+
+      fetch(spjUrlUnggah, {
+        method: 'POST',
+        headers: {'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+        body: data,
+      })
+        .then(r => r.ok ? r : r.json().then(j => { throw new Error(Object.values(j.errors || {}).flat()[0] || j.message || 'Unggah gagal.'); }))
+        .then(() => segarkanBerkas())
+        .then(() => { resetPilihan(); })
+        .catch(e => pesanGalat(e.message || 'Berkas gagal diunggah.'))
+        .finally(() => { spjKirim.textContent = 'Simpan Berkas'; });
+    });
+
+    spjDaftar.addEventListener('click', function (e) {
+      const btn = e.target.closest('[data-spj-hapus]');
+      if (! btn) return;
+      if (! window.confirm('Hapus berkas SPJ ini? Berkasnya hilang permanen.')) return;
+
+      fetch(btn.dataset.spjHapus, {
+        method: 'POST',
+        headers: {'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+        body: new URLSearchParams({_method: 'DELETE'}),
+      })
+        .then(r => { if (! r.ok) throw new Error('Hapus gagal.'); return segarkanBerkas(); })
+        .catch(e => pesanGalat(e.message || 'Berkas gagal dihapus.'));
+    });
 
     document.getElementById('inv-table-tbody').addEventListener('click', function (e) {
       const btn = e.target.closest('[data-spj-edit]');

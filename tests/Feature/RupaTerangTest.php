@@ -45,8 +45,10 @@ class RupaTerangTest extends TestCase
 
         // Kedua ujung gradien bilah sama-sama putih pada mode Default.
         $this->assertStringContainsString('--tb-kiri:#ffffff; --tb-kanan:#ffffff;', $isi);
-        // Tulisannya jadi tinta, bukan putih.
-        $this->assertStringContainsString('--tb-teks:#0f172a;', $isi);
+        // Tulisannya jadi tinta, bukan putih. Dipatok ke TOKEN (--tegas),
+        // bukan nilai heksadesimalnya: yang dijaga test ini keputusan "bilah
+        // atas bertulisan tinta", bukan nada tinta yang dipakai tahun ini.
+        $this->assertStringContainsString('--tb-teks:var(--tegas);', $isi);
     }
 
     /** Sidebar tetap satu-satunya bidang gelap, dan warnanya lewat token. */
@@ -57,7 +59,12 @@ class RupaTerangTest extends TestCase
         $this->assertMatchesRegularExpression(
             '/--sb-bg:linear-gradient\(180deg,var\(--navy-d\)/', $isi,
             'Sidebar Default tidak lagi memakai latar gelap bertoken.');
-        $this->assertStringContainsString('--navy:#0f172a;', $isi);
+        // Nilai navy sengaja dipatok: palet rangka adalah keputusan rupa,
+        // jadi menggantinya harus jadi suntingan sadar di test ini - bukan
+        // efek samping yang lolos tanpa disadari. Diperbarui ke navy
+        // sungguhan (hue ~220) sesudah sempat memakai slate-900 yang
+        // terbaca hampir hitam.
+        $this->assertStringContainsString('--navy:#17294d;', $isi);
     }
 
     /**

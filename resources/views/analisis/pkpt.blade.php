@@ -19,7 +19,7 @@
   .pkpt-progress-head strong{font-weight:700;color:var(--tegas)}
   .pkpt-progress-head span{color:var(--mut);font-size:12.5px}
   .pkpt-bar{height:26px;background:var(--surface-3);border-radius:6px;overflow:hidden;position:relative}
-  .pkpt-bar i{height:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:10px;box-sizing:border-box;border-radius:6px;min-width:4px;background:linear-gradient(90deg,#334155,#0f172a);color:#fff;font-size:12.5px;font-weight:700}
+  .pkpt-bar i{height:100%;display:flex;align-items:center;justify-content:flex-end;padding-right:10px;box-sizing:border-box;border-radius:6px;min-width:4px;background:linear-gradient(90deg,#2c4d86,#1b3161);color:#fff;font-size:12.5px;font-weight:700}
   .pkpt-bar b{position:absolute;top:50%;transform:translateY(-50%);color:var(--tegas);font-weight:700;font-size:12.5px}
 
   .pkpt-filter{display:grid;grid-template-columns:repeat(4,1fr) auto;gap:12px;align-items:end;margin-top:14px}
@@ -57,7 +57,7 @@
 </div>
 
 <div class="kpi-grid pkpt-kpi">
-  <div class="kpi" style="--kc:#0f172a;--kbg:#0f172a14;">
+  <div class="kpi" style="--kc:#1b3161;--kbg:#1b316114;">
     <div class="kpi-top"><div class="kpi-ic"><svg viewBox="0 0 24 24"><path d="M9 11l3 3L22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg></div><div><div class="kpi-lbl">Total Kegiatan</div></div></div>
     <div class="kpi-val">{{ number_format($kartu['total_kegiatan'], 0, ',', '.') }}</div>
     <div class="kpi-note">Tahun Anggaran {{ $tahun }}</div>

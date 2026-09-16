@@ -317,6 +317,8 @@
         </div>
     @endif
 
+    @include('npd._spj-berkas', ['npd' => $npd, 'bolehKelola' => $bolehKelolaArsip])
+
     <h3 style="margin-top:22px;">Lokasi Arsip SPJ</h3>
     <div class="dash-card" style="box-shadow:none;border:1px solid var(--line);">
         @if ($bolehKelolaArsip && $npd->status === 'Selesai')

@@ -99,11 +99,25 @@
       </div>
       @endif
 
+      {{-- Rincian Realisasi punya dua sub menu tapi CUMA SATU kunci akses
+           ('rincian'), sama seperti grup Analisis yang beberapa sub menunya
+           menumpang kunci 'analisis'. Karena itu grup ini tidak memakai
+           helper $group() - helper itu menyamakan nama kunci akses dengan
+           nama activeNav, sementara di sini 'rincian-periodik' hanya nama
+           activeNav, bukan kunci akses. --}}
       @if (in_array('rincian', $akses))
-      <a class="sb-item{{ $activeNav === 'rincian' ? ' active' : '' }}" href="{{ $href('rincian') }}">
-        <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
-        Rincian Realisasi
-      </a>
+      @php($rincianOpen = in_array($activeNav, ['rincian', 'rincian-periodik'], true))
+      <div class="sb-group{{ $rincianOpen ? ' open' : '' }}">
+        <div class="sb-item sb-parent" id="nav-rincian-parent">
+          <svg viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+          Rincian Realisasi
+          <svg class="chev" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
+        </div>
+        <div class="sb-sub">
+          <a class="sb-item sub{{ $activeNav === 'rincian' ? ' active' : '' }}" href="{{ route('rincian.index') }}">Realisasi Tahunan</a>
+          <a class="sb-item sub{{ $activeNav === 'rincian-periodik' ? ' active' : '' }}" href="{{ route('rincian.periodik') }}">Realisasi Periodik</a>
+        </div>
+      </div>
       @endif
 
       {{-- Analisis dan Tren menampung enam sub menu dengan TIGA kunci akses

@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\SpjBerkasService;
 use App\Helpers\AuditLog;
 use App\Helpers\Terbilang;
 use App\Http\Requests\StoreNpdKontribusiDiklatRequest;
@@ -20,7 +21,7 @@ class NpdKontribusiDiklatController extends Controller
         return $this->form();
     }
 
-    public function store(StoreNpdKontribusiDiklatRequest $request)
+    public function store(StoreNpdKontribusiDiklatRequest $request, SpjBerkasService $spj)
     {
         $data = $request->validated();
         $mode = $data['mode'];
@@ -111,6 +112,11 @@ class NpdKontribusiDiklatController extends Controller
         $labelModul = $mode === 'perjalanan' ? 'Kontribusi Diklat (Perjalanan)' : 'Kontribusi Diklat (Kontribusi)';
         AuditLog::catat('Buat NPD', "Jenis: {$labelModul}, Nominal: Rp ".number_format((float) $nominal, 2, ',', '.'));
 
+        // Berkas SPJ (opsional) disimpan SESUDAH NPD-nya tersimpan: berkas
+        // yang sudah tertulis ke disk tidak ikut ter-rollback kalau
+        // transaksi penyimpanan NPD gagal.
+        $spj->simpan($npd, $request->file('spj') ?? [], $request->user());
+
         return redirect()->route('npd.show', $npd)->with('success', 'NPD Kontribusi Diklat berhasil disimpan sebagai draft.');
     }
 
@@ -144,7 +150,7 @@ class NpdKontribusiDiklatController extends Controller
         return $this->form($npd, $pesertaAwal, $detail);
     }
 
-    public function update(StoreNpdKontribusiDiklatRequest $request, Npd $npd)
+    public function update(StoreNpdKontribusiDiklatRequest $request, Npd $npd, SpjBerkasService $spj)
     {
         abort_unless($npd->jenis === 'kd', 404);
         abort_unless($npd->dapatDieditOleh($request->user()), 403);
@@ -229,6 +235,11 @@ class NpdKontribusiDiklatController extends Controller
         });
 
         AuditLog::catat('Edit NPD', 'Jenis: Kontribusi Diklat, NPD #'.$npd->id);
+
+        // Berkas SPJ (opsional) disimpan SESUDAH NPD-nya tersimpan: berkas
+        // yang sudah tertulis ke disk tidak ikut ter-rollback kalau
+        // transaksi penyimpanan NPD gagal.
+        $spj->simpan($npd, $request->file('spj') ?? [], $request->user());
 
         return redirect()->route('npd.show', $npd)->with('success', 'Draft NPD Kontribusi Diklat berhasil diperbarui.');
     }

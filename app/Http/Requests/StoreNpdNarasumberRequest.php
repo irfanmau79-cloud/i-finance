@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\SpjBerkasService;
 use App\Models\Npd;
 use App\Support\AnggaranNpd;
 use Illuminate\Foundation\Http\FormRequest;
@@ -49,6 +50,10 @@ class StoreNpdNarasumberRequest extends FormRequest
             'narasumber.*.transport' => ['nullable', 'numeric', 'min:0'],
             'narasumber.*.pph21' => ['nullable', 'numeric', 'min:0'],
             'narasumber.*.uraian' => ['nullable', 'string'],
+            // Unggah SPJ - OPSIONAL, lihat App\Services\SpjBerkasService.
+            // Aturannya diambil dari service supaya kelima jenis NPD dan
+            // pintu unggah di Inventarisasi SPJ tidak bisa berbeda-beda.
+            ...SpjBerkasService::aturan(),
         ];
     }
 
@@ -67,6 +72,7 @@ class StoreNpdNarasumberRequest extends FormRequest
             'narasumber.*.nama' => 'Nama Narasumber',
             'narasumber.*.jumlah_jp' => 'Jumlah JP',
             'narasumber.*.tarif_jp' => 'Tarif per JP',
+            ...SpjBerkasService::labelIsian(),
         ];
     }
 }

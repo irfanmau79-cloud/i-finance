@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\SpjBerkasService;
 use App\Models\Npd;
 use App\Support\AnggaranNpd;
 use Illuminate\Foundation\Http\FormRequest;
@@ -79,6 +80,10 @@ class StoreNpdKontribusiDiklatRequest extends FormRequest
             'peserta.*.hari_saku' => ['nullable', 'integer', 'min:0'],
             'peserta.*.tarif_saku' => ['nullable', 'numeric', 'min:0'],
             'peserta.*.transport' => ['nullable', 'numeric', 'min:0'],
+            // Unggah SPJ - OPSIONAL, lihat App\Services\SpjBerkasService.
+            // Aturannya diambil dari service supaya kelima jenis NPD dan
+            // pintu unggah di Inventarisasi SPJ tidak bisa berbeda-beda.
+            ...SpjBerkasService::aturan(),
         ];
     }
 
@@ -101,6 +106,7 @@ class StoreNpdKontribusiDiklatRequest extends FormRequest
             'penerima_transfer.*.nama' => 'Nama Penerima Transfer',
             'penerima_transfer.*.nominal' => 'Nominal Penerima Transfer',
             'peserta.*.nama' => 'Nama Peserta',
+            ...SpjBerkasService::labelIsian(),
         ];
     }
 }

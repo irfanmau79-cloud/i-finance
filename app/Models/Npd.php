@@ -312,6 +312,16 @@ class Npd extends Model
         return $this->belongsTo(NpdHistorisImport::class, 'import_historis_id');
     }
 
+    /**
+     * Berkas SPJ hasil pindaian yang ditempelkan ke NPD ini - fitur pembantu,
+     * boleh kosong. Urutannya menentukan urutan halaman saat ikut tercetak
+     * di berkas gabungan.
+     */
+    public function spjBerkas(): HasMany
+    {
+        return $this->hasMany(SpjBerkas::class)->orderBy('urutan')->orderBy('id');
+    }
+
     /** Override manual "Tabel Detail SPJ" (Inventarisasi SPJ) - lihat App\Models\SpjDetail. */
     public function spjDetail(): HasOne
     {

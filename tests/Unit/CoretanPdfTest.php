@@ -123,4 +123,239 @@ class CoretanPdfTest extends TestCase
         $this->assertStringContainsString('polyline', CoretanPdf::overlayHtml($json, 215, 330, 'npd'));
         $this->assertSame('', CoretanPdf::overlayHtml($json, 215, 330, 'lampiran'));
     }
+
+    /**
+     * Stabilo bukan sekadar pena tebal: warnanya harus TEMBUS PANDANG supaya
+     * tulisan di bawahnya tetap terbaca, dan ujungnya persegi seperti spidol.
+     * Kalau stroke-opacity-nya hilang, stabilo berubah jadi penutup tinta
+     * yang menghalangi tulisan yang justru ingin disorot.
+     */
+    public function test_stabilo_tembus_pandang_berujung_persegi_dan_boleh_jauh_lebih_tebal(): void
+    {
+        $json = json_encode([
+            'strokes' => [
+                ['jenis' => 'stabilo', 'page' => 1, 'color' => '#f59e0b', 'width' => 0.03, 'points' => [[0.1, 0.2], [0.6, 0.2]]],
+            ],
+        ]);
+
+        $html = CoretanPdf::overlayHtml($json, 215, 330);
+
+        $this->assertStringContainsString('stroke-opacity="0.35"', $html);
+        $this->assertStringContainsString('stroke-linecap="butt"', $html);
+        // 0,03 x 215mm = 6,45mm - jauh di atas batas 5mm milik pena.
+        $this->assertStringContainsString('stroke-width="6.45"', $html);
+    }
+
+    public function test_pena_tetap_pekat_dan_berujung_bulat(): void
+    {
+        $json = json_encode([
+            'strokes' => [
+                ['jenis' => 'pena', 'page' => 1, 'color' => '#e11d48', 'width' => 0.01, 'points' => [[0, 0], [1, 1]]],
+            ],
+        ]);
+
+        $html = CoretanPdf::overlayHtml($json, 215, 330);
+
+        $this->assertStringNotContainsString('stroke-opacity', $html);
+        $this->assertStringContainsString('stroke-linecap="round"', $html);
+    }
+
+    public function test_teks_dirender_sebagai_div_absolut_pada_titik_relatifnya(): void
+    {
+        $json = json_encode([
+            'strokes' => [
+                ['jenis' => 'teks', 'page' => 1, 'color' => '#1d4ed8', 'x' => 0.2, 'y' => 0.5,
+                    'ukuran' => 0.02, 'teks' => "Nominal tidak sesuai\nkuitansi"],
+            ],
+        ]);
+
+        $html = CoretanPdf::overlayHtml($json, 215, 330);
+
+        // 0,2 x 215 = 43mm dari kiri; 0,5 x 330 = 165mm dari atas.
+        $this->assertStringContainsString('left:43.00mm', $html);
+        $this->assertStringContainsString('top:165.00mm', $html);
+        $this->assertStringContainsString('color:#1d4ed8', $html);
+        $this->assertStringContainsString('Nominal tidak sesuai', $html);
+        // Baris baru yang diketik Verifikator harus tetap terpisah di PDF.
+        $this->assertStringContainsString('<br>', $html);
+        // Teks lepas tidak berlatar - yang berlatar hanya sticky.
+        $this->assertStringNotContainsString('#fef9c3', $html);
+    }
+
+    /**
+     * Kertas tempel BERUKURAN TETAP: tinggi selalu 1,5 kali lebarnya
+     * (perbandingan tinggi:lebar 3:2), tidak mengikuti panjang catatan.
+     * Kalau suatu saat tingginya dibiarkan tumbuh lagi, test ini yang gagal.
+     */
+    public function test_sticky_berukuran_tetap_dengan_perbandingan_tiga_banding_dua(): void
+    {
+        $json = json_encode([
+            'strokes' => [
+                ['jenis' => 'sticky', 'page' => 1, 'x' => 0.1, 'y' => 0.1, 'lebar' => 0.2,
+                    'ukuran' => 0.014, 'baris' => ['Lampirkan kuitansi', 'asli sebelum diajukan']],
+            ],
+        ]);
+
+        $html = CoretanPdf::overlayHtml($json, 215, 330);
+
+        // 0,2 x 215mm = 43mm lebar -> 64,50mm tinggi (43 x 1,5).
+        $this->assertStringContainsString('width:43.00mm;height:64.50mm', $html);
+        $this->assertStringContainsString('Lampirkan kuitansi<br>asli sebelum diajukan', $html);
+
+        // Catatan panjang tidak melebarkan kertasnya - ukurannya sama saja.
+        $panjang = json_encode([
+            'strokes' => [
+                ['jenis' => 'sticky', 'page' => 1, 'x' => 0.1, 'y' => 0.1, 'lebar' => 0.2, 'ukuran' => 0.014,
+                    'baris' => ['satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan']],
+            ],
+        ]);
+        $this->assertStringContainsString('width:43.00mm;height:64.50mm', CoretanPdf::overlayHtml($panjang, 215, 330));
+    }
+
+    /**
+     * Kesan tiga dimensi dibangun dari tiga lapis yang digambar berurutan:
+     * bayangan di belakang, kertas bergradien, lalu lipatan sudut di atasnya.
+     * mPDF tidak punya box-shadow, jadi ketiganya harus berupa elemen nyata -
+     * dan urutannya menentukan mana yang menimpa mana.
+     */
+    public function test_sticky_bertumpuk_tiga_lapis_bayangan_gradien_dan_lipatan(): void
+    {
+        $json = json_encode([
+            'strokes' => [
+                ['jenis' => 'sticky', 'page' => 1, 'x' => 0.1, 'y' => 0.1, 'lebar' => 0.2,
+                    'ukuran' => 0.014, 'baris' => ['Periksa ulang']],
+            ],
+        ]);
+
+        $html = CoretanPdf::overlayHtml($json, 215, 330);
+
+        $posisiBayangan = strpos($html, '#cbd5e1');
+        $posisiKertas = strpos($html, 'linear-gradient(to bottom,#fefce8');
+        $posisiLipatan = strpos($html, '<polygon');
+
+        $this->assertNotFalse($posisiBayangan, 'Bayangan sticky tidak ada.');
+        $this->assertNotFalse($posisiKertas, 'Gradien kertas sticky tidak ada.');
+        $this->assertNotFalse($posisiLipatan, 'Lipatan sudut sticky tidak ada.');
+
+        // Urutan gambar = urutan tumpuk.
+        $this->assertLessThan($posisiKertas, $posisiBayangan);
+        $this->assertLessThan($posisiLipatan, $posisiKertas);
+
+        // Bayangan digeser ke kanan-bawah, bukan menutupi kertasnya.
+        $this->assertStringContainsString('top:34.51mm;left:23.00mm', $html);
+        $this->assertStringContainsString('top:33.00mm;left:21.50mm', $html);
+    }
+
+    /**
+     * Pemecahan baris diambil dari yang sudah DIUKUR DI LAYAR ('baris'), bukan
+     * dipecah ulang di sini: kalau PDF memecah di tempat lain, hasil cetak
+     * tidak lagi sama dengan yang dilihat Verifikator saat menempel.
+     */
+    public function test_sticky_memakai_pemecahan_baris_dari_layar_dan_teks_utuh_sebagai_cadangan(): void
+    {
+        $dariLayar = json_encode([
+            'strokes' => [
+                ['jenis' => 'sticky', 'page' => 1, 'x' => 0.1, 'y' => 0.1,
+                    'baris' => ['Baris satu', 'Baris dua'], 'teks' => 'diabaikan karena baris ada'],
+            ],
+        ]);
+
+        $html = CoretanPdf::overlayHtml($dariLayar, 215, 330);
+        $this->assertStringContainsString('Baris satu<br>Baris dua', $html);
+        $this->assertStringNotContainsString('diabaikan', $html);
+
+        // Tanpa 'baris' (data lama / JSON buatan tangan) teksnya tetap tercetak.
+        $tanpaBaris = json_encode([
+            'strokes' => [
+                ['jenis' => 'sticky', 'page' => 1, 'x' => 0.1, 'y' => 0.1, 'teks' => "Baris satu\nBaris dua"],
+            ],
+        ]);
+        $this->assertStringContainsString('Baris satu<br>Baris dua', CoretanPdf::overlayHtml($tanpaBaris, 215, 330));
+    }
+
+    /** Kertas yang ditempel dekat tepi digeser masuk, bukan terpotong separuh. */
+    public function test_sticky_di_tepi_digeser_masuk_halaman(): void
+    {
+        $json = json_encode([
+            'strokes' => [
+                ['jenis' => 'sticky', 'page' => 1, 'x' => 0.98, 'y' => 0.98, 'lebar' => 0.2,
+                    'ukuran' => 0.014, 'baris' => ['Di tepi']],
+            ],
+        ]);
+
+        $html = CoretanPdf::overlayHtml($json, 215, 330);
+
+        // 215 - 43 = 172mm; 330 - 64,5 = 265,50mm.
+        $this->assertStringContainsString('top:265.50mm;left:172.00mm', $html);
+    }
+
+    /**
+     * Isi catatan diketik pemakai lalu ditempelkan ke HTML yang dirender
+     * mPDF - jadi harus lolos htmlspecialchars, bukan masuk mentah.
+     */
+    public function test_isi_teks_dan_sticky_diloloskan_dari_html(): void
+    {
+        $json = json_encode([
+            'strokes' => [
+                ['jenis' => 'teks', 'page' => 1, 'x' => 0.1, 'y' => 0.1, 'teks' => '<script>alert(1)</script>'],
+                ['jenis' => 'sticky', 'page' => 1, 'x' => 0.2, 'y' => 0.2, 'teks' => '<img src=x onerror=alert(2)>'],
+            ],
+        ]);
+
+        $html = CoretanPdf::overlayHtml($json, 215, 330);
+
+        // Yang berbahaya adalah TAG-nya, bukan kata "onerror" sebagai
+        // tulisan biasa: sesudah diloloskan, isinya cuma teks di dalam div.
+        $this->assertStringNotContainsString('<script>', $html);
+        $this->assertStringNotContainsString('<img', $html);
+        $this->assertStringContainsString('&lt;script&gt;', $html);
+        $this->assertStringContainsString('&lt;img src=x onerror=alert(2)&gt;', $html);
+    }
+
+    public function test_teks_dan_sticky_tanpa_isi_diabaikan(): void
+    {
+        $json = json_encode([
+            'strokes' => [
+                ['jenis' => 'teks', 'page' => 1, 'x' => 0.1, 'y' => 0.1, 'teks' => '   '],
+                ['jenis' => 'sticky', 'page' => 1, 'x' => 0.2, 'y' => 0.2, 'teks' => null],
+            ],
+        ]);
+
+        $this->assertSame('', CoretanPdf::overlayHtml($json, 215, 330));
+    }
+
+    /** Empat jenis sekaligus - urusan tiap jenis tidak saling makan. */
+    public function test_empat_jenis_bisa_bercampur_dalam_satu_dokumen(): void
+    {
+        $json = json_encode([
+            'strokes' => [
+                ['jenis' => 'pena', 'page' => 1, 'color' => '#e11d48', 'width' => 0.004, 'points' => [[0.1, 0.1], [0.2, 0.2]]],
+                ['jenis' => 'stabilo', 'page' => 1, 'color' => '#f59e0b', 'width' => 0.03, 'points' => [[0.3, 0.3], [0.7, 0.3]]],
+                ['jenis' => 'teks', 'page' => 1, 'color' => '#111827', 'x' => 0.1, 'y' => 0.6, 'teks' => 'Periksa ulang'],
+                ['jenis' => 'sticky', 'page' => 1, 'x' => 0.5, 'y' => 0.7, 'teks' => 'Kurang tanda tangan PPTK'],
+            ],
+        ]);
+
+        $html = CoretanPdf::overlayHtml($json, 215, 330);
+
+        // Kedua garis masuk ke SATU svg berisi coretan. Ada satu svg lagi
+        // milik lipatan sudut sticky - itu bagian bentuknya, bukan coretan.
+        $this->assertSame(2, preg_match_all('/<polyline/', $html));
+        $this->assertSame(1, preg_match_all('/viewBox="0 0 215.00 330.00"/', $html));
+        $this->assertSame(2, preg_match_all('/<polygon/', $html));
+        $this->assertStringContainsString('Periksa ulang', $html);
+        $this->assertStringContainsString('Kurang tanda tangan PPTK', $html);
+    }
+
+    /** Jenis tak dikenal (data rusak) dianggap pena, tidak menggagalkan halaman. */
+    public function test_jenis_asing_diperlakukan_sebagai_pena(): void
+    {
+        $json = json_encode([
+            'strokes' => [
+                ['jenis' => 'entah-apa', 'page' => 1, 'color' => '#000000', 'width' => 0.004, 'points' => [[0, 0], [0.5, 0.5]]],
+            ],
+        ]);
+
+        $this->assertStringContainsString('<polyline', CoretanPdf::overlayHtml($json, 215, 330));
+    }
 }

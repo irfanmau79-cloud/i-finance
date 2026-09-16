@@ -27,7 +27,7 @@
         <div class="step" data-step="3"><span class="n">3</span><span class="lb">Review</span></div>
     </div>
 
-    <form method="POST" action="{{ $npdEdit ? route('npd.tr.update', $npdEdit) : route('npd.tr.store') }}" id="npd-tr-form" data-start-step="{{ $wizStartStep }}">
+    <form method="POST" action="{{ $npdEdit ? route('npd.tr.update', $npdEdit) : route('npd.tr.store') }}" id="npd-tr-form" enctype="multipart/form-data" data-start-step="{{ $wizStartStep }}">
         @csrf
         @if ($npdEdit) @method('PUT') @endif
 
@@ -119,6 +119,8 @@
                 <span>Nominal Total NPD</span>
                 <span class="v" id="total-nominal">Rp 0</span>
             </div>
+
+            @include('npd._spj-upload')
 
             <div class="err-box" id="err-2"></div>
             <div class="nav">

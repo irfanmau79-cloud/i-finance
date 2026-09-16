@@ -41,7 +41,7 @@
         <div class="step" data-step="4"><span class="n">4</span><span class="lb">Review</span></div>
     </div>
 
-    <form method="POST" action="{{ $npdEdit ? route('npd.kd.update', $npdEdit) : route('npd.kd.store') }}" id="npd-kd-form" data-start-step="{{ $wizStartStep }}">
+    <form method="POST" action="{{ $npdEdit ? route('npd.kd.update', $npdEdit) : route('npd.kd.store') }}" id="npd-kd-form" enctype="multipart/form-data" data-start-step="{{ $wizStartStep }}">
         @csrf
         @if ($npdEdit) @method('PUT') @endif
 
@@ -119,6 +119,8 @@
             </div>
 
             @include('npd._sisa-manual')
+
+            @include('npd._spj-upload')
 
             <div class="err-box" id="err-2"></div>
             <div class="nav">

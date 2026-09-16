@@ -2,6 +2,7 @@
 
 namespace App\Http\Requests;
 
+use App\Services\SpjBerkasService;
 use App\Models\Npd;
 use App\Models\SuratPerintah;
 use App\Support\AnggaranNpd;
@@ -74,6 +75,10 @@ class StoreNpdPdRequest extends FormRequest
             'tim.*.paket.*.tarif_uh' => ['required', 'numeric', 'min:0'],
             'tim.*.paket.*.malam' => ['nullable', 'integer', 'min:0'],
             'tim.*.paket.*.tarif_akom' => ['nullable', 'numeric', 'min:0'],
+            // Unggah SPJ - OPSIONAL, lihat App\Services\SpjBerkasService.
+            // Aturannya diambil dari service supaya kelima jenis NPD dan
+            // pintu unggah di Inventarisasi SPJ tidak bisa berbeda-beda.
+            ...SpjBerkasService::aturan(),
         ];
     }
 
@@ -99,6 +104,7 @@ class StoreNpdPdRequest extends FormRequest
             'tim.*.paket.*.wilayah' => 'Wilayah Tujuan',
             'tim.*.paket.*.lama_hari' => 'Lama Hari',
             'tim.*.paket.*.tarif_uh' => 'Tarif Uang Harian',
+            ...SpjBerkasService::labelIsian(),
         ];
     }
 }

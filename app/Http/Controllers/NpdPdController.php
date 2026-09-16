@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\SpjBerkasService;
 use App\Helpers\AuditLog;
 use App\Helpers\NpdPerjalananHitung;
 use App\Helpers\Terbilang;
@@ -49,7 +50,7 @@ class NpdPdController extends Controller
         return view('npd.pd.create', compact('masterAnggaran', 'pegawai', 'clusterList', 'suratPerintahList', 'bulanList'));
     }
 
-    public function store(StoreNpdPdRequest $request)
+    public function store(StoreNpdPdRequest $request, SpjBerkasService $spj)
     {
         $data = $request->validated();
 
@@ -167,6 +168,11 @@ class NpdPdController extends Controller
 
         AuditLog::catat('Buat NPD', 'Jenis: Perjalanan Dinas, Nominal: Rp '.number_format((float) $nominal, 2, ',', '.'));
 
+        // Berkas SPJ (opsional) disimpan SESUDAH NPD-nya tersimpan: berkas
+        // yang sudah tertulis ke disk tidak ikut ter-rollback kalau
+        // transaksi penyimpanan NPD gagal.
+        $spj->simpan($npd, $request->file('spj') ?? [], $request->user());
+
         return redirect()->route('npd.show', $npd)->with('success', 'NPD Perjalanan Dinas berhasil disimpan sebagai draft.');
     }
 
@@ -198,7 +204,7 @@ class NpdPdController extends Controller
         return view('npd.pd.create', compact('masterAnggaran', 'pegawai', 'clusterList', 'suratPerintahList', 'bulanList', 'npd'));
     }
 
-    public function update(UpdateNpdPdRequest $request, Npd $npd)
+    public function update(UpdateNpdPdRequest $request, Npd $npd, SpjBerkasService $spj)
     {
         abort_unless($npd->jenis === 'pd', 404);
         abort_unless($npd->dapatDieditOleh($request->user()), 403);
@@ -268,6 +274,11 @@ class NpdPdController extends Controller
         });
 
         AuditLog::catat('Edit NPD', 'Jenis: Perjalanan Dinas, NPD #'.$npd->id);
+
+        // Berkas SPJ (opsional) disimpan SESUDAH NPD-nya tersimpan: berkas
+        // yang sudah tertulis ke disk tidak ikut ter-rollback kalau
+        // transaksi penyimpanan NPD gagal.
+        $spj->simpan($npd, $request->file('spj') ?? [], $request->user());
 
         return redirect()->route('npd.show', $npd)->with('success', 'Draft NPD Perjalanan Dinas berhasil diperbarui.');
     }

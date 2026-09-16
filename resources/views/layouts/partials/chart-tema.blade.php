@@ -9,7 +9,7 @@
        tidak terbaca di atas latar gelap.
 
     2. window.warnaGrafik() menyerahkan palet batang/segmen yang sudah sesuai
-       mode aktif, supaya tiap halaman tidak lagi menulis '#0f172a' sendiri.
+       mode aktif, supaya tiap halaman tidak lagi menulis warnanya sendiri.
 --}}
 <script>
 (function () {
@@ -20,8 +20,8 @@
         return (akar.getPropertyValue(nama) || '').trim() || cadangan;
     };
 
-    Chart.defaults.color = token('--ink', '#1e293b');
-    Chart.defaults.borderColor = token('--line', '#e2e8f0');
+    Chart.defaults.color = token('--ink', '#26334c');
+    Chart.defaults.borderColor = token('--line', '#e3e8f1');
     Chart.defaults.font.family = "system-ui,-apple-system,'Segoe UI Variable Text','Segoe UI',Roboto,Arial,sans-serif";
 
     /* Ujung batang dibulatkan dan lebarnya dibatasi. Batang bersudut siku
@@ -39,7 +39,7 @@
        bawaan yang sudutnya tajam. */
     if (Chart.defaults.plugins && Chart.defaults.plugins.tooltip) {
         var t = Chart.defaults.plugins.tooltip;
-        t.backgroundColor = 'rgba(15,23,42,.94)';
+        t.backgroundColor = 'rgba(19,34,64,.95)';
         t.cornerRadius = 10;
         t.padding = 10;
         t.displayColors = true;
@@ -66,9 +66,9 @@
         ['linear', 'category', 'logarithmic'].forEach(function (jenis) {
             if (! Chart.defaults.scales[jenis]) return;
             Chart.defaults.scales[jenis].ticks = Chart.defaults.scales[jenis].ticks || {};
-            Chart.defaults.scales[jenis].ticks.color = token('--mut', '#64748b');
+            Chart.defaults.scales[jenis].ticks.color = token('--mut', '#5f7089');
             Chart.defaults.scales[jenis].grid = Chart.defaults.scales[jenis].grid || {};
-            Chart.defaults.scales[jenis].grid.color = token('--line', '#e2e8f0');
+            Chart.defaults.scales[jenis].grid.color = token('--line', '#e3e8f1');
         });
     }
 
@@ -81,11 +81,11 @@
      */
     window.warnaGrafik = function () {
         return {
-            utama: token('--chart-utama', '#0f172a'),
+            utama: token('--chart-utama', '#20406f'),
             emas: token('--gold', '#f59e0b'),
-            sisa: token('--chart-sisa', '#e2e8f0'),
-            teks: token('--ink', '#1e293b'),
-            redup: token('--mut', '#64748b'),
+            sisa: token('--chart-sisa', '#e3e9f3'),
+            teks: token('--ink', '#26334c'),
+            redup: token('--mut', '#5f7089'),
         };
     };
 })();

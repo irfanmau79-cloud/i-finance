@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\SpjBerkasService;
 use App\Helpers\AuditLog;
 use App\Helpers\Terbilang;
 use App\Http\Requests\StoreNpdBjRequest;
@@ -32,7 +33,7 @@ class NpdBjController extends Controller
         return view('npd.bj.create', compact('masterAnggaran', 'pegawai', 'vendor', 'bulanList'));
     }
 
-    public function store(StoreNpdBjRequest $request)
+    public function store(StoreNpdBjRequest $request, SpjBerkasService $spj)
     {
         $data = $request->validated();
 
@@ -89,6 +90,11 @@ class NpdBjController extends Controller
 
         AuditLog::catat('Buat NPD', 'Jenis: Barang/Jasa, Nominal: Rp '.number_format((float) $nominal, 2, ',', '.'));
 
+        // Berkas SPJ (opsional) disimpan SESUDAH NPD-nya tersimpan: berkas
+        // yang sudah tertulis ke disk tidak ikut ter-rollback kalau
+        // transaksi penyimpanan NPD gagal.
+        $spj->simpan($npd, $request->file('spj') ?? [], $request->user());
+
         return redirect()->route('npd.show', $npd)->with('success', 'NPD Barang/Jasa berhasil disimpan sebagai draft.');
     }
 
@@ -114,7 +120,7 @@ class NpdBjController extends Controller
         return $this->form($npd, $penerimaAwal);
     }
 
-    public function update(StoreNpdBjRequest $request, Npd $npd)
+    public function update(StoreNpdBjRequest $request, Npd $npd, SpjBerkasService $spj)
     {
         abort_unless($npd->jenis === 'bj', 404);
         abort_unless($npd->dapatDieditOleh($request->user()), 403);
@@ -165,6 +171,11 @@ class NpdBjController extends Controller
         });
 
         AuditLog::catat('Edit NPD', 'Jenis: Barang/Jasa, NPD #'.$npd->id);
+
+        // Berkas SPJ (opsional) disimpan SESUDAH NPD-nya tersimpan: berkas
+        // yang sudah tertulis ke disk tidak ikut ter-rollback kalau
+        // transaksi penyimpanan NPD gagal.
+        $spj->simpan($npd, $request->file('spj') ?? [], $request->user());
 
         return redirect()->route('npd.show', $npd)->with('success', 'Draft NPD Barang/Jasa berhasil diperbarui.');
     }
