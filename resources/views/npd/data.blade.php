@@ -126,7 +126,7 @@
         <tr class="kolom-saring">
           <th><input type="text" data-kolom="nomor_npd" placeholder="Ketik nomor&hellip;" aria-label="Saring Nomor NPD"></th>
           <th><input type="text" data-kolom="sub_kegiatan" placeholder="Ketik sub kegiatan&hellip;" aria-label="Saring Sub Kegiatan"></th>
-          <th><input type="text" data-kolom="kode_rekening" placeholder="Ketik kode&hellip;" aria-label="Saring Kode Rekening"></th>
+          <th><input type="text" data-kolom="kode_rekening" placeholder="Ketik kode/nama&hellip;" aria-label="Saring Kode Rekening"></th>
           <th><input type="text" data-kolom="tagging" placeholder="Ketik tagging&hellip;" aria-label="Saring Tagging"></th>
           <th><input type="text" data-kolom="penerima" placeholder="Ketik penerima&hellip;" aria-label="Saring Penerima"></th>
           <th><input type="text" data-kolom="nominal_teks" placeholder="Ketik nominal&hellip;" aria-label="Saring Nominal"></th>
@@ -225,7 +225,7 @@ document.addEventListener('DOMContentLoaded', function () {
       '<tr>' +
         '<td class="kol-npd">' + esc(r.nomor_npd) + '</td>' +
         '<td title="' + esc(r.sub_kegiatan) + '">' + esc(r.sub_kegiatan) + '</td>' +
-        '<td>' + esc(r.kode_rekening) + '</td>' +
+        '<td title="' + esc(r.kode_rekening) + '">' + esc(r.kode_rekening) + '</td>' +
         '<td>' + esc(r.tagging) + '</td>' +
         '<td title="' + esc(r.penerima) + '">' +
           '<div class="pen-nm">' + esc(r.penerima) + '</div>' +

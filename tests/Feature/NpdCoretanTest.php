@@ -6,6 +6,9 @@ use App\Models\MasterAnggaran;
 use App\Models\Npd;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
+use setasign\Fpdi\PdfParser\PdfParser;
+use setasign\Fpdi\PdfParser\StreamReader;
+use setasign\Fpdi\PdfReader\PdfReader;
 use Tests\TestCase;
 
 class NpdCoretanTest extends TestCase
@@ -435,6 +438,59 @@ class NpdCoretanTest extends TestCase
         $this->assertStringNotContainsString('Gambar bebas (freehand) langsung di atas dokumen PDF', $isi);
         $this->assertStringNotContainsString('hanya halaman 1 tiap dokumen yang bisa dicoret', $isi);
         $this->assertStringNotContainsString('Semua dokumen siap', $isi);
+    }
+
+    /**
+     * Coret + Catatan tercetak sebagai garis + nomor di halaman dokumen, dan
+     * catatannya di halaman tambahan "Catatan Verifikasi" - HANYA pada
+     * dokumen yang punya coret teks. Dokumen lain tetap satu halaman.
+     */
+    public function test_coret_catatan_menambah_halaman_catatan_hanya_pada_dokumennya(): void
+    {
+        $verifikator = $this->buatUser('verifikator', 'coret-catatan-verif');
+        $npd = $this->buatNpd();
+
+        $npdSebelum = $this->actingAs($verifikator)->get(route('npd.cetak-npd', $npd))->getContent();
+        $this->assertSame(1, $this->jumlahHalaman($npdSebelum));
+
+        $this->actingAs($verifikator)
+            ->post(route('npd.transisi', $npd), [
+                'aksi' => 'kembali_bpp',
+                'catatan' => "Coretan pada dokumen:\n1. [NPD] \"Rp1.000.000,00\" — Seharusnya 950.000",
+                'coretan_json' => json_encode(['strokes' => [
+                    ['dokumen' => 'npd', 'page' => 1, 'jenis' => 'coret', 'color' => '#e11d48',
+                        'kotak' => [[0.29, 0.26, 0.11, 0.0096]], 'teks' => 'Rp1.000.000,00',
+                        'catatan' => 'Seharusnya 950.000'],
+                ]]),
+            ])
+            ->assertSessionHasNoErrors();
+
+        $npdSesudah = $this->actingAs($verifikator)->get(route('npd.cetak-npd', $npd))->getContent();
+        $this->assertSame(2, $this->jumlahHalaman($npdSesudah), 'Halaman Catatan Verifikasi tidak ditambahkan.');
+        $this->assertGreaterThan(
+            preg_match_all('#\sl\s#', $this->isiPdf($npdSebelum)),
+            preg_match_all('#\sl\s#', $this->isiPdf($npdSesudah)),
+            'Garis coret tidak sampai ke PDF.',
+        );
+
+        $lampiran = $this->actingAs($verifikator)->get(route('npd.cetak-lampiran', $npd))->getContent();
+        $this->assertSame(1, $this->jumlahHalaman($lampiran), 'Lampiran tanpa coret teks tidak boleh bertambah halaman.');
+    }
+
+    public function test_halaman_coret_memuat_mode_coret_catatan(): void
+    {
+        $verifikator = $this->buatUser('verifikator', 'coret-mode-verif');
+        $npd = $this->buatNpd();
+
+        $this->actingAs($verifikator)->get(route('npd.coret', $npd))->assertOk()
+            ->assertSee('data-mode="coret"', false)
+            ->assertSee('Coret + Catatan')
+            ->assertSee('id="ct-pop-kutip"', false);
+    }
+
+    private function jumlahHalaman(string $pdf): int
+    {
+        return (new PdfReader(new PdfParser(StreamReader::createByString($pdf))))->getPageCount();
     }
 
     /** Isi PDF beserta seluruh aliran yang sudah dimekarkan, untuk memeriksa operator gambar & teks. */

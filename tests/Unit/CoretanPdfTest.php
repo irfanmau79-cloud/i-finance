@@ -358,4 +358,78 @@ class CoretanPdfTest extends TestCase
 
         $this->assertStringContainsString('<polyline', CoretanPdf::overlayHtml($json, 215, 330));
     }
+
+    private function coret(string $dokumen, array $kotak, string $teks = 'Rp1.000.000,00', string $catatan = ''): array
+    {
+        return ['dokumen' => $dokumen, 'page' => 1, 'jenis' => 'coret', 'color' => '#1d4ed8',
+            'kotak' => $kotak, 'teks' => $teks, 'catatan' => $catatan];
+    }
+
+    /**
+     * Coret + Catatan: satu garis mendatar di TENGAH tinggi huruf per baris,
+     * selebar teksnya, plus lencana nomor di ujung kanan baris terakhir.
+     */
+    public function test_coret_teks_bergaris_di_tengah_huruf_tiap_baris_dan_bernomor(): void
+    {
+        $json = json_encode(['strokes' => [
+            $this->coret('npd', [[0.2, 0.1, 0.4, 0.01], [0.2, 0.2, 0.3, 0.01]]),
+        ]]);
+
+        $html = CoretanPdf::overlayHtml($json, 200, 300);
+
+        // Baris 1: x 40..120mm, tengah = (0.1 + 0.005) * 300 = 31.5mm.
+        $this->assertStringContainsString('<line x1="40.00" y1="31.50" x2="120.00" y2="31.50" stroke="#1d4ed8"', $html);
+        // Baris 2: x 40..100mm, tengah = (0.2 + 0.005) * 300 = 61.5mm.
+        $this->assertStringContainsString('<line x1="40.00" y1="61.50" x2="100.00" y2="61.50"', $html);
+        $this->assertSame(1, preg_match_all('/<circle/', $html));
+        $this->assertMatchesRegularExpression('#<text[^>]*>1</text>#', $html);
+        // Lencana menempel di kanan baris TERAKHIR (100mm + 0,6mm), bukan baris pertama.
+        $this->assertStringContainsString('left:100.60mm', $html);
+    }
+
+    /**
+     * Nomor coret menerus di SEMUA dokumen dalam urutan simpan - nomor yang
+     * sama tidak boleh menunjuk dua coretan, karena catatan pengembalian di
+     * histori menyebut coretan lewat nomornya.
+     */
+    public function test_nomor_coret_menerus_lintas_dokumen_dan_mengabaikan_kotak_rusak(): void
+    {
+        $json = json_encode(['strokes' => [
+            $this->coret('npd', [[0.1, 0.1, 0.2, 0.01]]),
+            $this->coret('npd', []),                         // rusak: tidak bernomor
+            ['jenis' => 'pena', 'dokumen' => 'lampiran', 'page' => 1, 'width' => 0.004, 'points' => [[0, 0], [0.1, 0.1]]],
+            $this->coret('lampiran', [[0.1, 0.5, 0.2, 0.01]]),
+        ]]);
+
+        $npd = CoretanPdf::overlayHtml($json, 215, 330, 'npd');
+        $lampiran = CoretanPdf::overlayHtml($json, 215, 330, 'lampiran');
+
+        $this->assertSame(1, preg_match_all('/<circle/', $npd));
+        $this->assertMatchesRegularExpression('#<text[^>]*>1</text>#', $npd);
+        $this->assertSame(1, preg_match_all('/<circle/', $lampiran));
+        $this->assertMatchesRegularExpression('#<text[^>]*>2</text>#', $lampiran);
+    }
+
+    public function test_halaman_catatan_hanya_untuk_dokumen_yang_punya_coret_teks(): void
+    {
+        $json = json_encode(['strokes' => [
+            ['jenis' => 'pena', 'dokumen' => 'npd', 'page' => 1, 'width' => 0.004, 'points' => [[0, 0], [0.1, 0.1]]],
+            $this->coret('lampiran', [[0.1, 0.5, 0.2, 0.01]], 'Rp1.000.000,00', 'Seharusnya <b>950.000</b>'),
+            $this->coret('lampiran', [[0.1, 0.6, 0.2, 0.01]], 'Tangga-Alat'),
+        ]]);
+
+        $this->assertSame('', CoretanPdf::halamanCatatanHtml(null, 'npd'));
+        $this->assertSame('', CoretanPdf::halamanCatatanHtml($json, 'npd'));
+
+        $html = CoretanPdf::halamanCatatanHtml($json, 'lampiran');
+
+        $this->assertStringStartsWith('<pagebreak />', $html);
+        $this->assertStringContainsString('CATATAN VERIFIKASI', $html);
+        $this->assertStringContainsString('Rp1.000.000,00', $html);
+        // Isi catatan diketik pemakai: wajib diloloskan.
+        $this->assertStringContainsString('Seharusnya &lt;b&gt;950.000&lt;/b&gt;', $html);
+        $this->assertStringNotContainsString('<b>950.000</b>', $html);
+        $this->assertStringContainsString('(tanpa catatan)', $html);
+        $this->assertSame(2, preg_match_all('#<tr><td#', $html));
+    }
 }

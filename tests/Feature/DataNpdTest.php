@@ -142,6 +142,18 @@ class DataNpdTest extends TestCase
     }
 
     /**
+     * Kolom Kode Rekening memuat kode beserta namanya, sama seperti kolom
+     * Sub Kegiatan - bukan sekadar angka kodenya.
+     */
+    public function test_kolom_kode_rekening_memuat_kode_dan_nama_rekening(): void
+    {
+        $this->npd('Selesai');
+
+        $this->actingAs($this->user)->get(route('npd.data'))->assertOk()
+            ->assertViewHas('baris', fn ($baris) => $baris->first()['kode_rekening'] === '5.1.02.01.01.0024 Belanja Alat Tulis Kantor');
+    }
+
+    /**
      * Lebar kolom dikunci karena angkanya hasil pengukuran, bukan selera.
      * Nominal 12,5% (+ padding sel yang sudah dirapatkan) pas untuk nominal
      * NPD terbesar yang ada - sembilan angka, "Rp 180.684.000,00" - dan

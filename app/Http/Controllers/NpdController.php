@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Helpers\AuditLog;
 use App\Helpers\PejabatResolver;
 use App\Models\BantexSpj;
+use App\Models\MasterAnggaran;
 use App\Models\Npd;
 use App\Models\NpdNarasumber;
 use App\Models\NpdPenerima;
@@ -84,7 +85,7 @@ class NpdController extends Controller
                 'id' => $npd->id,
                 'nomor_npd' => $npd->nomor_lengkap ?: 'NPD #'.$npd->id,
                 'sub_kegiatan' => $npd->masterAnggaran?->subKegiatanNormal() ?? '-',
-                'kode_rekening' => $npd->masterAnggaran?->kode_rekening_bersih ?? '-',
+                'kode_rekening' => $npd->masterAnggaran ? MasterAnggaran::normalisasiTeks($npd->masterAnggaran->rekening_lengkap) : '-',
                 'tagging' => $npd->tagging_snapshot ?: ($npd->masterAnggaran?->tagging?->nama ?? '-'),
                 'penerima' => $npd->ringkasanPenerima(),
                 'jenis_label' => Npd::JENIS_LABEL[$npd->jenis] ?? strtoupper($npd->jenis),
@@ -890,7 +891,11 @@ class NpdController extends Controller
      */
     private function sisipkanCoretan(string $html, Npd $npd, string $dokumen): string
     {
-        $overlay = CoretanPdf::overlayHtml($npd->coretanJsonTerbaru(), 215, 330, $dokumen);
+        $coretanJson = $npd->coretanJsonTerbaru();
+        // Halaman "Catatan Verifikasi" hanya muncul bila dokumen ini punya
+        // coret teks - dokumen lain tetap satu halaman seperti aslinya.
+        $overlay = CoretanPdf::overlayHtml($coretanJson, 215, 330, $dokumen)
+            .CoretanPdf::halamanCatatanHtml($coretanJson, $dokumen);
 
         return $overlay === '' ? $html : str_replace('</body>', $overlay.'</body>', $html);
     }

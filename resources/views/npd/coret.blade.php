@@ -36,6 +36,10 @@
                 <svg viewBox="0 0 24 24"><path d="M18 11V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2"/><path d="M14 10V4a2 2 0 0 0-2-2 2 2 0 0 0-2 2v2"/><path d="M10 10.5V6a2 2 0 0 0-2-2 2 2 0 0 0-2 2v8"/><path d="M18 8a2 2 0 1 1 4 0v6a8 8 0 0 1-8 8h-2c-2.8 0-4.5-.86-5.99-2.34l-3.6-3.6a2 2 0 0 1 2.83-2.82L7 15"/></svg>
                 <span>Geser</span>
             </button>
+            <button type="button" class="ct-mode" data-mode="coret" title="Coret teks + catatan (klik satu kata, atau tarik untuk beberapa kata)">
+                <svg viewBox="0 0 24 24"><path d="M16 4H9a3 3 0 0 0-2.83 4"/><path d="M14 12a4 4 0 0 1 0 8H6"/><line x1="4" y1="12" x2="20" y2="12"/></svg>
+                <span>Coret + Catatan</span>
+            </button>
             <button type="button" class="ct-mode" data-mode="pena" title="Pena (coret bebas)">
                 <svg viewBox="0 0 24 24"><path d="M12 19l7-7 3 3-7 7-3-3z"/><path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"/><path d="M2 2l7.586 7.586"/><circle cx="11" cy="11" r="2"/></svg>
                 <span>Pena</span>
@@ -102,7 +106,7 @@
         <span class="ct-status" id="ct-status">Memuat dokumen&hellip;</span>
     </div>
 
-    <div class="ct-petunjuk" id="ct-petunjuk">Mode <b>Geser</b> aktif &mdash; dokumen aman dari coretan. Pilih <b>Pena</b>, <b>Stabilo</b>, <b>Teks</b>, atau <b>Sticky</b> untuk mulai mencoret.</div>
+    <div class="ct-petunjuk" id="ct-petunjuk">Mode <b>Geser</b> aktif &mdash; dokumen aman dari coretan. Pilih <b>Coret + Catatan</b>, <b>Pena</b>, <b>Stabilo</b>, <b>Teks</b>, atau <b>Sticky</b> untuk mulai mencoret.</div>
 
     <div id="ct-daftar"></div>
 
@@ -126,6 +130,8 @@
      bisa memuat beberapa baris, dan tidak terlihat sebagai bagian dokumen. --}}
 <div class="ct-pop" id="ct-pop" hidden>
     <div class="ct-pop-judul" id="ct-pop-judul">Tulis teks</div>
+    {{-- Hanya untuk Coret + Catatan: teks yang dicoret, supaya jelas catatannya menyangkut apa. --}}
+    <div class="ct-pop-kutip" id="ct-pop-kutip" hidden></div>
     <textarea id="ct-pop-teks" rows="3" maxlength="600" placeholder="Ketik catatan&hellip;"></textarea>
     <div class="ct-pop-aksi" style="justify-content:space-between;">
         {{-- Hapus hanya muncul saat menyunting catatan yang sudah ada. --}}
@@ -197,6 +203,7 @@
   body[data-ct-mode="teks"] .ct-halaman canvas.ct-coret,
   body[data-ct-mode="sticky"] .ct-halaman canvas.ct-coret{pointer-events:auto;cursor:copy;}
   body[data-ct-mode="hapus"] .ct-halaman canvas.ct-coret{pointer-events:auto;cursor:pointer;}
+  body[data-ct-mode="coret"] .ct-halaman canvas.ct-coret{pointer-events:auto;cursor:default;}
   /* Halaman selain 1 tidak bisa dicoret - lihat CoretanPdf. */
   .ct-halaman.ct-terkunci canvas.ct-coret{pointer-events:none !important;}
   .ct-hal-label{text-align:center;font-size:11.5px;color:var(--mut);margin-top:6px;}
@@ -206,6 +213,9 @@
   .ct-pop-judul{font-size:11px;font-weight:800;text-transform:uppercase;letter-spacing:.6px;
     color:var(--mut);margin-bottom:6px;}
   .ct-pop textarea{width:100%;box-sizing:border-box;font-size:13px;}
+  .ct-pop-kutip{font-size:12.5px;color:var(--ink);background:var(--surface-3);border-radius:var(--r-sm);
+    padding:6px 8px;margin-bottom:8px;max-height:72px;overflow:auto;text-decoration:line-through;
+    text-decoration-color:var(--err);}
   .ct-pop-aksi{display:flex;justify-content:flex-end;gap:6px;margin-top:8px;}
 </style>
 
@@ -224,6 +234,13 @@ const popTeksEl = document.getElementById('ct-pop-teks');
 const popJudulEl = document.getElementById('ct-pop-judul');
 const popTempelEl = document.getElementById('ct-pop-tempel');
 const popHapusEl = document.getElementById('ct-pop-hapus');
+const popKutipEl = document.getElementById('ct-pop-kutip');
+const catatanEl = document.getElementById('coret-catatan');
+
+/* Lebar kertas dalam mm yang dipakai PDF saat menyisipkan coretan (lihat
+   NpdController::sisipkanCoretan). Ukuran lencana & tebal garis Coret +
+   Catatan dihitung dalam mm di PDF, jadi layar memakai konversi yang sama. */
+const LEBAR_KERTAS_MM = 215;
 
 /* Lebar acuan kertas di layar pada zoom 100%. Jauh lebih kecil daripada
    1.5x skala PDF yang dipakai sebelumnya: dokumen selebar layar membuat
@@ -247,6 +264,27 @@ const state = {
    sebelumnya. */
 let butirBaru = [];
 const halamanState = [];
+
+/* Coret + Catatan dinomori MENERUS di semua dokumen, melanjutkan nomor dari
+   pengembalian sebelumnya - sama persis dengan CoretanPdf::nomorCoret. */
+const jumlahCoretLama = strokesSebelumnya.filter(function (b) {
+    return b && b.jenis === 'coret' && Array.isArray(b.kotak) && b.kotak.length;
+}).length;
+
+function nomorCoret(butir) {
+    let urut = jumlahCoretLama;
+    for (let i = 0; i < butirBaru.length; i++) {
+        if (butirBaru[i].jenis === 'coret') urut++;
+        if (butirBaru[i] === butir) return urut;
+    }
+    return urut;
+}
+
+/* Keadaan sementara Coret + Catatan: kata di bawah penunjuk, dan rentang
+   kata yang sedang ditarik. Keduanya hanya pratinjau - butirnya baru lahir
+   saat catatannya disimpan. */
+let hoverKata = null;   // { hs, indeks }
+let tarikKata = null;   // { hs, awal, akhir }
 
 const TEBAL_PENA = { 1: 1.5, 2: 3, 3: 6 };       // px pada lebar acuan
 const TEBAL_STABILO = { 1: 10, 2: 16, 3: 24 };
@@ -273,9 +311,13 @@ function setMode(mode) {
         b.classList.toggle('aktif', b.dataset.mode === mode);
     });
     tutupPop();
+    hoverKata = null;
+    tarikKata = null;
+    gambarUlang();
 
     const pesan = {
-        geser: 'Mode <b>Geser</b> aktif &mdash; dokumen aman dari coretan. Pilih <b>Pena</b>, <b>Stabilo</b>, <b>Teks</b>, atau <b>Sticky</b> untuk mulai mencoret.',
+        geser: 'Mode <b>Geser</b> aktif &mdash; dokumen aman dari coretan. Pilih <b>Coret + Catatan</b>, <b>Pena</b>, <b>Stabilo</b>, <b>Teks</b>, atau <b>Sticky</b> untuk mulai mencoret.',
+        coret: 'Mode <b>Coret + Catatan</b> &mdash; klik satu kata, atau tekan lalu tarik untuk beberapa kata. Tulisannya langsung tercoret dan Anda bisa menambahkan catatan. Klik coretan yang sudah ada untuk mengubah catatannya.',
         pena: 'Mode <b>Pena</b> &mdash; tekan lalu tarik di atas dokumen untuk mencoret.',
         stabilo: 'Mode <b>Stabilo</b> &mdash; sapu di atas tulisan; warnanya tembus pandang sehingga tulisan tetap terbaca.',
         teks: 'Mode <b>Teks</b> &mdash; klik di dokumen, lalu ketik teksnya.',
@@ -358,7 +400,289 @@ function gambarUlang() {
         butirBaru
             .filter(function (b) { return b.dokumen === hs.dokumen && b.page === hs.pageNumber; })
             .forEach(function (b) { gambarButir(hs, b); });
+        gambarPratinjauCoret(hs);
     });
+    sinkronCatatan();
+}
+
+/**
+ * Pratinjau Coret + Catatan di atas kanvas: kotak putus-putus pada kata di
+ * bawah penunjuk, dan garis coret samar pada rentang yang sedang ditarik
+ * atau yang catatannya sedang diisi (belum disimpan).
+ */
+function gambarPratinjauCoret(hs) {
+    const ctx = hs.ctx, W = hs.canvas.width, H = hs.canvas.height;
+
+    let kotak = null;
+    if (tarikKata && tarikKata.hs === hs) {
+        kotak = kotakRentang(hs, tarikKata.awal, tarikKata.akhir).kotak;
+    } else if (popTarget && popTarget.jenis === 'coret' && popTarget.hs === hs) {
+        kotak = popTarget.kotak;
+    }
+
+    if (kotak) {
+        ctx.save();
+        ctx.fillStyle = state.warna;
+        ctx.globalAlpha = 0.12;
+        kotak.forEach(function (k) { ctx.fillRect(k[0] * W, k[1] * H, k[2] * W, k[3] * H); });
+        ctx.globalAlpha = 0.6;
+        gambarGarisCoret(hs, kotak, state.warna);
+        ctx.restore();
+        return;
+    }
+
+    if (hoverKata && hoverKata.hs === hs && ! popTarget) {
+        const k = hs.kata[hoverKata.indeks];
+        ctx.save();
+        ctx.strokeStyle = state.warna;
+        ctx.globalAlpha = 0.7;
+        ctx.lineWidth = Math.max(1, W / 900);
+        ctx.setLineDash([4, 3]);
+        ctx.strokeRect(k.x * W - 2, k.y * H - 1, k.w * W + 4, k.h * H + 2);
+        ctx.restore();
+    }
+}
+
+function pxPerMm(hs) { return hs.canvas.width / LEBAR_KERTAS_MM; }
+
+/** Garis coret di tengah tinggi huruf tiap baris - sama dengan CoretanPdf::garisCoret. */
+function gambarGarisCoret(hs, kotak, warna) {
+    const ctx = hs.ctx, W = hs.canvas.width, H = hs.canvas.height, mm = pxPerMm(hs);
+    ctx.save();
+    ctx.strokeStyle = warna;
+    ctx.lineCap = 'butt';
+    kotak.forEach(function (k) {
+        const tinggiMm = k[3] * H / mm;
+        const tengah = (k[1] + k[3] * 0.5) * H;
+        ctx.lineWidth = Math.max(0.2, Math.min(1.2, tinggiMm * 0.09)) * mm;
+        ctx.beginPath();
+        ctx.moveTo(k[0] * W, tengah);
+        ctx.lineTo((k[0] + k[2]) * W, tengah);
+        ctx.stroke();
+    });
+    ctx.restore();
+}
+
+/** Geometri lencana nomor dalam px kanvas - sama dengan CoretanPdf::lencanaCoret. */
+function geometriLencana(hs, butir) {
+    const W = hs.canvas.width, H = hs.canvas.height, mm = pxPerMm(hs);
+    const k = butir.kotak[butir.kotak.length - 1];
+    const d = Math.max(3.2 * mm, Math.min(6 * mm, k[3] * H * 1.15));
+    return {
+        x: Math.min(W - d, (k[0] + k[2]) * W + 0.6 * mm),
+        y: Math.max(0, (k[1] + k[3] * 0.5) * H - d / 2),
+        d: d,
+    };
+}
+
+function gambarLencana(hs, butir) {
+    const ctx = hs.ctx, g = geometriLencana(hs, butir), nomor = nomorCoret(butir);
+    ctx.save();
+    ctx.fillStyle = butir.color;
+    ctx.beginPath();
+    ctx.arc(g.x + g.d / 2, g.y + g.d / 2, g.d / 2, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.fillStyle = '#fff';
+    ctx.font = '700 ' + (g.d * (nomor > 9 ? 0.52 : 0.66)) + 'px Arial,sans-serif';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(String(nomor), g.x + g.d / 2, g.y + g.d / 2 + g.d * 0.03);
+    ctx.restore();
+}
+
+/* ----------------------------------------------- Catatan Revisi otomatis */
+
+/* Daftar Coret + Catatan kunjungan ini ikut dituliskan ke kotak Catatan
+   Revisi, supaya BPP membacanya di histori tanpa membuka PDF. Bagian itu
+   diperbarui otomatis selama Verifikator tidak menyuntingnya sendiri;
+   begitu disunting, isi kotak dibiarkan apa adanya. */
+let catatanOtomatis = '';
+let catatanOtomatisMati = false;
+
+catatanEl.addEventListener('input', function () {
+    if (catatanOtomatis && catatanEl.value.indexOf(catatanOtomatis) === -1) catatanOtomatisMati = true;
+});
+
+function ringkasanCoret() {
+    const label = {};
+    dokumenList.forEach(function (d) { label[d.key] = d.label; });
+
+    const baris = butirBaru.filter(function (b) { return b.jenis === 'coret'; }).map(function (b) {
+        const teks = b.teks.length > 80 ? b.teks.slice(0, 77) + '…' : b.teks;
+        return nomorCoret(b) + '. [' + (label[b.dokumen] || b.dokumen) + '] "' + teks + '"'
+            + (b.catatan ? ' — ' + b.catatan.replace(/\s*\n\s*/g, ' ') : '');
+    });
+
+    return baris.length ? 'Coretan pada dokumen:\n' + baris.join('\n') : '';
+}
+
+function sinkronCatatan() {
+    if (catatanOtomatisMati) return;
+    const baru = ringkasanCoret();
+    if (baru === catatanOtomatis) return;
+
+    let nilai = catatanEl.value;
+    if (catatanOtomatis && nilai.indexOf(catatanOtomatis) !== -1) {
+        nilai = nilai.replace(catatanOtomatis, baru);
+    } else if (baru) {
+        nilai = nilai.trim() ? nilai.replace(/\s+$/, '') + '\n\n' + baru : baru;
+    }
+    catatanEl.value = nilai.replace(/\s+$/, '');
+    catatanOtomatis = baru;
+}
+
+/* ------------------------------------------------ kata-kata di dalam PDF */
+
+/**
+ * Kotak setiap KATA pada halaman, dibaca dari lapisan teks PDF (pdf.js).
+ *
+ * mPDF menulis teks per potongan - satu sel tabel atau satu baris - lengkap
+ * dengan posisi dan lebarnya, tapi tidak per kata. Letak tiap kata di dalam
+ * potongannya dihitung dengan mengukur teksnya di kanvas lalu diskalakan ke
+ * lebar asli potongan itu, jadi selisih bentuk huruf antar-font saling
+ * meniadakan.
+ *
+ * Kotak disimpan relatif halaman: y = batas atas huruf (garis dasar - 0,78
+ * ukuran huruf), tinggi = ukuran huruf, sehingga tengahnya jatuh di tengah
+ * huruf kecil. Hasilnya diurutkan per baris lalu dari kiri ke kanan - itu
+ * urutan yang dipakai saat menarik rentang.
+ *
+ * Tiap kata juga diberi nomor BLOK: potongan-potongan yang rata kirinya sama
+ * dan barisnya bersambung (sel tabel yang terbungkus dua baris, nilai Sub
+ * Kegiatan yang panjang) dianggap satu blok. Tanpa itu, menarik dari awal
+ * sampai akhir isi sel ikut mencoret angka di kolom sebelahnya, karena
+ * urutan baca melompat ke sana di antara kedua barisnya.
+ */
+async function bacaKata(page, viewport) {
+    const isi = await page.getTextContent();
+    const W = viewport.width, H = viewport.height;
+    const ukur = document.createElement('canvas').getContext('2d');
+    const kata = [];
+    const potongan = [];   // { x, dasar, ukuran, blok } per potongan teks, untuk menyusun blok
+
+    isi.items.forEach(function (item) {
+        if (! item.str || ! item.str.trim() || ! item.width) return;
+
+        const tx = pdfjsLib.Util.transform(viewport.transform, item.transform);
+        // Hanya teks mendatar; teks miring/tegak tidak ada di dokumen NPD.
+        if (Math.abs(tx[1]) > 0.01 || Math.abs(tx[2]) > 0.01) return;
+
+        const ukuran = Math.hypot(tx[2], tx[3]);
+        const lebar = item.width * viewport.scale;
+        if (! ukuran || ! lebar) return;
+
+        ukur.font = ukuran + 'px Arial,sans-serif';
+        const skala = lebar / (ukur.measureText(item.str).width || lebar);
+        const atas = tx[5] - ukuran * 0.78;
+
+        // Blok: sambung ke potongan sebelumnya yang rata kirinya sama dan
+        // tepat satu baris di atasnya; kalau tidak ada, blok baru.
+        const induk = potongan.find(function (pt) {
+            const jarak = tx[5] - pt.dasar;
+            return Math.abs(pt.x - tx[4]) < 1.5 && jarak > 0 && jarak <= ukuran * 1.6 && ! pt.bersambung;
+        });
+        if (induk) induk.bersambung = true;
+        const blok = induk ? induk.blok : potongan.length;
+        potongan.push({ x: tx[4], dasar: tx[5], blok: blok, bersambung: false });
+
+        const pola = /\S+/g;
+        let m;
+        while ((m = pola.exec(item.str)) !== null) {
+            const x0 = tx[4] + ukur.measureText(item.str.slice(0, m.index)).width * skala;
+            const x1 = tx[4] + ukur.measureText(item.str.slice(0, m.index + m[0].length)).width * skala;
+            kata.push({ x: x0 / W, y: atas / H, w: (x1 - x0) / W, h: ukuran / H, dasar: tx[5] / H, teks: m[0], blok: blok });
+        }
+    });
+
+    kata.sort(function (a, b) {
+        return Math.abs(a.dasar - b.dasar) > a.h * 0.35 ? a.dasar - b.dasar : a.x - b.x;
+    });
+
+    // Nomor baris: kata yang garis dasarnya berdekatan dianggap satu baris.
+    let baris = -1, dasarBaris = -1;
+    kata.forEach(function (k) {
+        if (baris < 0 || Math.abs(k.dasar - dasarBaris) > k.h * 0.35) { baris++; dasarBaris = k.dasar; }
+        k.baris = baris;
+    });
+
+    return kata;
+}
+
+/**
+ * Kata pada titik (x,y) relatif. Dengan $toleran, kata TERDEKAT pun diterima
+ * - dipakai saat menarik supaya penunjuk yang sedikit meleset dari tulisan
+ * tidak memutus rentangnya.
+ */
+function kataDi(hs, x, y, toleran) {
+    const W = hs.canvas.width, H = hs.canvas.height;
+    const px = x * W, py = y * H;
+    let terbaik = -1, jarakTerbaik = Infinity;
+
+    (hs.kata || []).forEach(function (k, i) {
+        const dx = Math.max(k.x * W - px, 0, px - (k.x + k.w) * W);
+        const dy = Math.max(k.y * H - py, 0, py - (k.y + k.h) * H);
+        const jarak = Math.hypot(dx, dy * 2);   // meleset tegak lebih mahal: pindah baris
+        if (jarak < jarakTerbaik) { jarakTerbaik = jarak; terbaik = i; }
+    });
+
+    if (terbaik < 0) return -1;
+    const k = hs.kata[terbaik];
+    const batas = toleran ? Infinity : Math.max(3, k.h * H * 0.25);
+    return jarakTerbaik <= batas ? terbaik : -1;
+}
+
+/** Kotak per baris dan teks gabungan untuk rentang kata [awal..akhir] (urutan bebas). */
+function kotakRentang(hs, awal, akhir) {
+    const dari = Math.min(awal, akhir), sampai = Math.max(awal, akhir);
+    const perBaris = new Map();
+
+    // Awal dan akhir di blok yang sama (mis. satu sel tabel) = hanya kata
+    // milik blok itu yang tercoret, bukan kolom lain yang terselip di antaranya.
+    const blok = hs.kata[dari].blok === hs.kata[sampai].blok ? hs.kata[dari].blok : null;
+
+    hs.kata.slice(dari, sampai + 1).filter(function (k) {
+        return blok === null || k.blok === blok;
+    }).forEach(function (k) {
+        const b = perBaris.get(k.baris);
+        if (! b) {
+            perBaris.set(k.baris, { x0: k.x, x1: k.x + k.w, y0: k.y, y1: k.y + k.h, teks: [k.teks] });
+            return;
+        }
+        b.x0 = Math.min(b.x0, k.x);
+        b.x1 = Math.max(b.x1, k.x + k.w);
+        b.y0 = Math.min(b.y0, k.y);
+        b.y1 = Math.max(b.y1, k.y + k.h);
+        b.teks.push(k.teks);
+    });
+
+    const bulat = function (n) { return Math.round(n * 100000) / 100000; };
+    const kotak = [], teks = [];
+    perBaris.forEach(function (b) {
+        kotak.push([bulat(b.x0), bulat(b.y0), bulat(b.x1 - b.x0), bulat(b.y1 - b.y0)]);
+        teks.push(b.teks.join(' '));
+    });
+
+    return { kotak: kotak, teks: teks.join(' ') };
+}
+
+/** Indeks butir Coret + Catatan baru yang garisnya atau lencananya kena titik (x,y). */
+function coretDiTitik(hs, x, y) {
+    const W = hs.canvas.width, H = hs.canvas.height;
+    const px = x * W, py = y * H;
+
+    for (let i = butirBaru.length - 1; i >= 0; i--) {
+        const b = butirBaru[i];
+        if (b.jenis !== 'coret' || b.dokumen !== hs.dokumen || b.page !== hs.pageNumber) continue;
+
+        const g = geometriLencana(hs, b);
+        if (px >= g.x && px <= g.x + g.d && py >= g.y && py <= g.y + g.d) return i;
+
+        for (let j = 0; j < b.kotak.length; j++) {
+            const k = b.kotak[j];
+            if (px >= k[0] * W - 2 && px <= (k[0] + k[2]) * W + 2 && py >= k[1] * H - 2 && py <= (k[1] + k[3]) * H + 2) return i;
+        }
+    }
+    return -1;
 }
 
 function gambarButir(hs, butir) {
@@ -380,6 +704,12 @@ function gambarButir(hs, butir) {
 
     if (butir.jenis === 'sticky') {
         gambarSticky(hs, butir);
+        return;
+    }
+
+    if (butir.jenis === 'coret') {
+        gambarGarisCoret(hs, butir.kotak, butir.color);
+        gambarLencana(hs, butir);
         return;
     }
 
@@ -540,11 +870,26 @@ function bukaPop(target, klienX, klienY) {
     const butir = menyunting ? butirBaru[target.indeks] : null;
     const jenis = menyunting ? butir.jenis : target.jenis;
 
-    popJudulEl.textContent = (menyunting ? 'Ubah ' : 'Tulis ')
-        + (jenis === 'sticky' ? 'catatan sticky' : 'teks');
-    popTeksEl.value = menyunting ? butir.teks : '';
-    popHapusEl.hidden = ! menyunting;
-    popTempelEl.textContent = menyunting ? 'Simpan' : 'Tempel';
+    if (jenis === 'coret') {
+        // Coretan dan catatannya satu kesatuan: kotak ini selalu muncul
+        // bersama coretannya, catatannya boleh kosong, dan Hapus membuang
+        // keduanya sekaligus.
+        popJudulEl.textContent = menyunting ? 'Ubah catatan coretan ' + nomorCoret(butir) : 'Coret + catatan';
+        popKutipEl.textContent = menyunting ? butir.teks : target.teks;
+        popKutipEl.hidden = false;
+        popTeksEl.value = menyunting ? (butir.catatan || '') : '';
+        popTeksEl.placeholder = 'Catatan (boleh kosong)…';
+        popHapusEl.hidden = ! menyunting;
+        popTempelEl.textContent = 'Simpan';
+    } else {
+        popJudulEl.textContent = (menyunting ? 'Ubah ' : 'Tulis ')
+            + (jenis === 'sticky' ? 'catatan sticky' : 'teks');
+        popKutipEl.hidden = true;
+        popTeksEl.value = menyunting ? butir.teks : '';
+        popTeksEl.placeholder = 'Ketik catatan…';
+        popHapusEl.hidden = ! menyunting;
+        popTempelEl.textContent = menyunting ? 'Simpan' : 'Tempel';
+    }
 
     popEl.hidden = false;
     // Dijaga tetap di dalam layar: titik klik bisa berada di tepi kanan/bawah.
@@ -556,8 +901,11 @@ function bukaPop(target, klienX, klienY) {
 }
 
 function tutupPop() {
+    const adaPratinjau = popTarget && popTarget.jenis === 'coret';
     popEl.hidden = true;
     popTarget = null;
+    // Coretan yang belum disimpan hanya pratinjau - hilangkan dari kanvas.
+    if (adaPratinjau) gambarUlang();
 }
 
 document.getElementById('ct-pop-batal').addEventListener('click', tutupPop);
@@ -578,6 +926,24 @@ popTeksEl.addEventListener('keydown', function (e) {
 function tempelPop() {
     if (! popTarget) return;
     const teks = popTeksEl.value.trim();
+
+    // Coret + Catatan: catatan kosong tetap sah - coretannya sendiri sudah
+    // menyampaikan sesuatu (mis. salah ketik). Membuangnya lewat Hapus.
+    const butirSunting = typeof popTarget.indeks === 'number' ? butirBaru[popTarget.indeks] : null;
+    if (popTarget.jenis === 'coret' || (butirSunting && butirSunting.jenis === 'coret')) {
+        if (butirSunting) {
+            butirSunting.catatan = teks;
+        } else {
+            butirBaru.push({
+                dokumen: popTarget.hs.dokumen, page: 1, jenis: 'coret',
+                color: state.warna, kotak: popTarget.kotak, teks: popTarget.teks, catatan: teks,
+            });
+        }
+        popTarget = null;
+        tutupPop();
+        gambarUlang();
+        return;
+    }
 
     // Menyunting jadi kosong = membuang catatannya. Kertas tempel tanpa
     // tulisan tidak menyampaikan apa pun, dan kalau dibiarkan ia jadi kotak
@@ -680,6 +1046,11 @@ function butirTerkena(hs, x, y) {
             continue;
         }
 
+        if (b.jenis === 'coret') {
+            if (coretDiTitik(hs, x, y) === i) return i;
+            continue;
+        }
+
         if (b.jenis === 'teks') {
             const lebar = Math.min(0.5, b.ukuran * 12);
             const tinggi = (b.ukuran * 1.6) / keSatuanLebar;
@@ -728,6 +1099,27 @@ function pasangInteraksi(hs) {
         if (state.mode === 'geser') return;
         e.preventDefault();
         const [x, y] = posisiRelatif(hs, e);
+
+        if (state.mode === 'coret') {
+            tutupPop();
+
+            // Klik coretan yang sudah ada = ubah catatannya, bukan mencoret
+            // ulang di atasnya.
+            const ada = coretDiTitik(hs, x, y);
+            if (ada >= 0) {
+                bukaPop({ hs: hs, indeks: ada }, e.clientX, e.clientY);
+                gambarUlang();
+                return;
+            }
+
+            const i = kataDi(hs, x, y, false);
+            if (i < 0) return;
+            tarikKata = { hs: hs, awal: i, akhir: i };
+            hoverKata = null;
+            canvas.setPointerCapture(e.pointerId);
+            gambarUlang();
+            return;
+        }
 
         if (state.mode === 'sticky') {
             // Klik di atas kertas tempel yang SUDAH ADA berarti memindahkan
@@ -799,6 +1191,23 @@ function pasangInteraksi(hs) {
             return;
         }
 
+        if (tarikKata) {
+            e.preventDefault();
+            const i = kataDi(hs, x, y, true);
+            if (i >= 0 && i !== tarikKata.akhir) { tarikKata.akhir = i; gambarUlang(); }
+            return;
+        }
+
+        if (state.mode === 'coret') {
+            const i = kataDi(hs, x, y, false);
+            const baru = i >= 0 && ! popTarget ? { hs: hs, indeks: i } : null;
+            const berubah = (baru && baru.indeks) !== (hoverKata && hoverKata.indeks) || (hoverKata && hoverKata.hs !== hs);
+            hoverKata = baru;
+            canvas.style.cursor = coretDiTitik(hs, x, y) >= 0 ? 'pointer' : (i >= 0 ? 'text' : 'default');
+            if (berubah) gambarUlang();
+            return;
+        }
+
         // Penunjuk berubah jadi "bisa digeser" saat melewati kertas tempel,
         // supaya pemakai tahu benda itu bisa dipindahkan tanpa harus mencoba.
         if (state.mode === 'sticky') {
@@ -807,6 +1216,23 @@ function pasangInteraksi(hs) {
     });
 
     const selesai = function (e) {
+        if (tarikKata) {
+            // Rentang selesai ditarik: coretannya tampil sebagai pratinjau
+            // sampai catatannya disimpan (atau dibatalkan).
+            const rentang = kotakRentang(hs, tarikKata.awal, tarikKata.akhir);
+            tarikKata = null;
+            if (e && e.type === 'pointerup' && rentang.kotak.length) {
+                bukaPop({ hs: hs, jenis: 'coret', kotak: rentang.kotak, teks: rentang.teks }, e.clientX, e.clientY);
+            }
+            gambarUlang();
+            return;
+        }
+
+        if (state.mode === 'coret' && hoverKata && hoverKata.hs === hs && e && e.type === 'pointerleave') {
+            hoverKata = null;
+            gambarUlang();
+        }
+
         if (geser) {
             // Diangkat tanpa sempat bergerak = niatnya menyunting, bukan
             // memindahkan.
@@ -918,7 +1344,18 @@ async function renderDokumen(dok) {
             dokumen: dok.key, pageNumber: n,
             canvas: coret, ctx: coret.getContext('2d'), latar: latar, wrap: wrap,
             lebarAsli: LEBAR_ACUAN, rasio: viewport.width / viewport.height,
+            kata: [],
         };
+
+        // Lapisan teks untuk Coret + Catatan. Gagal dibaca (mis. dokumen hasil
+        // pindai) tidak menggagalkan halaman - alat lain tetap bisa dipakai.
+        if (n === 1) {
+            try {
+                hs.kata = await bacaKata(page, viewport);
+            } catch (err) {
+                console.error(err);
+            }
+        }
         halamanState.push(hs);
 
         if (n === 1) pasangInteraksi(hs);
