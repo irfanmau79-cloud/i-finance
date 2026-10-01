@@ -55,6 +55,13 @@ class NpdLifecycleTest extends TestCase
         ];
     }
 
+    /**
+     * Tujuannya menguji ulang-hitung nominal saat NPD disunting, jadi tarifnya
+     * memang perlu bisa diganti-ganti. Cluster LP (Luar Provinsi) dipakai
+     * karena hanya cluster itu yang tarifnya diketik manual - cluster lain
+     * tarifnya ditetapkan dan ditolak backend bila dikarang (lihat
+     * StoreNpdPdRequest::withValidator).
+     */
     private function payloadPd(MasterAnggaran $anggaran, SuratPerintah $sp, float $tarif = 500_000): array
     {
         return [
@@ -67,16 +74,16 @@ class NpdLifecycleTest extends TestCase
             'nomor_sp' => $sp->nomor_sp,
             'tanggal_sp' => '2026-07-18',
             'uraian_sp' => 'Perjalanan lifecycle',
-            'berangkat_dari' => 'Bekasi',
-            'tujuan' => 'Bandung',
+            'berangkat_dari' => 'Kota Bandung',
+            'tujuan' => 'Kota Yogyakarta',
             'tanggal_berangkat' => '2026-07-20',
             'tanggal_pulang' => '2026-07-21',
             'penerima_index' => 0,
             'tim' => [[
                 'nama' => 'Anggota Lifecycle',
                 'paket' => [[
-                    'cluster' => 'A',
-                    'wilayah' => 'Bandung',
+                    'cluster' => 'LP',
+                    'wilayah' => 'Kota Yogyakarta',
                     'lama_hari' => 2,
                     'tarif_uh' => $tarif,
                     'malam' => 0,

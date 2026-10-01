@@ -232,7 +232,11 @@
     $clusterJs = $clusterList->map(fn ($c) => [
         'kode' => $c->kode,
         'tarif' => (float) $c->tarif,
-        'jarak' => $c->jarak,
+        // Bunyi pilihannya ditentukan model supaya satu aturan saja yang
+        // dipakai: cluster jarak berprefiks kode, Dalam Kota & Luar Provinsi
+        // tampil apa adanya (lihat ClusterUh::labelPilihan()). Keterangan
+        // jarak mentahnya tidak dikirim - tidak ada lagi yang memakainya.
+        'label' => $c->labelPilihan(),
         'wilayah' => $c->wilayah->pluck('nama_wilayah')->all(),
     ]);
 
@@ -524,10 +528,13 @@
     let timIndex = 0;
     let paketSeq = 0;
 
+    // Urutan pilihan mengikuti urutan kode dari basis data (A, B, C, D, DK1,
+    // DK2, LP) - sama dengan urutan dropdown GAS. Label WAJIB di-escape:
+    // keterangan Dalam Kota memuat tanda < dan > yang kalau mentah akan
+    // memotong <option>.
     function clusterOptionsHtml(selected) {
         return '<option value="">— cluster —</option>'
-            + clusterData.filter(c => c.kode !== 'LP').map(c => '<option value="' + c.kode + '"' + (c.kode === selected ? ' selected' : '') + '>' + c.kode + ' (' + c.jarak + ')</option>').join('')
-            + '<option value="LP"' + (selected === 'LP' ? ' selected' : '') + '>Luar Provinsi</option>';
+            + clusterData.map(c => '<option value="' + c.kode + '"' + (c.kode === selected ? ' selected' : '') + '>' + escapeHtml(c.label) + '</option>').join('');
     }
 
     function paketRowHtml(timIdx, pid) {

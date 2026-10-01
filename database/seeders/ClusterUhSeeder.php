@@ -6,10 +6,17 @@ use App\Models\ClusterUh;
 use Illuminate\Database\Seeder;
 
 /**
- * Port 1:1 dari `var CLUSTER` di gas-lama/index.html (baris ~4400).
+ * Port 1:1 dari `var CLUSTER` di "i-finance gas/index.html".
+ *
+ * Sumbernya CLUSTER di index.html, BUKAN CLUSTER_UH di ClusterData.gs: hanya
+ * versi index.html yang memuat dua cluster Dalam Kota (DK1/DK2), dan itulah
+ * yang dipakai formulir GAS saat mengisi NPD.
  */
 class ClusterUhSeeder extends Seeder
 {
+    /** Kota Bandung sekaligus asal perjalanan - lihat ClusterUh::ASAL_PERJALANAN. */
+    private const WILAYAH_DALAM_KOTA = ClusterUh::ASAL_PERJALANAN;
+
     public function run(): void
     {
         $data = [
@@ -41,6 +48,19 @@ class ClusterUhSeeder extends Seeder
                     'Kabupaten Sukabumi', 'Kota Depok', 'Kabupaten Kuningan', 'Kabupaten Indramayu',
                     'Kota Cirebon', 'Kabupaten Cirebon', 'Kabupaten Pangandaran',
                 ],
+            ],
+            // Dalam Kota Bandung: asal = tujuan, yang membedakan tarif hanya
+            // lama perjalanan. Tarifnya sama dengan uang harian dalam kota di
+            // config/kebutuhan.php (standar biaya yang sama).
+            'DK1' => [
+                'tarif' => 100000,
+                'jarak' => 'Dalam Kota (< 8 Jam)',
+                'wilayah' => [self::WILAYAH_DALAM_KOTA],
+            ],
+            'DK2' => [
+                'tarif' => 170000,
+                'jarak' => 'Dalam Kota (> 8 Jam)',
+                'wilayah' => [self::WILAYAH_DALAM_KOTA],
             ],
             'LP' => [
                 'tarif' => 0,

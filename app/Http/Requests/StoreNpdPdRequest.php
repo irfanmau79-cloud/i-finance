@@ -3,11 +3,13 @@
 namespace App\Http\Requests;
 
 use App\Services\SpjBerkasService;
+use App\Models\ClusterUh;
 use App\Models\Npd;
 use App\Models\SuratPerintah;
 use App\Support\AnggaranNpd;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
+use Illuminate\Validation\Validator;
 
 class StoreNpdPdRequest extends FormRequest
 {
@@ -69,7 +71,7 @@ class StoreNpdPdRequest extends FormRequest
             'tim.*.representatif' => ['nullable', 'numeric', 'min:0'],
 
             'tim.*.paket' => ['required', 'array', 'min:1'],
-            'tim.*.paket.*.cluster' => ['required', Rule::in(['A', 'B', 'C', 'D', 'LP'])],
+            'tim.*.paket.*.cluster' => ['required', Rule::in(ClusterUh::KODE)],
             'tim.*.paket.*.wilayah' => ['required', 'string', 'max:100'],
             'tim.*.paket.*.lama_hari' => ['required', 'integer', 'min:0'],
             'tim.*.paket.*.tarif_uh' => ['required', 'numeric', 'min:0'],
@@ -80,6 +82,77 @@ class StoreNpdPdRequest extends FormRequest
             // pintu unggah di Inventarisasi SPJ tidak bisa berbeda-beda.
             ...SpjBerkasService::aturan(),
         ];
+    }
+
+    /**
+     * Tarif Uang Harian cluster TIDAK boleh datang dari peramban.
+     *
+     * Di formulir, isian tarif untuk cluster jarak dan Dalam Kota memang
+     * dibuat read-only dan diisi otomatis dari tabel cluster - tetapi
+     * read-only hanya menahan jari, bukan payload. Tanpa pemeriksaan ini
+     * siapa pun yang bisa mengirim POST dapat menaikkan tarif sesukanya, dan
+     * angka itu langsung menjadi nominal NPD yang dicairkan.
+     *
+     * Yang ditolak, bukan ditimpa: selisih tarif berarti payload dikarang
+     * ATAU standar biaya berubah sementara formulirnya masih terbuka. Dua
+     * duanya harus dilihat petugas, karena menimpa angka tanpa bilang-bilang
+     * pada dokumen yang akan ditandatangani lebih berbahaya daripada gagal
+     * simpan. Luar Provinsi (LP) dikecualikan - tarifnya memang diketik
+     * manual per NPD, sama seperti di GAS.
+     *
+     * Tarif akomodasi juga tetap manual: menginap di luar daftar standar
+     * biaya memang terjadi (lihat juga config/kebutuhan.php).
+     */
+    public function withValidator(Validator $validator): void
+    {
+        $validator->after(function (Validator $validator) {
+            $tim = $this->input('tim');
+
+            if (! is_array($tim)) {
+                return;
+            }
+
+            // Sengaja TANPA saringan `aktif`: cluster yang kelak dinonaktifkan
+            // tetap harus bisa disunting pada NPD lama yang memakainya.
+            $tarifCluster = ClusterUh::query()->pluck('tarif', 'kode');
+
+            foreach ($tim as $iTim => $anggota) {
+                foreach ((array) ($anggota['paket'] ?? []) as $iPaket => $paket) {
+                    $kode = $paket['cluster'] ?? null;
+
+                    // Kode kosong, kode asing, dan LP ditangani di tempat lain:
+                    // dua yang pertama oleh aturan Rule::in di rules(), LP
+                    // karena tarifnya memang bebas.
+                    if (! is_string($kode) || ! in_array($kode, ClusterUh::KODE, true)) {
+                        continue;
+                    }
+
+                    if ($kode === ClusterUh::KODE_MANUAL) {
+                        continue;
+                    }
+
+                    $isian = "tim.{$iTim}.paket.{$iPaket}.tarif_uh";
+
+                    if (! isset($tarifCluster[$kode])) {
+                        $validator->errors()->add($isian, "Cluster {$kode} belum ada di tabel cluster uang harian, jadi tarifnya tidak dapat diperiksa. Jalankan ClusterUhSeeder lebih dulu.");
+
+                        continue;
+                    }
+
+                    $seharusnya = round((float) $tarifCluster[$kode], 2);
+                    $dikirim = round((float) ($paket['tarif_uh'] ?? 0), 2);
+
+                    if ($dikirim !== $seharusnya) {
+                        $validator->errors()->add($isian, sprintf(
+                            'Tarif Uang Harian cluster %s sudah ditetapkan Rp%s per hari, bukan Rp%s. Muat ulang formulirnya bila standar biayanya baru berubah.',
+                            $kode,
+                            number_format($seharusnya, 0, ',', '.'),
+                            number_format($dikirim, 0, ',', '.'),
+                        ));
+                    }
+                }
+            }
+        });
     }
 
     public function attributes(): array

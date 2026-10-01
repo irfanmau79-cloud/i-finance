@@ -2,6 +2,7 @@
 
 namespace Tests\Feature;
 
+use App\Models\ClusterUh;
 use App\Models\Kpa;
 use App\Models\KpaPptk;
 use App\Models\MasterAnggaran;
@@ -11,6 +12,7 @@ use App\Models\PejabatOpd;
 use App\Models\Pelimpahan;
 use App\Models\SuratPerintah;
 use App\Models\User;
+use Database\Seeders\ClusterUhSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Testing\TestResponse;
 use setasign\Fpdi\PdfParser\PdfParser;
@@ -34,6 +36,20 @@ class NpdPdfRenderTest extends TestCase
     use RefreshDatabase;
 
     private int $seq = 0;
+
+    /**
+     * Tarif cluster ditegakkan di backend, jadi tabel cluster harus terisi
+     * sebelum NPD Perjalanan Dinas/Transport bisa disimpan. Sekalian membuat
+     * angka pada dokumen uji memakai standar biaya yang sesungguhnya - itu
+     * justru yang ingin diuji di sini, karena lebar kolom rupiah dan panjang
+     * terbilang pada PDF ikut ditentukan besaran aslinya.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed(ClusterUhSeeder::class);
+    }
 
     private function simpanPdf(string $namaFile, TestResponse $response, ?int $maksimalHalaman = null): void
     {
@@ -155,6 +171,12 @@ class NpdPdfRenderTest extends TestCase
         ]);
     }
 
+    /** Tarif uang harian resmi sebuah cluster, dibaca dari tabelnya. */
+    private function tarifCluster(string $kode): float
+    {
+        return (float) ClusterUh::where('kode', $kode)->sole()->tarif;
+    }
+
     private function masterAnggaran(string $program, string $sub, string $kode, float $pagu = 900_000_000): MasterAnggaran
     {
         return MasterAnggaran::create([
@@ -264,11 +286,15 @@ class NpdPdfRenderTest extends TestCase
 
         $tim = [];
         foreach ($namaTim as $i => $nama) {
+            // Ragam datanya datang dari lama hari, malam, dan akomodasi;
+            // tarif uang harian TIDAK boleh diacak karena sudah ditetapkan
+            // per cluster (lihat StoreNpdPdRequest::withValidator).
+            $cluster = chr(65 + ($i % 3));
             $paket = [[
-                'cluster' => chr(65 + ($i % 3)),
+                'cluster' => $cluster,
                 'wilayah' => ['Bandung', 'Kota Bandung', 'Cirebon'][$i % 3],
                 'lama_hari' => 2 + ($i % 3),
-                'tarif_uh' => 100_000 + ($i * 5_000),
+                'tarif_uh' => $this->tarifCluster($cluster),
                 'malam' => 1 + ($i % 3),
                 'tarif_akom' => 300_000 + ($i * 10_000),
             ]];
@@ -278,7 +304,7 @@ class NpdPdfRenderTest extends TestCase
                     'cluster' => 'B',
                     'wilayah' => 'Sumedang',
                     'lama_hari' => 1,
-                    'tarif_uh' => 90_000,
+                    'tarif_uh' => $this->tarifCluster('B'),
                     'malam' => 1,
                     'tarif_akom' => 250_000,
                 ];

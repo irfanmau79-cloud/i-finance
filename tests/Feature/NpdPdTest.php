@@ -2,17 +2,31 @@
 
 namespace Tests\Feature;
 
+use App\Models\ClusterUh;
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
 use App\Models\Pegawai;
 use App\Models\SuratPerintah;
 use App\Models\User;
+use Database\Seeders\ClusterUhSeeder;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
 class NpdPdTest extends TestCase
 {
     use RefreshDatabase;
+
+    /**
+     * Tarif cluster ditegakkan di backend (StoreNpdPdRequest::withValidator),
+     * jadi tabel cluster harus ada isinya sebelum NPD Perjalanan Dinas bisa
+     * disimpan - sama seperti di aplikasi sebenarnya.
+     */
+    protected function setUp(): void
+    {
+        parent::setUp();
+
+        $this->seed(ClusterUhSeeder::class);
+    }
 
     private function buatUser(string $role, string $username): User
     {
@@ -94,7 +108,9 @@ class NpdPdTest extends TestCase
                             'cluster' => 'A',
                             'wilayah' => 'Bandung',
                             'lama_hari' => 2,
-                            'tarif_uh' => 100_000,
+                            // Tarif WAJIB sama dengan tarif cluster A - backend
+                            // menolak angka karangan.
+                            'tarif_uh' => 200_000,
                             'malam' => 1,
                             'tarif_akom' => 300_000,
                         ],
@@ -110,7 +126,7 @@ class NpdPdTest extends TestCase
                             'cluster' => 'B',
                             'wilayah' => 'Kota Bandung',
                             'lama_hari' => 3,
-                            'tarif_uh' => 150_000,
+                            'tarif_uh' => 275_000,
                             'malam' => 2,
                             'tarif_akom' => 250_000,
                         ],
@@ -346,7 +362,7 @@ class NpdPdTest extends TestCase
         $this->assertSame('Panjar', $npd->jenis_panjar);
         $this->assertSame($pptk->id, $npd->dibuat_oleh);
         $this->assertSame($suratPerintah->id, $npd->surat_perintah_id);
-        $this->assertSame(1_830_000.0, (float) $npd->nominal);
+        $this->assertSame(2_405_000.0, (float) $npd->nominal);
         $this->assertSame('001/SP/TEST/2026', $npd->detail_json['nomor_sp']);
         $this->assertSame('Inspektur Pembantu I', $npd->tim->first()->bidang_snapshot);
 
@@ -355,8 +371,8 @@ class NpdPdTest extends TestCase
         $this->assertCount(1, $npd->tim[1]->paket);
         $this->assertFalse($npd->tim[0]->is_penerima);
         $this->assertTrue($npd->tim[1]->is_penerima);
-        $this->assertSame(880_000.0, $npd->tim[0]->hitung()['jumlah']);
-        $this->assertSame(950_000.0, $npd->tim[1]->hitung()['jumlah']);
+        $this->assertSame(1_080_000.0, $npd->tim[0]->hitung()['jumlah']);
+        $this->assertSame(1_325_000.0, $npd->tim[1]->hitung()['jumlah']);
 
         $this->assertDatabaseHas('npd_tim_paket', [
             'npd_tim_id' => $npd->tim[0]->id,
@@ -422,5 +438,128 @@ class NpdPdTest extends TestCase
         // sini, jadi bagiannya tidak pernah hilang dari dokumen.
         $this->assertSame('', $baris['rows_ak']);
         $this->assertSame(0.0, (float) $baris['t_ak']);
+    }
+
+    public function test_perjalanan_dalam_kota_bandung_tersimpan_dengan_cluster_dk(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-dalam-kota');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        // Perjalanan dalam Kota Bandung: asal = tujuan, tanpa akomodasi, dan
+        // tarifnya mengikuti cluster DK2 (di atas 8 jam) = Rp170.000/hari.
+        $payload = $this->payload($masterAnggaran);
+        $payload['berangkat_dari'] = ClusterUh::ASAL_PERJALANAN;
+        $payload['tujuan'] = ClusterUh::ASAL_PERJALANAN;
+        $payload['penerima_index'] = 0;
+        $payload['tim'] = [[
+            'nama' => 'Anggota Dalam Kota',
+            'jabatan' => 'Auditor',
+            'nip' => '198001012000011001',
+            'rekening' => '111111',
+            'paket' => [[
+                'cluster' => 'DK2',
+                'wilayah' => ClusterUh::ASAL_PERJALANAN,
+                'lama_hari' => 1,
+                'tarif_uh' => 170_000,
+                'malam' => 0,
+                'tarif_akom' => 0,
+            ]],
+        ]];
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload)
+            ->assertSessionHasNoErrors();
+
+        $npd = Npd::with('tim.paket')->sole();
+
+        $this->assertSame(170_000.0, (float) $npd->nominal);
+        $this->assertSame(170_000.0, $npd->tim[0]->hitung()['jumlah']);
+        $this->assertDatabaseHas('npd_tim_paket', [
+            'npd_tim_id' => $npd->tim[0]->id,
+            'cluster' => 'DK2',
+            'wilayah' => ClusterUh::ASAL_PERJALANAN,
+            'lama_hari' => 1,
+        ]);
+    }
+
+    public function test_cluster_di_luar_daftar_yang_dikenal_ditolak(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-cluster-asing');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payload($masterAnggaran);
+        $payload['tim'][0]['paket'][0]['cluster'] = 'DK3';
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload)
+            ->assertSessionHasErrors(['tim.0.paket.0.cluster']);
+
+        $this->assertSame(0, Npd::count());
+    }
+
+    public function test_formulir_menawarkan_kedua_cluster_dalam_kota(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-form-cluster');
+        $this->limpahkanSubKegiatan($pptk, $this->buatMasterAnggaran());
+
+        $isi = $this->actingAs($pptk)->get(route('npd.pd.create'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('"kode":"DK1"', $isi);
+        $this->assertStringContainsString('"kode":"DK2"', $isi);
+        $this->assertSame(2, substr_count($isi, 'Dalam Kota ('), 'Kedua cluster Dalam Kota harus muncul di pilihan.');
+
+        // Tanda < dan > pada keterangan Dalam Kota WAJIB ter-escape. Kalau
+        // lolos mentah ke halaman, <option> cluster terpotong di tengah dan
+        // dropdown-nya rusak - itulah sebabnya GAS pun menulisnya &lt;/&gt;.
+        $this->assertStringNotContainsString('Dalam Kota (< 8 Jam)', $isi);
+        $this->assertStringNotContainsString('Dalam Kota (> 8 Jam)', $isi);
+    }
+
+    public function test_tarif_uang_harian_yang_tidak_sesuai_cluster_ditolak(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-tarif-karangan');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        // Isian tarif di formulir memang read-only, tapi payload bisa dikarang
+        // langsung - cluster A Rp200.000 dinaikkan jadi Rp900.000.
+        $payload = $this->payload($masterAnggaran);
+        $payload['tim'][0]['paket'][0]['tarif_uh'] = 900_000;
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload)
+            ->assertSessionHasErrors(['tim.0.paket.0.tarif_uh']);
+
+        $this->assertSame(0, Npd::count());
+    }
+
+    public function test_tarif_luar_provinsi_tetap_bebas_diketik(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-luar-provinsi');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        // LP tidak punya tarif tetap: kotanya di luar Jawa Barat dan besarannya
+        // mengikuti ketentuan tujuan masing-masing.
+        $payload = $this->payload($masterAnggaran);
+        $payload['penerima_index'] = 0;
+        $payload['tim'] = [[
+            'nama' => 'Anggota Luar Provinsi',
+            'jabatan' => 'Auditor',
+            'nip' => '198001012000011001',
+            'rekening' => '111111',
+            'paket' => [[
+                'cluster' => 'LP',
+                'wilayah' => 'Kota Yogyakarta',
+                'lama_hari' => 2,
+                'tarif_uh' => 620_000,
+                'malam' => 1,
+                'tarif_akom' => 800_000,
+            ]],
+        ]];
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload)
+            ->assertSessionHasNoErrors();
+
+        $this->assertSame(2_040_000.0, (float) Npd::sole()->nominal);
     }
 }
