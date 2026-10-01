@@ -189,7 +189,8 @@ class SuratPerintahController extends Controller
         $data = $request->validated();
         $anggotaInput = $data['anggota'] ?? [];
         $komponen = $data['komponen'] ?? [];
-        unset($data['anggota'], $data['komponen'], $data['website']);
+        $jenisPembayaran = $data['jenis_pembayaran'] ?? [];
+        unset($data['anggota'], $data['komponen'], $data['jenis_pembayaran'], $data['website']);
 
         $stored = null;
 
@@ -207,7 +208,7 @@ class SuratPerintahController extends Controller
         $data['sumber_npd'] = true;
 
         try {
-            $suratPerintah = DB::transaction(function () use ($data, $anggotaInput, $komponen, $request) {
+            $suratPerintah = DB::transaction(function () use ($data, $anggotaInput, $komponen, $jenisPembayaran, $request) {
                 if ($request->reimburse()) {
                     $induk = SuratPerintah::query()->lockForUpdate()->findOrFail($data['sp_induk_id']);
 
@@ -215,6 +216,7 @@ class SuratPerintahController extends Controller
                     $anggota = $this->anggotaService->salinDariInduk($induk->anggota);
                 } else {
                     $data['pengajuan'] = implode(', ', $komponen);
+                    $data['jenis_pembayaran'] = implode(', ', $jenisPembayaran);
                     $anggota = $this->anggotaService->normalisasi($anggotaInput, false, true);
                 }
 
@@ -270,6 +272,9 @@ class SuratPerintahController extends Controller
             'rincian_tgl_bayar' => $induk->rincian_tgl_bayar,
             'keterangan' => $induk->keterangan,
             'pengajuan' => 'Transport',
+            // Reimburse menumpang perjalanan yang sama dengan induknya, jadi
+            // jenis pembayarannya tidak boleh berbeda.
+            'jenis_pembayaran' => $induk->jenis_pembayaran,
         ]);
     }
 
@@ -285,7 +290,12 @@ class SuratPerintahController extends Controller
         $data = $request->validated();
         $anggotaInput = $data['anggota'] ?? [];
         $komponen = $data['komponen'] ?? null;
-        unset($data['anggota'], $data['komponen'], $data['website']);
+        $jenisPembayaran = $data['jenis_pembayaran'] ?? null;
+        unset($data['anggota'], $data['komponen'], $data['jenis_pembayaran'], $data['website']);
+
+        if ($jenisPembayaran !== null) {
+            $data['jenis_pembayaran'] = implode(', ', $jenisPembayaran);
+        }
 
         if ($komponen !== null) {
             $data['pengajuan'] = implode(', ', $komponen);

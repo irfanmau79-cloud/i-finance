@@ -69,6 +69,7 @@ class SuratPerintahInputTest extends TestCase
             'keterangan' => 'Reviu LKPD',
             'status_sp' => 'Baru',
             'komponen' => ['Uang Harian', 'Akomodasi'],
+            'jenis_pembayaran' => ['Dalam Daerah/Luar Daerah'],
             'file_url' => UploadedFile::fake()->create('sp.pdf', 100, 'application/pdf'),
         ], $override);
     }
@@ -104,6 +105,7 @@ class SuratPerintahInputTest extends TestCase
 
         $this->actingAs($pptk)->post(route('surat-perintah.store'), $this->payload([
             'komponen' => [],
+            'jenis_pembayaran' => ['Dalam Daerah/Luar Daerah'],
             'anggota' => $anggota,
         ]))->assertSessionHasErrors('komponen');
 
@@ -111,6 +113,7 @@ class SuratPerintahInputTest extends TestCase
 
         $this->actingAs($pptk)->post(route('surat-perintah.store'), $this->payload([
             'komponen' => ['Uang Harian', 'Transport'],
+            'jenis_pembayaran' => ['Dalam Daerah/Luar Daerah'],
             'anggota' => $anggota,
         ]))->assertRedirect(route('surat-perintah.index'));
 
@@ -367,5 +370,68 @@ class SuratPerintahInputTest extends TestCase
         $this->assertTrue($sp->dipantau);
         $this->assertTrue($sp->sumber_npd, 'SP baru otomatis menjadi sumber data NPD.');
         $this->assertSame(SuratPerintah::JENIS_UANG_HARIAN, $sp->jenis_permintaan);
+    }
+
+    // ---------------- Jenis Pembayaran (adopsi GAS #77c) ----------------
+
+    public function test_jenis_pembayaran_tersimpan_dan_boleh_dua_duanya(): void
+    {
+        $pptk = $this->user('pptk');
+        $orang = $this->pegawai('Ketua Tim');
+
+        $this->actingAs($pptk)->post(route('surat-perintah.store'), $this->payload([
+            'jenis_pembayaran' => ['Dalam Daerah/Luar Daerah', 'Dalam Kota'],
+            'anggota' => [['pegawai_id' => $orang->id, 'nama' => $orang->nama]],
+        ]))->assertRedirect(route('surat-perintah.index'));
+
+        $sp = SuratPerintah::sole();
+
+        $this->assertSame('Dalam Daerah/Luar Daerah, Dalam Kota', $sp->jenis_pembayaran);
+        $this->assertSame(['Dalam Daerah/Luar Daerah', 'Dalam Kota'], $sp->jenisPembayaranArray());
+    }
+
+    public function test_jenis_pembayaran_wajib_dipilih_minimal_satu(): void
+    {
+        $pptk = $this->user('pptk');
+        $orang = $this->pegawai('Ketua Tim');
+
+        $this->actingAs($pptk)->post(route('surat-perintah.store'), $this->payload([
+            'jenis_pembayaran' => [],
+            'anggota' => [['pegawai_id' => $orang->id, 'nama' => $orang->nama]],
+        ]))->assertSessionHasErrors(['jenis_pembayaran']);
+
+        $this->assertSame(0, SuratPerintah::count());
+    }
+
+    public function test_jenis_pembayaran_di_luar_daftar_ditolak(): void
+    {
+        $pptk = $this->user('pptk');
+        $orang = $this->pegawai('Ketua Tim');
+
+        $this->actingAs($pptk)->post(route('surat-perintah.store'), $this->payload([
+            'jenis_pembayaran' => ['Luar Negeri'],
+            'anggota' => [['pegawai_id' => $orang->id, 'nama' => $orang->nama]],
+        ]))->assertSessionHasErrors(['jenis_pembayaran.0']);
+
+        $this->assertSame(0, SuratPerintah::count());
+    }
+
+    public function test_sp_lama_tanpa_jenis_pembayaran_tetap_terbaca_sebagai_kosong(): void
+    {
+        // Kolomnya nullable: SP yang dibuat sebelum fitur ini tidak boleh
+        // ditebak jenis pembayarannya, cukup tampil kosong.
+        $sp = SuratPerintah::create([
+            'nomor_sp' => '001/SP/LAMA/2026', 'tanggal_sp' => '2026-07-15',
+            'unit_kerja' => 'Sekretariat', 'lokasi' => 'Bandung',
+            'nama_pengirim' => 'P', 'tujuan_transfer' => 'T', 'irban_dibayar' => false,
+            'rincian_tgl_bayar' => '1 Juli 2026', 'keterangan' => 'K',
+            'file_url' => 'sp/lama.pdf', 'status_sp' => 'Baru',
+            'status' => SuratPerintah::STATUS_DITERIMA_PPTK,
+            'jenis_permintaan' => SuratPerintah::JENIS_UANG_HARIAN,
+            'sumber_npd' => true, 'dipantau' => true,
+        ]);
+
+        $this->assertNull($sp->jenis_pembayaran);
+        $this->assertSame([], $sp->jenisPembayaranArray());
     }
 }

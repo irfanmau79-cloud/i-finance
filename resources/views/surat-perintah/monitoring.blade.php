@@ -32,6 +32,7 @@
                     <th>Keterangan</th>
                     <th>Koordinator</th>
                     <th>Pengajuan</th>
+                    <th>Jenis Pembayaran</th>
                     <th>Status</th>
                 </tr>
             </thead>
@@ -79,6 +80,15 @@
                             @endif
                         </td>
                         <td>
+                            <div class="peng-chips">
+                                @forelse ($suratPerintah->jenisPembayaranArray() as $jenis)
+                                    <span class="peng-chip">&check; {{ $jenis }}</span>
+                                @empty
+                                    <span class="peng-chips-empty">&mdash;</span>
+                                @endforelse
+                            </div>
+                        </td>
+                        <td>
                             @if (filled($suratPerintah->status))
                                 <span class="badge {{ $statusBadgeClass[$suratPerintah->status] ?? 'st-diterima' }}">{{ $suratPerintah->status }}</span>
                             @else
@@ -90,13 +100,13 @@
                          (lihat SuratPerintahTimelineService::untukBanyak), jadi
                          membukanya tidak memicu permintaan baru. --}}
                     <tr class="sp-tl-row" id="tl-{{ $suratPerintah->id }}" data-search="{{ $cariTeks }}" hidden>
-                        <td colspan="7">
+                        <td colspan="8">
                             @include('surat-perintah._timeline', ['tl' => $timeline[$suratPerintah->id] ?? ['titik' => []]])
                         </td>
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" style="text-align:center;color:var(--mut);padding:20px;">Belum ada SP yang dipantau.</td>
+                        <td colspan="8" style="text-align:center;color:var(--mut);padding:20px;">Belum ada SP yang dipantau.</td>
                     </tr>
                 @endforelse
             </tbody>

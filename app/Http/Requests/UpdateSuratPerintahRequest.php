@@ -43,6 +43,10 @@ class UpdateSuratPerintahRequest extends StoreSuratPerintahRequest
             'keterangan' => ['required', 'string'],
 
             'komponen' => ['nullable', 'array'],
+            // Seperti komponen: dikosongkan berarti nilai tersimpan dipakai
+            // apa adanya, jadi menyunting SP lama tidak memaksa petugas
+            // mengisi ulang isian yang dulu belum ada.
+            'jenis_pembayaran' => ['nullable', 'array'],
             'file_url' => ['nullable', 'file', 'mimes:pdf', 'mimetypes:application/pdf', 'max:10240'],
             'anggota' => ['nullable', 'array', 'max:'.SuratPerintah::MAKS_ANGGOTA],
         ]);

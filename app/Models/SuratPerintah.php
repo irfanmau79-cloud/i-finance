@@ -25,6 +25,7 @@ use Illuminate\Support\Facades\Storage;
     'status_sp',
     'status',
     'pengajuan',
+    'jenis_pembayaran',
     'catatan',
     'dipantau',
     'jenis_permintaan',
@@ -94,6 +95,18 @@ class SuratPerintah extends Model
     public function pengajuanArray(): array
     {
         return array_filter(array_map('trim', explode(',', (string) $this->pengajuan)));
+    }
+
+    /**
+     * Jenis Pembayaran: satu SP boleh menanggung dua-duanya sekaligus, jadi
+     * disimpan sebagai daftar bergabung koma seperti kolom `pengajuan`.
+     */
+    public const JENIS_PEMBAYARAN_OPTIONS = ['Dalam Daerah/Luar Daerah', 'Dalam Kota'];
+
+    /** @return array<int, string> */
+    public function jenisPembayaranArray(): array
+    {
+        return array_values(array_filter(array_map('trim', explode(',', (string) $this->jenis_pembayaran))));
     }
 
     public function anggota(): HasMany

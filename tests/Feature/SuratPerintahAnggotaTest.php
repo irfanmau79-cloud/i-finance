@@ -61,6 +61,7 @@ class SuratPerintahAnggotaTest extends TestCase
             'keterangan' => 'Perjalanan dengan anggota dari SP.',
             'status_sp' => 'Baru',
             'komponen' => ['Uang Harian', 'Akomodasi'],
+            'jenis_pembayaran' => ['Dalam Daerah/Luar Daerah'],
             'file_url' => UploadedFile::fake()->create('sp.pdf', 100, 'application/pdf'),
             'anggota' => [
                 ['pegawai_id' => $ketua->id, 'nama' => $ketua->nama, 'jabatan_sp' => 'Ketua Tim'],

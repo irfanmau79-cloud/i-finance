@@ -33,6 +33,9 @@
     ])->values()->all();
 
     $komponenAwal = old('komponen', $sp?->pengajuanArray() ?? []);
+    // Belum pernah diisi (SP lama atau formulir baru) -> tidak ada yang
+    // tercentang; petugas harus memilih sendiri, bukan ditebakkan.
+    $jenisPembayaranAwal = old('jenis_pembayaran', $sp?->jenisPembayaranArray() ?? []);
 
     // Tujuan Transfer disimpan sebagai satu string bebas. Kalau isinya cocok
     // dengan nama pegawai aktif, dropdown-nya yang terpilih; kalau tidak
@@ -188,6 +191,20 @@
             @endforeach
         </div>
         <div class="sub" style="margin-top:4px;">Yang dicentang mengisi kolom Pengajuan di Monitoring SP.</div>
+    </div>
+
+    <div class="fg span2" data-sp-jenis-bayar>
+        <label class="fl">Jenis Pembayaran</label>
+        <div class="komp-pilih">
+            @foreach (SuratPerintah::JENIS_PEMBAYARAN_OPTIONS as $opsi)
+                <label class="komp-chip">
+                    <input type="checkbox" name="jenis_pembayaran[]" value="{{ $opsi }}" @checked(in_array($opsi, $jenisPembayaranAwal, true))>
+                    <span class="komp-box"><svg viewBox="0 0 16 16" aria-hidden="true"><polyline points="3,8.5 6.5,12 13,4.5"/></svg></span>
+                    <span class="komp-txt">{{ $opsi }}</span>
+                </label>
+            @endforeach
+        </div>
+        <div class="sub" style="margin-top:4px;">Wajib dipilih minimal satu; boleh dua-duanya bila satu SP menanggung keduanya.</div>
     </div>
 
     <div class="fg span2" data-sp-identitas>
@@ -444,6 +461,9 @@
             .forEach(el => { el.disabled = reimburse; });
         document.querySelectorAll('[data-sp-komponen] input').forEach(el => { el.disabled = reimburse; });
         document.querySelectorAll('[data-sp-komponen]').forEach(el => { el.hidden = reimburse; });
+        // Jenis Pembayaran juga diwarisi dari SP induk, jadi ikut dikunci.
+        document.querySelectorAll('[data-sp-jenis-bayar] input').forEach(el => { el.disabled = reimburse; });
+        document.querySelectorAll('[data-sp-jenis-bayar]').forEach(el => { el.hidden = reimburse; });
         document.querySelectorAll('[data-sp-identitas]').forEach(el => { el.hidden = reimburse; });
 
         // Dipanggil setelah penguncian di atas: baris sebelumnya menyalakan

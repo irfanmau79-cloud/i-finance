@@ -59,6 +59,7 @@ class SuratPerintahEditTest extends TestCase
             'keterangan' => 'Reviu LKPD',
             'status_sp' => 'Baru',
             'komponen' => ['Uang Harian'],
+            'jenis_pembayaran' => ['Dalam Daerah/Luar Daerah'],
             'file_url' => UploadedFile::fake()->create('sp.pdf', 100, 'application/pdf'),
             'anggota' => [['pegawai_id' => $orang->id, 'nama' => $orang->nama, 'jabatan_sp' => 'Ketua Tim']],
         ], $override))->assertRedirect(route('surat-perintah.index'));

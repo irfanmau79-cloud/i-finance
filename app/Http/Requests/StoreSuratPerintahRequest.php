@@ -82,6 +82,11 @@ class StoreSuratPerintahRequest extends FormRequest
             'komponen' => [$this->reimburse() ? 'nullable' : 'required', 'array'],
             'komponen.*' => ['string', Rule::in(SuratPerintah::PENGAJUAN_OPTIONS)],
 
+            // Jenis Pembayaran: minimal satu, boleh dua-duanya. Reimburse
+            // mewarisi milik SP induk, jadi tidak wajib diisi di formulirnya.
+            'jenis_pembayaran' => [$this->reimburse() ? 'nullable' : 'required', 'array', 'min:1'],
+            'jenis_pembayaran.*' => ['string', Rule::in(SuratPerintah::JENIS_PEMBAYARAN_OPTIONS)],
+
             // Unggahan PDF tidak wajib untuk Reimburse (lihat prosesInputSP).
             'file_url' => [$wajibManual, 'file', 'mimes:pdf', 'mimetypes:application/pdf', 'max:10240'],
 

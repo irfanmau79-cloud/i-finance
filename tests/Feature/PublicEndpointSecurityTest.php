@@ -111,6 +111,7 @@ class PublicEndpointSecurityTest extends TestCase
         return $this->payload() + [
             'jenis_permintaan' => SuratPerintah::JENIS_UANG_HARIAN,
             'komponen' => ['Uang Harian'],
+            'jenis_pembayaran' => ['Dalam Daerah/Luar Daerah'],
             'anggota' => [[
                 'pegawai_id' => $pegawai->id,
                 'nama' => $pegawai->nama,
