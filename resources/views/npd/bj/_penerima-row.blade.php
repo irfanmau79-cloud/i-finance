@@ -18,7 +18,7 @@
             <div class="nsearch" data-name-search>
                 <svg class="ns-ic" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
                 <input type="text" class="ns-inp" data-name-input autocomplete="off"
-                       placeholder="Cari pegawai/vendor, atau ketik nama manual..."
+                       placeholder="Cari pegawai/rekanan, atau ketik nama manual..."
                        name="penerima[{{ $i }}][nama]" value="{{ $namaVal }}">
                 <div class="ns-drop" data-name-drop></div>
             </div>

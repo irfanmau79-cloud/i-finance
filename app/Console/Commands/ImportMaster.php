@@ -49,7 +49,7 @@ class ImportMaster extends Command
         $results = [
             'Master Anggaran' => $this->runInTransaction('Master Anggaran', fn () => $this->importMasterAnggaran($import->masterAnggaran)),
             'Pegawai' => $pegawaiVendor['pegawai'],
-            'Vendor' => $pegawaiVendor['vendor'],
+            'Rekanan' => $pegawaiVendor['vendor'],
             'Data Tambahan' => $this->runInTransaction('Data Tambahan', fn () => $this->importDataTambahan($import->dataTambahan)),
         ];
 
@@ -108,12 +108,12 @@ class ImportMaster extends Command
      */
     private function runPegawaiVendorInTransaction(RawSheetImport $sheet): array
     {
-        $this->info('Memproses: Pegawai & Vendor...');
+        $this->info('Memproses: Pegawai & Rekanan...');
 
         try {
             return DB::transaction(fn () => $this->importPegawaiAndVendor($sheet));
         } catch (Throwable $e) {
-            $this->error('Import Pegawai & Vendor gagal dan di-rollback seluruhnya: '.$e->getMessage());
+            $this->error('Import Pegawai & Rekanan gagal dan di-rollback seluruhnya: '.$e->getMessage());
 
             $fatal = [
                 'dibaca' => 0,

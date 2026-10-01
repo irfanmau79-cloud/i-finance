@@ -141,7 +141,7 @@ class VendorImportTest extends TestCase
         $this->assertSame('222-999', $existing->fresh()->rekening);
         $this->assertFalse($existing->fresh()->pkp);
 
-        $log = AuditLog::where('aktivitas', 'Import Vendor')->latest('id')->first();
+        $log = AuditLog::where('aktivitas', 'Import Rekanan')->latest('id')->first();
         $this->assertNotNull($log);
         $this->assertStringContainsString('Baru: 1', $log->keterangan);
         $this->assertStringContainsString('Update: 1', $log->keterangan);

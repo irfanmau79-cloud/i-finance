@@ -442,7 +442,7 @@ class ManajemenDataExportTest extends TestCase
 
         $this->assertNotNull($log);
         $this->assertSame($superadmin->username, $log->username);
-        $this->assertStringContainsString('Vendor', $log->keterangan);
+        $this->assertStringContainsString('Data Rekanan', $log->keterangan);
         $this->assertStringContainsString('Baris: 2', $log->keterangan);
     }
 }

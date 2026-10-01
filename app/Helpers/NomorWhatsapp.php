@@ -6,7 +6,7 @@ namespace App\Helpers;
  * Normalisasi nomor handphone Indonesia ke bentuk yang diterima tautan
  * wa.me: hanya angka, diawali kode negara 62, tanpa tanda plus.
  *
- * Nomor di Data Pegawai/Vendor diketik bebas oleh petugas - "0812-3456-7890",
+ * Nomor di Data Pegawai/Rekanan diketik bebas oleh petugas - "0812-3456-7890",
  * "+62 812 3456 7890", dan "812.3456.7890" adalah nomor yang sama dan harus
  * menghasilkan tautan yang sama.
  */

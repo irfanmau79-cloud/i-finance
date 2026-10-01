@@ -69,7 +69,7 @@ class SpmController extends Controller
     }
 
     /**
-     * Isi dropdown Penerima: seluruh Data Pegawai dan Data Vendor yang aktif.
+     * Isi dropdown Penerima: seluruh Data Pegawai dan Data Rekanan yang aktif.
      * Yang tidak aktif lagi tetap disertakan bila sedang dipakai SPM yang
      * disunting, supaya tautannya tidak lepas saat disimpan ulang.
      */

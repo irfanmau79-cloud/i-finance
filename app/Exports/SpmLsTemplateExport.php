@@ -69,9 +69,9 @@ class SpmLsTemplateExport implements FromArray, PunyaPetunjukKolom, ShouldAutoSi
         ['Nominal PPh 1', 'Tidak', 'Angka, tanpa Rp', 'Nominal PPh pertama. Harus sama di semua baris dokumen ini.', '50000'],
         ['Jenis PPh 2', 'Tidak', 'Teks', 'Jenis pemotongan PPh kedua. Kosongkan bila hanya ada satu jenis.', 'PPh Pasal 23'],
         ['Nominal PPh 2', 'Tidak', 'Angka, tanpa Rp', 'Nominal PPh kedua. Harus sama di semua baris dokumen ini.', '25000'],
-        ['Penerima', 'Ya', 'Teks', 'Nama penerima pencairan. Bila namanya sama persis dengan satu nama di Data Pegawai atau Data Vendor, barisnya otomatis ditautkan ke data itu; bila tidak, namanya tetap disimpan apa adanya. Harus sama di semua baris dokumen ini.', 'CV Sumber Rejeki'],
+        ['Penerima', 'Ya', 'Teks', 'Nama penerima pencairan. Bila namanya sama persis dengan satu nama di Data Pegawai atau Data Rekanan, barisnya otomatis ditautkan ke data itu; bila tidak, namanya tetap disimpan apa adanya. Harus sama di semua baris dokumen ini.', 'CV Sumber Rejeki'],
         ['Bank Tujuan', 'Tidak', 'Teks', 'Nama bank rekening tujuan pencairan. Boleh bank apa pun, tidak dibatasi daftar. Harus sama di semua baris dokumen ini.', 'Bank BJB'],
-        ['Nomor Rekening', 'Tidak', 'Teks', 'Nomor rekening tujuan pencairan. Ditulis sebagai teks supaya nol di depannya tidak hilang. Bila dikosongkan sedangkan penerimanya cocok ke Data Pegawai/Vendor, nomor rekening dari data itu yang dipakai. Harus sama di semua baris dokumen ini.', '0011223344'],
+        ['Nomor Rekening', 'Tidak', 'Teks', 'Nomor rekening tujuan pencairan. Ditulis sebagai teks supaya nol di depannya tidak hilang. Bila dikosongkan sedangkan penerimanya cocok ke Data Pegawai/Rekanan, nomor rekening dari data itu yang dipakai. Harus sama di semua baris dokumen ini.', '0011223344'],
         ['Uraian', 'Ya', 'Teks', 'Keterangan dokumen. Harus sama di semua baris dokumen ini.', 'Pembayaran ATK triwulan III'],
     ];
 

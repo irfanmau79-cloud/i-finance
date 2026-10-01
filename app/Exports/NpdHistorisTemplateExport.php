@@ -39,7 +39,7 @@ class NpdHistorisTemplateExport implements FromArray, PunyaPetunjukKolom, Should
             ['Kode Rekening', 'Ya', 'Teks', 'Kode rekening belanja yang dibebani.', '5.1.02.01.01.0024'],
             ['Rekening', 'Tidak', 'Teks', 'Uraian rekening tanpa kodenya. Hanya referensi.', 'Belanja Alat Tulis Kantor'],
             ['Tagging', 'Tidak', 'Teks', 'Tagging mata anggaran. Isi bila kode rekening tersebut dibedakan per tagging.', 'Rutin'],
-            ['Penerima', 'Ya', 'Teks', 'Nama penerima. Bila tidak ditemukan di master Pegawai/Vendor, namanya tetap dipakai sebagai snapshot dengan peringatan - master TIDAK dibuat otomatis.', 'CV Sumber Rejeki'],
+            ['Penerima', 'Ya', 'Teks', 'Nama penerima. Bila tidak ditemukan di master Pegawai/Rekanan, namanya tetap dipakai sebagai snapshot dengan peringatan - master TIDAK dibuat otomatis.', 'CV Sumber Rejeki'],
             ['Rekening Penerima', 'Ya', 'Teks', 'Nomor rekening bank penerima.', '1234567890'],
             ['Nominal Bruto', 'Ya', 'Angka, tanpa Rp', 'Nilai BRUTO dokumen. Inilah angka yang mengikat pagu dan menjadi realisasi.', '1000000'],
             ['Uraian', 'Ya', 'Teks', 'Keterangan dokumen.', 'Belanja ATK bulan Juli'],

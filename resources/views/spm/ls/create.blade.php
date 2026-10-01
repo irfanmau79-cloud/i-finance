@@ -185,7 +185,7 @@
         <div class="fg">
             <label class="fl" for="penerima_sumber">Pilih Penerima</label>
             <select id="penerima_sumber" name="penerima_sumber" data-cari>
-                <option value="">&mdash; Pilih dari Data Pegawai / Vendor &mdash;</option>
+                <option value="">&mdash; Pilih dari Data Pegawai / Rekanan &mdash;</option>
                 <option value="manual" @selected($penerimaSumberAwal === 'manual')>Isi Manual</option>
                 @foreach ($pegawaiList as $pegawai)
                     <option value="pegawai:{{ $pegawai->id }}"
@@ -195,7 +195,7 @@
                 @endforeach
                 @foreach ($vendorList as $vendor)
                     <option value="vendor:{{ $vendor->id }}"
-                            data-sub="Vendor&nbsp;&middot; {{ $vendor->jenis_usaha ?: 'Pihak ketiga' }}"
+                            data-sub="Rekanan&nbsp;&middot; {{ $vendor->jenis_usaha ?: 'Pihak ketiga' }}"
                             data-rekening="{{ $vendor->rekening }}"
                             @selected($penerimaSumberAwal === 'vendor:'.$vendor->id)>{{ $vendor->nama }}</option>
                 @endforeach
@@ -607,7 +607,7 @@
 
     /**
      * Penerima dari master: nama & nomor rekening ikut isinya dan dikunci,
-     * supaya tidak menyimpang dari Data Pegawai/Vendor. "Isi Manual" membuka
+     * supaya tidak menyimpang dari Data Pegawai/Rekanan. "Isi Manual" membuka
      * ketiganya. (Server tetap mengambil ulang dari master - lihat
      * Spm::penerimaDariInput.)
      */

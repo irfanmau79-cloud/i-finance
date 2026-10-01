@@ -96,8 +96,8 @@
                                 {{ $b->penerima ?? '—' }}
                                 @if ($b->penerimaPegawai || $b->penerimaVendor)
                                     {{-- Terlihat sebelum disimpan: nama mana yang berhasil
-                                         dikenali sebagai Data Pegawai/Vendor. --}}
-                                    <span class="badge" style="background:var(--ok-bg);color:var(--ok-teks);">{{ $b->penerimaPegawai ? 'Pegawai' : 'Vendor' }}</span>
+                                         dikenali sebagai Data Pegawai/Rekanan. --}}
+                                    <span class="badge" style="background:var(--ok-bg);color:var(--ok-teks);">{{ $b->penerimaPegawai ? 'Pegawai' : 'Rekanan' }}</span>
                                 @endif
                                 @if ($b->bank_tujuan || $b->nomor_rekening)
                                     <span class="sub">{{ trim(($b->bank_tujuan ?? '').' · '.($b->nomor_rekening ?? ''), ' ·') }}</span>

@@ -53,7 +53,7 @@ class VendorImportController extends Controller
                 ->withErrors(['import' => $e->getMessage()]);
         }
 
-        AuditLog::catat('Import Vendor', sprintf(
+        AuditLog::catat('Import Rekanan', sprintf(
             'File: %s, Baru: %d, Update: %d, Ditolak: %d',
             $import->nama_file,
             $hasil['baru'],
@@ -62,7 +62,7 @@ class VendorImportController extends Controller
         ));
 
         return redirect()->route('manajemen-data.index')->with('success', sprintf(
-            'Import Vendor berhasil: %d baru, %d diperbarui, %d ditolak.',
+            'Import Rekanan berhasil: %d baru, %d diperbarui, %d ditolak.',
             $hasil['baru'],
             $hasil['update'],
             $import->fresh()->jumlah_ditolak

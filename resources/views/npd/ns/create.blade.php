@@ -190,7 +190,7 @@
         'id' => $v->id,
         'tipe' => 'vendor',
         'nama' => $v->nama,
-        'sub' => 'Vendor',
+        'sub' => 'Rekanan',
         'jabatan' => '',
         'rekening' => $v->rekening,
     ]));

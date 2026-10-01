@@ -369,11 +369,11 @@ document.addEventListener('DOMContentLoaded', function () {
         ? 'Nomor handphone yang tersimpan (' + esc(t.nomor) + ') tidak dikenali sebagai nomor yang sah.'
         : (t.nama
             ? 'Nomor handphone <b>' + esc(t.nama) + '</b> belum diisi.'
-            : 'Penerima tujuan transfer NPD ini tidak ditemukan di Data Pegawai maupun Data Vendor.');
+            : 'Penerima tujuan transfer NPD ini tidak ditemukan di Data Pegawai maupun Data Rekanan.');
 
       const jalanKeluar = d.url_ubah_pegawai
         ? ' <a href="' + d.url_ubah_pegawai + '" style="color:inherit;text-decoration:underline;">Lengkapi di Data Pegawai</a>, lalu buka lagi halaman ini.'
-        : ' Minta superadmin melengkapinya di Data Pegawai (atau Import Vendor untuk penerima vendor) lebih dulu.';
+        : ' Minta superadmin melengkapinya di Data Pegawai (atau Daftar Rekanan untuk penerima rekanan) lebih dulu.';
 
       html += '<div class="wa-peringatan">' + IKON_PERINGATAN + '<div>' + pesanNomor + jalanKeluar + '</div></div>';
     }

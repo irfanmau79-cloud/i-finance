@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
 @section('activeNav', 'manajemen-data')
-@section('title', 'Import Vendor')
+@section('title', 'Import Rekanan')
 
 @section('content')
 <div class="dash-card">
-    <h3>Import Vendor</h3>
+    <h3>Import Rekanan</h3>
     <div class="sub">
         Upload file Excel (.xlsx/.xls) dengan header: Nama, Rekening, NPWP, Status PKP (isi "PKP" atau "Non-PKP"), Jenis Usaha, Aktif.
         Nama yang sudah terdaftar akan DIPERBARUI (field lain menimpa data lama); Nama baru akan ditambahkan.

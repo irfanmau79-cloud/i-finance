@@ -1,11 +1,11 @@
 @extends('layouts.app')
 
 @section('activeNav', 'manajemen-data')
-@section('title', 'Preview Import Vendor')
+@section('title', 'Preview Import Rekanan')
 
 @section('content')
 <div class="dash-card">
-    <h3>Preview Import Vendor</h3>
+    <h3>Preview Import Rekanan</h3>
     <div class="sub">Berkas: {{ $import->nama_file }}</div>
 
     @if ($errors->any())
@@ -41,7 +41,7 @@
                 @method('DELETE')
                 <button type="submit" class="btn">Batalkan</button>
             </form>
-            <form method="POST" action="{{ route('manajemen-data.import.vendor.konfirmasi', $import) }}" onsubmit="return confirm('Simpan {{ $import->jumlah_baru + $import->jumlah_update }} baris (baru + update) ke Vendor? Baris yang ditolak tidak akan disimpan.');">
+            <form method="POST" action="{{ route('manajemen-data.import.vendor.konfirmasi', $import) }}" onsubmit="return confirm('Simpan {{ $import->jumlah_baru + $import->jumlah_update }} baris (baru + update) ke Data Rekanan? Baris yang ditolak tidak akan disimpan.');">
                 @csrf
                 <button type="submit" class="btn prim">Konfirmasi Simpan</button>
             </form>

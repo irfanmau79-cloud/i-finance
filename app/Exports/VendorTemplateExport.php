@@ -15,16 +15,16 @@ class VendorTemplateExport implements FromArray, PunyaPetunjukKolom, ShouldAutoS
 {
     use MenulisSheetPetunjuk;
 
-    public const CATATAN = 'Daftar penyedia/vendor yang dipakai sebagai penerima pada NPD Barang/Jasa dan SPM LS. Vendor dikenali dari NAMA: nama yang sudah ada akan DIPERBARUI datanya, yang belum ada dibuat baru.';
+    public const CATATAN = 'Daftar rekanan/penyedia yang dipakai sebagai penerima pada NPD Barang/Jasa dan SPM LS. Rekanan dikenali dari NAMA: nama yang sudah ada akan DIPERBARUI datanya, yang belum ada dibuat baru.';
 
     public const PETUNJUK = [
         ['Nama', 'Ya', 'Teks', 'Nama badan usaha. Menjadi identitas baris - nama ganda dalam satu berkas ditolak. Tulis konsisten dengan yang dipakai di dokumen.', 'CV Sumber Rejeki'],
         ['Rekening', 'Tidak', 'Teks', 'Nomor rekening bank untuk transfer. Format sebagai TEKS supaya nol di depan tidak hilang.', '0012345678'],
         ['Nomor Handphone', 'Tidak', 'Teks', 'Nomor WhatsApp penerima, dipakai fitur Kirim Notifikasi di Data NPD. Boleh ditulis 08... atau +62... Sel yang DIKOSONGKAN tidak menghapus nomor yang sudah tersimpan.', '081234567890'],
-        ['NPWP', 'Tidak', 'Teks', 'Nomor NPWP vendor. Format sebagai TEKS agar tanda titik dan strip tidak berubah.', '01.234.567.8-901.000'],
+        ['NPWP', 'Tidak', 'Teks', 'Nomor NPWP rekanan. Format sebagai TEKS agar tanda titik dan strip tidak berubah.', '01.234.567.8-901.000'],
         ['Status PKP', 'Tidak', 'Teks', 'Status Pengusaha Kena Pajak, menentukan perlakuan PPN pada dokumen.', 'PKP'],
-        ['Jenis Usaha', 'Tidak', 'Teks', 'Bidang usaha vendor.', 'Perdagangan alat tulis'],
-        ['Aktif', 'Tidak', 'Ya / Tidak', 'Status vendor. Hanya "Tidak" yang menonaktifkan; sel kosong dianggap Aktif. Vendor non-aktif tidak muncul di pilihan penerima.', 'Ya'],
+        ['Jenis Usaha', 'Tidak', 'Teks', 'Bidang usaha rekanan.', 'Perdagangan alat tulis'],
+        ['Aktif', 'Tidak', 'Ya / Tidak', 'Status rekanan. Hanya "Tidak" yang menonaktifkan; sel kosong dianggap Aktif. Rekanan non-aktif tidak muncul di pilihan penerima.', 'Ya'],
     ];
 
     public function petunjukCatatan(): string

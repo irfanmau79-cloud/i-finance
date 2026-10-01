@@ -46,6 +46,7 @@
             'sp-cetakspj' => route('cetak-spj.index'),
             'audit-log' => route('audit-log.index'),
             'npd' => route('npd.index'),
+            'npd-rekanan' => route('rekanan.index'),
             'npd-data' => route('npd.data'),
             'persetujuan' => route('npd.persetujuan'),
             'verifikasi' => route('npd.verifikasi'),
@@ -158,7 +159,7 @@
 
       {{-- Pembuatan, Persetujuan, dan Verifikasi NPD dikelompokkan sebagai
            sub menu satu modul, bersama Data NPD yang baru. --}}
-      @php($g = $group(['npd-data', 'npd', 'persetujuan', 'verifikasi']))
+      @php($g = $group(['npd-data', 'npd', 'persetujuan', 'verifikasi', 'npd-rekanan']))
       @if ($g['visible'])
       <div class="sb-group{{ $g['open'] ? ' open' : '' }}">
         <div class="sb-item sb-parent" id="nav-npd-parent">
@@ -171,6 +172,7 @@
           @if (in_array('npd', $akses)) <a class="sb-item sub{{ $activeNav === 'npd' ? ' active' : '' }}" href="{{ $href('npd') }}">Pembuatan NPD</a> @endif
           @if (in_array('persetujuan', $akses)) <a class="sb-item sub{{ $activeNav === 'persetujuan' ? ' active' : '' }}" href="{{ $href('persetujuan') }}">Persetujuan NPD</a> @endif
           @if (in_array('verifikasi', $akses)) <a class="sb-item sub{{ $activeNav === 'verifikasi' ? ' active' : '' }}" href="{{ $href('verifikasi') }}">Verifikasi NPD</a> @endif
+          @if (in_array('npd-rekanan', $akses)) <a class="sb-item sub{{ $activeNav === 'npd-rekanan' ? ' active' : '' }}" href="{{ $href('npd-rekanan') }}">Daftar Rekanan</a> @endif
         </div>
       </div>
       @endif

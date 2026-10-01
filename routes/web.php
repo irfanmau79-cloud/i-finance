@@ -28,6 +28,7 @@ use App\Http\Controllers\PerjalananDinasPegawaiController;
 use App\Http\Controllers\PkptController;
 use App\Http\Controllers\PkptImportController;
 use App\Http\Controllers\ProfilController;
+use App\Http\Controllers\RekananController;
 use App\Http\Controllers\RakBulananImportController;
 use App\Http\Controllers\RealisasiPeriodeController;
 use App\Http\Controllers\RekonsiliasiGajiController;
@@ -404,6 +405,19 @@ Route::middleware('auth.or.guest')->group(function () {
     // Monitoring seluruh NPD: superadmin, Bendahara Pengeluaran, dan PPTK.
     Route::middleware('role:superadmin,bendahara_pengeluaran,pptk')->group(function () {
         Route::get('/npd', [NpdController::class, 'index'])->name('npd.index');
+
+        // Daftar Rekanan: daftar induk penyedia yang mengisi pilihan penerima
+        // di Pembuatan NPD. Pembacanya disamakan dengan Pembuatan NPD karena
+        // merekalah yang memakai daftarnya; menulis tetap lewat 'baca-saja'.
+        Route::get('/npd/rekanan', [RekananController::class, 'index'])
+            ->middleware('menu-akses:npd-rekanan')->name('rekanan.index');
+
+        Route::middleware(['menu-akses:npd-rekanan', 'baca-saja'])->group(function () {
+            Route::get('/npd/rekanan/tambah', [RekananController::class, 'create'])->name('rekanan.create');
+            Route::post('/npd/rekanan', [RekananController::class, 'store'])->name('rekanan.store');
+            Route::get('/npd/rekanan/{rekanan}/edit', [RekananController::class, 'edit'])->name('rekanan.edit');
+            Route::put('/npd/rekanan/{rekanan}', [RekananController::class, 'update'])->name('rekanan.update');
+        });
     });
 
     // Data NPD berdiri sendiri di luar grup di atas karena BPP ikut membukanya
