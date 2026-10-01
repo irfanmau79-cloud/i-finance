@@ -175,6 +175,12 @@
             <div id="tim-list"></div>
             <button type="button" class="add" id="tim-add">+ Tambah Anggota</button>
 
+            @include('npd._pptk-penerima', [
+                'aktif' => (bool) old('pptk_penerima', $npdEdit?->detail_json['pptk_penerima'] ?? false),
+                'rekening' => $npdEdit?->detail_json['pptk_rekening'] ?? '',
+                'catatan' => 'Bila dicentang, tujuan transfer pada NPD dan Lampiran dialihkan ke PPTK. Daftar Pembayaran dan SPD Rampung TETAP memerinci anggota tim seperti biasa.',
+            ])
+
             <div style="margin-top:16px;">
                 @include('npd._keterangan-lampiran', [
                     'jenis' => 'pd',

@@ -338,19 +338,21 @@ class NpdTransisiTest extends TestCase
 
         // Tombol aksi workflow tampil sebagai ikon di daftar NPD (lihat
         // _tabel-workflow.blade.php), bukan lagi di halaman detail.
-        // PPTK di status Draft NPD - PPTK: tombol Ajukan ke BPP muncul.
+        // PPTK di status Draft NPD - PPTK: TIDAK ada lagi tombol "Ajukan ke
+        // BPP". PPTK cukup membuat NPD; BPP yang menerimanya.
         $this->actingAs($pptk)->get(route('npd.index'))
-            ->assertSee('Ajukan ke BPP', false)
+            ->assertDontSee('Ajukan ke BPP', false)
             ->assertDontSee('Teruskan ke Verifikator', false);
 
-        // BPP di status yang sama (belum tahapnya): tidak ada tombol aksi apa pun.
+        // BPP di status yang sama: tombolnya "Terima NPD", belum Teruskan.
         $this->actingAs($bpp)->get(route('npd.persetujuan', ['status' => 'semua']))
+            ->assertSee('Terima NPD', false)
             ->assertDontSee('Teruskan ke Verifikator', false)
             ->assertDontSee('Setujui Final', false);
 
         // Halaman detail sendiri tidak lagi menampilkan tombol aksi workflow.
         $this->actingAs($pptk)->get(route('npd.show', $npd))
-            ->assertDontSee('Ajukan ke BPP', false)
+            ->assertDontSee('Terima NPD', false)
             ->assertDontSee('Teruskan ke Verifikator', false);
     }
 
@@ -397,5 +399,60 @@ class NpdTransisiTest extends TestCase
 
         $this->assertContains('D/NPD/2026', $nomor);
         $this->assertNotContains('E/NPD/2026', $nomor);
+    }
+
+    /* -------- Alur Terima NPD (adopsi GAS #82 & #83) -------- */
+
+    public function test_bpp_menerima_npd_dari_meja_pptk(): void
+    {
+        $bpp = $this->buatUser('bpp', 'terima-bpp');
+        $npd = $this->buatNpd(); // Draft NPD - PPTK
+
+        $this->actingAs($bpp)->post(route('npd.transisi', $npd), ['aksi' => 'terima_npd'])
+            ->assertRedirect();
+
+        $this->assertSame('Draft NPD - BPP', $npd->fresh()->status);
+        $this->assertContains('terima_npd', $npd->historiStatus()->pluck('aksi')->all());
+    }
+
+    public function test_pptk_tidak_bisa_lagi_mengajukan_sendiri(): void
+    {
+        // Tombolnya hilang dari layar; endpoint-nya pun menolak - kalau hanya
+        // tombol yang disembunyikan, alur lama masih bisa dijalankan lewat
+        // permintaan langsung.
+        $pptk = $this->buatUser('pptk', 'terima-pptk');
+        $npd = $this->buatNpd();
+
+        $this->actingAs($pptk)->post(route('npd.transisi', $npd), ['aksi' => 'terima_npd'])
+            ->assertSessionHasErrors(['aksi']);
+
+        $this->assertSame('Draft NPD - PPTK', $npd->fresh()->status);
+    }
+
+    public function test_aksi_warisan_ajukan_bpp_tidak_lagi_ditawarkan_sebagai_tombol(): void
+    {
+        $npd = $this->buatNpd();
+
+        // Tidak muncul untuk siapa pun, termasuk superadmin yang biasanya
+        // boleh melakukan aksi apa saja.
+        foreach (['pptk', 'bpp', 'superadmin'] as $role) {
+            $this->assertNotContains('ajukan_bpp', $npd->aksiTersedia($role), "Role {$role} masih ditawari ajukan_bpp.");
+        }
+
+        // Tetapi definisinya dipertahankan supaya histori lama punya label.
+        $this->assertArrayHasKey('ajukan_bpp', \App\Models\Npd::TRANSISI);
+        $this->assertSame('Ajukan ke BPP', \App\Models\Npd::TRANSISI['ajukan_bpp']['label']);
+    }
+
+    public function test_terima_npd_hanya_dari_status_draft_pptk(): void
+    {
+        $bpp = $this->buatUser('bpp', 'terima-bpp-salah');
+        $npd = $this->buatNpd();
+        $npd->forceFill(['status' => 'Draft NPD - BPP'])->save();
+
+        $this->actingAs($bpp)->post(route('npd.transisi', $npd), ['aksi' => 'terima_npd'])
+            ->assertSessionHasErrors();
+
+        $this->assertSame('Draft NPD - BPP', $npd->fresh()->status);
     }
 }

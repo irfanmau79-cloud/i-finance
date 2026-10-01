@@ -35,6 +35,11 @@ class StoreNpdBjRequest extends FormRequest
             // controller, bukan ditolak, supaya formulir lama tidak gagal.
             'sisa_anggaran_manual' => ['nullable', 'numeric', 'min:0'],
 
+            // Mode "PPTK Sebagai Penerima": seluruh pencairan ditransfer ke
+            // PPTK sebagai penerima tunggal (adopsi GAS #88/#89).
+            'pptk_penerima' => ['nullable', 'boolean'],
+            'pptk_rekening' => ['nullable', 'string', 'max:100'],
+
             'penerima' => ['required', 'array', 'min:1'],
             'penerima.*.pegawai_id' => ['nullable', 'integer', 'exists:pegawai,id'],
             'penerima.*.vendor_id' => ['nullable', 'integer', 'exists:vendor,id'],

@@ -122,6 +122,12 @@
             </div>
             <button type="button" class="add" id="pen-add">+ Tambah Penerima</button>
 
+            @include('npd._pptk-penerima', [
+                'aktif' => (bool) old('pptk_penerima', $npdEdit?->detail_json['pptk_penerima'] ?? false),
+                'rekening' => $npdEdit?->detail_json['pptk_rekening'] ?? '',
+                'catatan' => 'Bila dicentang, SELURUH pencairan ditransfer ke PPTK sebagai penerima tunggal. Baris penerima di atas tetap dipakai menghitung nominal dan potongannya.',
+            ])
+
             <div class="sumbar" style="margin-top:16px;">
                 <span>Nominal Total NPD</span>
                 <span class="v" id="total-nominal">Rp 0</span>

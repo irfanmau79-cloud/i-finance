@@ -10,6 +10,7 @@ use App\Models\MasterAnggaran;
 use App\Models\Npd;
 use App\Models\Pegawai;
 use App\Models\Vendor;
+use App\Support\PptkPenerima;
 use App\Support\AnggaranNpd;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -48,6 +49,10 @@ class NpdBjController extends Controller
 
         $penerima = $this->siapkanPenerima($data['penerima']);
 
+        if ($data['pptk_penerima'] ?? false) {
+            $penerima = $this->jadikanPptkPenerima($penerima, $masterAnggaran, $data);
+        }
+
         // Nominal NPD = TOTAL BRUTO seluruh penerima (persis logika GAS, bukan netto).
         $nominal = round((float) $penerima->sum('bruto'), 2);
 
@@ -80,6 +85,9 @@ class NpdBjController extends Controller
                 'terbilang' => Terbilang::rupiah($nominal),
                 'status' => 'Draft NPD - PPTK',
                 'dibuat_oleh' => $request->user()->id,
+                // Penandanya disimpan supaya formulir sunting mengingat mode
+                // ini; baris penerimanya sendiri sudah berisi PPTK.
+                'detail_json' => $this->detailPptk($data),
             ]);
 
             $this->simpanPenerima($npd, $penerima);
@@ -127,6 +135,15 @@ class NpdBjController extends Controller
 
         $data = $request->validated();
         $penerima = $this->siapkanPenerima($data['penerima']);
+
+        if ($data['pptk_penerima'] ?? false) {
+            $penerima = $this->jadikanPptkPenerima(
+                $penerima,
+                MasterAnggaran::findOrFail($data['master_anggaran_id']),
+                $data,
+            );
+        }
+
         $nominal = round((float) $penerima->sum('bruto'), 2);
 
         if ($nominal <= 0) {
@@ -163,6 +180,7 @@ class NpdBjController extends Controller
                 'nominal' => $nominal,
                 'sisa_anggaran_manual' => Npd::sisaManualDariInput($data, $npd),
                 'terbilang' => Terbilang::rupiah($nominal),
+                'detail_json' => array_merge($npd->detail_json ?? [], $this->detailPptk($data)),
             ]);
 
             $npd->penerima()->delete();
@@ -230,6 +248,70 @@ class NpdBjController extends Controller
                 'pph_list' => $pphList,
             ];
         });
+    }
+
+    /**
+     * Ciutkan seluruh baris penerima jadi SATU baris atas nama PPTK.
+     *
+     * PPN, PPh, dan biaya KU/RTGS sengaja DIPERTAHANKAN, tidak dinolkan
+     * seperti di GAS. Mode ini mengubah ke mana uang ditransfer, bukan
+     * berapa pajaknya: menolkan potongan akan menaikkan nilai yang benar-
+     * benar ditransfer tanpa ada yang memintanya. Pada kasus yang lazim
+     * (penggantian tanpa pajak) hasilnya sama persis dengan GAS, karena
+     * potongannya memang nol.
+     *
+     * @param  \Illuminate\Support\Collection<int, array<string, mixed>>  $penerima
+     * @param  array<string, mixed>  $data
+     * @return \Illuminate\Support\Collection<int, array<string, mixed>>
+     */
+    private function jadikanPptkPenerima($penerima, MasterAnggaran $masterAnggaran, array $data)
+    {
+        $nama = PptkPenerima::nama($masterAnggaran, (int) $data['tahun']);
+
+        if ($nama === '') {
+            throw ValidationException::withMessages([
+                'pptk_penerima' => 'PPTK untuk sub kegiatan ini belum diset di Pelimpahan maupun Data Tambahan, jadi tidak bisa dijadikan penerima.',
+            ]);
+        }
+
+        $rekening = PptkPenerima::rekening($nama, $data['pptk_rekening'] ?? null);
+
+        if ($rekening === '') {
+            throw ValidationException::withMessages([
+                'pptk_rekening' => 'No. rekening PPTK belum diisi.',
+            ]);
+        }
+
+        // PPh digabung per jenis supaya satu baris tidak memuat dua entri
+        // "PPh 23" yang terpisah.
+        $pph = $penerima->flatMap(fn (array $p) => $p['pph_list'])
+            ->groupBy('jenis')
+            ->map(fn ($grup, $jenis) => ['jenis' => $jenis, 'nilai' => (float) $grup->sum('nilai')])
+            ->values();
+
+        return collect([[
+            'pegawai_id' => Pegawai::cariByNama($nama)?->id,
+            'vendor_id' => null,
+            'nama' => $nama,
+            'rekening' => $rekening,
+            'bruto' => round((float) $penerima->sum('bruto'), 2),
+            'ppn' => round((float) $penerima->sum('ppn'), 2),
+            'biaya_ku_rtgs' => round((float) $penerima->sum('biaya_ku_rtgs'), 2),
+            'keterangan' => $penerima->pluck('keterangan')->filter()->first(),
+            'pph_list' => $pph,
+        ]]);
+    }
+
+    /**
+     * @param  array<string, mixed>  $data
+     * @return array<string, mixed>
+     */
+    private function detailPptk(array $data): array
+    {
+        return [
+            'pptk_penerima' => (bool) ($data['pptk_penerima'] ?? false),
+            'pptk_rekening' => $data['pptk_rekening'] ?? null,
+        ];
     }
 
     private function simpanPenerima(Npd $npd, $penerima): void

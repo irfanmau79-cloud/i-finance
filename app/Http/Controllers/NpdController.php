@@ -19,6 +19,7 @@ use App\Support\CoretanPdf;
 use App\Support\MpdfFont;
 use App\Services\KeteranganLampiranService;
 use App\Support\PdfGabung;
+use App\Support\PptkPenerima;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
@@ -154,7 +155,10 @@ class NpdController extends Controller
         // baru disetujui langsung hilang dari layar orang yang harus
         // menyelesaikannya.
         $statusAntrean = match ($mode) {
-            'persetujuan' => ['Draft NPD - BPP', 'NPD Disetujui - BPP'],
+            // 'Draft NPD - PPTK' ikut tampil: sejak alurnya dibalik, BPP
+            // yang menarik NPD ke mejanya lewat aksi "Terima NPD", jadi ia
+            // harus bisa melihatnya lebih dulu.
+            'persetujuan' => ['Draft NPD - PPTK', 'Draft NPD - BPP', 'NPD Disetujui - BPP'],
             'verifikasi' => ['Verifikasi - Verifikator'],
             default => null,
         };
@@ -1205,10 +1209,15 @@ class NpdController extends Controller
         $detail = $npd->detail_json ?? [];
         $penerimaTim = $npd->tim->firstWhere('is_penerima', true) ?? $npd->tim->first();
 
-        $penerima = (object) [
-            'nama' => $penerimaTim->nama ?? '',
-            'rekening' => $penerimaTim->rekening ?? '',
-        ];
+        // Mode "PPTK Sebagai Penerima" hanya mengganti tujuan transfer pada
+        // NPD & Lampiran ini. $npd->tim sengaja TIDAK disentuh: Daftar
+        // Pembayaran dan SPD Rampung tetap memerinci anggota sebenarnya.
+        $penerima = PptkPenerima::aktif($npd)
+            ? PptkPenerima::untukNpd($npd)
+            : (object) [
+                'nama' => $penerimaTim->nama ?? '',
+                'rekening' => $penerimaTim->rekening ?? '',
+            ];
 
         $komponen = $this->komponenBiayaPd($npd);
 

@@ -64,6 +64,12 @@ class StoreNpdPdRequest extends FormRequest
 
             'penerima_index' => ['required', 'integer', 'min:0'],
 
+            // Mode "PPTK Sebagai Penerima": hanya mengalihkan tujuan transfer
+            // pada NPD & Lampiran. Tim tetap utuh untuk Daftar Pembayaran dan
+            // SPD, jadi penerima_index di atas tetap wajib.
+            'pptk_penerima' => ['nullable', 'boolean'],
+            'pptk_rekening' => ['nullable', 'string', 'max:100'],
+
             'tim' => ['required', 'array', 'min:1'],
             'tim.*.pegawai_id' => ['nullable', 'integer', 'exists:pegawai,id'],
             'tim.*.nama' => ['required', 'string', 'max:255'],

@@ -95,6 +95,11 @@ class NpdPdController extends Controller
             'tanggal_berangkat' => $data['tanggal_berangkat'],
             'tanggal_pulang' => $data['tanggal_pulang'],
             'keterangan_lampiran' => KeteranganLampiranIsian::dari($data),
+            // Hanya penanda + rekening yang disimpan. Nama PPTK sengaja TIDAK
+            // disimpan: ia diresolusi ulang saat mencetak dari pelimpahan yang
+            // sama dengan blok tanda tangan, supaya keduanya tidak bisa beda.
+            'pptk_penerima' => (bool) ($data['pptk_penerima'] ?? false),
+            'pptk_rekening' => $data['pptk_rekening'] ?? null,
         ];
 
         $npd = DB::transaction(function () use ($data, $masterAnggaran, $keu, $nominal, $tim, $penerimaIndex, $suratPerintahId, $detailJson, $request) {
@@ -232,6 +237,11 @@ class NpdPdController extends Controller
             'tanggal_berangkat' => $data['tanggal_berangkat'],
             'tanggal_pulang' => $data['tanggal_pulang'],
             'keterangan_lampiran' => KeteranganLampiranIsian::dari($data),
+            // Hanya penanda + rekening yang disimpan. Nama PPTK sengaja TIDAK
+            // disimpan: ia diresolusi ulang saat mencetak dari pelimpahan yang
+            // sama dengan blok tanda tangan, supaya keduanya tidak bisa beda.
+            'pptk_penerima' => (bool) ($data['pptk_penerima'] ?? false),
+            'pptk_rekening' => $data['pptk_rekening'] ?? null,
         ];
 
         DB::transaction(function () use ($request, $npd, $data, $tim, $penerimaIndex, $nominal, $detailJson) {

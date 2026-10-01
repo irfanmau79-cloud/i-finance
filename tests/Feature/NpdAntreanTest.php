@@ -52,23 +52,29 @@ class NpdAntreanTest extends TestCase
         ]);
     }
 
-    public function test_persetujuan_default_hanya_menampilkan_npd_yang_memerlukan_tindakan_bpp(): void
+    public function test_persetujuan_memuat_npd_yang_belum_diterima_bpp(): void
     {
+        // Sejak alurnya dibalik, BPP yang menarik NPD ke mejanya lewat aksi
+        // "Terima NPD" - jadi NPD berstatus Draft NPD - PPTK HARUS ikut
+        // tampil di antreannya, bukan tersembunyi sampai PPTK mengajukan.
         $bpp = $this->buatUser('bpp', 'antrean-bpp');
         $draftPptk = $this->buatNpd('Draft NPD - PPTK');
         $draftBpp = $this->buatNpd('Draft NPD - BPP');
+        $selesai = $this->buatNpd('Selesai');
 
         $this->actingAs($bpp)->get(route('npd.persetujuan'))
             ->assertOk()
-            ->assertSee($draftBpp->status)
-            ->assertViewHas('npds', fn ($npds) => $npds->count() === 1
-                && $npds->first()->is($draftBpp));
-
-        $this->actingAs($bpp)->get(route('npd.persetujuan', ['status' => 'semua']))
-            ->assertOk()
             ->assertSee($draftPptk->status)
             ->assertSee($draftBpp->status)
-            ->assertViewHas('npds', fn ($npds) => $npds->count() === 2);
+            ->assertViewHas('npds', fn ($npds) => $npds->count() === 2
+                && $npds->contains(fn ($n) => $n->is($draftPptk))
+                && $npds->contains(fn ($n) => $n->is($draftBpp)));
+
+        // Yang sudah selesai tetap di luar antrean kerja.
+        $this->actingAs($bpp)->get(route('npd.persetujuan', ['status' => 'semua']))
+            ->assertOk()
+            ->assertViewHas('npds', fn ($npds) => $npds->count() === 3
+                && $npds->contains(fn ($n) => $n->is($selesai)));
     }
 
     public function test_verifikasi_default_hanya_menampilkan_npd_yang_memerlukan_tindakan_verifikator(): void

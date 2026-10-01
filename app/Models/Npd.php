@@ -83,11 +83,24 @@ class Npd extends Model
      * boleh melakukan aksi apa pun; role lain hanya aksi yang tercantum di 'roles'.
      */
     public const TRANSISI = [
+        // WARISAN - tidak lagi ditawarkan di layar sejak alurnya dibalik
+        // (lihat AKSI_WARISAN di bawah). Definisinya dipertahankan supaya
+        // histori NPD lama tetap punya labelnya dan pemanggilan langsung ke
+        // endpoint transisi tidak mendadak gagal.
         'ajukan_bpp' => [
             'from' => 'Draft NPD - PPTK',
             'to' => 'Draft NPD - BPP',
             'roles' => ['pptk'],
             'label' => 'Ajukan ke BPP',
+        ],
+        // Alur baru: PPTK cukup membuat NPD, BPP yang MENERIMANYA ke mejanya
+        // sendiri. Dulu PPTK harus menekan "Ajukan" lebih dulu, dan NPD yang
+        // lupa diajukan menggantung tanpa ada yang merasa memilikinya.
+        'terima_npd' => [
+            'from' => 'Draft NPD - PPTK',
+            'to' => 'Draft NPD - BPP',
+            'roles' => ['bpp'],
+            'label' => 'Terima NPD',
         ],
         'teruskan' => [
             'from' => 'Draft NPD - BPP',
@@ -132,6 +145,14 @@ class Npd extends Model
             'label' => 'Batalkan Selesai',
         ],
     ];
+
+    /**
+     * Aksi yang masih sah dijalankan tetapi tidak lagi ditawarkan sebagai
+     * tombol. Dipisahkan dari TRANSISI supaya status lama tetap bisa
+     * dipindahkan bila perlu, tanpa menampilkan dua tombol yang melakukan
+     * hal yang sama persis di satu baris.
+     */
+    public const AKSI_WARISAN = ['ajukan_bpp'];
 
     /** Aksi yang mewajibkan catatan/alasan diisi. */
     public const AKSI_WAJIB_CATATAN = ['kembali_bpp', 'kembali_pptk', 'batal_selesai'];
@@ -449,7 +470,9 @@ class Npd extends Model
     public function aksiTersedia(string $role): array
     {
         return collect(self::TRANSISI)
-            ->filter(fn (array $rule, string $aksi) => $rule['from'] === $this->status && self::bolehAksi($aksi, $role))
+            ->filter(fn (array $rule, string $aksi) => $rule['from'] === $this->status
+                && ! in_array($aksi, self::AKSI_WARISAN, true)
+                && self::bolehAksi($aksi, $role))
             ->keys()
             ->all();
     }
