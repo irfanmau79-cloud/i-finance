@@ -423,9 +423,59 @@
      bawah dengan huruf sedikit lebih kecil - tabelnya table-layout:fixed,
      jadi tanpa ini kolomnya memaksa baris melebar. */
   td.kol-uraian{font-size:11px;line-height:1.35;overflow-wrap:anywhere;}
-  /* Bilah aksi massal pada antrean NPD. */
-  .npd-massal{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;}
-  .npd-massal .sub{font-size:12px;color:var(--mut);}
+  /* ===== Bilah aksi massal pada antrean NPD =====
+     Dua tingkat: satu tombol tenang saat belum dipakai, lalu panel yang
+     muncul begitu mode pilih menyala. Panelnya sengaja TIDAK berupa deretan
+     kontrol lepas - aksinya berbentuk chip supaya terbaca sebagai pilihan
+     tunggal, dan jumlah terpilih selalu terlihat di sebelah kiri. */
+  .mass-bar{margin-bottom:12px;}
+  .mass-mulai{display:inline-flex;align-items:center;gap:8px;padding:7px 14px;font-size:12.5px;font-weight:600;
+              color:var(--mut);background:var(--surface);border:1px solid var(--line);border-radius:999px;
+              cursor:pointer;transition:background .15s ease,color .15s ease,border-color .15s ease;}
+  .mass-mulai svg{width:15px;height:15px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .mass-mulai:hover{background:var(--surface-2);color:var(--tegas);}
+  /* Tulisan pada latar --tegas ditulis harfiah + penimpa mode gelap,
+     mengikuti pola .btn.prim: --tegas berbalik terang di mode gelap,
+     jadi tulisannya harus ikut berbalik gelap. */
+  .mass-mulai.nyala{background:var(--tegas);border-color:var(--tegas);color:#fff;}
+
+  .mass-panel{display:flex;flex-wrap:wrap;align-items:center;gap:10px 14px;margin-top:10px;padding:12px 14px;
+              background:var(--surface-2);border:1px solid var(--line);border-radius:var(--r-md);}
+  .mass-panel[hidden]{display:none;}
+  .mass-hitung{font-size:12.5px;color:var(--mut);white-space:nowrap;}
+  .mass-hitung b{font-size:15px;color:var(--tegas);margin-right:3px;}
+
+  .mass-aksi{display:flex;flex-wrap:wrap;gap:6px;}
+  .mass-chip{padding:6px 13px;font-size:12px;font-weight:600;color:var(--mut);background:var(--surface);
+             border:1px solid var(--line);border-radius:999px;cursor:pointer;white-space:nowrap;
+             transition:background .15s ease,color .15s ease,border-color .15s ease;}
+  .mass-chip:hover{border-color:var(--tegas);color:var(--tegas);}
+  .mass-chip.pilih{background:var(--tegas);border-color:var(--tegas);color:#fff;}
+  :root[data-tema="gelap"] .mass-mulai.nyala{color:#101d39;}
+  :root[data-tema="gelap"] .mass-chip.pilih{color:#101d39;}
+
+  .mass-ket{flex:1 1 180px;font-size:11.5px;color:var(--mut);min-width:0;}
+  .mass-tombol{display:flex;gap:8px;margin-left:auto;}
+  .mass-tombol .btn{padding:6px 16px;font-size:12.5px;}
+
+  /* Baris yang statusnya tidak cocok dengan aksi terpilih - diredupkan,
+     bukan disembunyikan, supaya petugas tetap tahu baris itu ada. */
+  tr.mass-redup{opacity:.4;}
+
+  /* Ringkasan verifikasi massal: satu baris per NPD + isian nomornya. */
+  .mv-daftar{display:flex;flex-direction:column;gap:8px;max-height:52vh;overflow:auto;}
+  .mv-baris{display:flex;align-items:center;gap:12px;padding:9px 12px;border:1px solid var(--line);
+            border-radius:var(--r-sm);background:var(--surface);}
+  .mv-info{min-width:0;flex:1 1 auto;}
+  .mv-dok{font-size:12.5px;font-weight:600;color:var(--tegas);overflow-wrap:anywhere;}
+  .mv-sub{font-size:11.5px;color:var(--mut);margin-top:2px;overflow-wrap:anywhere;}
+  .mv-input{flex:0 0 232px;max-width:232px;font-size:12.5px;}
+  @media(max-width:640px){
+    .mv-baris{flex-direction:column;align-items:stretch;}
+    .mv-input{flex:1 1 auto;max-width:none;}
+    .mass-tombol{margin-left:0;width:100%;}
+    .mass-tombol .btn{flex:1;}
+  }
   /* Kotak centang digambar sendiri: kotak centang bawaan peramban membuat
      sel tabel ikut menyala saat diklik. */
   input.bulk-ck{appearance:none;-webkit-appearance:none;width:15px;height:15px;border:1.5px solid var(--line);
@@ -514,12 +564,6 @@
   /* Bungkus ikon aksi agar rapi & bisa turun baris di kolom sempit */
   .aksi-wrap{display:grid;grid-template-columns:repeat(3,30px);gap:4px;justify-content:center;align-items:center;justify-items:center;width:102px;margin:0 auto;}
   .aksi-wrap .ic-btn{margin:0;}
-  /* Sel tabel NPD: di DESKTOP boleh wrap (muat layar). Di HP pakai min-width + scroll (lihat media query). */
-  @media(min-width:841px){
-    #tbl-daftar-npd td, #prst-table td, #vrf-table td,
-    #tbl-daftar-npd th, #prst-table th, #vrf-table th{ white-space:normal; word-break:break-word; overflow-wrap:anywhere; }
-    #tbl-daftar-npd td.num, #prst-table td.num, #vrf-table td.num{ white-space:nowrap; }
-  }
   /* Toggle Monitoring SP di Data SP */
   .sp-aksi{display:inline-flex;align-items:center;gap:6px;justify-content:center;flex-wrap:wrap;}
   .sp-toggle{display:inline-flex;align-items:center;gap:6px;margin-left:4px;}
@@ -544,10 +588,6 @@
   .hist-item:not(.done) .hist-label{color:var(--mut);font-weight:500;}
   .hist-meta{font-size:11.5px;color:var(--mut);margin-top:2px;}
   .hist-meta.belum{font-style:italic;opacity:.7;}
-  @media(min-width:841px){
-    #tbl-daftar-npd td, #prst-table td, #vrf-table td{word-wrap:break-word;overflow-wrap:break-word;white-space:normal;vertical-align:top;font-size:14px;}
-    #tbl-daftar-npd th, #prst-table th, #vrf-table th{font-size:14px;}
-  }
   /* Komponen search nama (dipakai di semua jenis NPD) */
   .nsearch{position:relative;}
   .nsearch .ns-inp{width:100%;padding:10px 12px 10px 34px;border:1px solid var(--line);border-radius:var(--r-sm);font-size:14px;box-sizing:border-box;background:var(--surface);}
@@ -1187,21 +1227,40 @@
   .npd-table td:last-child .aksi-wrap{grid-template-columns:repeat(3,28px);gap:3px;width:90px;margin:0 auto;}
   .npd-table td:last-child .aksi-wrap .ic-btn{width:28px;height:28px;}
   .npd-table td:last-child .aksi-wrap .ic-btn svg{width:15px;height:15px;}
-  /* Kode Rekening & Tagging: izinkan pecah baris agar kolom sempit tetap terbaca */
-  #tbl-daftar-npd td:nth-child(2), #tbl-daftar-npd td:nth-child(3),
-  #prst-table td:nth-child(2), #prst-table td:nth-child(3),
-  #vrf-table td:nth-child(2), #vrf-table td:nth-child(3){overflow-wrap:anywhere;word-break:break-word;}
+  /* Sub Kegiatan, Kode Rekening & Tagging (kolom 2-4).
+     Isinya memuat kode panjang tanpa spasi seperti "5.1.02.01.01.0024" dan
+     "6.01.01.2.01" - tanpa overflow-wrap, potongan itu tidak punya tempat
+     untuk patah dan tumpah menimpa kolom sebelahnya. Paling kentara saat
+     sidebar terbuka, karena di situ lebar tabelnya paling sempit.
+
+     Aturan ini SEBELUMNYA menyasar tiga id tabel (tbl-daftar-npd,
+     prst-table, vrf-table) yang tidak ada di blade mana pun, sehingga tidak
+     pernah berlaku sama sekali. Sekarang memakai kelas .npd-table yang
+     memang dipakai keempat tabel NPD.
+
+     Hurufnya diturunkan ke 13px: kolom-kolom ini yang paling padat isinya
+     sekaligus paling sempit jatahnya, dan 14,4px memaksa hampir tiap sel
+     pecah tiga baris. */
+  .npd-table td:nth-child(2), .npd-table td:nth-child(3), .npd-table td:nth-child(4),
+  .npd-table th:nth-child(2), .npd-table th:nth-child(3), .npd-table th:nth-child(4){
+    font-size:13px;overflow-wrap:anywhere;word-break:break-word;}
+  /* Padding ikut dirapatkan - tiap sisi yang dihemat langsung jadi ruang teks. */
+  .npd-table td:nth-child(2), .npd-table td:nth-child(3), .npd-table td:nth-child(4){padding-left:7px;padding-right:7px;}
   /* Padding dirapatkan: kolom Nominal menyerahkan sebagian lebarnya ke
      Penerima, jadi ruang untuk angkanya diambil kembali dari padding.
      th.num disamakan supaya judulnya sejajar dengan angka di bawahnya. */
-  .npd-table td.num{white-space:nowrap;font-variant-numeric:tabular-nums;padding-left:3px;padding-right:5px;}
+  /* Angka nominal dibuat 13px - satu tingkat di bawah teks tabel. Nominal
+     terbesar yang mungkin, 999.999.999,00, butuh ~82px pada ukuran ini;
+     dengan padding 8px pas di kolom 9,5% pada layar 1366px (lebar tabel
+     ~970px). Isinya nowrap, jadi JANGAN dipersempit lagi tanpa mengukur
+     ulang - kelebihannya langsung tumpah ke kolom Status. */
+  .npd-table td.num{white-space:nowrap;font-variant-numeric:tabular-nums;font-size:13px;padding-left:3px;padding-right:5px;}
   .npd-table th.num{white-space:nowrap;padding-left:3px;padding-right:5px;}
-  .npd-table th.num, #tbl-daftar-npd th.num, #prst-table th.num, #vrf-table th.num{text-align:left;}
-  #tbl-daftar-npd td.num, #prst-table td.num, #vrf-table td.num{text-align:left;}
-  .npd-table th.st, #tbl-daftar-npd th.st, #prst-table th.st, #vrf-table th.st{text-align:center;}
+  .npd-table th.num{text-align:left;}
+  .npd-table th.st{text-align:center;}
   /* Judul kolom Nominal ikut rata kanan agar sejajar angkanya - aturan
      dasar hanya mengatur td.num, sehingga judulnya tertinggal rata kiri. */
-  .npd-table th.num, #tbl-daftar-npd th.num, #prst-table th.num, #vrf-table th.num{text-align:right;}
+  .npd-table th.num{text-align:right;}
   /* TABEL. Tiga hal yang dibuang sekaligus karena bersama-sama membentuk
      rupa "template admin 2014":
        1. Belang baris (nth-child even). Penanda baris cukup garis rambut;

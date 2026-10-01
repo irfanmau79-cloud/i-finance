@@ -24,6 +24,12 @@
 <div class="dash-card wf-card">
     <div class="sub" style="margin-bottom:14px;">Nota Pencairan Dana yang menunggu tindakan Bendahara Pengeluaran Pembantu.</div>
 
-    @include('npd._tabel-workflow', ['npds' => $npds])
+    {{-- Empat aksi massal meja BPP. "Tandai Selesai (lewati alur)" sengaja
+         ikut: ada NPD yang uangnya sudah cair tetapi langkah persetujuan/
+         verifikasinya tidak pernah dijalankan di aplikasi. --}}
+    @include('npd._tabel-workflow', [
+        'npds' => $npds,
+        'aksiMassalDaftar' => ['terima_npd', 'teruskan', 'setuju', \App\Models\Npd::AKSI_SELESAI_PAKSA],
+    ])
 </div>
 @endsection

@@ -147,6 +147,31 @@ class Npd extends Model
     ];
 
     /**
+     * Aksi massal yang TIDAK ada padanannya di TRANSISI karena sengaja
+     * melewati alur.
+     *
+     * "Tandai Selesai (lewati alur)" dipakai untuk NPD yang di dunia nyata
+     * uangnya sudah cair tetapi langkah persetujuan/verifikasinya tidak
+     * pernah dijalankan di aplikasi - lazim pada periode awal migrasi. Ia
+     * boleh dijalankan dari status mana pun kecuali yang sudah Selesai atau
+     * Dibatalkan.
+     *
+     * PERHATIAN: status Selesai IKUT dihitung sebagai realisasi NPD (lihat
+     * AnggaranRealisasiService). Jadi aksi ini menggeser angka realisasi -
+     * itu memang maksudnya, tetapi karena itu pula ia dicatat dengan kunci
+     * aksinya sendiri di histori, bukan menyamar sebagai 'selesai' biasa.
+     */
+    public const AKSI_SELESAI_PAKSA = 'selesai_paksa';
+
+    public const AKSI_MASSAL_KHUSUS = [
+        self::AKSI_SELESAI_PAKSA => [
+            'to' => 'Selesai',
+            'label' => 'Tandai Selesai (lewati alur)',
+            'roles' => ['bpp'],
+        ],
+    ];
+
+    /**
      * Aksi yang masih sah dijalankan tetapi tidak lagi ditawarkan sebagai
      * tombol. Dipisahkan dari TRANSISI supaya status lama tetap bisa
      * dipindahkan bila perlu, tanpa menampilkan dua tombol yang melakukan

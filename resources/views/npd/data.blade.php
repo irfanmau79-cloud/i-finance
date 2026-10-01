@@ -123,13 +123,13 @@
       <colgroup>
         {{-- Lebar sama dengan tabel Pembuatan/Verifikasi/Persetujuan NPD -
              lihat catatan pengukurannya di npd/_tabel-workflow.blade.php. --}}
-        <col style="width:9%;"><col style="width:12%;"><col style="width:11%;"><col style="width:10.5%;">
-        <col style="width:12%;"><col style="width:12.5%;"><col style="width:13%;"><col style="width:12%;"><col style="width:8%;">
+        <col style="width:8.5%;"><col style="width:11%;"><col style="width:10%;"><col style="width:9%;">
+        <col style="width:11%;"><col style="width:9.5%;"><col style="width:13%;"><col style="width:20%;"><col style="width:8%;">
       </colgroup>
       <thead>
         <tr>
           <th>No. Dokumen</th><th>Sub Kegiatan</th><th>Kode Rekening</th><th>Tagging</th>
-          <th>Penerima</th><th class="num">Nominal</th><th class="st">Status</th>
+          <th>Penerima</th><th class="num">Nominal (Rp)</th><th class="st">Status</th>
           <th>Uraian</th><th style="text-align:center;">Aksi</th>
         </tr>
         <tr class="kolom-saring">

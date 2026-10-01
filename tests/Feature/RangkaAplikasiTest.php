@@ -228,5 +228,22 @@ class RangkaAplikasiTest extends TestCase
 
         $this->assertSame(1, substr_count($gaya, '#page-sp-monitor #spm-table thead th'));
         $this->assertSame(0, substr_count($gaya, '#spi-table'), 'Masih ada aturan yang menyasar tabel #spi-table yang tidak pernah ada.');
+
+        // Tiga id tabel NPD di bawah ini juga tidak pernah ada di blade mana
+        // pun. Aturan pemecah baris yang menyasarnya tidak pernah berlaku,
+        // sehingga kolom Sub Kegiatan/Kode Rekening/Tagging saling menimpa
+        // saat sidebar terbuka. Penggantinya berbasis kelas .npd-table.
+        foreach (['tbl-daftar-npd', 'prst-table', 'vrf-table'] as $mati) {
+            // Dicari sebagai SELEKTOR (diikuti td/th/koma/kurung), bukan
+            // sekadar teks - id-id itu masih disebut di komentar yang
+            // menjelaskan kenapa aturannya dibuang.
+            $this->assertSame(
+                0,
+                preg_match('/#'.preg_quote($mati, '/').'\s*(?:td|th|,|\{)/', $gaya),
+                'Masih ada aturan yang menyasar tabel #'.$mati.' yang tidak pernah ada.'
+            );
+        }
+
+        $this->assertStringContainsString('.npd-table td:nth-child(2)', $gaya);
     }
 }

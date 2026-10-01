@@ -238,4 +238,123 @@ class NpdAksiMassalTest extends TestCase
             $this->assertContains('teruskan', $npd->historiStatus()->pluck('aksi')->all());
         }
     }
+
+    /* -------- Aksi per halaman -------- */
+
+    public function test_pembuatan_npd_tidak_punya_aksi_massal(): void
+    {
+        // Sejak alurnya dibalik, PPTK tidak mengirim apa pun dari halaman
+        // ini - BPP yang menarik NPD. Jadi tidak ada aksi massal di sini.
+        $this->npd('Draft NPD - PPTK');
+
+        $this->actingAs($this->user(User::ROLE_SUPERADMIN))->get(route('npd.index'))
+            ->assertOk()
+            ->assertDontSee('id="npd-massal-form"', false);
+    }
+
+    public function test_persetujuan_menawarkan_empat_aksi_meja_bpp(): void
+    {
+        $this->npd('Draft NPD - PPTK');
+
+        $halaman = $this->actingAs($this->user(User::ROLE_SUPERADMIN))->get(route('npd.persetujuan'))->assertOk();
+
+        foreach (['terima_npd', 'teruskan', 'setuju', Npd::AKSI_SELESAI_PAKSA] as $aksi) {
+            $halaman->assertSee('data-massal-pilih-aksi="'.$aksi.'"', false);
+        }
+
+        // Aksi verifikasi bukan urusan meja ini.
+        $halaman->assertDontSee('data-massal-pilih-aksi="verifikasi"', false);
+    }
+
+    public function test_verifikasi_hanya_punya_satu_aksi_dan_membawa_ringkasan_nomor(): void
+    {
+        $this->npd('Verifikasi - Verifikator');
+
+        $this->actingAs($this->user(User::ROLE_SUPERADMIN))->get(route('npd.verifikasi'))
+            ->assertOk()
+            ->assertSee('data-massal-pilih-aksi="verifikasi"', false)
+            ->assertSee('data-massal-perlu-nomor="1"', false)
+            // Ringkasan tempat tiap NPD diberi nomornya sendiri.
+            ->assertSee('id="mass-verif-ov"', false)
+            ->assertDontSee('data-massal-pilih-aksi="setuju"', false);
+    }
+
+    public function test_baris_membawa_data_untuk_ringkasan_verifikasi(): void
+    {
+        // Ringkasan menampilkan dokumen, penerima, dan nominal tiap NPD -
+        // datanya dibaca dari atribut kotak centangnya.
+        $npd = $this->npd('Verifikasi - Verifikator');
+
+        $this->actingAs($this->user(User::ROLE_SUPERADMIN))->get(route('npd.verifikasi'))
+            ->assertOk()
+            ->assertSee('data-dokumen=', false)
+            ->assertSee('data-penerima=', false)
+            ->assertSee('data-nominal="1.000.000,00"', false);
+    }
+
+    /* -------- Tandai Selesai yang melewati alur -------- */
+
+    public function test_tandai_selesai_boleh_dari_status_mana_pun(): void
+    {
+        // Untuk NPD yang uangnya sudah cair tetapi langkah persetujuan/
+        // verifikasinya tidak pernah dijalankan di aplikasi.
+        $draftPptk = $this->npd('Draft NPD - PPTK');
+        $verifikasi = $this->npd('Verifikasi - Verifikator');
+        $disetujui = $this->npd('NPD Disetujui - BPP');
+
+        $this->actingAs($this->user(User::ROLE_SUPERADMIN))
+            ->post(route('npd.transisi-massal'), [
+                'aksi' => Npd::AKSI_SELESAI_PAKSA,
+                'npd' => [$draftPptk->id, $verifikasi->id, $disetujui->id],
+            ])
+            ->assertSessionHasNoErrors();
+
+        foreach ([$draftPptk, $verifikasi, $disetujui] as $npd) {
+            $this->assertSame('Selesai', $npd->fresh()->status);
+        }
+    }
+
+    public function test_tandai_selesai_meninggalkan_jejak_yang_bisa_dibedakan(): void
+    {
+        // Kalau dicatat sebagai 'selesai' biasa, tidak akan pernah ketahuan
+        // mana NPD yang melewati verifikasi.
+        $npd = $this->npd('Draft NPD - PPTK');
+
+        $this->actingAs($this->user(User::ROLE_SUPERADMIN))
+            ->post(route('npd.transisi-massal'), ['aksi' => Npd::AKSI_SELESAI_PAKSA, 'npd' => [$npd->id]]);
+
+        $npd->refresh();
+
+        $this->assertContains(Npd::AKSI_SELESAI_PAKSA, $npd->historiStatus()->pluck('aksi')->all());
+        $this->assertStringContainsString('tanpa melalui verifikasi', (string) $npd->catatan);
+    }
+
+    public function test_tandai_selesai_melewati_npd_yang_sudah_selesai_atau_dibatalkan(): void
+    {
+        $sudah = $this->npd('Selesai');
+        $batal = $this->npd('Dibatalkan');
+
+        $this->actingAs($this->user(User::ROLE_SUPERADMIN))
+            ->post(route('npd.transisi-massal'), [
+                'aksi' => Npd::AKSI_SELESAI_PAKSA,
+                'npd' => [$sudah->id, $batal->id],
+            ])
+            ->assertSessionHasErrors(['massal']);
+
+        $this->assertSame('Selesai', $sudah->fresh()->status);
+        $this->assertSame('Dibatalkan', $batal->fresh()->status);
+    }
+
+    public function test_tandai_selesai_ikut_menggeser_realisasi(): void
+    {
+        // Konsekuensi yang disengaja: realisasi NPD dihitung dari dokumen
+        // berstatus Selesai, jadi aksi ini memang memindahkan angkanya.
+        $npd = $this->npd('Draft NPD - BPP');
+        $sebelum = $this->master->fresh()->realisasiNpd();
+
+        $this->actingAs($this->user(User::ROLE_SUPERADMIN))
+            ->post(route('npd.transisi-massal'), ['aksi' => Npd::AKSI_SELESAI_PAKSA, 'npd' => [$npd->id]]);
+
+        $this->assertSame($sebelum + 1_000_000.0, $this->master->fresh()->realisasiNpd());
+    }
 }

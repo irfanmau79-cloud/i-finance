@@ -93,7 +93,9 @@ class NpdController extends Controller
                 'penerima' => $npd->ringkasanPenerima(),
                 'jenis_label' => Npd::JENIS_LABEL[$npd->jenis] ?? strtoupper($npd->jenis),
                 'nominal' => (float) $npd->nominal,
-                'nominal_teks' => 'Rp '.number_format((float) $npd->nominal, 2, ',', '.'),
+                // Tanpa awalan "Rp": kepala kolomnya sudah menyebut satuannya,
+                // dan awalan itu memakan lebar yang lebih berguna untuk Uraian.
+                'nominal_teks' => number_format((float) $npd->nominal, 2, ',', '.'),
                 'status' => $npd->status,
                 'uraian' => $npd->uraianRingkas(),
                 'badge' => Npd::STATUS_BADGE_CLASS[$npd->status] ?? 'st-npd',
@@ -439,7 +441,7 @@ class NpdController extends Controller
     public function transisiMassal(Request $request)
     {
         $data = $request->validate([
-            'aksi' => ['required', Rule::in(array_keys(Npd::TRANSISI))],
+            'aksi' => ['required', Rule::in([...array_keys(Npd::TRANSISI), ...array_keys(Npd::AKSI_MASSAL_KHUSUS)])],
             'npd' => ['required', 'array', 'min:1', 'max:200'],
             'npd.*' => ['required', 'integer'],
             'nomor' => ['nullable', 'array'],
@@ -447,7 +449,8 @@ class NpdController extends Controller
         ]);
 
         $aksi = $data['aksi'];
-        $rule = Npd::TRANSISI[$aksi];
+        $lewatiAlur = array_key_exists($aksi, Npd::AKSI_MASSAL_KHUSUS);
+        $rule = $lewatiAlur ? Npd::AKSI_MASSAL_KHUSUS[$aksi] : Npd::TRANSISI[$aksi];
         $user = $request->user();
 
         if (in_array($aksi, Npd::AKSI_WARISAN, true)) {
@@ -460,7 +463,11 @@ class NpdController extends Controller
             ]);
         }
 
-        if (! Npd::bolehAksi($aksi, $user->role)) {
+        $boleh = $lewatiAlur
+            ? ($user->role === User::ROLE_SUPERADMIN || in_array($user->role, $rule['roles'], true))
+            : Npd::bolehAksi($aksi, $user->role);
+
+        if (! $boleh) {
             return back()->withErrors(['aksi' => 'Aksi "' . $rule['label'] . '" tidak tersedia untuk peran Anda.']);
         }
 
@@ -505,10 +512,19 @@ class NpdController extends Controller
             }
 
             try {
-                DB::transaction(function () use ($npd, $rule, $aksi, $nomorLengkap, $user) {
+                DB::transaction(function () use ($npd, $rule, $aksi, $nomorLengkap, $user, $lewatiAlur) {
                     $terkunci = Npd::query()->lockForUpdate()->findOrFail($npd->id);
 
-                    if ($terkunci->status !== $rule['from']) {
+                    if ($lewatiAlur) {
+                        // Melewati alur bukan berarti tanpa pagar: yang sudah
+                        // Selesai tidak perlu diselesaikan lagi, dan yang
+                        // Dibatalkan tidak boleh dihidupkan lewat pintu ini.
+                        if (in_array($terkunci->status, [$rule['to'], 'Dibatalkan'], true)) {
+                            throw ValidationException::withMessages([
+                                'aksi' => 'statusnya "' . $terkunci->status . '"',
+                            ]);
+                        }
+                    } elseif ($terkunci->status !== $rule['from']) {
                         throw ValidationException::withMessages([
                             'aksi' => 'statusnya sudah "' . $terkunci->status . '", bukan "' . $rule['from'] . '"',
                         ]);
@@ -530,7 +546,11 @@ class NpdController extends Controller
                     }
 
                     $statusAsal = $terkunci->status;
-                    $catatan = $aksi === 'verifikasi' ? '[Terverifikasi]' : null;
+                    $catatan = match (true) {
+                        $aksi === 'verifikasi' => '[Terverifikasi]',
+                        $lewatiAlur => '[Ditandai Selesai tanpa melalui verifikasi]',
+                        default => null,
+                    };
 
                     $terkunci->status = $rule['to'];
                     $terkunci->catatan = $catatan;

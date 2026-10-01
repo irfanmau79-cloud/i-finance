@@ -163,12 +163,16 @@ class DataNpdTest extends TestCase
      */
     public function test_lebar_kolom_terkunci_sesuai_hasil_pengukuran(): void
     {
-        // Sejak kolom Uraian ditambahkan (adopsi GAS #92a), jatahnya diambil
-        // dari kolom-kolom teks yang masih longgar. Nominal 12,5% dan Status
-        // 13% SENGAJA tidak ikut dipersempit - keduanya hasil pengukuran di
-        // atas, dan isinya nowrap.
-        $lebar = '<col style="width:9%;"><col style="width:12%;"><col style="width:11%;"><col style="width:10.5%;">';
-        $lebar2 = '<col style="width:12%;"><col style="width:12.5%;"><col style="width:13%;"><col style="width:12%;"><col style="width:8%;">';
+        // Uraian memuat satu kalimat penuh, jadi ia yang paling butuh ruang:
+        // 20%. Jatahnya diambil dari seluruh kolom teks lain, terutama
+        // Nominal - yang turun 12,5% -> 9,5% setelah awalan "Rp" dipindah ke
+        // kepala kolom dan angkanya dikecilkan jadi 13px.
+        //
+        // Status 13% dan Aksi 8% TIDAK ikut dipersempit: pil terpanjang
+        // ("Verifikasi - Verifikator") dan deretan tombol aksi keduanya
+        // sudah berada di lebar minimumnya.
+        $lebar = '<col style="width:8.5%;"><col style="width:11%;"><col style="width:10%;"><col style="width:9%;">';
+        $lebar2 = '<col style="width:11%;"><col style="width:9.5%;"><col style="width:13%;"><col style="width:20%;"><col style="width:8%;">';
 
         // Data NPD dan ketiga antrean NPD harus memakai lebar yang sama persis.
         $this->actingAs($this->user)->get(route('npd.data'))->assertOk()

@@ -26,6 +26,8 @@
 
     {{-- Penyaring jenis & status ada di baris penyaring dalam tabel. --}}
 
-    @include('npd._tabel-workflow', ['npds' => $npds])
+    {{-- Satu aksi saja. Nomor NPD unik, jadi tiap dokumen diberi nomornya
+         sendiri lewat ringkasan yang muncul setelah Jalankan ditekan. --}}
+    @include('npd._tabel-workflow', ['npds' => $npds, 'aksiMassalDaftar' => ['verifikasi']])
 </div>
 @endsection

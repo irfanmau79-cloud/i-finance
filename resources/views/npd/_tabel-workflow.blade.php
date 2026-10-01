@@ -12,30 +12,28 @@
     $tampilkanKelola = $tampilkanKelola ?? false;
 
     /**
-     * Mode "Pilih NPD" (aksi massal) - khusus superadmin, sepadan dengan
-     * role bendahara di GAS. Aksi yang ditawarkan diturunkan dari NPD yang
-     * BENAR-BENAR ada di halaman ini: percuma menawarkan "Setujui Final"
-     * kalau tidak satu pun barisnya berstatus Draft NPD - BPP.
+     * Mode "Pilih NPD" (aksi massal) - khusus superadmin.
      *
-     * Aksi yang wajib catatan sengaja tidak ikut - alasannya harus ditulis
-     * per NPD (lihat NpdController::transisiMassal).
+     * Daftar aksinya DITENTUKAN HALAMAN PEMANGGIL lewat $aksiMassalDaftar,
+     * bukan ditebak dari isi tabel. Sebelumnya ia diturunkan dari baris yang
+     * kebetulan ada, sehingga menu aksinya berubah-ubah mengikuti data -
+     * membingungkan, dan Pembuatan NPD ikut menawarkan aksi padahal sejak
+     * alurnya dibalik PPTK tidak lagi mengirim apa pun (BPP yang menarik).
+     *
+     * Halaman yang tidak mengirim $aksiMassalDaftar tidak punya mode ini
+     * sama sekali.
      */
-    $bolehMassal = auth()->user()->isSuperadmin();
+    $aksiMassalDaftar = $aksiMassalDaftar ?? [];
+    $bolehMassal = auth()->user()->isSuperadmin() && $aksiMassalDaftar !== [];
     $aksiMassal = [];
 
-    if ($bolehMassal) {
-        foreach ($npds as $npdBaris) {
-            foreach ($npdBaris->aksiTersedia(auth()->user()->role) as $kunci) {
-                if (in_array($kunci, \App\Models\Npd::AKSI_WAJIB_CATATAN, true)) {
-                    continue;
-                }
+    foreach ($aksiMassalDaftar as $kunci) {
+        $aturan = \App\Models\Npd::TRANSISI[$kunci] ?? \App\Models\Npd::AKSI_MASSAL_KHUSUS[$kunci] ?? null;
 
-                $aksiMassal[$kunci] = \App\Models\Npd::TRANSISI[$kunci];
-            }
+        if ($aturan !== null) {
+            $aksiMassal[$kunci] = $aturan + ['dari' => $aturan['from'] ?? null];
         }
     }
-
-    $bolehMassal = $bolehMassal && $aksiMassal !== [];
     $editRouteMap = ['bj' => 'npd.bj.edit', 'pd' => 'npd.pd.edit', 'tr' => 'npd.tr.edit', 'ns' => 'npd.ns.edit', 'kd' => 'npd.kd.edit'];
     $wfIkon = [
         'ajukan_bpp' => '<svg viewBox="0 0 24 24"><line x1="5" y1="12" x2="19" y2="12"/><polyline points="12 5 19 12 12 19"/></svg>',
@@ -55,20 +53,37 @@
 
 
 @if ($bolehMassal)
-<form method="POST" action="{{ route('npd.transisi-massal') }}" id="npd-massal-form">
+<form method="POST" action="{{ route('npd.transisi-massal') }}" id="npd-massal-form" data-massal-bar>
 @csrf
-<div class="npd-massal" data-massal-bar>
-    <button type="button" class="btn" data-massal-toggle>Pilih NPD</button>
+<input type="hidden" name="aksi" data-massal-aksi value="{{ array_key_first($aksiMassal) }}">
 
-    <div data-massal-kendali hidden style="display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-        <span class="sub"><b data-massal-jumlah>0</b> dipilih</span>
-        <select name="aksi" data-massal-aksi style="max-width:260px;">
+<div class="mass-bar">
+    <button type="button" class="mass-mulai" data-massal-toggle>
+        <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="9 11 12 14 22 4"/><path d="M21 12v7a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h11"/></svg>
+        <span data-massal-label>Pilih Beberapa NPD</span>
+    </button>
+
+    <div class="mass-panel" data-massal-kendali hidden>
+        <div class="mass-hitung"><b data-massal-jumlah>0</b> dipilih</div>
+
+        <div class="mass-aksi" role="group" aria-label="Pilih aksi massal">
             @foreach ($aksiMassal as $kunci => $rule)
-                <option value="{{ $kunci }}">{{ $rule['label'] }} &mdash; dari "{{ $rule['from'] }}"</option>
+                <button type="button" class="mass-chip{{ $loop->first ? ' pilih' : '' }}"
+                        data-massal-pilih-aksi="{{ $kunci }}"
+                        data-massal-dari="{{ $rule['dari'] ?? '' }}"
+                        data-massal-perlu-nomor="{{ $kunci === 'verifikasi' ? '1' : '' }}"
+                        title="{{ $rule['dari'] ? 'Berlaku untuk NPD berstatus '.$rule['dari'] : 'Berlaku untuk status mana pun' }}">
+                    {{ $rule['label'] }}
+                </button>
             @endforeach
-        </select>
-        <button type="submit" class="btn prim" data-massal-jalan disabled>Jalankan</button>
-        <span class="sub" data-massal-ket></span>
+        </div>
+
+        <div class="mass-ket" data-massal-ket></div>
+
+        <div class="mass-tombol">
+            <button type="button" class="btn" data-massal-batal>Batal</button>
+            <button type="button" class="btn prim" data-massal-jalan disabled>Jalankan</button>
+        </div>
     </div>
 </div>
 </form>
@@ -83,13 +98,13 @@
                  - Nominal 12,5%: nominal NPD terbesar yang ada bernilai sembilan
                    angka dan butuh 130px. JANGAN dipersempit lagi tanpa mengukur
                    ulang - angkanya nowrap, jadi kelebihannya langsung tumpah. --}}
-            <col style="width:9%;"><col style="width:12%;"><col style="width:11%;"><col style="width:10.5%;">
-            <col style="width:12%;"><col style="width:12.5%;"><col style="width:13%;"><col style="width:12%;"><col style="width:8%;">
+            <col style="width:8.5%;"><col style="width:11%;"><col style="width:10%;"><col style="width:9%;">
+            <col style="width:11%;"><col style="width:9.5%;"><col style="width:13%;"><col style="width:20%;"><col style="width:8%;">
         </colgroup>
         <thead>
             <tr>
                 <th>@if ($bolehMassal)<span data-massal-kolom hidden style="margin-right:6px;"><input type="checkbox" class="bulk-ck" data-massal-semua aria-label="Pilih semua"></span>@endif No. Dokumen</th><th>Sub Kegiatan</th><th>Kode Rekening</th><th>Tagging</th>
-                <th>Penerima</th><th class="num">Nominal</th><th class="st">Status</th>
+                <th>Penerima</th><th class="num">Nominal (Rp)</th><th class="st">Status</th>
                 <th>Uraian</th><th style="text-align:center;">Aksi</th>
             </tr>
             {{-- Penyaring ketik-manual per kolom, seperti di Data NPD. Bekerja
@@ -127,6 +142,9 @@
                             <span data-massal-kolom hidden style="margin-right:6px;">
                                 <input type="checkbox" class="bulk-ck" data-massal-pilih
                                        value="{{ $npd->id }}" data-status="{{ $npd->status }}"
+                                       data-dokumen="{{ $npd->nomorDokumen() }}"
+                                       data-penerima="{{ $npd->ringkasanPenerima() }}"
+                                       data-nominal="{{ number_format((float) $npd->nominal, 2, ',', '.') }}"
                                        aria-label="Pilih {{ $npd->nomorDokumen() }}">
                             </span>
                         @endif
@@ -139,7 +157,7 @@
                         <div class="pen-nm">{{ $npd->ringkasanPenerima() }}</div>
                         <div class="pen-sub">({{ \App\Models\Npd::JENIS_LABEL[$npd->jenis] ?? strtoupper($npd->jenis) }})</div>
                     </td>
-                    <td class="num">Rp {{ number_format((float) $npd->nominal, 2, ',', '.') }}</td>
+                    <td class="num">{{ number_format((float) $npd->nominal, 2, ',', '.') }}</td>
                     <td class="kol-status">
                         {{-- Pil status sama persis dengan Data NPD, ditambah pil
                              Catatan bernada emas di bawahnya. --}}
@@ -246,6 +264,30 @@
         </div>
     </div>
 </div>
+
+@if ($bolehMassal)
+{{-- Ringkasan verifikasi massal: tiap NPD terpilih diberi nomornya sendiri.
+     Nomor NPD unik di tingkat basis data, jadi ia tidak bisa diseragamkan -
+     harus diketik satu per satu, dan di sinilah tempatnya. --}}
+<div class="mdl-ov" id="mass-verif-ov">
+    <div class="mdl" style="max-width:720px;">
+        <div class="mdl-h">Verifikasi <span data-mv-jumlah>0</span> NPD</div>
+        <div class="mdl-b">
+            <div class="sub" style="margin-bottom:10px;">
+                Isi Nomor NPD untuk tiap dokumen. Baris yang nomornya dikosongkan akan
+                <b>dilewati</b>, bukan membatalkan yang lain. Nomor yang sudah dipakai NPD lain juga dilewati.
+            </div>
+
+            <div class="mv-daftar" data-mv-daftar></div>
+
+            <div class="mdl-f" style="padding:14px 0 0;">
+                <button type="button" class="btn" data-mv-tutup>Batal</button>
+                <button type="button" class="btn prim" data-mv-kirim>Verifikasi Sekarang</button>
+            </div>
+        </div>
+    </div>
+</div>
+@endif
 
 <div class="mdl-ov" id="wf-confirm-ov">
     <div class="mdl" style="max-width:380px;">
@@ -435,67 +477,89 @@
 })();
 
 /* ===== Mode "Pilih NPD" (aksi massal) =====
-   Hanya dirender untuk superadmin dan hanya bila ada aksi yang bisa
-   dijalankan massal - lihat $bolehMassal di atas. */
+   Hanya dirender untuk superadmin, dan hanya pada halaman yang memang
+   mengirim daftar aksinya (lihat $aksiMassalDaftar di atas). */
 (function () {
-    const bar = document.querySelector('[data-massal-bar]');
-    if (! bar) return;
-
     const form = document.getElementById('npd-massal-form');
-    const tombolMode = bar.querySelector('[data-massal-toggle]');
-    const kendali = bar.querySelector('[data-massal-kendali]');
-    const pilihAksi = bar.querySelector('[data-massal-aksi]');
-    const tombolJalan = bar.querySelector('[data-massal-jalan]');
-    const labelJumlah = bar.querySelector('[data-massal-jumlah]');
-    const keterangan = bar.querySelector('[data-massal-ket]');
+    if (! form) return;
+
+    const tombolMode = form.querySelector('[data-massal-toggle]');
+    const labelMode = form.querySelector('[data-massal-label]');
+    const panel = form.querySelector('[data-massal-kendali]');
+    const isianAksi = form.querySelector('[data-massal-aksi]');
+    const chips = Array.from(form.querySelectorAll('[data-massal-pilih-aksi]'));
+    const tombolJalan = form.querySelector('[data-massal-jalan]');
+    const tombolBatal = form.querySelector('[data-massal-batal]');
+    const labelJumlah = form.querySelector('[data-massal-jumlah]');
+    const keterangan = form.querySelector('[data-massal-ket]');
     const kolom = document.querySelectorAll('[data-massal-kolom]');
     const semua = document.querySelector('[data-massal-semua]');
 
+    const ov = document.getElementById('mass-verif-ov');
+    const mvDaftar = ov ? ov.querySelector('[data-mv-daftar]') : null;
+    const mvJumlah = ov ? ov.querySelector('[data-mv-jumlah]') : null;
+
     let aktif = false;
 
-    function kotak() {
-        return Array.from(document.querySelectorAll('[data-massal-pilih]'));
-    }
+    const kotak = () => Array.from(document.querySelectorAll('[data-massal-pilih]'));
+    const terpilih = () => kotak().filter(ck => ck.checked && ! ck.disabled);
+    const chipAktif = () => chips.find(c => c.classList.contains('pilih')) || chips[0];
 
-    function statusAsal() {
-        const opsi = pilihAksi.options[pilihAksi.selectedIndex];
-        return opsi ? opsi.textContent.split('dari "')[1]?.replace('"', '').trim() : null;
-    }
-
-    // Satu aksi hanya berlaku untuk satu status asal. Baris yang statusnya
-    // tidak cocok dinonaktifkan di layar supaya petugas tidak mengirim
-    // sesuatu yang pasti dilewati server.
     function selaraskan() {
-        const asal = statusAsal();
+        const chip = chipAktif();
+        const dari = chip ? chip.dataset.massalDari : '';
         let cocok = 0;
 
         kotak().forEach(function (ck) {
-            const bisa = ! asal || ck.dataset.status === asal;
+            // Satu aksi hanya berlaku untuk satu status asal. Baris yang
+            // tidak cocok dimatikan di layar supaya petugas tidak mengirim
+            // sesuatu yang sudah pasti dilewati server.
+            const bisa = ! dari || ck.dataset.status === dari;
             ck.disabled = ! bisa;
             if (! bisa) ck.checked = false;
-            ck.closest('tr').style.opacity = (aktif && ! bisa) ? '.45' : '';
+            ck.closest('tr').classList.toggle('mass-redup', aktif && ! bisa);
             if (bisa) cocok++;
         });
 
-        const terpilih = kotak().filter(ck => ck.checked && ! ck.disabled);
-        labelJumlah.textContent = String(terpilih.length);
-        tombolJalan.disabled = terpilih.length === 0;
-        keterangan.textContent = asal ? cocok + ' NPD berstatus "' + asal + '" di halaman ini' : '';
+        const n = terpilih().length;
+        labelJumlah.textContent = String(n);
+        tombolJalan.disabled = n === 0;
+        keterangan.textContent = dari
+            ? cocok + ' NPD berstatus "' + dari + '" di halaman ini'
+            : cocok + ' NPD di halaman ini bisa dikenai aksi ini';
+
+        if (semua) {
+            const bisaDipilih = kotak().filter(ck => ! ck.disabled);
+            semua.checked = bisaDipilih.length > 0 && bisaDipilih.every(ck => ck.checked);
+        }
     }
 
-    tombolMode.addEventListener('click', function () {
-        aktif = ! aktif;
-        kendali.hidden = ! aktif;
-        kendali.style.display = aktif ? 'flex' : 'none';
-        kolom.forEach(function (el) { el.hidden = ! aktif; });
-        tombolMode.textContent = aktif ? 'Batal Pilih' : 'Pilih NPD';
-        tombolMode.classList.toggle('prim', aktif);
-        if (! aktif) kotak().forEach(function (ck) { ck.checked = false; ck.closest('tr').style.opacity = ''; });
-        if (semua) semua.checked = false;
-        selaraskan();
-    });
+    function setMode(nyala) {
+        aktif = nyala;
+        panel.hidden = ! nyala;
+        kolom.forEach(el => { el.hidden = ! nyala; });
+        tombolMode.classList.toggle('nyala', nyala);
+        labelMode.textContent = nyala ? 'Selesai Memilih' : 'Pilih Beberapa NPD';
 
-    pilihAksi.addEventListener('change', selaraskan);
+        if (! nyala) {
+            kotak().forEach(ck => { ck.checked = false; ck.closest('tr').classList.remove('mass-redup'); });
+            if (semua) semua.checked = false;
+        }
+
+        selaraskan();
+    }
+
+    tombolMode.addEventListener('click', () => setMode(! aktif));
+    if (tombolBatal) tombolBatal.addEventListener('click', () => setMode(false));
+
+    chips.forEach(function (chip) {
+        chip.addEventListener('click', function () {
+            chips.forEach(c => c.classList.remove('pilih'));
+            chip.classList.add('pilih');
+            isianAksi.value = chip.dataset.massalPilihAksi;
+            selaraskan();
+        });
+    });
 
     document.addEventListener('change', function (e) {
         if (e.target.matches('[data-massal-pilih]')) selaraskan();
@@ -504,7 +568,7 @@
     if (semua) {
         semua.addEventListener('change', function () {
             kotak().forEach(function (ck) {
-                // Baris yang tersembunyi penyaring kolom tidak ikut terpilih -
+                // Baris yang disembunyikan penyaring kolom tidak ikut -
                 // yang terlihat itulah yang dimaksud "semua".
                 const tampil = ck.closest('tr').style.display !== 'none';
                 if (! ck.disabled && tampil) ck.checked = semua.checked;
@@ -513,33 +577,91 @@
         });
     }
 
-    // Isian dikirim sebagai npd[] - hanya yang tercentang dan tidak
-    // dinonaktifkan yang ikut.
-    form.addEventListener('submit', function (e) {
-        form.querySelectorAll('input[name="npd[]"]').forEach(function (el) { el.remove(); });
+    function sisipkanPilihan() {
+        form.querySelectorAll('input[name="npd[]"], input[data-mv-nomor-hidden]').forEach(el => el.remove());
 
-        const terpilih = kotak().filter(ck => ck.checked && ! ck.disabled);
-
-        if (terpilih.length === 0) {
-            e.preventDefault();
-            return;
-        }
-
-        const label = pilihAksi.options[pilihAksi.selectedIndex].textContent.split(' \u2014 ')[0];
-
-        if (! window.confirm('Jalankan "' + label + '" untuk ' + terpilih.length + ' NPD?')) {
-            e.preventDefault();
-            return;
-        }
-
-        terpilih.forEach(function (ck) {
+        terpilih().forEach(function (ck) {
             const hidden = document.createElement('input');
             hidden.type = 'hidden';
             hidden.name = 'npd[]';
             hidden.value = ck.value;
             form.appendChild(hidden);
         });
+    }
+
+    tombolJalan.addEventListener('click', function () {
+        const chip = chipAktif();
+        const dipilih = terpilih();
+        if (dipilih.length === 0) return;
+
+        isianAksi.value = chip.dataset.massalPilihAksi;
+
+        if (chip.dataset.massalPerluNomor) {
+            bukaModalVerifikasi(dipilih);
+
+            return;
+        }
+
+        if (! window.confirm('Jalankan "' + chip.textContent.trim() + '" untuk ' + dipilih.length + ' NPD?')) return;
+
+        sisipkanPilihan();
+        form.submit();
     });
+
+    /* ---- Modal verifikasi massal ---- */
+    function bukaModalVerifikasi(dipilih) {
+        if (! ov) return;
+
+        mvJumlah.textContent = String(dipilih.length);
+        mvDaftar.innerHTML = dipilih.map(function (ck) {
+            const d = ck.dataset;
+
+            return '<div class="mv-baris">'
+                + '<div class="mv-info">'
+                + '<div class="mv-dok">' + (d.dokumen || '-') + '</div>'
+                + '<div class="mv-sub">' + (d.penerima || '-') + ' &middot; Rp ' + (d.nominal || '0') + '</div>'
+                + '</div>'
+                + '<input type="text" class="mv-input" maxlength="100" autocomplete="off"'
+                + ' data-mv-untuk="' + ck.value + '" placeholder="{{ \App\Models\Npd::CONTOH_NOMOR }}">'
+                + '</div>';
+        }).join('');
+
+        ov.classList.add('show');
+        const pertama = mvDaftar.querySelector('.mv-input');
+        if (pertama) pertama.focus();
+    }
+
+    if (ov) {
+        ov.querySelector('[data-mv-tutup]').addEventListener('click', () => ov.classList.remove('show'));
+        ov.addEventListener('click', e => { if (e.target === ov) ov.classList.remove('show'); });
+
+        ov.querySelector('[data-mv-kirim]').addEventListener('click', function () {
+            const isian = Array.from(mvDaftar.querySelectorAll('.mv-input'));
+            const terisi = isian.filter(el => el.value.trim() !== '');
+
+            if (terisi.length === 0) {
+                window.alert('Isi minimal satu Nomor NPD.');
+
+                return;
+            }
+
+            const kosong = isian.length - terisi.length;
+            if (kosong > 0 && ! window.confirm(kosong + ' NPD belum diberi nomor dan akan dilewati. Lanjutkan?')) return;
+
+            sisipkanPilihan();
+
+            terisi.forEach(function (el) {
+                const hidden = document.createElement('input');
+                hidden.type = 'hidden';
+                hidden.setAttribute('data-mv-nomor-hidden', '');
+                hidden.name = 'nomor[' + el.dataset.mvUntuk + ']';
+                hidden.value = el.value.trim();
+                form.appendChild(hidden);
+            });
+
+            form.submit();
+        });
+    }
 
     selaraskan();
 })();
