@@ -28,9 +28,12 @@ use App\Http\Controllers\PerjalananDinasPegawaiController;
 use App\Http\Controllers\PkptController;
 use App\Http\Controllers\PkptImportController;
 use App\Http\Controllers\ProfilController;
+use App\Http\Controllers\DataPerjalananDinasController;
+use App\Http\Controllers\DataSpjPerjalananDinasController;
 use App\Http\Controllers\KeteranganLampiranPreviewController;
 use App\Http\Controllers\RekapPotensiImportController;
 use App\Http\Controllers\RekapPotensiPengembalianController;
+use App\Http\Controllers\RincianManualImportController;
 use App\Http\Controllers\RekananController;
 use App\Http\Controllers\RakBulananImportController;
 use App\Http\Controllers\RealisasiPeriodeController;
@@ -673,6 +676,42 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::delete('/manajemen-data/import/pegawai/{import}', [PegawaiImportController::class, 'batalkan'])->name('manajemen-data.import.pegawai.batalkan');
 
         // Import Vendor: upload -> staging (preview/dry-run) -> konfirmasi simpan.
+        /*
+         * Rincian dua kartu Manajemen Data yang judulnya bisa diklik.
+         * Isinya data manual penambal periode sebelum migrasi - lihat
+         * migrasi 2026_10_02_090000. Sengaja TIDAK diberi menu sidebar
+         * sendiri: pintu masuknya cukup dari kartunya.
+         */
+        Route::get('/manajemen-data/rincian/perjalanan-dinas', [DataPerjalananDinasController::class, 'index'])->name('manajemen-data.rincian.perjalanan-dinas');
+        Route::get('/manajemen-data/rincian/perjalanan-dinas/tambah', [DataPerjalananDinasController::class, 'create'])->name('manajemen-data.rincian.perjalanan-dinas.create');
+        Route::post('/manajemen-data/rincian/perjalanan-dinas', [DataPerjalananDinasController::class, 'store'])->name('manajemen-data.rincian.perjalanan-dinas.store');
+        Route::get('/manajemen-data/rincian/perjalanan-dinas/{rincian}/edit', [DataPerjalananDinasController::class, 'edit'])->name('manajemen-data.rincian.perjalanan-dinas.edit');
+        Route::put('/manajemen-data/rincian/perjalanan-dinas/{rincian}', [DataPerjalananDinasController::class, 'update'])->name('manajemen-data.rincian.perjalanan-dinas.update');
+        Route::delete('/manajemen-data/rincian/perjalanan-dinas/{rincian}', [DataPerjalananDinasController::class, 'destroy'])->name('manajemen-data.rincian.perjalanan-dinas.destroy');
+
+        Route::get('/manajemen-data/rincian/spj-perjalanan-dinas', [DataSpjPerjalananDinasController::class, 'index'])->name('manajemen-data.rincian.spj-perjalanan-dinas');
+        Route::get('/manajemen-data/rincian/spj-perjalanan-dinas/tambah', [DataSpjPerjalananDinasController::class, 'create'])->name('manajemen-data.rincian.spj-perjalanan-dinas.create');
+        Route::post('/manajemen-data/rincian/spj-perjalanan-dinas', [DataSpjPerjalananDinasController::class, 'store'])->name('manajemen-data.rincian.spj-perjalanan-dinas.store');
+        Route::get('/manajemen-data/rincian/spj-perjalanan-dinas/{rincian}/edit', [DataSpjPerjalananDinasController::class, 'edit'])->name('manajemen-data.rincian.spj-perjalanan-dinas.edit');
+        Route::put('/manajemen-data/rincian/spj-perjalanan-dinas/{rincian}', [DataSpjPerjalananDinasController::class, 'update'])->name('manajemen-data.rincian.spj-perjalanan-dinas.update');
+        Route::delete('/manajemen-data/rincian/spj-perjalanan-dinas/{rincian}', [DataSpjPerjalananDinasController::class, 'destroy'])->name('manajemen-data.rincian.spj-perjalanan-dinas.destroy');
+
+        /*
+         * Import parsial rincian manual. Segmen {jenis} dibatasi dua nilai
+         * lewat whereIn, jadi satu set rute melayani Perjalanan Dinas dan
+         * SPJ Perjalanan Dinas tanpa menyalin enam rute yang sama.
+         */
+        Route::prefix('manajemen-data/import/rincian/{jenis}')
+            ->whereIn('jenis', ['perjalanan-dinas', 'spj-perjalanan-dinas'])
+            ->group(function () {
+                Route::get('/', [RincianManualImportController::class, 'create'])->name('manajemen-data.import.rincian.create');
+                Route::get('/template', [RincianManualImportController::class, 'template'])->name('manajemen-data.import.rincian.template');
+                Route::post('/', [RincianManualImportController::class, 'store'])->name('manajemen-data.import.rincian.store');
+                Route::get('/{import}/preview', [RincianManualImportController::class, 'preview'])->name('manajemen-data.import.rincian.preview');
+                Route::post('/{import}/konfirmasi', [RincianManualImportController::class, 'konfirmasi'])->name('manajemen-data.import.rincian.konfirmasi');
+                Route::delete('/{import}', [RincianManualImportController::class, 'batalkan'])->name('manajemen-data.import.rincian.batalkan');
+            });
+
         Route::get('/manajemen-data/import/rekap-potensi', [RekapPotensiImportController::class, 'create'])->name('manajemen-data.import.rekap-potensi.create');
         Route::get('/manajemen-data/import/rekap-potensi/template', [RekapPotensiImportController::class, 'template'])->name('manajemen-data.import.rekap-potensi.template');
         Route::post('/manajemen-data/import/rekap-potensi', [RekapPotensiImportController::class, 'store'])->name('manajemen-data.import.rekap-potensi.store');

@@ -260,9 +260,7 @@ class RekapPotensiPengembalianTest extends TestCase
         // Sel yang BENAR-BENAR teks - mis. hasil salin-tempel dari dokumen.
         // Sel bertipe angka tidak melewati jalur ini; PhpSpreadsheet sudah
         // menyerahkannya sebagai float.
-        $metode = new \ReflectionMethod(RekapPotensiImport::class, 'angka');
-        $metode->setAccessible(true);
-        $angka = fn ($nilai) => $metode->invoke(null, $nilai);
+        $angka = fn ($nilai) => \App\Support\AngkaBerkas::dari($nilai);
 
         // Titik sebagai pemisah RIBUAN - inilah yang paling mudah salah:
         // is_numeric() menerima "250.000" dan membacanya 250.

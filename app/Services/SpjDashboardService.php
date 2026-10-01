@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Npd;
+use App\Models\SpjPerjalananDinasManual;
 use App\Support\BidangOrganisasi;
 use Illuminate\Support\Collection;
 
@@ -23,10 +24,21 @@ class SpjDashboardService
             ->map(fn (Npd $npd) => self::baris($npd))
             ->filter(fn (array $row) => $row['bidang'] !== null);
 
+        // Dokumen periode sebelum migrasi diinput manual lewat Manajemen
+        // Data - bentuk barisnya sudah disamakan, jadi tinggal disambung.
+        $rows = $rows->concat(
+            SpjPerjalananDinasManual::query()
+                ->where('tahun', $tahun)
+                ->orderByDesc('tanggal')
+                ->get()
+                ->map(fn (SpjPerjalananDinasManual $m) => $m->sebagaiBarisDashboard())
+        )->values();
+
         $pilihanBidang = collect(BidangOrganisasi::PENGAWASAN)->filter(fn (string $bidang) => $rows->contains('bidang', $bidang))->values()->all();
         $filtered = $rows
             ->when($filters['bidang'] ?? '', fn (Collection $items, string $bidang) => $items->where('bidang', $bidang))
             ->when($filters['status'] ?? '', fn (Collection $items, string $status) => $items->where('status_spj', $status))
+            ->when($filters['sumber'] ?? '', fn (Collection $items, string $sumber) => $items->where('sumber', $sumber))
             ->when($filters['cari'] ?? '', function (Collection $items, string $cari) {
                 $needle = mb_strtolower($cari);
 
@@ -89,6 +101,7 @@ class SpjDashboardService
             'status_spj' => $npd->spj_verified_at ? 'terverifikasi' : 'belum',
             'verified_at' => $npd->spj_verified_at,
             'verified_by' => $npd->spjVerifiedBy?->nama,
+            'sumber' => 'npd',
         ];
     }
 }

@@ -16,9 +16,13 @@ class SpjDashboardController extends Controller
 {
     public function index(Request $request, SpjDashboardService $service): View
     {
-        $filters = array_merge(['bidang' => '', 'status' => '', 'cari' => ''], $request->validate([
+        // 'sumber' memisahkan baris yang berasal dari NPD dari baris yang
+        // diinput manual lewat Manajemen Data - berguna saat menyisir
+        // periode sebelum migrasi.
+        $filters = array_merge(['bidang' => '', 'status' => '', 'cari' => '', 'sumber' => ''], $request->validate([
             'bidang' => ['nullable', 'string', 'max:100'],
             'status' => ['nullable', Rule::in(['belum', 'terverifikasi'])],
+            'sumber' => ['nullable', Rule::in(['npd', 'manual'])],
             'cari' => ['nullable', 'string', 'max:255'],
         ]));
 

@@ -66,7 +66,20 @@
             // Judul kartu Pagu sekaligus pintu masuk ke riwayat tahapan pagu
             // (DPA Murni, DPA Pergeseran, ...). Sengaja lewat judul, bukan
             // tombol kelima, supaya deretan tombol tetap seragam antar kartu.
-            $judulHref = $key === 'pagu' ? route('versi-pagu.index') : null;
+            // Judul kartu jadi pintu masuk ke rinciannya, bukan tombol
+            // kelima - supaya deretan tombol tetap seragam antar kartu.
+            $judulHref = match ($key) {
+                'pagu' => route('versi-pagu.index'),
+                'perjalanan-dinas' => route('manajemen-data.rincian.perjalanan-dinas'),
+                'spj-perjalanan-dinas' => route('manajemen-data.rincian.spj-perjalanan-dinas'),
+                default => null,
+            };
+            $judulPetunjuk = match ($key) {
+                'pagu' => 'Klik judul untuk melihat tahapan pagu, Nomor DPA, dan histori pagu.',
+                'perjalanan-dinas' => 'Klik judul untuk melihat & mengisi rincian per orang per bulan yang menambal periode sebelum migrasi.',
+                'spj-perjalanan-dinas' => 'Klik judul untuk melihat & mengisi dokumen SPJ periode sebelum migrasi.',
+                default => null,
+            };
         @endphp
         <div class="dash-card">
             <h3 style="margin-bottom:{{ $judulHref ? '2px' : '10px' }};">
@@ -77,7 +90,7 @@
                 @endif
             </h3>
             @if ($judulHref)
-                <div class="sub" style="margin:0 0 10px;">Klik judul untuk melihat tahapan pagu, Nomor DPA, dan histori pagu.</div>
+                <div class="sub" style="margin:0 0 10px;">{{ $judulPetunjuk }}</div>
             @endif
             <div style="display:flex;flex-wrap:wrap;gap:8px;align-items:flex-start;">
                 @if ($templateHref && ($bolehImport || ! $meta['import_create']))

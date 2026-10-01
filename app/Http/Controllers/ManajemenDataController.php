@@ -79,21 +79,25 @@ class ManajemenDataController extends Controller
             'import_create' => ['manajemen-data.import.npd-historis.create', null],
             'import_template' => ['manajemen-data.import.npd-historis.template', null],
         ],
+        // Dua kartu di bawah ini punya DUA lapis data. Angka utamanya tetap
+        // dihitung dari NPD (tidak punya tabel sendiri), tetapi import &
+        // judul kartunya kini mengarah ke RINCIAN MANUAL - penambal periode
+        // sebelum migrasi, yang dibaca dashboard bersama baris dari NPD dan
+        // tidak pernah ikut perhitungan anggaran. Lihat migrasi
+        // 2026_10_02_090000 untuk alasannya.
         'perjalanan-dinas' => [
             'label' => 'Data Perjalanan Dinas',
             'export_jenis' => 'perjalanan-dinas',
-            // Tidak punya import: datanya dihitung dari NPD, bukan tabel sendiri.
-            'import_create' => null,
-            'import_template' => ['manajemen-data.template.perjalanan-dinas', null],
-            'import_note' => 'Templatenya berupa formulir rekap per pegawai - Nama, NIP, dan Unit Kerja sudah terisi, tinggal melengkapi angka tiap bulan.',
+            'import_create' => ['manajemen-data.import.rincian.create', 'perjalanan-dinas'],
+            'import_template' => ['manajemen-data.import.rincian.template', 'perjalanan-dinas'],
+            'import_note' => 'Import mengisi RINCIAN MANUAL per orang per bulan: penambal periode sebelum migrasi, yang tidak ikut terbawa saat NPD lama diimpor. Tidak pernah ikut perhitungan anggaran. Klik judul kartu untuk melihat & menyuntingnya.',
         ],
         'spj-perjalanan-dinas' => [
             'label' => 'Data SPJ Perjalanan Dinas',
             'export_jenis' => 'spj-perjalanan-dinas',
-            // Sama seperti Perjalanan Dinas: tidak punya import maupun template.
-            'import_create' => null,
-            'import_template' => null,
-            'import_note' => 'Datanya berasal dari NPD dengan rekening Belanja Perjalanan Dinas.',
+            'import_create' => ['manajemen-data.import.rincian.create', 'spj-perjalanan-dinas'],
+            'import_template' => ['manajemen-data.import.rincian.template', 'spj-perjalanan-dinas'],
+            'import_note' => 'Import mengisi DOKUMEN MANUAL periode sebelum migrasi yang tidak punya padanan baris di tabel NPD. Digabung dengan baris dari NPD di dashboard, dan di sana bisa disaring lewat pilihan Sumber. Klik judul kartu untuk melihat & menyuntingnya.',
         ],
         'spm-up-gu' => [
             'label' => 'Data Surat Perintah Membayar (SPM) UP/GU/TU',

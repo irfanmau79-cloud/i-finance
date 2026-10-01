@@ -3,6 +3,7 @@
 namespace App\Services;
 
 use App\Models\Npd;
+use App\Models\PerjalananDinasManual;
 use App\Models\NpdTim;
 use App\Support\BidangOrganisasi;
 use Illuminate\Support\Collection;
@@ -118,6 +119,12 @@ class PerjalananDinasDashboardService
             ->get()
             ->flatMap(fn (Npd $npd) => $npd->tim->map(fn (NpdTim $tim) => self::baris($npd, $tim)));
 
+        // Rincian manual ikut dibaca di sini. Periode sebelum migrasi NPD-nya
+        // sudah masuk lewat Import NPD Historis, tetapi tanpa rincian anggota
+        // tim - jadi tanpa baris manual ini, bulan-bulan itu kosong di
+        // dashboard meski uangnya sudah tercatat.
+        $baris = $baris->concat(self::barisManual($tahun));
+
         return $baris
             ->groupBy('kunci')
             ->map(function (Collection $rows) {
@@ -148,6 +155,44 @@ class PerjalananDinasDashboardService
                         ->all(),
                 ];
             })
+            ->values();
+    }
+
+    /**
+     * Baris dari tabel rincian manual, dibentuk SAMA PERSIS dengan baris
+     * yang berasal dari NPD supaya keduanya dijumlahkan dengan cara yang
+     * sama saat dikelompokkan per orang.
+     *
+     * Orangnya selalu tertaut ke Data Pegawai (pegawai_id), jadi baris
+     * manual dan baris dari NPD jatuh ke kunci orang yang sama - bukan
+     * terpecah dua karena beda ejaan gelar.
+     *
+     * @return Collection<int, array<string, mixed>>
+     */
+    private static function barisManual(int $tahun): Collection
+    {
+        return PerjalananDinasManual::query()
+            ->with('pegawai')
+            ->where('tahun', $tahun)
+            ->orderBy('bulan')
+            ->get()
+            ->filter(fn (PerjalananDinasManual $m) => $m->pegawai !== null)
+            ->map(fn (PerjalananDinasManual $m) => [
+                'npd_id' => null,
+                'bulan' => (int) $m->bulan,
+                'kunci' => self::kunciDariNip($m->pegawai->nip, $m->pegawai->nama),
+                'pegawai_id' => $m->pegawai_id,
+                'nama' => (string) $m->pegawai->nama,
+                'nip' => (string) $m->pegawai->nip,
+                'jabatan' => (string) $m->pegawai->jabatan,
+                'bidang' => BidangOrganisasi::petakan($m->pegawai->bidang) ?? self::TANPA_BIDANG,
+                'hari' => (float) $m->hari,
+                'uh' => (float) $m->uang_harian,
+                'akom' => (float) $m->akomodasi,
+                'trans' => (float) $m->transport,
+                'representatif' => (float) $m->representatif,
+                'terima' => $m->jumlahDiterima(),
+            ])
             ->values();
     }
 
@@ -190,13 +235,23 @@ class PerjalananDinasDashboardService
      */
     public static function kunciOrang(NpdTim $tim): string
     {
-        $nip = preg_replace('/\D/', '', (string) $tim->nip) ?? '';
+        return self::kunciDariNip($tim->nip, $tim->nama);
+    }
 
-        if ($nip !== '') {
-            return 'nip:'.$nip;
+    /**
+     * Bentuk kunci yang sama dipakai baris dari NPD maupun baris manual -
+     * kalau keduanya memakai aturan berbeda, satu orang akan muncul dua kali
+     * di dashboard.
+     */
+    public static function kunciDariNip(?string $nip, ?string $nama): string
+    {
+        $digit = preg_replace('/\D/', '', (string) $nip) ?? '';
+
+        if ($digit !== '') {
+            return 'nip:'.$digit;
         }
 
-        return 'nama:'.mb_strtolower(trim(preg_replace('/\s+/', ' ', (string) $tim->nama) ?? ''));
+        return 'nama:'.mb_strtolower(trim(preg_replace('/\s+/', ' ', (string) $nama) ?? ''));
     }
 
     /**

@@ -146,15 +146,19 @@ class TemplatePerjalananDinasTest extends TestCase
         }
     }
 
-    public function test_kartu_perjalanan_dinas_menawarkan_template_tanpa_tombol_import(): void
+    public function test_kartu_perjalanan_dinas_mengarah_ke_import_rincian_manual(): void
     {
+        // Sejak ada tabel rincian manual (penambal periode sebelum migrasi),
+        // tombol Import & Template pada kartu ini mengarah ke importer
+        // rincian itu - bukan lagi kosong, dan tetap BUKAN import NPD.
         $halaman = $this->actingAs($this->buatUser(User::ROLE_SUPERADMIN))
             ->get(route('manajemen-data.index'))->assertOk();
 
-        $halaman->assertSee(route('manajemen-data.template.perjalanan-dinas'), false);
+        $halaman
+            ->assertSee(route('manajemen-data.import.rincian.create', 'perjalanan-dinas'), false)
+            ->assertSee(route('manajemen-data.import.rincian.create', 'spj-perjalanan-dinas'), false);
 
-        // Kartu Perjalanan Dinas dan SPJ tidak lagi mengarah ke import NPD;
-        // satu-satunya tautan import NPD adalah milik kartu Data NPD. Dihitung
+        // Satu-satunya tautan import NPD tetap milik kartu Data NPD. Dihitung
         // lengkap dengan kutip penutup href karena URL create adalah awalan
         // dari URL template - tanpa itu tautan template ikut terhitung.
         $this->assertSame(
