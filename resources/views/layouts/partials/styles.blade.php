@@ -423,6 +423,20 @@
      bawah dengan huruf sedikit lebih kecil - tabelnya table-layout:fixed,
      jadi tanpa ini kolomnya memaksa baris melebar. */
   td.kol-uraian{font-size:11px;line-height:1.35;overflow-wrap:anywhere;}
+  /* Bilah aksi massal pada antrean NPD. */
+  .npd-massal{display:flex;flex-wrap:wrap;gap:10px;align-items:center;margin-bottom:10px;}
+  .npd-massal .sub{font-size:12px;color:var(--mut);}
+  /* Kotak centang digambar sendiri: kotak centang bawaan peramban membuat
+     sel tabel ikut menyala saat diklik. */
+  input.bulk-ck{appearance:none;-webkit-appearance:none;width:15px;height:15px;border:1.5px solid var(--line);
+                border-radius:4px;background:var(--surface);cursor:pointer;vertical-align:middle;position:relative;}
+  input.bulk-ck:checked{background:var(--tegas);border-color:var(--tegas);}
+  /* Centangnya memakai --surface, bukan putih mati: --tegas selalu
+     berlawanan terang dengan --surface di kedua mode, jadi centangnya tetap
+     terbaca tanpa perlu aturan khusus mode gelap. */
+  input.bulk-ck:checked::after{content:'';position:absolute;left:4px;top:1px;width:4px;height:8px;
+                               border:solid var(--surface);border-width:0 2px 2px 0;transform:rotate(45deg);}
+  input.bulk-ck:disabled{opacity:.4;cursor:not-allowed;}
   /* ---- Sel Status di tabel NPD (Data NPD + Pembuatan/Verifikasi/Persetujuan)
      Dua pil bertumpuk: status berwarna, lalu penanda catatan. TIDAK dibungkus
      kotak abu lagi - kotak itulah yang dulu membuat kolom sempit ini terasa

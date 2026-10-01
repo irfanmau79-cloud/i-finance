@@ -515,6 +515,10 @@ Route::middleware('auth.or.guest')->group(function () {
     Route::middleware('role:superadmin,pptk,bpp,verifikator')->group(function () {
         Route::post('/npd/{npd}/transisi', [NpdController::class, 'transisi'])->name('npd.transisi');
 
+        // Aksi massal: khusus superadmin, sepadan dengan "bendahara" di GAS.
+        // Dibatasi laju karena satu permintaan bisa menyentuh 200 NPD.
+        Route::post('/npd/transisi-massal', [NpdController::class, 'transisiMassal'])
+            ->middleware(['role:superadmin', 'throttle:20,1'])->name('npd.transisi-massal');
     });
 
     // Kirim Notifikasi WhatsApp pencairan NPD (Data NPD). Pelaku pencairan

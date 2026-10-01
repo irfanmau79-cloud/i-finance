@@ -24,6 +24,7 @@ use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Carbon;
 use Illuminate\Support\Collection;
+use Illuminate\Support\Arr;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\ValidationException;
@@ -408,6 +409,170 @@ class NpdController extends Controller
         }
 
         return back()->with('success', "Status NPD diperbarui: {$rule['label']}.");
+    }
+
+    /**
+     * Transisi BANYAK NPD sekaligus (adopsi GAS #77b & #78-#81).
+     *
+     * Tiga hal yang membentuk rancangannya:
+     *
+     * 1. TIAP NPD punya transaksinya SENDIRI, bukan satu transaksi besar.
+     *    Satu baris yang gagal - statusnya keburu berubah, nomornya bentrok -
+     *    tidak boleh ikut membatalkan baris lain yang sudah sah. Baris yang
+     *    gagal dilewati dan dilaporkan, sama seperti di GAS.
+     *
+     * 2. PENJAGAAN PER BARIS SAMA PERSIS dengan transisi tunggal:
+     *    lockForUpdate, status diperiksa ulang di dalam kunci, dan nomor NPD
+     *    dicek ketunggalannya. Aksi massal tidak boleh jadi pintu belakang
+     *    yang lebih longgar daripada pintu depannya.
+     *
+     * 3. Nomor yang sudah dipakai baris SEBELUMNYA dalam batch ini ikut
+     *    dianggap bentrok. Karena tiap baris commit sendiri-sendiri, baris
+     *    kedua sebetulnya sudah akan tertahan indeks unik nomor_lengkap -
+     *    pemeriksaan ini hanya membuat pesannya terbaca petugas alih-alih
+     *    muncul sebagai galat basis data.
+     *
+     * Aksi yang mewajibkan catatan (pengembalian/pembatalan) TIDAK dilayani:
+     * alasannya harus ditulis per NPD, dan satu alasan yang disalin ke
+     * puluhan dokumen tidak menjelaskan apa pun.
+     */
+    public function transisiMassal(Request $request)
+    {
+        $data = $request->validate([
+            'aksi' => ['required', Rule::in(array_keys(Npd::TRANSISI))],
+            'npd' => ['required', 'array', 'min:1', 'max:200'],
+            'npd.*' => ['required', 'integer'],
+            'nomor' => ['nullable', 'array'],
+            'nomor.*' => ['nullable', 'string', 'max:100'],
+        ]);
+
+        $aksi = $data['aksi'];
+        $rule = Npd::TRANSISI[$aksi];
+        $user = $request->user();
+
+        if (in_array($aksi, Npd::AKSI_WARISAN, true)) {
+            return back()->withErrors(['aksi' => 'Aksi ini sudah tidak dipakai lagi.']);
+        }
+
+        if (in_array($aksi, Npd::AKSI_WAJIB_CATATAN, true)) {
+            return back()->withErrors([
+                'aksi' => 'Aksi "' . $rule['label'] . '" wajib disertai catatan per NPD, jadi tidak bisa dijalankan massal.',
+            ]);
+        }
+
+        if (! Npd::bolehAksi($aksi, $user->role)) {
+            return back()->withErrors(['aksi' => 'Aksi "' . $rule['label'] . '" tidak tersedia untuk peran Anda.']);
+        }
+
+        $nomorInput = $data['nomor'] ?? [];
+        $berhasil = 0;
+        $dilewati = [];
+        $nomorTerpakai = [];
+
+        foreach ($data['npd'] as $id) {
+            $npd = Npd::find($id);
+
+            if ($npd === null) {
+                $dilewati[] = 'NPD #' . $id . ': tidak ditemukan.';
+
+                continue;
+            }
+
+            $label = $npd->nomor_lengkap ?: 'NPD #' . $npd->id;
+
+            if ($npd->sumber_data === 'import_historis') {
+                $dilewati[] = $label . ': NPD historis tidak mengikuti alur persetujuan.';
+
+                continue;
+            }
+
+            $nomorLengkap = null;
+
+            if ($aksi === 'verifikasi') {
+                $nomorLengkap = preg_replace('/\s+/', ' ', trim((string) ($nomorInput[$id] ?? '')));
+
+                if ($nomorLengkap === '') {
+                    $dilewati[] = $label . ': Nomor NPD belum diisi.';
+
+                    continue;
+                }
+
+                if (isset($nomorTerpakai[$nomorLengkap])) {
+                    $dilewati[] = $label . ': nomor "' . $nomorLengkap . '" dipakai dua kali dalam batch ini.';
+
+                    continue;
+                }
+            }
+
+            try {
+                DB::transaction(function () use ($npd, $rule, $aksi, $nomorLengkap, $user) {
+                    $terkunci = Npd::query()->lockForUpdate()->findOrFail($npd->id);
+
+                    if ($terkunci->status !== $rule['from']) {
+                        throw ValidationException::withMessages([
+                            'aksi' => 'statusnya sudah "' . $terkunci->status . '", bukan "' . $rule['from'] . '"',
+                        ]);
+                    }
+
+                    if ($aksi === 'verifikasi') {
+                        $bentrok = Npd::query()->lockForUpdate()
+                            ->whereKeyNot($terkunci->id)
+                            ->where('nomor_lengkap', $nomorLengkap)
+                            ->exists();
+
+                        if ($bentrok) {
+                            throw ValidationException::withMessages([
+                                'nomor_lengkap' => 'nomor "' . $nomorLengkap . '" sudah dipakai NPD lain',
+                            ]);
+                        }
+
+                        $terkunci->nomor_lengkap = $nomorLengkap;
+                    }
+
+                    $statusAsal = $terkunci->status;
+                    $catatan = $aksi === 'verifikasi' ? '[Terverifikasi]' : null;
+
+                    $terkunci->status = $rule['to'];
+                    $terkunci->catatan = $catatan;
+                    $terkunci->save();
+                    $terkunci->catatHistoriStatus($user, $aksi, $statusAsal, $rule['to'], $catatan);
+                    $terkunci->mirrorStatusKeSuratPerintah();
+                });
+            } catch (ValidationException $e) {
+                $dilewati[] = $label . ': ' . implode(' ', Arr::flatten($e->errors())) . '.';
+
+                continue;
+            } catch (QueryException $e) {
+                $pesan = str_contains(strtolower($e->getMessage()), 'unique') || ($e->errorInfo[0] ?? null) === '23000'
+                    ? 'nomor NPD baru saja dipakai transaksi lain'
+                    : 'gagal disimpan';
+                $dilewati[] = $label . ': ' . $pesan . '.';
+
+                continue;
+            }
+
+            if ($nomorLengkap !== null) {
+                $nomorTerpakai[$nomorLengkap] = true;
+            }
+
+            $berhasil++;
+        }
+
+        AuditLog::catat($rule['label'] . ' (Massal)', sprintf(
+            'Berhasil: %d, Dilewati: %d',
+            $berhasil,
+            count($dilewati)
+        ));
+
+        $ringkas = $rule['label'] . ': ' . $berhasil . ' NPD berhasil diproses.';
+
+        if ($dilewati !== []) {
+            return back()
+                ->with('success', $ringkas)
+                ->withErrors(['massal' => count($dilewati) . ' NPD dilewati - ' . implode(' | ', $dilewati)]);
+        }
+
+        return back()->with('success', $ringkas);
     }
 
     public function destroy(Request $request, Npd $npd)

@@ -274,8 +274,12 @@ class DataNpdTest extends TestCase
 
         foreach (['npd.data', 'npd.index'] as $rute) {
             $this->actingAs($this->user)->get(route($rute))->assertOk()
-                ->assertSee('<th>No. Dokumen</th>', false)
+                // Tanpa tag pembungkus: kepala kolom pertama bisa memuat kotak
+                // centang mode massal, jadi yang dijaga adalah judulnya.
+                ->assertSee('No. Dokumen', false)
                 ->assertSee('<th>Uraian</th>', false)
+                // Dicek sebagai kepala kolom, bukan teks lepas: "Nomor NPD"
+                // masih dipakai sebagai label di modal Kirim Notifikasi.
                 ->assertDontSee('<th>Nomor NPD</th>', false);
         }
     }
