@@ -66,6 +66,15 @@
     padding:12px 14px;font-size:13px;line-height:1.55;color:var(--warn-teks);margin-top:12px;}
   .wa-peringatan svg{flex:0 0 16px;width:16px;height:16px;fill:none;stroke:currentColor;stroke-width:2;margin-top:2px;}
   .wa-riwayat{margin-top:14px;font-size:12px;color:var(--mut);line-height:1.7;}
+  /* Daftar penerima NPD multi-penerima: tiap baris berdiri sendiri karena
+     tiap orang punya nomor dan tombol kirimnya masing-masing. */
+  .wa-daftar{margin:12px 0 4px;}
+  .wa-penerima{display:flex;align-items:center;justify-content:space-between;gap:12px;
+               padding:8px 10px;border:1px solid var(--line);border-radius:8px;margin-bottom:6px;}
+  .wa-penerima.mati{background:var(--surface-2);}
+  .wa-penerima-ket{min-width:0;font-size:13px;}
+  .wa-penerima-ket .sub{font-size:11.5px;color:var(--mut);margin-top:2px;}
+  .wa-penerima .btn{padding:4px 14px;font-size:12px;white-space:nowrap;}
   .btn.wa{background:#1f9d55;border-color:#1f9d55;color:#fff;}
   .btn.wa:hover{background:#188044;border-color:#188044;}
   .btn.wa[aria-disabled="true"]{opacity:.5;pointer-events:none;}
@@ -355,6 +364,28 @@ document.addEventListener('DOMContentLoaded', function () {
       html += '<div class="wa-baris"><div class="k">Nomor SP</div><div class="v">' + esc(d.nomor_sp) + '</div></div>';
     }
 
+    // Lebih dari satu penerima: tiap orang punya nomor dan tombolnya sendiri,
+    // karena uangnya memang mendarat di rekening masing-masing.
+    if (d.penerima && d.penerima.length > 1) {
+      html += '<div class="wa-baris"><div class="k">Total Pencairan</div><div class="v">' + esc(d.total_teks) + '</div></div>';
+      html += '<div class="wa-daftar"><div class="k" style="font-size:12px;color:var(--mut);margin-bottom:6px;">' +
+        esc(String(d.penerima.length)) + ' penerima &mdash; kirim satu per satu</div>';
+
+      d.penerima.forEach(function (pn, i) {
+        const siap = !!pn.tautan;
+        html += '<div class="wa-penerima' + (siap ? '' : ' mati') + '">' +
+          '<div class="wa-penerima-ket"><b>' + esc(pn.nama || 'Tanpa nama') + '</b>' +
+          '<div class="sub">' + esc(pn.nominal_teks) + ' &middot; ' +
+          (pn.nomor_tampil ? esc(pn.nomor_tampil) : 'No HP belum terdaftar') + '</div></div>' +
+          (siap
+            ? '<a class="btn prim wa-kirim-satu" data-index="' + i + '" href="' + pn.tautan + '" target="_blank" rel="noopener">Kirim</a>'
+            : '<span class="sub" style="color:var(--warn);">Tidak bisa dikirim</span>') +
+          '</div>';
+      });
+
+      html += '</div>';
+    }
+
     html += '<div class="wa-baris"><div class="k">Tujuan Transfer</div><div class="v">' +
       (t.nama ? esc(t.nama) : '<span style="color:var(--mut);font-weight:400;">Tidak ditemukan</span>') +
       '<div style="font-weight:400;color:var(--mut);font-size:12px;margin-top:2px;">' + esc(t.sumber) + '</div></div></div>';
@@ -365,7 +396,7 @@ document.addEventListener('DOMContentLoaded', function () {
     html += '<div style="margin-top:12px;"><div class="k" style="font-size:12px;color:var(--mut);">Isi pesan</div>' +
       '<div class="wa-pesan">' + esc(d.pesan) + '</div></div>';
 
-    if (!d.tautan) {
+    if (!d.tautan && !(d.penerima && d.penerima.length > 1)) {
       // Inilah "popup"-nya: pengiriman ditahan, bukan dikirim ke nomor kosong.
       const pesanNomor = t.nomor
         ? 'Nomor handphone yang tersimpan (' + esc(t.nomor) + ') tidak dikenali sebagai nomor yang sah.'
@@ -387,29 +418,44 @@ document.addEventListener('DOMContentLoaded', function () {
 
     waBody.innerHTML = html;
 
-    if (d.tautan) {
+    // Tombol tunggal di kaki modal hanya untuk NPD berpenerima satu; pada
+    // multi-penerima tiap baris sudah punya tombol Kirim sendiri.
+    if (d.tautan && !(d.penerima && d.penerima.length > 1)) {
       waBuka.href = d.tautan;
       waBuka.style.display = '';
       waBuka.textContent = d.riwayat.length ? 'Buka WhatsApp Lagi' : 'Buka WhatsApp';
     }
+
+    waBody.querySelectorAll('.wa-kirim-satu').forEach(function (el) {
+      el.addEventListener('click', function () { catatKirim(el.dataset.index); });
+    });
+  }
+
+  // Jejak dicatat per penerima: indeksnya menentukan nama & nomor yang
+  // tersimpan di riwayat.
+  function catatKirim(index) {
+    if (!waUrl) return;
+
+    const data = new FormData();
+    if (index !== undefined && index !== null) data.append('penerima', index);
+
+    fetch(waUrl, {
+      method: 'POST',
+      headers: {'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest'},
+      body: data,
+    }).then(res => res.ok ? res.json() : Promise.reject(res.status))
+      .then(() => {
+        if (waBaris) waBaris.notifikasi_terkirim += 1;
+        perbarui();
+      })
+      .catch(() => {});
   }
 
   // Pencatatan jejak dikirim bersamaan dengan tautannya dibuka. Tautan tetap
   // dibiarkan berjalan apa adanya supaya WhatsApp tidak diblokir peramban.
   waBuka.addEventListener('click', function () {
-    if (!waUrl) return;
-
-    fetch(waUrl, {
-      method: 'POST',
-      headers: {'Accept': 'application/json', 'X-CSRF-TOKEN': csrf, 'X-Requested-With': 'XMLHttpRequest'},
-    }).then(res => res.ok ? res.json() : Promise.reject(res.status))
-      .then(() => {
-        // Penanda "sudah pernah dikirim" ikut naik tanpa memuat ulang halaman.
-        if (waBaris) waBaris.notifikasi_terkirim += 1;
-        waTutup();
-        perbarui();
-      })
-      .catch(() => {});
+    catatKirim(0);
+    waTutup();
   });
 
   perbarui();

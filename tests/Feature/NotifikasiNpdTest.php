@@ -134,19 +134,25 @@ class NotifikasiNpdTest extends TestCase
         $service = app(NotifikasiNpdService::class);
 
         $this->assertSame(
-            'Izin menginformasikan Bapak/Ibu, Pencairan NPD Nomor 900/1234/NPD/ITDA atas SP Nomor 800/456/ITDA '
-            .'sebesar Rp1.500.000,00 telah selesai ditransaksikan. Untuk informasi dan fitur cetak SPJ, mohon '
-            .'kunjungi aplikasi kami i-finance.web.id. Hatur nuhun '.self::EMOJI_DOA,
+            "Yth. Bapak/Ibu {$pegawai->nama}, NPD Nomor 900/1234/NPD/ITDA atas SP Nomor 800/456/ITDA "
+            ."telah selesai ditransaksikan sebesar Rp1.500.000,00.\n\n"
+            ."Dokumen Daftar Pembayaran dapat diunduh melalui:\ni-finance.web.id\n\n"
+            ."Cara:\n"
+            ."1. Masuk sebagai Pengguna Layanan (Tanpa Login)\n"
+            ."2. Buka menu Surat Perintah\n"
+            ."3. Pilih Cetak SPJ Perjalanan Dinas\n"
+            ."4. Masukkan Nomor SP\n\n"
+            .'Hatur nuhun Bapak/Ibu.',
             $service->pesan($denganSp)
         );
 
         // Tanpa SP, frasa "atas SP Nomor ..." hilang seluruhnya - bukan jadi "atas SP Nomor -".
         $this->assertStringNotContainsString('SP Nomor', $service->pesan($tanpaSp));
-        $this->assertStringContainsString('Nomor 900/1235/NPD/ITDA sebesar Rp1.500.000,00', $service->pesan($tanpaSp));
-    }
+        $this->assertStringContainsString('NPD Nomor 900/1235/NPD/ITDA telah selesai ditransaksikan sebesar Rp1.500.000,00', $service->pesan($tanpaSp));
 
-    /** Emoji tangan berdoa penutup pesan, ditulis lewat kode agar berkas tes aman dari salin-tempel. */
-    private const EMOJI_DOA = "\u{1F64F}";
+        // Penerima tunggal: tidak ada daftar rincian yang hanya mengulang total.
+        $this->assertStringNotContainsString('Rincian Penerima', $service->pesan($denganSp));
+    }
 
     /* ---------------- Penentuan tujuan ---------------- */
 
@@ -337,5 +343,137 @@ class NotifikasiNpdTest extends TestCase
         // PPTK tidak pernah melihat tombolnya, sekalipun NPD-nya sudah Selesai.
         $this->actingAs($this->user(User::ROLE_PPTK))->get(route('npd.data'))->assertOk()
             ->assertViewHas('baris', fn ($baris) => $baris->every(fn ($r) => $r['boleh_notifikasi'] === false));
+    }
+
+    /* ---------------- Multi-penerima (adopsi GAS #68 & #74) ---------------- */
+
+    /**
+     * Tim perjalanan dinas dengan nominal per anggota. Nominal diturunkan
+     * dari paketnya, bukan diisi langsung - sama seperti saat NPD dibuat.
+     */
+    private function anggotaPd(Npd $npd, string $nama, string $noHp, float $tarif, int $hari = 1): NpdTim
+    {
+        $pegawai = $this->pegawai([
+            'nama' => $nama,
+            'nip' => (string) random_int(100000000000000000, 999999999999999999),
+            'nomor_handphone' => $noHp,
+        ]);
+
+        $tim = NpdTim::create([
+            'npd_id' => $npd->id,
+            'pegawai_id' => $pegawai->id,
+            'nama' => $pegawai->nama,
+            'is_penerima' => false,
+        ]);
+
+        if ($tarif > 0) {
+            $tim->paket()->create([
+                'cluster' => 'A',
+                'wilayah' => 'Kota Cimahi',
+                'lama_hari' => $hari,
+                'tarif_uh' => $tarif,
+                'malam' => 0,
+                'tarif_akom' => 0,
+            ]);
+        }
+
+        return $tim;
+    }
+
+    public function test_perjalanan_dinas_menotifikasi_setiap_anggota_dengan_nominalnya_sendiri(): void
+    {
+        $npd = $this->npd('Selesai', ['jenis' => 'pd', 'nomor_lengkap' => '900/9001/NPD/ITDA']);
+        $this->anggotaPd($npd, 'Anggota Satu', '081200000001', 200_000, 2);
+        $this->anggotaPd($npd, 'Anggota Dua', '081200000002', 300_000);
+
+        $daftar = app(NotifikasiNpdService::class)->daftarTujuan($npd->fresh()->load('tim.paket'));
+
+        $this->assertCount(2, $daftar);
+        $this->assertSame('Anggota Satu', $daftar[0]['nama']);
+        $this->assertSame(400_000.0, $daftar[0]['nominal']);
+        $this->assertSame('6281200000001', $daftar[0]['nomor_wa']);
+        $this->assertSame(300_000.0, $daftar[1]['nominal']);
+    }
+
+    public function test_penerima_bernilai_nol_dilewati(): void
+    {
+        // Anggota yang tidak menerima apa pun tidak boleh dikirimi pesan
+        // pencairan - itu cuma membingungkan.
+        $npd = $this->npd('Selesai', ['jenis' => 'pd']);
+        $this->anggotaPd($npd, 'Dapat Uang', '081200000003', 250_000);
+        $this->anggotaPd($npd, 'Tidak Dapat', '081200000004', 0);
+
+        $daftar = app(NotifikasiNpdService::class)->daftarTujuan($npd->fresh()->load('tim.paket'));
+
+        $this->assertCount(1, $daftar);
+        $this->assertSame('Dapat Uang', $daftar[0]['nama']);
+    }
+
+    public function test_pesan_multi_penerima_memuat_total_dan_rincian_bernomor(): void
+    {
+        $npd = $this->npd('Selesai', ['jenis' => 'pd', 'nomor_lengkap' => '900/9002/NPD/ITDA']);
+        $this->anggotaPd($npd, 'Anggota Satu', '081200000005', 200_000);
+        $this->anggotaPd($npd, 'Anggota Dua', '081200000006', 300_000);
+
+        $service = app(NotifikasiNpdService::class);
+        $npd = $npd->fresh()->load('tim.paket');
+        $daftar = $service->daftarTujuan($npd);
+
+        $pesan = $service->pesan($npd, $daftar[1]);
+
+        // Disapa penerima kedua, tetapi nominal pembukanya TOTAL.
+        $this->assertStringContainsString('Yth. Bapak/Ibu Anggota Dua,', $pesan);
+        $this->assertStringContainsString('sebesar Rp500.000,00.', $pesan);
+        $this->assertStringContainsString('Rincian Penerima adalah sebagai berikut:', $pesan);
+        $this->assertStringContainsString("\n1. Anggota Satu sebesar Rp200.000,00", $pesan);
+        $this->assertStringContainsString("\n2. Anggota Dua sebesar Rp300.000,00", $pesan);
+
+        $this->assertSame(500_000.0, $service->totalTujuan($npd));
+    }
+
+    public function test_pratinjau_menyediakan_tautan_terpisah_untuk_tiap_penerima(): void
+    {
+        $npd = $this->npd('Selesai', ['jenis' => 'pd', 'nomor_lengkap' => '900/9003/NPD/ITDA']);
+        $this->anggotaPd($npd, 'Anggota Satu', '081200000007', 200_000);
+        $this->anggotaPd($npd, 'Anggota Dua', '081200000008', 300_000);
+
+        $data = $this->actingAs($this->user(User::ROLE_BPP))
+            ->getJson(route('npd.notifikasi.preview', $npd))
+            ->assertOk()
+            ->json();
+
+        $this->assertCount(2, $data['penerima']);
+        $this->assertSame('Rp 500.000,00', $data['total_teks']);
+        $this->assertStringContainsString('wa.me/6281200000007', $data['penerima'][0]['tautan']);
+        $this->assertStringContainsString('wa.me/6281200000008', $data['penerima'][1]['tautan']);
+        $this->assertSame('Rp 300.000,00', $data['penerima'][1]['nominal_teks']);
+    }
+
+    public function test_jejak_dicatat_atas_nama_penerima_yang_dipilih(): void
+    {
+        $npd = $this->npd('Selesai', ['jenis' => 'pd', 'nomor_lengkap' => '900/9004/NPD/ITDA']);
+        $this->anggotaPd($npd, 'Anggota Satu', '081200000009', 200_000);
+        $this->anggotaPd($npd, 'Anggota Dua', '081200000010', 300_000);
+
+        $this->actingAs($this->user(User::ROLE_BPP))
+            ->postJson(route('npd.notifikasi.store', $npd), ['penerima' => 1])
+            ->assertOk();
+
+        $jejak = NpdNotifikasi::sole();
+
+        $this->assertSame('Anggota Dua', $jejak->tujuan_nama);
+        $this->assertSame('6281200000010', $jejak->tujuan_nomor);
+    }
+
+    public function test_indeks_penerima_di_luar_daftar_ditolak(): void
+    {
+        $npd = $this->npd('Selesai', ['jenis' => 'pd']);
+        $this->anggotaPd($npd, 'Anggota Satu', '081200000011', 200_000);
+
+        $this->actingAs($this->user(User::ROLE_BPP))
+            ->postJson(route('npd.notifikasi.store', $npd), ['penerima' => 9])
+            ->assertStatus(422);
+
+        $this->assertSame(0, NpdNotifikasi::count());
     }
 }

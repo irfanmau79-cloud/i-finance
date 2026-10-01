@@ -20,12 +20,44 @@ return [
     'tautan_aplikasi' => env('WA_TAUTAN_APLIKASI', 'i-finance.web.id'),
 
     /**
-     * Penanda yang tersedia: :nomor_npd, :frasa_sp, :nominal, :aplikasi.
-     * :frasa_sp otomatis kosong bila NPD tidak tertaut Surat Perintah.
+     * Penanda yang tersedia: :penerima, :nomor_npd, :frasa_sp, :nominal,
+     * :rincian, :aplikasi.
+     *
+     * :nominal adalah TOTAL seluruh penerima, bukan jatah satu orang -
+     * nilainya sama di semua pesan untuk NPD yang sama, sedangkan rinciannya
+     * menyebut jatah masing-masing.
+     *
+     * :frasa_sp otomatis kosong bila NPD tidak tertaut Surat Perintah, dan
+     * :rincian kosong bila penerimanya cuma satu (menyebut rincian satu
+     * baris hanya mengulang totalnya).
+     *
+     * Tautan unduh ditulis pada BARIS SENDIRI: kalau menempel pada kata
+     * sebelumnya, WhatsApp salah mendeteksi batas tautannya (GAS #72).
      */
-    'template_npd_selesai' => 'Izin menginformasikan Bapak/Ibu, Pencairan NPD Nomor :nomor_npd:frasa_sp sebesar Rp:nominal telah selesai ditransaksikan. Untuk informasi dan fitur cetak SPJ, mohon kunjungi aplikasi kami :aplikasi. Hatur nuhun 🙏',
+    'template_npd_selesai' => "Yth. Bapak/Ibu :penerima, NPD Nomor :nomor_npd:frasa_sp telah selesai ditransaksikan sebesar Rp:nominal.:rincian
+
+"
+        ."Dokumen Daftar Pembayaran dapat diunduh melalui:
+:aplikasi
+
+"
+        ."Cara:
+"
+        ."1. Masuk sebagai Pengguna Layanan (Tanpa Login)
+"
+        ."2. Buka menu Surat Perintah
+"
+        ."3. Pilih Cetak SPJ Perjalanan Dinas
+"
+        ."4. Masukkan Nomor SP
+
+"
+        .'Hatur nuhun Bapak/Ibu.',
 
     /** Disisipkan ke :frasa_sp hanya bila NPD punya Surat Perintah. */
     'frasa_sp' => ' atas SP Nomor :nomor_sp',
+
+    /** Pembuka daftar rincian; tiap penerima ditulis bernomor di bawahnya. */
+    'judul_rincian' => ' Rincian Penerima adalah sebagai berikut:',
 
 ];

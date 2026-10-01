@@ -92,35 +92,166 @@ class NotifikasiNpdService
         );
     }
 
-    /** Bunyi pesan yang akan dikirim, sesuai template di config/whatsapp.php. */
-    public function pesan(Npd $npd): string
+    /**
+     * Bunyi pesan untuk SATU penerima, sesuai template di config/whatsapp.php.
+     *
+     * $tujuan menentukan siapa yang disapa di pembuka; bila tidak disebut,
+     * penerima pertama yang dipakai. Nominal pembuka selalu TOTAL seluruh
+     * penerima, dan rinciannya menyebut jatah masing-masing - itulah yang
+     * membuat satu pesan tetap bisa dibaca utuh oleh siapa pun penerimanya.
+     *
+     * @param  array<string, mixed>|null  $tujuan
+     */
+    public function pesan(Npd $npd, ?array $tujuan = null): string
     {
+        $daftar = $this->daftarTujuan($npd);
+        $tujuan ??= $daftar[0];
         $nomorSp = trim((string) ($npd->suratPerintah?->nomor_sp ?? ''));
 
         return strtr((string) config('whatsapp.template_npd_selesai'), [
+            ':penerima' => trim((string) ($tujuan['nama'] ?? '')) ?: 'Bapak/Ibu',
             ':nomor_npd' => $npd->nomor_lengkap ?: '-',
             ':frasa_sp' => $nomorSp === ''
                 ? ''
                 : str_replace(':nomor_sp', $nomorSp, (string) config('whatsapp.frasa_sp')),
-            ':nominal' => number_format((float) $npd->nominal, 2, ',', '.'),
+            ':nominal' => number_format(array_sum(array_column($daftar, 'nominal')), 2, ',', '.'),
+            ':rincian' => $this->rincian($daftar),
             ':aplikasi' => (string) config('whatsapp.tautan_aplikasi'),
         ]);
     }
 
-    /** Tautan wa.me siap klik, atau null bila nomor tujuannya belum ada. */
-    public function tautan(Npd $npd): ?string
+    /**
+     * Daftar bernomor "1. Nama sebesar Rp...". Dikosongkan saat penerimanya
+     * tunggal - merinci satu baris cuma mengulang total yang baru disebut.
+     *
+     * @param  array<int, array<string, mixed>>  $daftar
+     */
+    private function rincian(array $daftar): string
     {
-        $nomor = $this->tujuan($npd)['nomor_wa'];
+        if (count($daftar) < 2) {
+            return '';
+        }
+
+        $baris = '';
+
+        foreach (array_values($daftar) as $i => $t) {
+            $baris .= "\n".($i + 1).'. '.$t['nama'].' sebesar Rp'.number_format((float) $t['nominal'], 2, ',', '.');
+        }
+
+        return (string) config('whatsapp.judul_rincian').$baris;
+    }
+
+    /**
+     * Tautan wa.me siap klik, atau null bila nomor tujuannya belum ada.
+     *
+     * @param  array<string, mixed>|null  $tujuan
+     */
+    public function tautan(Npd $npd, ?array $tujuan = null): ?string
+    {
+        $tujuan ??= $this->daftarTujuan($npd)[0];
+        $nomor = $tujuan['nomor_wa'] ?? null;
 
         return $nomor === null
             ? null
-            : 'https://wa.me/'.$nomor.'?text='.rawurlencode($this->pesan($npd));
+            : 'https://wa.me/'.$nomor.'?text='.rawurlencode($this->pesan($npd, $tujuan));
     }
 
-    /** Catat satu kali pembukaan WhatsApp sebagai jejak pengiriman. */
-    public function catat(Npd $npd, ?User $user): NpdNotifikasi
+    /**
+     * SELURUH penerima transfer NPD ini, beserta nominal yang benar-benar
+     * diterima masing-masing (adopsi GAS #68 & #74).
+     *
+     * tujuan() di atas menjawab "satu orang yang diberi tahu" dan tetap
+     * dipakai apa adanya. Method ini menjawab pertanyaan yang berbeda: SIAPA
+     * SAJA yang uangnya masuk. Pada Perjalanan Dinas, uang mendarat di
+     * rekening tiap anggota - Daftar Pembayaran memang memerincinya - jadi
+     * yang pantas diberi tahu bukan hanya koordinatornya.
+     *
+     * Penerima bernilai 0 DILEWATI: ia tidak menerima apa pun, jadi
+     * mengiriminya pesan pencairan hanya membingungkan.
+     *
+     * Bila tidak ada rincian per orang (Barang/Jasa, Narasumber, atau
+     * Perjalanan Dinas yang timnya belum berisi nominal), hasilnya jatuh ke
+     * satu penerima dari tujuan() - perilaku lama, tidak berubah.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    public function daftarTujuan(Npd $npd): array
     {
-        $tujuan = $this->tujuan($npd);
+        $daftar = match ($npd->jenis) {
+            'pd', 'tr' => $this->dariTim($npd),
+            'kd' => $this->dariPenerimaTransfer($npd),
+            default => [],
+        };
+
+        if ($daftar !== []) {
+            return $daftar;
+        }
+
+        return [$this->tujuan($npd) + ['nominal' => (float) $npd->nominal]];
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function dariTim(Npd $npd): array
+    {
+        $daftar = [];
+
+        foreach ($npd->tim as $anggota) {
+            $nominal = (float) $anggota->hitung()['jumlah'];
+            $nama = trim((string) $anggota->nama);
+
+            if ($nominal <= 0 || $nama === '') {
+                continue;
+            }
+
+            $daftar[] = $this->rakit(
+                nama: $nama,
+                sumber: 'Anggota tim pada NPD',
+                pegawai: $anggota->pegawai_id !== null
+                    ? Pegawai::find($anggota->pegawai_id)
+                    : Pegawai::cariByNama($nama),
+            ) + ['nominal' => $nominal];
+        }
+
+        return $daftar;
+    }
+
+    /** @return array<int, array<string, mixed>> */
+    private function dariPenerimaTransfer(Npd $npd): array
+    {
+        $daftar = [];
+
+        foreach (($npd->detail_json['penerima_transfer'] ?? []) as $baris) {
+            $nominal = (float) ($baris['nominal'] ?? 0);
+            $nama = trim((string) ($baris['nama'] ?? ''));
+
+            if ($nominal <= 0 || $nama === '') {
+                continue;
+            }
+
+            $daftar[] = $this->rakit(
+                nama: $nama,
+                sumber: 'Tujuan Transfer pada NPD',
+                pegawai: Pegawai::cariByNama($nama),
+            ) + ['nominal' => $nominal];
+        }
+
+        return $daftar;
+    }
+
+    /** Jumlah yang benar-benar ditransfer - tanpa penerima bernilai 0. */
+    public function totalTujuan(Npd $npd): float
+    {
+        return array_sum(array_column($this->daftarTujuan($npd), 'nominal'));
+    }
+
+    /**
+     * Catat satu kali pembukaan WhatsApp sebagai jejak pengiriman.
+     *
+     * @param  array<string, mixed>|null  $tujuan
+     */
+    public function catat(Npd $npd, ?User $user, ?array $tujuan = null): NpdNotifikasi
+    {
+        $tujuan ??= $this->daftarTujuan($npd)[0];
 
         return NpdNotifikasi::create([
             'npd_id' => $npd->id,
@@ -128,7 +259,7 @@ class NotifikasiNpdService
             'kanal' => NpdNotifikasi::KANAL_DEEP_LINK,
             'tujuan_nama' => $tujuan['nama'],
             'tujuan_nomor' => (string) $tujuan['nomor_wa'],
-            'pesan' => $this->pesan($npd),
+            'pesan' => $this->pesan($npd, $tujuan),
         ]);
     }
 

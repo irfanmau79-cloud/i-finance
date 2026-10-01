@@ -26,18 +26,33 @@ class NpdNotifikasiController extends Controller
     {
         $this->pastikanBoleh($request, $npd);
 
-        $tujuan = $this->service->tujuan($npd);
+        $daftar = $this->service->daftarTujuan($npd);
+        $superadmin = $request->user()->isSuperadmin();
+
+        // Tiap penerima membawa pesan & tautannya sendiri: nominal pembukanya
+        // sama (total NPD), tetapi sapaan dan nomor tujuannya berbeda.
+        $penerima = array_map(fn (array $t) => $t + [
+            'nominal_teks' => 'Rp '.number_format((float) $t['nominal'], 2, ',', '.'),
+            'pesan' => $this->service->pesan($npd, $t),
+            'tautan' => $this->service->tautan($npd, $t),
+            'url_ubah_pegawai' => $superadmin && ($t['pegawai_id'] ?? null) !== null
+                ? route('tunjangan.pegawai.edit', $t['pegawai_id'])
+                : null,
+        ], $daftar);
+
+        $utama = $penerima[0];
 
         return response()->json([
             'nomor_npd' => $npd->nomor_lengkap ?: '-',
             'nomor_sp' => $npd->suratPerintah?->nomor_sp,
-            'tujuan' => $tujuan,
-            'pesan' => $this->service->pesan($npd),
-            'tautan' => $this->service->tautan($npd),
-            'boleh_ubah_pegawai' => $request->user()->isSuperadmin() && $tujuan['pegawai_id'] !== null,
-            'url_ubah_pegawai' => $request->user()->isSuperadmin() && $tujuan['pegawai_id'] !== null
-                ? route('tunjangan.pegawai.edit', $tujuan['pegawai_id'])
-                : null,
+            'total_teks' => 'Rp '.number_format($this->service->totalTujuan($npd), 2, ',', '.'),
+            'penerima' => array_values($penerima),
+            // Dipertahankan supaya tampilan penerima tunggal tidak berubah.
+            'tujuan' => $utama,
+            'pesan' => $utama['pesan'],
+            'tautan' => $utama['tautan'],
+            'boleh_ubah_pegawai' => $utama['url_ubah_pegawai'] !== null,
+            'url_ubah_pegawai' => $utama['url_ubah_pegawai'],
             'riwayat' => $this->riwayat($npd),
         ]);
     }
@@ -46,11 +61,18 @@ class NpdNotifikasiController extends Controller
     {
         $this->pastikanBoleh($request, $npd);
 
-        $tujuan = $this->service->tujuan($npd);
+        $daftar = $this->service->daftarTujuan($npd);
 
+        // Indeks menunjuk penerima mana yang WhatsApp-nya dibuka. Tanpa
+        // indeks berarti penerima pertama - itulah yang terjadi pada NPD
+        // berpenerima tunggal.
+        $index = (int) $request->integer('penerima', 0);
+        $tujuan = $daftar[$index] ?? null;
+
+        abort_if($tujuan === null, 422, 'Penerima yang dituju tidak ada pada NPD ini.');
         abort_if($tujuan['nomor_wa'] === null, 422, 'Nomor handphone penerima belum diisi.');
 
-        $catatan = $this->service->catat($npd, $request->user());
+        $catatan = $this->service->catat($npd, $request->user(), $tujuan);
 
         AuditLog::catat('Kirim Notifikasi NPD', sprintf(
             'NPD %s ke %s (%s)',
