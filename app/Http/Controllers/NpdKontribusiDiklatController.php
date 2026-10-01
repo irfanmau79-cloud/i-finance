@@ -8,6 +8,7 @@ use App\Helpers\Terbilang;
 use App\Http\Requests\StoreNpdKontribusiDiklatRequest;
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
+use App\Support\KeteranganLampiranIsian;
 use App\Models\Pegawai;
 use App\Support\AnggaranNpd;
 use Illuminate\Http\Request;
@@ -327,7 +328,7 @@ class NpdKontribusiDiklatController extends Controller
             // Hanya mode Perjalanan Dinas yang punya daftar penerima; mode
             // Kontribusi tetap memakai penerima_index seperti semula.
             'penerima_transfer' => $mode === 'perjalanan' ? $this->siapkanPenerimaTransfer($data) : null,
-            'keterangan_lampiran' => $data['keterangan_lampiran'] ?? null,
+            'keterangan_lampiran' => KeteranganLampiranIsian::dari($data),
             'ppn' => (float) ($data['ppn'] ?? 0),
             'pph_jenis' => $data['pph_jenis'] ?? null,
             'pph_nilai' => (float) ($data['pph_nilai'] ?? 0),

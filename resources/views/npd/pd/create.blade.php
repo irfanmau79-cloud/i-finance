@@ -175,9 +175,12 @@
             <div id="tim-list"></div>
             <button type="button" class="add" id="tim-add">+ Tambah Anggota</button>
 
-            <div class="fg" style="margin-top:16px;">
-                <label class="fl" for="keterangan_lampiran">Keterangan Lampiran (opsional)</label>
-                <textarea id="keterangan_lampiran" name="keterangan_lampiran" placeholder="Kosongkan untuk memakai keterangan otomatis (rentang tanggal berangkat s.d pulang).">{{ old('keterangan_lampiran', $npdEdit?->detail_json['keterangan_lampiran'] ?? null) }}</textarea>
+            <div style="margin-top:16px;">
+                @include('npd._keterangan-lampiran', [
+                    'jenis' => 'pd',
+                    'nilai' => $npdEdit?->detail_json['keterangan_lampiran'] ?? null,
+                    'catatan' => 'Inilah kalimat yang tercetak pada Lampiran NPD.',
+                ])
             </div>
 
             <div class="badge-tot" style="margin-top:16px;">

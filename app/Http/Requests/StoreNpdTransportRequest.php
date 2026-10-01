@@ -32,6 +32,12 @@ class StoreNpdTransportRequest extends FormRequest
             'sisa_anggaran_manual' => ['nullable', 'numeric', 'min:0'],
             'penerima_index' => ['required', 'integer', 'min:0'],
             'keterangan_lampiran' => ['nullable', 'string'],
+            // Penanda dari formulir: 'otomatis' berarti isian di atas hanya
+            // pratinjau dan TIDAK disimpan - uraiannya dirangkai ulang saat
+            // mencetak, mengikuti data terakhir. Formulir/permintaan lama yang
+            // tidak mengirim penanda ini dianggap 'manual', supaya teks yang
+            // sudah dikirim tetap tersimpan seperti dulu.
+            'keterangan_mode' => ['nullable', Rule::in(['otomatis', 'manual'])],
 
             // Identitas anggota (nama/jabatan/nip/rekening/pegawai_id) TIDAK divalidasi/diterima
             // di sini — selalu disalin ulang dari anggota NPD induk berdasarkan urutan, supaya

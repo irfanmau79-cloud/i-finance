@@ -109,11 +109,11 @@
                 @endif
             </div>
 
-            <div class="fg">
-                <label class="fl" for="keterangan_lampiran">Keterangan Lampiran (opsional)</label>
-                <input type="text" id="keterangan_lampiran" name="keterangan_lampiran" placeholder="Kosongkan untuk memakai keterangan induk"
-                       value="{{ old('keterangan_lampiran', $npdEdit?->detail_json['keterangan_lampiran'] ?? '') }}">
-            </div>
+            @include('npd._keterangan-lampiran', [
+                'jenis' => 'tr',
+                'nilai' => $npdEdit?->detail_json['keterangan_lampiran'] ?? null,
+                'catatan' => 'Tanggal, uraian, dan nomor SP diwarisi dari NPD induk; yang dari formulir ini hanya rincian biayanya.',
+            ])
 
             <div class="sumbar" style="margin-top:16px;">
                 <span>Nominal Total NPD</span>

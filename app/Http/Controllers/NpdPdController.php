@@ -7,6 +7,7 @@ use App\Helpers\AuditLog;
 use App\Helpers\NpdPerjalananHitung;
 use App\Helpers\Terbilang;
 use App\Http\Requests\StoreNpdPdRequest;
+use App\Support\KeteranganLampiranIsian;
 use App\Http\Requests\UpdateNpdPdRequest;
 use App\Models\ClusterUh;
 use App\Models\MasterAnggaran;
@@ -93,7 +94,7 @@ class NpdPdController extends Controller
             'tujuan' => $data['tujuan'],
             'tanggal_berangkat' => $data['tanggal_berangkat'],
             'tanggal_pulang' => $data['tanggal_pulang'],
-            'keterangan_lampiran' => $data['keterangan_lampiran'] ?? null,
+            'keterangan_lampiran' => KeteranganLampiranIsian::dari($data),
         ];
 
         $npd = DB::transaction(function () use ($data, $masterAnggaran, $keu, $nominal, $tim, $penerimaIndex, $suratPerintahId, $detailJson, $request) {
@@ -230,7 +231,7 @@ class NpdPdController extends Controller
             'tujuan' => $data['tujuan'],
             'tanggal_berangkat' => $data['tanggal_berangkat'],
             'tanggal_pulang' => $data['tanggal_pulang'],
-            'keterangan_lampiran' => $data['keterangan_lampiran'] ?? null,
+            'keterangan_lampiran' => KeteranganLampiranIsian::dari($data),
         ];
 
         DB::transaction(function () use ($request, $npd, $data, $tim, $penerimaIndex, $nominal, $detailJson) {

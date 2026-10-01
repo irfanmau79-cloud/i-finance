@@ -17,6 +17,7 @@ use App\Services\NotifikasiNpdService;
 use App\Services\SpjBerkasService;
 use App\Support\CoretanPdf;
 use App\Support\MpdfFont;
+use App\Services\KeteranganLampiranService;
 use App\Support\PdfGabung;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -917,7 +918,7 @@ class NpdController extends Controller
     /** Format tanggal Indonesia dari string "Y-m-d" di detail_json. Port dari fmtTanggalIndo di gas-lama/Code.gs. */
     private function tanggalIndo(?string $tanggal): string
     {
-        return $tanggal ? Carbon::parse($tanggal)->translatedFormat('d F Y') : '';
+        return KeteranganLampiranService::tanggalIndo($tanggal);
     }
 
     /**
@@ -963,42 +964,19 @@ class NpdController extends Controller
      */
     private function komponenBiayaPd(Npd $npd): array
     {
-        $totUh = 0.0;
-        $totAk = 0.0;
-        $totTr = 0.0;
-        $totRp = 0.0;
+        return KeteranganLampiranService::komponenPd($this->timKeArray($npd));
+    }
 
-        foreach ($npd->tim as $t) {
-            $h = $t->hitung();
-            $totUh += $h['jml_harian'];
-            $totAk += $h['jml_akom'];
-            $totTr += $h['jml_transport'];
-            $totRp += $h['representatif'];
-        }
-
-        $komp = [];
-        if ($totUh > 0) {
-            $komp[] = 'uang harian';
-        }
-        if ($totAk > 0) {
-            $komp[] = 'akomodasi';
-        }
-        if ($totTr > 0) {
-            $komp[] = 'transport';
-        }
-        if ($totRp > 0) {
-            $komp[] = 'uang representatif';
-        }
-
-        $kompStr = match (true) {
-            count($komp) === 1 => $komp[0],
-            count($komp) > 1 => implode(', ', array_slice($komp, 0, -1)).' dan '.end($komp),
-            default => '',
-        };
-
-        $uraianBiaya = 'Pembayaran Belanja Perjalanan Dinas Biasa'.($kompStr !== '' ? " ({$kompStr})" : '');
-
-        return ['komp_str' => $kompStr, 'uraian_biaya' => $uraianBiaya];
+    /**
+     * Tim tersimpan dalam bentuk array yang sama dengan isian formulir, supaya
+     * perakit Uraian (KeteranganLampiranService) tidak perlu tahu ia sedang
+     * melihat NPD tersimpan atau formulir yang belum disimpan.
+     *
+     * @return array<int, array<string, mixed>>
+     */
+    private function timKeArray(Npd $npd): array
+    {
+        return $npd->tim->map(fn ($t) => $t->toHitungArray())->all();
     }
 
     /**
@@ -1198,14 +1176,7 @@ class NpdController extends Controller
 
         $komponen = $this->komponenBiayaPd($npd);
 
-        $ketDefault = 'Transfer Pembayaran Belanja Perjalanan Dinas Biasa'
-            .($komponen['komp_str'] !== '' ? " ({$komponen['komp_str']})" : '')
-            .' terhitung tanggal '.$this->tanggalIndo($detail['tanggal_berangkat'] ?? null)
-            .' s.d '.$this->tanggalIndo($detail['tanggal_pulang'] ?? null)
-            .' dalam rangka '.($detail['uraian_sp'] ?? '')
-            .', berdasarkan Surat Perintah Nomor: '.($detail['nomor_sp'] ?? '')
-            .' tanggal '.$this->tanggalIndo($detail['tanggal_sp'] ?? null)
-            .' an. '.$penerima->nama;
+        $ketDefault = KeteranganLampiranService::pd($detail, $this->timKeArray($npd), $penerima->nama);
 
         $keterangan = filled($detail['keterangan_lampiran'] ?? null) ? $detail['keterangan_lampiran'] : $ketDefault;
 
@@ -1595,14 +1566,11 @@ class NpdController extends Controller
             fn ($p) => trim((string) ($p['nama'] ?? '')) !== ''
         ));
 
-        $namaPelatihan = $detail['nama_pelatihan'] ?? '';
-        $isPerjalanan = $npd->mode_kd === 'perjalanan';
-        $periode = 'terhitung tanggal '.$this->tanggalIndo($detail['tanggal_mulai'] ?? null).' s.d '.$this->tanggalIndo($detail['tanggal_selesai'] ?? null);
-        $atasNama = $daftarPenerima !== []
-            ? implode(', ', array_column($daftarPenerima, 'nama'))
-            : ($penerima->nama ?? '');
-        $ketDefault = ($isPerjalanan ? 'Transfer Pembayaran Belanja Perjalanan Dinas' : 'Transfer Pembayaran Belanja Kontribusi Diklat')
-            .' dalam rangka Mengikuti '.$namaPelatihan.' '.$periode.' an. '.$atasNama;
+        $ketDefault = KeteranganLampiranService::kd(
+            $detail,
+            $npd->mode_kd,
+            KeteranganLampiranService::atasNamaKd($daftarPenerima, (string) ($penerima->nama ?? '')),
+        );
 
         $keterangan = filled($detail['keterangan_lampiran'] ?? null) ? $detail['keterangan_lampiran'] : $ketDefault;
 

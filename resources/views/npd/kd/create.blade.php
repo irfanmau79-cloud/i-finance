@@ -237,11 +237,11 @@
                     <input type="number" step="0.01" min="0" id="biaya_lain" name="biaya_lain" value="{{ old('biaya_lain', $detail['biaya_lain'] ?? '') }}">
                 </div>
             </div>
-            <div class="fg">
-                <label class="fl" for="keterangan_lampiran">Keterangan Lampiran (opsional)</label>
-                <input type="text" id="keterangan_lampiran" name="keterangan_lampiran" placeholder="Kosongkan untuk memakai keterangan otomatis"
-                       value="{{ old('keterangan_lampiran', $detail['keterangan_lampiran'] ?? '') }}">
-            </div>
+            @include('npd._keterangan-lampiran', [
+                'jenis' => 'kd',
+                'nilai' => $detail['keterangan_lampiran'] ?? null,
+                'catatan' => 'Inilah kalimat yang tercetak pada Lampiran NPD.',
+            ])
 
             <div class="sumbar" style="margin-top:16px;">
                 <span>Nominal Total NPD</span>

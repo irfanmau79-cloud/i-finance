@@ -9,6 +9,7 @@ use App\Helpers\Terbilang;
 use App\Http\Requests\StoreNpdTransportRequest;
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
+use App\Support\KeteranganLampiranIsian;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -55,7 +56,7 @@ class NpdTransportController extends Controller
             return back()->withInput()->withErrors(['tim' => 'Total transport seluruh anggota harus lebih dari 0.']);
         }
 
-        $detailJson = $this->snapshotDetailJson($induk, $data['keterangan_lampiran'] ?? null);
+        $detailJson = $this->snapshotDetailJson($induk, KeteranganLampiranIsian::dari($data));
         $penerimaIndex = (int) $data['penerima_index'];
 
         $npd = DB::transaction(function () use ($data, $induk, $nominal, $tim, $detailJson, $penerimaIndex, $request) {
@@ -175,7 +176,7 @@ class NpdTransportController extends Controller
             return back()->withInput()->withErrors(['tim' => 'Total transport seluruh anggota harus lebih dari 0.']);
         }
 
-        $detailJson = $this->snapshotDetailJson($induk, $data['keterangan_lampiran'] ?? null);
+        $detailJson = $this->snapshotDetailJson($induk, KeteranganLampiranIsian::dari($data));
         $penerimaIndex = (int) $data['penerima_index'];
 
         DB::transaction(function () use ($request, $npd, $data, $tim, $nominal, $detailJson, $penerimaIndex) {

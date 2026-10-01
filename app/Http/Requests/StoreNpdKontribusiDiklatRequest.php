@@ -58,6 +58,12 @@ class StoreNpdKontribusiDiklatRequest extends FormRequest
             'penerima_transfer.*.nominal' => ['exclude_unless:mode,perjalanan', 'required', 'numeric', 'min:0'],
 
             'keterangan_lampiran' => ['nullable', 'string'],
+            // Penanda dari formulir: 'otomatis' berarti isian di atas hanya
+            // pratinjau dan TIDAK disimpan - uraiannya dirangkai ulang saat
+            // mencetak, mengikuti data terakhir. Formulir/permintaan lama yang
+            // tidak mengirim penanda ini dianggap 'manual', supaya teks yang
+            // sudah dikirim tetap tersimpan seperti dulu.
+            'keterangan_mode' => ['nullable', Rule::in(['otomatis', 'manual'])],
             'ppn' => ['nullable', 'numeric', 'min:0'],
             'pph_jenis' => ['nullable', 'string', 'max:50'],
             'pph_nilai' => ['nullable', 'numeric', 'min:0'],

@@ -28,6 +28,7 @@ use App\Http\Controllers\PerjalananDinasPegawaiController;
 use App\Http\Controllers\PkptController;
 use App\Http\Controllers\PkptImportController;
 use App\Http\Controllers\ProfilController;
+use App\Http\Controllers\KeteranganLampiranPreviewController;
 use App\Http\Controllers\RekananController;
 use App\Http\Controllers\RakBulananImportController;
 use App\Http\Controllers\RealisasiPeriodeController;
@@ -429,6 +430,11 @@ Route::middleware('auth.or.guest')->group(function () {
 
     // Pembuatan NPD: hanya superadmin dan PPTK.
     Route::middleware('role:superadmin,pptk')->group(function () {
+        // Pratinjau Uraian Lampiran untuk formulir yang belum disimpan.
+        // Dibatasi laju karena dipanggil tiap kali isian berubah.
+        Route::post('/npd/keterangan-lampiran/pratinjau', KeteranganLampiranPreviewController::class)
+            ->middleware('throttle:120,1')->name('npd.keterangan-lampiran.pratinjau');
+
         Route::get('/npd/bj/create', [NpdBjController::class, 'create'])->name('npd.bj.create');
         Route::post('/npd/bj', [NpdBjController::class, 'store'])->name('npd.bj.store');
         Route::get('/npd/bj/{npd}/edit', [NpdBjController::class, 'edit'])->name('npd.bj.edit');

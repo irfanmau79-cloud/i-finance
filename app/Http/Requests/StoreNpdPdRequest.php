@@ -55,6 +55,12 @@ class StoreNpdPdRequest extends FormRequest
             'tanggal_berangkat' => ['required', 'date'],
             'tanggal_pulang' => ['required', 'date', 'after_or_equal:tanggal_berangkat'],
             'keterangan_lampiran' => ['nullable', 'string'],
+            // Penanda dari formulir: 'otomatis' berarti isian di atas hanya
+            // pratinjau dan TIDAK disimpan - uraiannya dirangkai ulang saat
+            // mencetak, mengikuti data terakhir. Formulir/permintaan lama yang
+            // tidak mengirim penanda ini dianggap 'manual', supaya teks yang
+            // sudah dikirim tetap tersimpan seperti dulu.
+            'keterangan_mode' => ['nullable', Rule::in(['otomatis', 'manual'])],
 
             'penerima_index' => ['required', 'integer', 'min:0'],
 
