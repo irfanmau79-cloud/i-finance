@@ -197,4 +197,36 @@ class RangkaAplikasiTest extends TestCase
         $this->assertLessThan($posisiSidebar, $posisiSkrip);
         $this->assertStringContainsString(':root[data-tema="gelap"]', $isi);
     }
+
+    public function test_wadah_isi_membawa_id_halaman_yang_dipakai_gaya_bersama(): void
+    {
+        // Gaya bersama mengunci tinggi kartu setinggi layar lewat
+        // #page-sp-monitor, #page-sp-data, dan #page-npd. Sebelum id ini
+        // dipasang, ketiga aturan itu tidak pernah cocok dengan elemen mana
+        // pun - tabel Monitoring SP tumbuh sepanjang datanya alih-alih
+        // bergulir di dalam kartunya, dan kaki halaman yang seharusnya
+        // disembunyikan di sana tetap tampil.
+        $user = $this->user();
+
+        $peta = [
+            'surat-perintah.monitoring' => 'page-sp-monitor',
+            'surat-perintah.index' => 'page-sp-data',
+            'npd.index' => 'page-npd',
+        ];
+
+        foreach ($peta as $rute => $id) {
+            $this->actingAs($user)->get(route($rute))
+                ->assertOk()
+                ->assertSee('id="'.$id.'"', false);
+        }
+    }
+
+    public function test_aturan_gaya_halaman_menyasar_id_tabel_yang_benar(): void
+    {
+        // #spi-table tidak pernah ada; tabel Monitoring SP ber-id spm-table.
+        $gaya = file_get_contents(resource_path('views/layouts/partials/styles.blade.php'));
+
+        $this->assertSame(1, substr_count($gaya, '#page-sp-monitor #spm-table thead th'));
+        $this->assertSame(0, substr_count($gaya, '#spi-table'), 'Masih ada aturan yang menyasar tabel #spi-table yang tidak pernah ada.');
+    }
 }

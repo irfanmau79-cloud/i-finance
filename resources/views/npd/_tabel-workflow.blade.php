@@ -36,25 +36,26 @@
                  - Nominal 12,5%: nominal NPD terbesar yang ada bernilai sembilan
                    angka dan butuh 130px. JANGAN dipersempit lagi tanpa mengukur
                    ulang - angkanya nowrap, jadi kelebihannya langsung tumpah. --}}
-            <col style="width:11%;"><col style="width:15%;"><col style="width:13%;"><col style="width:12%;">
-            <col style="width:13.5%;"><col style="width:12.5%;"><col style="width:13%;"><col style="width:10%;">
+            <col style="width:9%;"><col style="width:12%;"><col style="width:11%;"><col style="width:10.5%;">
+            <col style="width:12%;"><col style="width:12.5%;"><col style="width:13%;"><col style="width:12%;"><col style="width:8%;">
         </colgroup>
         <thead>
             <tr>
-                <th>Nomor NPD</th><th>Sub Kegiatan</th><th>Kode Rekening</th><th>Tagging</th>
+                <th>No. Dokumen</th><th>Sub Kegiatan</th><th>Kode Rekening</th><th>Tagging</th>
                 <th>Penerima</th><th class="num">Nominal</th><th class="st">Status</th>
-                <th style="text-align:center;">Aksi</th>
+                <th>Uraian</th><th style="text-align:center;">Aksi</th>
             </tr>
             {{-- Penyaring ketik-manual per kolom, seperti di Data NPD. Bekerja
                  seketika tanpa tombol Terapkan dan tanpa memuat ulang halaman. --}}
             <tr class="kolom-saring">
-                <th><input type="text" data-kolom="0" placeholder="Ketik nomor&hellip;" aria-label="Saring Nomor NPD"></th>
+                <th><input type="text" data-kolom="0" placeholder="Ketik nomor&hellip;" aria-label="Saring No. Dokumen"></th>
                 <th><input type="text" data-kolom="1" placeholder="Ketik sub kegiatan&hellip;" aria-label="Saring Sub Kegiatan"></th>
                 <th><input type="text" data-kolom="2" placeholder="Ketik kode&hellip;" aria-label="Saring Kode Rekening"></th>
                 <th><input type="text" data-kolom="3" placeholder="Ketik tagging&hellip;" aria-label="Saring Tagging"></th>
                 <th><input type="text" data-kolom="4" placeholder="Ketik penerima&hellip;" aria-label="Saring Penerima"></th>
                 <th><input type="text" data-kolom="5" placeholder="Ketik nominal&hellip;" aria-label="Saring Nominal"></th>
                 <th><input type="text" data-kolom="6" placeholder="Ketik status&hellip;" aria-label="Saring Status"></th>
+                <th><input type="text" data-kolom="7" placeholder="Ketik uraian&hellip;" aria-label="Saring Uraian"></th>
                 <th>
                     <div class="saring-kosong">
                         <button type="button" id="npd-saring-reset" title="Kosongkan penyaring" aria-label="Kosongkan penyaring">
@@ -72,7 +73,9 @@
                     $bisaHapus = $tampilkanKelola && $npd->dapatDihapusOleh(auth()->user());
                 @endphp
                 <tr>
-                    <td class="kol-npd">{{ $npd->nomor_lengkap ?? '-' }}</td>
+                    {{-- Nomor NPD baru terbit setelah diverifikasi; sebelum itu
+                         yang dikenal petugas adalah nomor Surat Perintahnya. --}}
+                    <td class="kol-npd">{{ $npd->nomorDokumen() }}</td>
                     <td>{{ $npd->masterAnggaran->sub_kegiatan_lengkap }}</td>
                     <td>{{ $npd->masterAnggaran->rekening_lengkap }}</td>
                     <td>{{ $npd->masterAnggaran->tagging->nama ?? '-' }}</td>
@@ -91,6 +94,7 @@
                             @endif
                         </div>
                     </td>
+                    <td class="kol-uraian">{{ $npd->uraianRingkas() }}</td>
                     <td style="text-align:center;">
                         <div class="aksi-wrap">
                             @foreach ($aksiTersedia as $aksi)
@@ -139,7 +143,7 @@
                     </td>
                 </tr>
             @empty
-                <tr><td colspan="8" style="text-align:center;color:var(--mut);padding:20px;">Belum ada NPD.</td></tr>
+                <tr><td colspan="9" style="text-align:center;color:var(--mut);padding:20px;">Belum ada NPD.</td></tr>
             @endforelse
         </tbody>
     </table>

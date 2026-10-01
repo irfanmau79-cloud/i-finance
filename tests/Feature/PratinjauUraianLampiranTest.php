@@ -359,4 +359,97 @@ class PratinjauUraianLampiranTest extends TestCase
             ['paket' => [['lama_hari' => 1, 'tarif_uh' => 100, 'malam' => 1, 'tarif_akom' => 200]], 'tol' => 50, 'representatif' => 25],
         ])['komp_str']);
     }
+
+    private function anggaranDalamKota(): MasterAnggaran
+    {
+        return MasterAnggaran::create([
+            'program' => 'Program Uji Dalam Kota',
+            'kegiatan' => 'Kegiatan Uji Dalam Kota',
+            'sub_kegiatan' => '6.01.01.2.02 Sub Kegiatan Uji Dalam Kota',
+            'kode_rekening' => KeteranganLampiranService::KODE_REKENING_DALAM_KOTA,
+            'tagging_id' => null,
+            'pagu' => 100_000_000,
+            'aktif' => true,
+        ]);
+    }
+
+    public function test_uraian_mengikuti_nama_mata_anggaran_dalam_kota(): void
+    {
+        $pptk = $this->pptk();
+        $anggaran = $this->anggaranDalamKota();
+        $this->limpahkanSubKegiatan($pptk, $anggaran);
+        $sp = $this->suratPerintah();
+        $payload = $this->payloadPd($anggaran, $sp);
+
+        $pratinjau = $this->actingAs($pptk)
+            ->postJson(route('npd.keterangan-lampiran.pratinjau'), [
+                'jenis' => 'pd',
+                'master_anggaran_id' => $anggaran->id,
+                'surat_perintah_id' => $sp->id,
+                'uraian_sp' => $payload['uraian_sp'],
+                'tanggal_berangkat' => $payload['tanggal_berangkat'],
+                'tanggal_pulang' => $payload['tanggal_pulang'],
+                'penerima_index' => 0,
+                'tim' => $payload['tim'],
+            ])
+            ->assertOk()
+            ->json('teks');
+
+        $this->assertStringStartsWith('Transfer Pembayaran Belanja Perjalanan Dinas Dalam Kota', $pratinjau);
+        $this->assertStringNotContainsString('Perjalanan Dinas Biasa', $pratinjau);
+
+        // Dan yang tercetak harus sama persis dengan pratinjaunya.
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload);
+        $npd = Npd::with('tim.paket')->sole();
+
+        $metode = new \ReflectionMethod(\App\Http\Controllers\NpdController::class, 'bangunLampiranPd');
+        $metode->setAccessible(true);
+
+        $this->assertSame(
+            $metode->invoke(app(\App\Http\Controllers\NpdController::class), $npd)['keterangan'],
+            $pratinjau
+        );
+    }
+
+    public function test_daftar_pembayaran_dan_spd_ikut_menyebut_dalam_kota(): void
+    {
+        // Ketiga dokumen memakai kalimat yang sama; kalau hanya Lampiran yang
+        // berubah, satu NPD akan menyebut dua nama belanja berbeda.
+        $pptk = $this->pptk();
+        $anggaran = $this->anggaranDalamKota();
+        $this->limpahkanSubKegiatan($pptk, $anggaran);
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $this->payloadPd($anggaran, $this->suratPerintah()));
+        $npd = Npd::sole();
+
+        $metode = new \ReflectionMethod(\App\Http\Controllers\NpdController::class, 'komponenBiayaPd');
+        $metode->setAccessible(true);
+        $komponen = $metode->invoke(
+            app(\App\Http\Controllers\NpdController::class),
+            $npd->load('masterAnggaran', 'tim.paket')
+        );
+
+        $this->assertStringStartsWith('Pembayaran Belanja Perjalanan Dinas Dalam Kota', $komponen['uraian_biaya']);
+
+        // Dokumen yang memakai frasa itu tetap tercetak utuh.
+        foreach (['npd.cetak-daftar', 'npd.cetak-spd'] as $rute) {
+            $this->actingAs($pptk)->get(route($rute, $npd))->assertOk();
+        }
+    }
+
+    public function test_mata_anggaran_lain_tetap_memakai_frasa_biasa(): void
+    {
+        $this->assertSame(
+            'Belanja Perjalanan Dinas Biasa',
+            KeteranganLampiranService::frasaBelanja('5.1.02.04.001.00001')
+        );
+        $this->assertSame(
+            'Belanja Perjalanan Dinas Biasa',
+            KeteranganLampiranService::frasaBelanja(null)
+        );
+        $this->assertSame(
+            'Belanja Perjalanan Dinas Dalam Kota',
+            KeteranganLampiranService::frasaBelanja(KeteranganLampiranService::KODE_REKENING_DALAM_KOTA)
+        );
+    }
 }

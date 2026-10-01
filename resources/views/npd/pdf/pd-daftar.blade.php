@@ -13,7 +13,7 @@
   th, td { border:1pt solid #000; padding:1.5pt 3pt; vertical-align:middle; word-wrap:break-word; overflow-wrap:break-word; }
   th { background:#fff; text-align:center; font-size:6pt; font-weight:bold; line-height:1.1; }
   td { font-size:6.5pt; }
-  tr.drow1 td { height:32pt; }
+  tr.drow1 td { height:{{ $tinggiBaris }}; }
   .num { text-align:right; white-space:nowrap; }
   .center { text-align:center; } .bold { font-weight:bold; }
 
@@ -35,13 +35,17 @@
 
   .terbilang { font-style:italic; margin:6pt 0; font-size:7.5pt; }
 
-  table.ttd { width:100%; border-collapse:collapse; margin-top:14pt; }
+  /* Terbilang + tanda tangan selalu berpindah BERSAMA ke halaman
+     berikutnya bila tak muat - tanda tangan tidak boleh menggantung
+     sendirian, pola yang sama dengan SPD Rampung. */
+  .blok-penutup { page-break-inside:avoid; }
+  table.ttd { width:100%; border-collapse:collapse; margin-top:10pt; }
   table.ttd td { border:none; padding:0; width:50%; text-align:center; vertical-align:top; }
   /* margin-bottom pada div di dalam sel tabel TIDAK dihormati mPDF -
      jarak tanda tangan dibuat lewat sel setinggi 48pt (.ttd-jarak). */
   .ttd-role { margin-bottom:0; }
   table.ttd-jarak { width:100%; border-collapse:collapse; }
-  table.ttd-jarak td { height:48pt; border:none; padding:0; }
+  table.ttd-jarak td { height:40pt; border:none; padding:0; }
   .ttd-nama { font-weight:bold; }
 </style>
 </head>
@@ -101,6 +105,7 @@
     </tbody>
   </table>
 
+  <div class="blok-penutup">
   <div class="terbilang">Terbilang : # {{ $npd->terbilang }} #</div>
 
   <table class="ttd">
@@ -121,5 +126,6 @@
       </td>
     </tr>
   </table>
+  </div>
 </body>
 </html>

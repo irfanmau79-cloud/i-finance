@@ -163,8 +163,12 @@ class DataNpdTest extends TestCase
      */
     public function test_lebar_kolom_terkunci_sesuai_hasil_pengukuran(): void
     {
-        $lebar = '<col style="width:11%;"><col style="width:15%;"><col style="width:13%;"><col style="width:12%;">';
-        $lebar2 = '<col style="width:13.5%;"><col style="width:12.5%;"><col style="width:13%;"><col style="width:10%;">';
+        // Sejak kolom Uraian ditambahkan (adopsi GAS #92a), jatahnya diambil
+        // dari kolom-kolom teks yang masih longgar. Nominal 12,5% dan Status
+        // 13% SENGAJA tidak ikut dipersempit - keduanya hasil pengukuran di
+        // atas, dan isinya nowrap.
+        $lebar = '<col style="width:9%;"><col style="width:12%;"><col style="width:11%;"><col style="width:10.5%;">';
+        $lebar2 = '<col style="width:12%;"><col style="width:12.5%;"><col style="width:13%;"><col style="width:12%;"><col style="width:8%;">';
 
         // Data NPD dan ketiga antrean NPD harus memakai lebar yang sama persis.
         $this->actingAs($this->user)->get(route('npd.data'))->assertOk()
@@ -205,5 +209,74 @@ class DataNpdTest extends TestCase
             ->assertSee('Pembuatan NPD')
             ->assertSee('Persetujuan NPD')
             ->assertSee('Verifikasi NPD');
+    }
+
+    public function test_kolom_no_dokumen_jatuh_ke_nomor_sp_sebelum_npd_bernomor(): void
+    {
+        // Nomor NPD baru terbit setelah verifikator menetapkannya. Sebelum
+        // itu, yang dikenal petugas adalah nomor Surat Perintahnya - bukan
+        // "NPD #17" yang tidak berarti apa-apa di meja kerja.
+        $sp = \App\Models\SuratPerintah::create([
+            'nomor_sp' => '123/SP/DOK/2026',
+            'tanggal_sp' => '2026-07-15',
+            'unit_kerja' => 'Sekretariat',
+            'lokasi' => 'Bandung',
+            'nama_pengirim' => 'Penguji',
+            'tujuan_transfer' => 'Rekening Penguji',
+            'irban_dibayar' => false,
+            'rincian_tgl_bayar' => '20 Juli 2026',
+            'keterangan' => 'Uji nomor dokumen',
+            'file_url' => 'sp/dok.pdf',
+            'status_sp' => 'Baru',
+            'status' => \App\Models\SuratPerintah::STATUS_DITERIMA_PPTK,
+            'jenis_permintaan' => \App\Models\SuratPerintah::JENIS_UANG_HARIAN,
+            'sumber_npd' => true,
+            'dipantau' => true,
+        ]);
+
+        $npd = $this->npd('Draft NPD - PPTK');
+        $npd->forceFill(['surat_perintah_id' => $sp->id])->save();
+
+        $this->assertSame('123/SP/DOK/2026', $npd->fresh()->nomorDokumen());
+
+        // Begitu nomor NPD terbit, nomor itu yang menang.
+        $npd->forceFill(['nomor_urut' => 9, 'nomor_lengkap' => '9/NPD-Keu.2.IBC/VII/2026'])->save();
+
+        $this->assertSame('9/NPD-Keu.2.IBC/VII/2026', $npd->fresh()->nomorDokumen());
+    }
+
+    public function test_uraian_barang_jasa_jatuh_ke_keterangan_penerima(): void
+    {
+        // Barang/Jasa tidak punya uraian di tingkat NPD - yang ada hanya
+        // Keterangan per baris penerima. Tanpa langkah terakhir ini, kolom
+        // Uraian selalu kosong untuk seluruh NPD BJ.
+        $npd = $this->npd('Selesai');
+        $npd->penerima()->create([
+            'nama' => 'CV Sumber Rejeki',
+            'keterangan' => 'Pembelian alat tulis kantor triwulan III',
+            'bruto' => 1_500_000,
+        ]);
+
+        $this->assertSame(
+            'Pembelian alat tulis kantor triwulan III',
+            $npd->fresh()->load('penerima')->uraianRingkas()
+        );
+    }
+
+    public function test_uraian_kosong_ditampilkan_sebagai_strip(): void
+    {
+        $this->assertSame('-', $this->npd('Selesai')->load('penerima')->uraianRingkas());
+    }
+
+    public function test_daftar_memuat_kolom_no_dokumen_dan_uraian(): void
+    {
+        $this->npd('Selesai');
+
+        foreach (['npd.data', 'npd.index'] as $rute) {
+            $this->actingAs($this->user)->get(route($rute))->assertOk()
+                ->assertSee('<th>No. Dokumen</th>', false)
+                ->assertSee('<th>Uraian</th>', false)
+                ->assertDontSee('<th>Nomor NPD</th>', false);
+        }
     }
 }

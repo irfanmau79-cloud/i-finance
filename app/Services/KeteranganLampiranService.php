@@ -21,6 +21,29 @@ use Carbon\Carbon;
  */
 class KeteranganLampiranService
 {
+    /**
+     * Kode rekening Belanja Perjalanan Dinas DALAM KOTA.
+     *
+     * Uraian pada dokumen mengutip nama mata anggarannya, jadi NPD yang
+     * dibebankan ke rekening ini berbunyi "Belanja Perjalanan Dinas Dalam
+     * Kota", bukan "... Biasa". Dipetakan dari KODE, bukan dari nama
+     * rekening: namanya teks bebas hasil import dan bisa berubah ejaannya,
+     * sedangkan dokumen yang sudah ditandatangani tidak boleh ikut berubah
+     * bunyinya. Kode lain tetap memakai frasa "Biasa" seperti sebelumnya.
+     */
+    public const KODE_REKENING_DALAM_KOTA = '5.1.02.04.001.00003';
+
+    public const BELANJA_BIASA = 'Belanja Perjalanan Dinas Biasa';
+
+    public const BELANJA_DALAM_KOTA = 'Belanja Perjalanan Dinas Dalam Kota';
+
+    public static function frasaBelanja(?string $kodeRekeningBersih): string
+    {
+        return trim((string) $kodeRekeningBersih) === self::KODE_REKENING_DALAM_KOTA
+            ? self::BELANJA_DALAM_KOTA
+            : self::BELANJA_BIASA;
+    }
+
     public static function tanggalIndo(?string $tanggal): string
     {
         return $tanggal ? Carbon::parse($tanggal)->translatedFormat('d F Y') : '';
@@ -34,7 +57,7 @@ class KeteranganLampiranService
      * @param  array<int, array<string, mixed>>  $tim
      * @return array{komp_str: string, uraian_biaya: string}
      */
-    public static function komponenPd(array $tim): array
+    public static function komponenPd(array $tim, ?string $kodeRekeningBersih = null): array
     {
         $totUh = 0.0;
         $totAk = 0.0;
@@ -71,7 +94,7 @@ class KeteranganLampiranService
 
         return [
             'komp_str' => $kompStr,
-            'uraian_biaya' => 'Pembayaran Belanja Perjalanan Dinas Biasa'.($kompStr !== '' ? " ({$kompStr})" : ''),
+            'uraian_biaya' => 'Pembayaran '.self::frasaBelanja($kodeRekeningBersih).($kompStr !== '' ? " ({$kompStr})" : ''),
         ];
     }
 
@@ -81,11 +104,11 @@ class KeteranganLampiranService
      * @param  array<string, mixed>  $detail
      * @param  array<int, array<string, mixed>>  $tim
      */
-    public static function pd(array $detail, array $tim, string $namaPenerima): string
+    public static function pd(array $detail, array $tim, string $namaPenerima, ?string $kodeRekeningBersih = null): string
     {
         $kompStr = self::komponenPd($tim)['komp_str'];
 
-        return 'Transfer Pembayaran Belanja Perjalanan Dinas Biasa'
+        return 'Transfer Pembayaran '.self::frasaBelanja($kodeRekeningBersih)
             .($kompStr !== '' ? " ({$kompStr})" : '')
             .' terhitung tanggal '.self::tanggalIndo($detail['tanggal_berangkat'] ?? null)
             .' s.d '.self::tanggalIndo($detail['tanggal_pulang'] ?? null)

@@ -57,7 +57,7 @@
     // dikirim - termasuk berkas unggahan SPJ, yang kalau ikut akan terunggah
     // ulang tiap kali ada yang diketik.
     const DIPAKAI = {
-        pd: /^(surat_perintah_id|uraian_sp|tanggal_berangkat|tanggal_pulang|penerima_index|tim\[)/,
+        pd: /^(master_anggaran_id|surat_perintah_id|uraian_sp|tanggal_berangkat|tanggal_pulang|penerima_index|tim\[)/,
         tr: /^(npd_induk_id|penerima_index|tim\[)/,
         kd: /^(mode|nama_pelatihan|tanggal_mulai|tanggal_selesai|penerima_index|peserta\[|penerima_transfer\[)/,
     }[jenis];

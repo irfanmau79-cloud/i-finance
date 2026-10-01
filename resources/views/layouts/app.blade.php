@@ -323,7 +323,12 @@
     </div>
   </aside>
 
-  <div class="main">
+  {{-- id halaman dipakai gaya bersama untuk mengunci tinggi kartu setinggi
+       layar (#page-sp-monitor, #page-sp-data, #page-npd). Sebelumnya tidak
+       ada satu pun elemen yang membawa id itu, jadi aturannya tidak pernah
+       berlaku - tabel Monitoring SP tumbuh sepanjang datanya alih-alih
+       bergulir di dalam kartunya. --}}
+  <div class="main" @if ($activeNav !== '') id="page-{{ $activeNav }}" @endif>
     @php($namaPengguna = auth()->user()->nama ?? 'Pengguna Layanan')
     @php($sapaan = auth()->user()?->sapaan() ?? 'Pak/Bu')
     {{-- Yang disapa adalah nama panggilan; nama lengkap tetap dipakai sebagai

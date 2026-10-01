@@ -389,7 +389,7 @@
   }
   #page-sp-monitor .flow-grid{flex:0 0 auto;}
   #page-sp-monitor .pengumuman-box{flex:0 0 auto;}
-  #page-sp-monitor #spi-table thead th{position:sticky;top:0;z-index:5;background:var(--surface);box-shadow:inset 0 -1px 0 var(--line);}
+  #page-sp-monitor #spm-table thead th{position:sticky;top:0;z-index:5;background:var(--surface);box-shadow:inset 0 -1px 0 var(--line);}
   #page-sp-data #spd-table thead th{position:sticky;top:0;z-index:5;background:var(--surface);box-shadow:inset 0 -1px 0 var(--line);}
   #page-sp-data #spd-table td{vertical-align:top;word-wrap:break-word;overflow-wrap:break-word;}
   .pengumuman-box{margin-top:14px;border:1px solid var(--line);border-left:3px solid var(--navy);border-radius:var(--r-sm);background:linear-gradient(180deg,var(--surface-2),var(--surface-2));padding:12px 15px;}
@@ -419,6 +419,10 @@
   .catatan-box{background:var(--warn-bg);border:1px solid var(--garis-warn);border-radius:var(--r-sm);padding:8px 11px;font-size:12px;color:var(--warn-teks);margin-top:6px;}
   /* Nomor NPD - satu gaya untuk Data NPD maupun tabel alur kerja. */
   td.kol-npd{font-weight:600;color:var(--tegas);}
+  /* Uraian NPD bisa sepanjang satu kalimat penuh. Dibiarkan membungkus ke
+     bawah dengan huruf sedikit lebih kecil - tabelnya table-layout:fixed,
+     jadi tanpa ini kolomnya memaksa baris melebar. */
+  td.kol-uraian{font-size:11px;line-height:1.35;overflow-wrap:anywhere;}
   /* ---- Sel Status di tabel NPD (Data NPD + Pembuatan/Verifikasi/Persetujuan)
      Dua pil bertumpuk: status berwarna, lalu penanda catatan. TIDAK dibungkus
      kotak abu lagi - kotak itulah yang dulu membuat kolom sempit ini terasa
@@ -466,7 +470,6 @@
   .peng-menu label{display:flex;align-items:center;gap:9px;padding:7px 9px;font-size:12.5px;cursor:pointer;border-radius:6px;}
   .peng-menu label:hover{background:var(--navy-l);}
   .peng-menu input[type=checkbox]{width:15px;height:15px;accent-color:#166534;cursor:pointer;}
-  #spi-table td{vertical-align:top;padding-top:12px;padding-bottom:12px;}
   .st-aktif{background:var(--ok-bg);color:var(--ok-teks);}
   .st-danger{background:var(--err-bg);color:var(--err-teks);}
   /* Flow legend SP */

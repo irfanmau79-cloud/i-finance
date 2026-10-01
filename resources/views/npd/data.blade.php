@@ -114,23 +114,24 @@
       <colgroup>
         {{-- Lebar sama dengan tabel Pembuatan/Verifikasi/Persetujuan NPD -
              lihat catatan pengukurannya di npd/_tabel-workflow.blade.php. --}}
-        <col style="width:11%;"><col style="width:15%;"><col style="width:13%;"><col style="width:12%;">
-        <col style="width:13.5%;"><col style="width:12.5%;"><col style="width:13%;"><col style="width:10%;">
+        <col style="width:9%;"><col style="width:12%;"><col style="width:11%;"><col style="width:10.5%;">
+        <col style="width:12%;"><col style="width:12.5%;"><col style="width:13%;"><col style="width:12%;"><col style="width:8%;">
       </colgroup>
       <thead>
         <tr>
-          <th>Nomor NPD</th><th>Sub Kegiatan</th><th>Kode Rekening</th><th>Tagging</th>
+          <th>No. Dokumen</th><th>Sub Kegiatan</th><th>Kode Rekening</th><th>Tagging</th>
           <th>Penerima</th><th class="num">Nominal</th><th class="st">Status</th>
-          <th style="text-align:center;">Aksi</th>
+          <th>Uraian</th><th style="text-align:center;">Aksi</th>
         </tr>
         <tr class="kolom-saring">
-          <th><input type="text" data-kolom="nomor_npd" placeholder="Ketik nomor&hellip;" aria-label="Saring Nomor NPD"></th>
+          <th><input type="text" data-kolom="nomor_npd" placeholder="Ketik nomor&hellip;" aria-label="Saring No. Dokumen"></th>
           <th><input type="text" data-kolom="sub_kegiatan" placeholder="Ketik sub kegiatan&hellip;" aria-label="Saring Sub Kegiatan"></th>
           <th><input type="text" data-kolom="kode_rekening" placeholder="Ketik kode/nama&hellip;" aria-label="Saring Kode Rekening"></th>
           <th><input type="text" data-kolom="tagging" placeholder="Ketik tagging&hellip;" aria-label="Saring Tagging"></th>
           <th><input type="text" data-kolom="penerima" placeholder="Ketik penerima&hellip;" aria-label="Saring Penerima"></th>
           <th><input type="text" data-kolom="nominal_teks" placeholder="Ketik nominal&hellip;" aria-label="Saring Nominal"></th>
           <th><input type="text" data-kolom="status" placeholder="Ketik status&hellip;" aria-label="Saring Status"></th>
+          <th><input type="text" data-kolom="uraian" placeholder="Ketik uraian&hellip;" aria-label="Saring Uraian"></th>
           <th>
             <div class="saring-kosong">
               <button type="button" id="dn-saring-reset" title="Kosongkan penyaring" aria-label="Kosongkan penyaring">
@@ -235,13 +236,14 @@ document.addEventListener('DOMContentLoaded', function () {
           '<span class="badge ' + esc(r.badge) + '">' + esc(r.status) + '</span>' +
           (r.draft_mengendap ? '<span class="badge st-dikembalikan" title="Sudah ' + r.umur_hari + ' hari tanpa aksi">' + r.umur_hari + ' hari</span>' : '') +
         '</div></td>' +
+        '<td class="kol-uraian" title="' + esc(r.uraian) + '">' + esc(r.uraian) + '</td>' +
         '<td style="text-align:center;"><div class="dn-aksi">' +
           '<a class="dn-lihat" href="' + r.url + '" title="Lihat NPD" aria-label="Lihat NPD">' +
           '<svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg></a>' +
           (r.boleh_notifikasi ? tombolNotifikasi(r) : '') +
         '</div></td>' +
       '</tr>'
-    ).join('') : '<tr><td colspan="8" style="text-align:center;color:var(--mut);padding:24px;">Tidak ada data.</td></tr>';
+    ).join('') : '<tr><td colspan="9" style="text-align:center;color:var(--mut);padding:24px;">Tidak ada data.</td></tr>';
 
     document.getElementById('dn-info').textContent = new Intl.NumberFormat('id-ID').format(total) + ' NPD' +
       (hanyaDraft ? ' — hanya draft yang mengendap lebih dari 7 hari' : '');

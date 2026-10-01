@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Models\Npd;
+use App\Models\MasterAnggaran;
 use App\Models\SuratPerintah;
 use App\Services\KeteranganLampiranService;
 use Illuminate\Http\JsonResponse;
@@ -30,6 +31,7 @@ class KeteranganLampiranPreviewController extends Controller
             'jenis' => ['required', Rule::in(['pd', 'tr', 'kd'])],
 
             // Perjalanan Dinas & Transport
+            'master_anggaran_id' => ['nullable', 'integer', 'exists:master_anggaran,id'],
             'surat_perintah_id' => ['nullable', 'integer', 'exists:surat_perintah,id'],
             'uraian_sp' => ['nullable', 'string', 'max:2000'],
             'tanggal_berangkat' => ['nullable', 'date'],
@@ -71,7 +73,9 @@ class KeteranganLampiranPreviewController extends Controller
      */
     private function teksTr(array $data): string
     {
-        $induk = isset($data['npd_induk_id']) ? Npd::with('tim')->find($data['npd_induk_id']) : null;
+        // Transport membebani mata anggaran induknya (lihat
+        // NpdTransportController::store), jadi frasa belanjanya ikut induk.
+        $induk = isset($data['npd_induk_id']) ? Npd::with(['tim', 'masterAnggaran'])->find($data['npd_induk_id']) : null;
         $detail = $induk?->detail_json ?? [];
 
         if (filled($detail['keterangan_lampiran'] ?? null)) {
@@ -86,6 +90,7 @@ class KeteranganLampiranPreviewController extends Controller
             $detail,
             array_values($data['tim'] ?? []),
             trim((string) ($penerima->nama ?? '')),
+            $induk?->masterAnggaran?->kode_rekening_bersih,
         );
     }
 
@@ -101,13 +106,16 @@ class KeteranganLampiranPreviewController extends Controller
         $index = (int) ($data['penerima_index'] ?? 0);
         $penerima = $tim[$index] ?? ($tim[0] ?? []);
 
+        // Mata anggaran menentukan frasa belanjanya: Dalam Kota atau Biasa.
+        $anggaran = isset($data['master_anggaran_id']) ? MasterAnggaran::find($data['master_anggaran_id']) : null;
+
         return KeteranganLampiranService::pd([
             'tanggal_berangkat' => $data['tanggal_berangkat'] ?? null,
             'tanggal_pulang' => $data['tanggal_pulang'] ?? null,
             'uraian_sp' => $data['uraian_sp'] ?? '',
             'nomor_sp' => $sp?->nomor_sp ?? '',
             'tanggal_sp' => $sp?->tanggal_sp?->format('Y-m-d'),
-        ], $tim, trim((string) ($penerima['nama'] ?? '')));
+        ], $tim, trim((string) ($penerima['nama'] ?? '')), $anggaran?->kode_rekening_bersih);
     }
 
     /** @param  array<string, mixed>  $data */

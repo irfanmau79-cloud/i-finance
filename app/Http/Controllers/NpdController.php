@@ -93,6 +93,7 @@ class NpdController extends Controller
                 'nominal' => (float) $npd->nominal,
                 'nominal_teks' => 'Rp '.number_format((float) $npd->nominal, 2, ',', '.'),
                 'status' => $npd->status,
+                'uraian' => $npd->uraianRingkas(),
                 'badge' => Npd::STATUS_BADGE_CLASS[$npd->status] ?? 'st-npd',
                 'umur_hari' => $npd->created_at?->diffInDays(now()) ?? 0,
                 'draft_mengendap' => $mengendap,
@@ -637,6 +638,7 @@ class NpdController extends Controller
         $html = view('npd.pdf.pd-daftar', [
             'npd' => $npd,
             'detail' => $detail,
+            'tinggiBaris' => $this->tinggiBarisDaftar($rows['nBaris']),
             'uraianBiaya' => $komponen['uraian_biaya'],
             'tglBerangkat' => $this->tanggalIndo($detail['tanggal_berangkat'] ?? null),
             'tglPulang' => $this->tanggalIndo($detail['tanggal_pulang'] ?? null),
@@ -964,7 +966,10 @@ class NpdController extends Controller
      */
     private function komponenBiayaPd(Npd $npd): array
     {
-        return KeteranganLampiranService::komponenPd($this->timKeArray($npd));
+        return KeteranganLampiranService::komponenPd(
+            $this->timKeArray($npd),
+            $npd->masterAnggaran?->kode_rekening_bersih,
+        );
     }
 
     /**
@@ -993,6 +998,9 @@ class NpdController extends Controller
         $body = '';
         $tHarian = $tAkom = $tTransport = $tRepr = $tJumlah = 0.0;
         $no = 0;
+        // Jumlah <tr> data - sudah termasuk baris tambahan milik penerima
+        // multi-paket. Dipakai menghitung tinggi baris adaptif.
+        $nBaris = 0;
 
         foreach ($tim as $anggota) {
             $no++;
@@ -1007,6 +1015,7 @@ class NpdController extends Controller
             $nPaket = max(count($paketList), 1);
 
             foreach (array_values($paketList) as $idx => $p) {
+                $nBaris++;
                 $body .= '<tr class="drow'.($nPaket === 1 ? ' drow1' : '').'">';
 
                 if ($idx === 0) {
@@ -1044,7 +1053,34 @@ class NpdController extends Controller
             .'<td></td>'
             .'</tr>';
 
-        return compact('body', 'tHarian', 'tAkom', 'tTransport', 'tRepr', 'tJumlah');
+        return compact('body', 'tHarian', 'tAkom', 'tTransport', 'tRepr', 'tJumlah', 'nBaris');
+    }
+
+    /**
+     * Tinggi baris data Daftar Pembayaran, menyempit mengikuti banyaknya
+     * penerima. Adopsi dari buatNPDPerjalanan() di "i-finance gas"
+     * (CodePerjalanan.gs).
+     *
+     * Masalah yang diselesaikan: daftar dengan banyak penerima pecah ke
+     * halaman kedua, dan blok Terbilang + tanda tangan ikut turun sendirian.
+     * Sampai 8 baris tingginya tetap 32pt seperti semula; dari 20 baris ke
+     * atas dipatok 27,2pt (-15%), batas bawah yang masih menyisakan ruang
+     * untuk tanda tangan basah. Di antaranya diinterpolasi lurus.
+     *
+     * Lebih dari 20 penerima dibiarkan lanjut ke halaman berikutnya - tidak
+     * dipaksa muat satu halaman dengan mengorbankan ruang tanda tangan.
+     */
+    private function tinggiBarisDaftar(int $nBaris): string
+    {
+        $longgar = 32.0;
+        $rapat = 27.2;
+        $batasLonggar = 8;
+        $batasRapat = 20;
+
+        $bagian = max(0.0, min(1.0, ($nBaris - $batasLonggar) / ($batasRapat - $batasLonggar)));
+        $tinggi = $longgar - ($longgar - $rapat) * $bagian;
+
+        return rtrim(rtrim(number_format($tinggi, 2, '.', ''), '0'), '.').'pt';
     }
 
     /**
@@ -1176,7 +1212,12 @@ class NpdController extends Controller
 
         $komponen = $this->komponenBiayaPd($npd);
 
-        $ketDefault = KeteranganLampiranService::pd($detail, $this->timKeArray($npd), $penerima->nama);
+        $ketDefault = KeteranganLampiranService::pd(
+            $detail,
+            $this->timKeArray($npd),
+            $penerima->nama,
+            $npd->masterAnggaran?->kode_rekening_bersih,
+        );
 
         $keterangan = filled($detail['keterangan_lampiran'] ?? null) ? $detail['keterangan_lampiran'] : $ketDefault;
 

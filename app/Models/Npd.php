@@ -374,6 +374,48 @@ class Npd extends Model
         return "{$nama->first()} (dan {$sisa} lainnya)";
     }
 
+    /**
+     * Nomor yang dipakai mengenali dokumen ini di daftar.
+     *
+     * Nomor NPD baru terbit setelah verifikator menetapkannya, jadi sebelum
+     * itu yang dikenal petugas adalah nomor Surat Perintahnya. Urutannya
+     * mengikuti noDokumen() di "i-finance gas" (adopsi #93c).
+     */
+    public function nomorDokumen(): string
+    {
+        return $this->nomor_lengkap
+            ?: ($this->suratPerintah?->nomor_sp ?: '-');
+    }
+
+    /**
+     * Uraian ringkas NPD untuk ditampilkan di daftar.
+     *
+     * Urutan sumbernya mengikuti InventarisasiSpjService, lalu DITAMBAH satu
+     * langkah terakhir untuk Barang/Jasa: jenis itu tidak punya uraian di
+     * tingkat NPD sama sekali - yang ada hanya Keterangan per baris penerima -
+     * sehingga tanpa langkah ini kolomnya selalu kosong untuk BJ.
+     */
+    public function uraianRingkas(): string
+    {
+        $detail = $this->detail_json ?? [];
+
+        foreach (['uraian', 'uraian_sp', 'uraian_kegiatan', 'keterangan_lampiran', 'nama_pelatihan'] as $kunci) {
+            if (filled($detail[$kunci] ?? null)) {
+                return (string) $detail[$kunci];
+            }
+        }
+
+        if ($this->relationLoaded('penerima') || $this->jenis === 'bj') {
+            $keterangan = $this->penerima->pluck('keterangan')->filter()->first();
+
+            if (filled($keterangan)) {
+                return (string) $keterangan;
+            }
+        }
+
+        return '-';
+    }
+
     public function catatHistoriStatus(
         ?User $user,
         string $aksi,
