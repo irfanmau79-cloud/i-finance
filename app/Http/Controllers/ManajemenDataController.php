@@ -14,6 +14,7 @@ use App\Exports\SpjPerjalananDinasExport;
 use App\Exports\SpmLsExport;
 use App\Exports\SpmUpGuExport;
 use App\Exports\TunjanganKeluargaExport;
+use App\Exports\RekapPotensiExport;
 use App\Exports\VendorExport;
 use App\Helpers\AuditLog;
 use Illuminate\Database\QueryException;
@@ -35,6 +36,7 @@ class ManajemenDataController extends Controller
         'spm-ls' => ['label' => 'Data Surat Perintah Membayar (SPM) LS', 'class' => SpmLsExport::class],
         'pegawai' => ['label' => 'Data Pegawai', 'class' => PegawaiExport::class],
         'vendor' => ['label' => 'Data Rekanan', 'class' => VendorExport::class],
+        'rekap-potensi' => ['label' => 'Data Rekap Potensi Pengembalian', 'class' => RekapPotensiExport::class],
         'pkpt' => ['label' => 'Data PKPT', 'class' => PkptExport::class],
         'kebutuhan-anggaran' => ['label' => 'Data Kebutuhan Anggaran Pengawasan', 'class' => KebutuhanAnggaranExport::class],
         'tunjangan-keluarga' => ['label' => 'Data Tunjangan Keluarga', 'class' => TunjanganKeluargaExport::class],
@@ -117,6 +119,13 @@ class ManajemenDataController extends Controller
             'import_create' => ['manajemen-data.import.vendor.create', null],
             'import_template' => ['manajemen-data.import.vendor.template', null],
         ],
+        'rekap-potensi' => [
+            'label' => 'Data Rekap Potensi Pengembalian',
+            'export_jenis' => 'rekap-potensi',
+            'import_create' => ['manajemen-data.import.rekap-potensi.create', null],
+            'import_template' => ['manajemen-data.import.rekap-potensi.template', null],
+            'import_note' => 'Kelebihan pembayaran per pegawai yang masih harus dikembalikan, ditampilkan di Data Gaji dan Tunjangan > Rekap Potensi Pengembalian. Baris dikenali dari NIP. Sisa Pengembalian tidak diisi di berkas - selalu dihitung Potensi dikurangi Setoran.',
+        ],
         'pkpt' => [
             'label' => 'Data PKPT',
             'export_jenis' => 'pkpt',
@@ -168,6 +177,7 @@ class ManajemenDataController extends Controller
         'spm-ls' => 'SPM LS',
         'pegawai' => 'PEGAWAI',
         'vendor' => 'REKANAN',
+        'rekap-potensi' => 'REKAP POTENSI',
         'pkpt' => 'PKPT',
         'kebutuhan-anggaran' => 'KEBUTUHAN ANGGARAN',
         'tunjangan-keluarga' => 'TUNJANGAN KELUARGA',
@@ -273,6 +283,7 @@ class ManajemenDataController extends Controller
             'spm-ls' => $this->resetSpm('ls'),
             'pegawai' => $this->hapusTabel('pegawai'),
             'vendor' => $this->hapusTabel('vendor'),
+            'rekap-potensi' => $this->hapusTabel('rekap_potensi_pengembalian'),
             'pkpt' => $this->hapusTabel('pkpt'),
             'kebutuhan-anggaran' => $this->hapusTabel('kebutuhan_anggaran'),
             'tunjangan-keluarga' => $this->hapusTabel('tunjangan_keluarga'),

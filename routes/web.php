@@ -29,6 +29,8 @@ use App\Http\Controllers\PkptController;
 use App\Http\Controllers\PkptImportController;
 use App\Http\Controllers\ProfilController;
 use App\Http\Controllers\KeteranganLampiranPreviewController;
+use App\Http\Controllers\RekapPotensiImportController;
+use App\Http\Controllers\RekapPotensiPengembalianController;
 use App\Http\Controllers\RekananController;
 use App\Http\Controllers\RakBulananImportController;
 use App\Http\Controllers\RealisasiPeriodeController;
@@ -278,6 +280,11 @@ Route::middleware('auth.or.guest')->group(function () {
      */
     Route::get('/rekonsiliasi-gaji', [RekonsiliasiGajiController::class, 'index'])
         ->middleware('menu-akses:gt-rekon')->name('gaji-tunjangan.rekonsiliasi');
+
+    // Rekap Potensi Pengembalian: baca-saja, isinya sensitif (kelebihan
+    // pembayaran per pegawai) jadi aksesnya disamakan dengan Rekonsiliasi.
+    Route::get('/gaji-tunjangan/rekap-potensi', RekapPotensiPengembalianController::class)
+        ->middleware('menu-akses:gt-potensi')->name('gaji-tunjangan.rekap-potensi');
     Route::post('/rekonsiliasi-gaji/kunci', [RekonsiliasiGajiController::class, 'kunci'])
         ->middleware(['menu-akses:gt-rekon', 'role:superadmin'])->name('gaji-tunjangan.rekonsiliasi.kunci');
     Route::put('/rekonsiliasi-gaji/baris/{baris}', [RekonsiliasiGajiController::class, 'sunting'])
@@ -507,6 +514,7 @@ Route::middleware('auth.or.guest')->group(function () {
     // Transisi workflow tidak diberikan kepada Bendahara Pengeluaran.
     Route::middleware('role:superadmin,pptk,bpp,verifikator')->group(function () {
         Route::post('/npd/{npd}/transisi', [NpdController::class, 'transisi'])->name('npd.transisi');
+
     });
 
     // Kirim Notifikasi WhatsApp pencairan NPD (Data NPD). Pelaku pencairan
@@ -588,7 +596,7 @@ Route::middleware('auth.or.guest')->group(function () {
     Route::middleware('role:superadmin,bendahara_pengeluaran')->group(function () {
         Route::get('/manajemen-data', [ManajemenDataController::class, 'index'])->name('manajemen-data.index');
         Route::get('/manajemen-data/export/{jenis}', [ManajemenDataController::class, 'export'])
-            ->whereIn('jenis', ['master-anggaran', 'rak-bulanan', 'npd', 'perjalanan-dinas', 'spj-perjalanan-dinas', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'pkpt', 'kebutuhan-anggaran', 'tunjangan-keluarga'])
+            ->whereIn('jenis', ['master-anggaran', 'rak-bulanan', 'npd', 'perjalanan-dinas', 'spj-perjalanan-dinas', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'rekap-potensi', 'pkpt', 'kebutuhan-anggaran', 'tunjangan-keluarga'])
             ->name('manajemen-data.export');
 
         // Formulir rekap Perjalanan Dinas per pegawai. Bukan berkas import -
@@ -608,7 +616,7 @@ Route::middleware('auth.or.guest')->group(function () {
         // daripada import/export, sengaja dibatasi superadmin saja (bukan
         // ikut role:superadmin,bendahara_pengeluaran di grup ini).
         Route::post('/manajemen-data/reset/{jenis}', [ManajemenDataController::class, 'reset'])
-            ->whereIn('jenis', ['pagu', 'rak', 'npd', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'pkpt', 'kebutuhan-anggaran', 'tunjangan-keluarga'])
+            ->whereIn('jenis', ['pagu', 'rak', 'npd', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'rekap-potensi', 'pkpt', 'kebutuhan-anggaran', 'tunjangan-keluarga'])
             ->middleware('role:superadmin')
             ->name('manajemen-data.reset');
 
@@ -661,6 +669,13 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::delete('/manajemen-data/import/pegawai/{import}', [PegawaiImportController::class, 'batalkan'])->name('manajemen-data.import.pegawai.batalkan');
 
         // Import Vendor: upload -> staging (preview/dry-run) -> konfirmasi simpan.
+        Route::get('/manajemen-data/import/rekap-potensi', [RekapPotensiImportController::class, 'create'])->name('manajemen-data.import.rekap-potensi.create');
+        Route::get('/manajemen-data/import/rekap-potensi/template', [RekapPotensiImportController::class, 'template'])->name('manajemen-data.import.rekap-potensi.template');
+        Route::post('/manajemen-data/import/rekap-potensi', [RekapPotensiImportController::class, 'store'])->name('manajemen-data.import.rekap-potensi.store');
+        Route::get('/manajemen-data/import/rekap-potensi/{import}/preview', [RekapPotensiImportController::class, 'preview'])->name('manajemen-data.import.rekap-potensi.preview');
+        Route::post('/manajemen-data/import/rekap-potensi/{import}/konfirmasi', [RekapPotensiImportController::class, 'konfirmasi'])->name('manajemen-data.import.rekap-potensi.konfirmasi');
+        Route::delete('/manajemen-data/import/rekap-potensi/{import}', [RekapPotensiImportController::class, 'batalkan'])->name('manajemen-data.import.rekap-potensi.batalkan');
+
         Route::get('/manajemen-data/import/vendor', [VendorImportController::class, 'create'])->name('manajemen-data.import.vendor.create');
         Route::get('/manajemen-data/import/vendor/template', [VendorImportController::class, 'template'])->name('manajemen-data.import.vendor.template');
         Route::post('/manajemen-data/import/vendor', [VendorImportController::class, 'store'])->name('manajemen-data.import.vendor.store');
