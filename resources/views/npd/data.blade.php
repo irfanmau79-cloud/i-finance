@@ -124,7 +124,7 @@
         {{-- Lebar sama dengan tabel Pembuatan/Verifikasi/Persetujuan NPD -
              lihat catatan pengukurannya di npd/_tabel-workflow.blade.php. --}}
         <col style="width:8.5%;"><col style="width:11%;"><col style="width:10%;"><col style="width:9%;">
-        <col style="width:11%;"><col style="width:9.5%;"><col style="width:13%;"><col style="width:20%;"><col style="width:8%;">
+        <col style="width:11%;"><col style="width:9.5%;"><col style="width:10%;"><col style="width:20%;"><col style="width:11%;">
       </colgroup>
       <thead>
         <tr>

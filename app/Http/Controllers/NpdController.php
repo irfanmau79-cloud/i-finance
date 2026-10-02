@@ -578,7 +578,7 @@ class NpdController extends Controller
             $berhasil++;
         }
 
-        AuditLog::catat($rule['label'] . ' (Massal)', sprintf(
+        AuditLog::catat(($rule['label_jejak'] ?? $rule['label']) . ' (Massal)', sprintf(
             'Berhasil: %d, Dilewati: %d',
             $berhasil,
             count($dilewati)

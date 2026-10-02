@@ -357,4 +357,31 @@ class NpdAksiMassalTest extends TestCase
 
         $this->assertSame($sebelum + 1_000_000.0, $this->master->fresh()->realisasiNpd());
     }
+
+    public function test_label_tandai_selesai_pendek_di_layar_tapi_eksplisit_di_jejak(): void
+    {
+        // Di layar cukup "Tandai Selesai" - chip yang kepanjangan membuat
+        // deretannya patah. Tetapi aksi 'selesai' yang biasa berlabel SAMA
+        // PERSIS, jadi Audit Log harus tetap bisa membedakan keduanya.
+        $this->npd('Draft NPD - PPTK');
+
+        $this->actingAs($this->user(User::ROLE_SUPERADMIN))->get(route('npd.persetujuan'))
+            ->assertOk()
+            ->assertDontSee('lewati alur', false);
+
+        $this->assertSame('Tandai Selesai', Npd::AKSI_MASSAL_KHUSUS[Npd::AKSI_SELESAI_PAKSA]['label']);
+        $this->assertSame('Tandai Selesai (lewati alur)', Npd::AKSI_MASSAL_KHUSUS[Npd::AKSI_SELESAI_PAKSA]['label_jejak']);
+    }
+
+    public function test_audit_log_menyebut_jalur_yang_dilewati(): void
+    {
+        $npd = $this->npd('Draft NPD - PPTK');
+
+        $this->actingAs($this->user(User::ROLE_SUPERADMIN))
+            ->post(route('npd.transisi-massal'), ['aksi' => Npd::AKSI_SELESAI_PAKSA, 'npd' => [$npd->id]]);
+
+        $this->assertDatabaseHas('audit_log', [
+            'aktivitas' => 'Tandai Selesai (lewati alur) (Massal)',
+        ]);
+    }
 }

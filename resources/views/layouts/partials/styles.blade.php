@@ -494,8 +494,14 @@
      ("Verifikasi - Verifikator") tetap muat satu baris di lebar kolomnya;
      kalau dibiarkan 10.5px pilnya melewati sel dan menabrak kolom Aksi. */
   .stat-kolom{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;}
-  .stat-kolom .badge{max-width:100%;white-space:nowrap;font-size:9.6px;letter-spacing:-.1px;
-    padding:4px 9px 4px 8px;gap:4px;line-height:1.35;}
+  /* Pil status BOLEH pecah baris. Sebelumnya nowrap, dan pil terpanjang
+     ("Verifikasi - Verifikator") sudah melebihi lebar kolomnya sendiri -
+     jadi mempersempit Status demi kolom Aksi tidak mungkin selama ia
+     dipaksa satu baris. Dengan boleh patah, Status cukup 10% dan sisanya
+     diserahkan ke Aksi, yang butuh 94px pasti (3 ikon 28px + sela + padding)
+     dan sebelumnya hanya kebagian ~78px saat sidebar terbuka. */
+  .stat-kolom .badge{max-width:100%;white-space:normal;text-align:center;font-size:9.6px;letter-spacing:-.1px;
+    padding:4px 9px 4px 8px;gap:4px;line-height:1.3;}
   .stat-kolom .badge::before{width:5px;height:5px;flex:0 0 5px;}
   /* Penanda catatan: pil bergeometri SAMA dengan pil status supaya keduanya
      bertumpuk rapi, tapi bernada emas - warna aksen i-Finance - dan tanpa

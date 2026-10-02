@@ -168,11 +168,12 @@ class DataNpdTest extends TestCase
         // Nominal - yang turun 12,5% -> 9,5% setelah awalan "Rp" dipindah ke
         // kepala kolom dan angkanya dikecilkan jadi 13px.
         //
-        // Status 13% dan Aksi 8% TIDAK ikut dipersempit: pil terpanjang
-        // ("Verifikasi - Verifikator") dan deretan tombol aksi keduanya
-        // sudah berada di lebar minimumnya.
+        // Aksi 11%: tabelnya fixed dan tidak bisa digulir mendatar, jadi
+        // tiga tombol ikonnya WAJIB muat - butuh 94px pasti, sementara 8%
+        // hanya ~78px saat sidebar terbuka. Tambahannya diambil dari Status,
+        // yang turun ke 10% setelah pilnya dibolehkan pecah dua baris.
         $lebar = '<col style="width:8.5%;"><col style="width:11%;"><col style="width:10%;"><col style="width:9%;">';
-        $lebar2 = '<col style="width:11%;"><col style="width:9.5%;"><col style="width:13%;"><col style="width:20%;"><col style="width:8%;">';
+        $lebar2 = '<col style="width:11%;"><col style="width:9.5%;"><col style="width:10%;"><col style="width:20%;"><col style="width:11%;">';
 
         // Data NPD dan ketiga antrean NPD harus memakai lebar yang sama persis.
         $this->actingAs($this->user)->get(route('npd.data'))->assertOk()

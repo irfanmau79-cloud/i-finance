@@ -166,7 +166,11 @@ class Npd extends Model
     public const AKSI_MASSAL_KHUSUS = [
         self::AKSI_SELESAI_PAKSA => [
             'to' => 'Selesai',
-            'label' => 'Tandai Selesai (lewati alur)',
+            'label' => 'Tandai Selesai',
+            // Label untuk Audit Log sengaja TETAP eksplisit: aksi 'selesai'
+            // yang biasa berlabel sama persis, dan tanpa pembeda ini catatan
+            // auditnya tidak bisa menjawab mana yang melewati verifikasi.
+            'label_jejak' => 'Tandai Selesai (lewati alur)',
             'roles' => ['bpp'],
         ],
     ];
