@@ -14,7 +14,7 @@ use Tests\TestCase;
  * sekarang, dan urutan modul di sidebar tetap seperti yang disepakati.
  *
  * Modul Gaji dan Tunjangan DULU juga di sini. Sejak modulnya digarap,
- * keenam sub-menunya menunjuk halaman sungguhan dan pengujiannya pindah ke
+ * sub-menunya menunjuk halaman sungguhan dan pengujiannya pindah ke
  * GajiTunjanganTest, RincianPenghasilanTest, dan GajiTunjanganImportTest.
  * Yang tersisa di berkas ini hanyalah pemeriksaan sidebar-nya.
  */
@@ -59,12 +59,12 @@ class MenuSegeraHadirTest extends TestCase
         $halaman = $this->actingAs($this->user(User::ROLE_SUPERADMIN))
             ->get(route('dashboard.index'))->assertOk();
 
+        // Gaji Induk, TPP Beban Kerja, TPP Kondisi Kerja, dan Total Penghasilan
+        // sudah disatukan menjadi satu butir "Rincian Penghasilan"; rinciannya
+        // diuji di GajiTunjanganTest.
         $halaman->assertSee('Gaji dan Tunjangan')
             ->assertSee('nav-gt-parent', false)
-            ->assertSee('Gaji Induk')
-            ->assertSee('TPP Beban Kerja')
-            ->assertSee('TPP Kondisi Kerja')
-            ->assertSee('Total Penghasilan')
+            ->assertSee('">Rincian Penghasilan</a>', false)
             ->assertSee('Cetak Rincian Penghasilan')
             ->assertSee('Daftar Rincian Penghasilan')
             ->assertSee('Cetak SPPD');

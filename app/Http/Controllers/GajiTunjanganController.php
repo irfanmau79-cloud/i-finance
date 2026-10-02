@@ -11,8 +11,14 @@ use Illuminate\Pagination\LengthAwarePaginator;
 use Illuminate\View\View;
 
 /**
- * Empat sub-menu tabel Data Gaji & Tunjangan: Gaji Induk, TPP Beban Kerja,
+ * Sub-menu "Rincian Penghasilan": satu butir di sidebar dengan empat
+ * penyajian yang dipilih di dalam halaman - Gaji Induk, TPP Beban Kerja,
  * TPP Kondisi Kerja, dan Total Penghasilan.
+ *
+ * Dulu keempatnya butir sidebar sendiri-sendiri. Yang disatukan hanya pintu
+ * masuknya: tiap penyajian tetap punya rute dan kunci menu sendiri, jadi
+ * menutup salah satunya untuk sebuah role di config/akses.php tetap berlaku
+ * (pilihannya hilang dari pemilih, dan rutenya menolak dengan 403).
  *
  * GATE PRIVASI. Role di luar config('gaji_tunjangan.role_data_penuh') wajib
  * memverifikasi NIP + 4 digit akhir rekening lebih dulu, dan hanya menerima
@@ -38,8 +44,9 @@ class GajiTunjanganController extends Controller
     private const PER_HALAMAN = 10;
 
     /**
-     * Sub-menu -> [kunci menu, judul halaman, keterangan di bawah judul].
-     * Judul & keterangannya disalin dari gtView() di GAS.
+     * Penyajian -> [kunci menu, label pilihan, keterangan di bawah judul].
+     * Label & keterangannya disalin dari gtView() di GAS. Urutannya dipakai
+     * apa adanya oleh pemilih di halaman dan oleh tautan sidebar.
      */
     private const SUB = [
         'gaji' => ['gt-gaji', 'Gaji Induk', 'Rincian gaji pokok, tunjangan, dan potongan pegawai.'],
@@ -81,6 +88,7 @@ class GajiTunjanganController extends Controller
             'judul' => $judul,
             'subJudul' => $subJudul,
             'jenis' => $jenis,
+            'pilihan' => $this->pilihan($request),
             'mode' => $mode,
             'bulan' => $bulan,
             'tahun' => $tahun,
@@ -134,6 +142,33 @@ class GajiTunjanganController extends Controller
     public static function nipTerverifikasi(): ?string
     {
         return session(self::SESI_NIP);
+    }
+
+    /**
+     * Penyajian yang boleh dibuka role ini, untuk pemilih di atas tabel.
+     *
+     * Saringan yang sedang dipakai (tampilan, bulan, tahun, kata kunci) ikut
+     * terbawa supaya berpindah penyajian tidak mengulang dari awal. Nomor
+     * halaman sengaja tidak dibawa: jumlah baris tiap penyajian bisa berbeda.
+     *
+     * @return array<string, array{label: string, url: string}>
+     */
+    private function pilihan(Request $request): array
+    {
+        $akses = config('akses.menu')[GuestSession::role()] ?? [];
+        $saringan = $request->only(['mode', 'bulan', 'tahun', 'q']);
+        $pilihan = [];
+
+        foreach (self::SUB as $jenis => [$kunci, $label]) {
+            if (in_array($kunci, $akses, true)) {
+                $pilihan[$jenis] = [
+                    'label' => $label,
+                    'url' => route('gaji-tunjangan.tabel.'.$jenis, $saringan),
+                ];
+            }
+        }
+
+        return $pilihan;
     }
 
     /** @param  array<string, mixed>  $baris */

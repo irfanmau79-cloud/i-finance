@@ -11,7 +11,8 @@ use Illuminate\Support\Facades\Hash;
 use Tests\TestCase;
 
 /**
- * Empat sub-menu tabel Data Gaji & Tunjangan beserta gerbang privasinya.
+ * Sub-menu Rincian Penghasilan (empat penyajian tabel Data Gaji & Tunjangan)
+ * beserta gerbang privasinya.
  */
 class GajiTunjanganTest extends TestCase
 {
@@ -239,6 +240,118 @@ class GajiTunjanganTest extends TestCase
 
         config(['akses.menu.superadmin' => array_values(array_diff(config('akses.menu.superadmin'), ['gt-total']))]);
         $this->actingAs($user)->get(route('gaji-tunjangan.tabel.total'))->assertForbidden();
+    }
+
+    /*
+     * ================================================================
+     * Sub-menu "Rincian Penghasilan": keempat penyajian disatukan menjadi
+     * satu butir sidebar dan dipilih lewat pemilih di dalam halaman.
+     * ================================================================
+     */
+
+    /** Isi blok <nav class="sb-menu"> saja, supaya isi halaman tidak ikut terbaca. */
+    private function sidebar(string $isi): string
+    {
+        $mulai = strpos($isi, '<nav class="sb-menu">');
+        $this->assertNotFalse($mulai, 'Blok sidebar tidak ditemukan.');
+
+        return substr($isi, $mulai, strpos($isi, '</nav>', $mulai) - $mulai);
+    }
+
+    public function test_sidebar_menyatukan_empat_penyajian_menjadi_rincian_penghasilan(): void
+    {
+        $nav = $this->sidebar(
+            $this->actingAs($this->user(User::ROLE_SUPERADMIN))
+                ->get(route('gaji-tunjangan.tabel.kondisi'))->assertOk()->getContent()
+        );
+
+        // Satu butir, menuju penyajian pertama, dan menyala walau yang
+        // sedang dibuka bukan penyajian pertama itu.
+        $this->assertStringContainsString(
+            '<a class="sb-item sub active" href="'.route('gaji-tunjangan.tabel.gaji').'">Rincian Penghasilan</a>',
+            $nav
+        );
+
+        foreach (['TPP Beban Kerja', 'TPP Kondisi Kerja', 'Total Penghasilan'] as $lama) {
+            $this->assertStringNotContainsString($lama, $nav, "Butir lama {$lama} masih ada di sidebar.");
+        }
+        $this->assertStringNotContainsString('>Gaji Induk</a>', $nav);
+    }
+
+    public function test_pemilih_memuat_empat_penyajian_dan_membawa_saringan(): void
+    {
+        $this->gaji();
+
+        $halaman = $this->actingAs($this->user(User::ROLE_SUPERADMIN))
+            ->get(route('gaji-tunjangan.tabel.beban', ['mode' => 'tahun', 'tahun' => 2026, 'q' => 'ELYNA', 'page' => 3]))
+            ->assertOk()
+            ->assertSee('<h3>Rincian Penghasilan</h3>', false);
+
+        $isi = $halaman->getContent();
+        $saringan = ['mode' => 'tahun', 'tahun' => 2026, 'q' => 'ELYNA'];
+
+        foreach (['gaji' => 'Gaji Induk', 'beban' => 'TPP Beban Kerja', 'kondisi' => 'TPP Kondisi Kerja', 'total' => 'Total Penghasilan'] as $jenis => $label) {
+            // Saringan ikut terbawa, nomor halaman tidak.
+            $url = e(route('gaji-tunjangan.tabel.'.$jenis, $saringan));
+            $this->assertMatchesRegularExpression(
+                '/<a class="an-seg-btn[^"]*" href="'.preg_quote($url, '/').'"[^>]*>'.preg_quote($label, '/').'<\/a>/',
+                $isi,
+                "Pilihan {$label} tidak ada atau saringannya tidak terbawa."
+            );
+        }
+
+        // Hanya penyajian yang sedang dibuka yang ditandai aktif.
+        $this->assertSame(1, substr_count($isi, 'class="an-seg-btn active"'));
+        $this->assertMatchesRegularExpression('/an-seg-btn active"[^>]*aria-current="page"[^>]*>TPP Beban Kerja</', $isi);
+    }
+
+    public function test_pemilih_tetap_tampil_di_balik_gerbang_privasi(): void
+    {
+        $this->gaji();
+
+        $this->actingAs($this->user(User::ROLE_PPTK))
+            ->get(route('gaji-tunjangan.tabel.gaji', ['bulan' => 8, 'tahun' => 2026]))
+            ->assertOk()
+            ->assertSee('Verifikasi Identitas')
+            ->assertSee('an-seg-btn', false)
+            ->assertDontSee('ELYNA');
+    }
+
+    public function test_penyajian_yang_ditutup_hilang_dari_pemilih_dan_sidebar_pindah_tujuan(): void
+    {
+        $user = $this->user(User::ROLE_SUPERADMIN);
+
+        config(['akses.menu.superadmin' => array_values(array_diff(config('akses.menu.superadmin'), ['gt-gaji', 'gt-total']))]);
+
+        $isi = $this->actingAs($user)->get(route('gaji-tunjangan.tabel.kondisi'))->assertOk()->getContent();
+
+        $this->assertSame(2, substr_count($isi, 'class="an-seg-btn'));
+        $this->assertStringNotContainsString('>Gaji Induk</a>', $isi);
+        $this->assertStringNotContainsString('>Total Penghasilan</a>', $isi);
+
+        // Sidebar menuju penyajian pertama yang MASIH dipegang, bukan ke
+        // Gaji Induk yang akan menolak dengan 403.
+        $this->assertStringContainsString(
+            'href="'.route('gaji-tunjangan.tabel.beban').'">Rincian Penghasilan</a>',
+            $this->sidebar($isi)
+        );
+
+        $this->actingAs($user)->get(route('gaji-tunjangan.tabel.gaji'))->assertForbidden();
+    }
+
+    public function test_butir_rincian_penghasilan_hilang_bila_keempat_penyajian_ditutup(): void
+    {
+        $user = $this->user(User::ROLE_SUPERADMIN);
+
+        config(['akses.menu.superadmin' => array_values(array_diff(
+            config('akses.menu.superadmin'),
+            ['gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total']
+        ))]);
+
+        $nav = $this->sidebar($this->actingAs($user)->get(route('dashboard.index'))->assertOk()->getContent());
+
+        $this->assertStringNotContainsString('">Rincian Penghasilan</a>', $nav);
+        $this->assertStringContainsString('Cetak Rincian Penghasilan', $nav);
     }
 
     /*

@@ -235,10 +235,11 @@ Route::middleware('auth.or.guest')->group(function () {
      * memverifikasi NIP + 4 digit rekening lebih dulu dan hanya menerima
      * barisnya sendiri, disaring di server oleh GajiTunjanganService.
      */
-    // Tiap sub-menu dijaga kunci menunya masing-masing (gt-gaji, gt-beban,
-    // gt-kondisi, gt-total), bukan satu kunci untuk keempatnya, supaya hak
-    // aksesnya tetap benar bila suatu saat salah satu ditutup untuk sebuah
-    // role di config/akses.php.
+    // Di sidebar keempatnya satu butir ("Rincian Penghasilan") dan dipilih
+    // lewat pemilih di halaman, tetapi tiap penyajian tetap dijaga kunci
+    // menunya masing-masing (gt-gaji, gt-beban, gt-kondisi, gt-total), bukan
+    // satu kunci untuk keempatnya, supaya hak aksesnya tetap benar bila suatu
+    // saat salah satu ditutup untuk sebuah role di config/akses.php.
     foreach (['gaji', 'beban', 'kondisi', 'total'] as $jenisGt) {
         Route::get('/gaji-tunjangan/'.$jenisGt, [GajiTunjanganController::class, 'index'])
             ->defaults('jenis', $jenisGt)

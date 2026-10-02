@@ -1,7 +1,7 @@
 @extends('layouts.app')
 
 @section('activeNav', $navKey)
-@section('title', $judul)
+@section('title', 'Rincian Penghasilan')
 
 @section('content')
 @php
@@ -22,7 +22,20 @@
 @include('gaji-tunjangan._styles')
 
 <div class="dash-card gt-card">
-    <h3>{{ $judul }}</h3>
+    <h3>Rincian Penghasilan</h3>
+
+    {{-- Empat penyajian dalam satu sub-menu. Tiap pilihan adalah tautan ke
+         rutenya sendiri (bukan tab JavaScript), jadi penjagaan menu-akses
+         dan gerbang privasi tetap dijalankan server pada setiap perpindahan. --}}
+    <div class="gt-pilih">
+        <div class="an-seg" role="group" aria-label="Penyajian data">
+            @foreach ($pilihan as $kunci => $p)
+                <a class="an-seg-btn{{ $kunci === $jenis ? ' active' : '' }}" href="{{ $p['url'] }}"
+                   @if ($kunci === $jenis) aria-current="page" @endif>{{ $p['label'] }}</a>
+            @endforeach
+        </div>
+    </div>
+
     <div class="sub">{{ $subJudul }}</div>
 
     @if (session('success'))

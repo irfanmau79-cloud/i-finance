@@ -351,7 +351,7 @@
      jadi begitu isi grup lebih tinggi dari angka ini, sub-menu terakhir
      ikut terpotong dan seolah-olah hilang. Nilainya harus selalu lebih
      tinggi dari grup terpanjang: satu item ~44px, grup terpanjang saat ini
-     Gaji dan Tunjangan dengan 7 item (~310px). Tambah angka ini bila suatu
+     Analisis dan Tren dengan 6 item (~265px). Tambah angka ini bila suatu
      saat ada grup yang lebih panjang. */
   .sb-group.open .sb-sub{max-height:560px;}
   .sb-item.sub{padding-left:34px;font-size:12.5px;}

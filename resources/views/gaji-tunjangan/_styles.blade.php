@@ -14,6 +14,12 @@
      satu halaman per menu, jadi tingginya dipatok di sini supaya kotak tabel
      tetap memenuhi layar dan header tabelnya ikut lengket seperti aslinya. */
   .gt-card{padding-top:4px;display:flex;flex-direction:column;min-height:calc(100vh - 168px);}
+  /* Pemilih penyajian (tidak ada di GAS, di sana tiap penyajian menu sendiri).
+     Dibungkus supaya .an-seg tidak ikut melar selebar kartu, dan boleh turun
+     baris di layar sempit - empat labelnya tidak muat sebaris di ponsel. */
+  .gt-pilih{flex:0 0 auto;margin:10px 0 8px;}
+  .gt-pilih .an-seg{flex-wrap:wrap;}
+  .gt-pilih .an-seg-btn{white-space:nowrap;}
   .gt-toolbar{flex:0 0 auto;display:flex;flex-wrap:nowrap;gap:12px;align-items:flex-end;margin:14px 0 6px;}
   .gt-field{display:flex;flex-direction:column;gap:5px;flex:0 0 auto;}
   .gt-field label{font-size:11px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:var(--mut,var(--mut));margin:0;}

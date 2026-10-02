@@ -260,10 +260,13 @@
           <svg class="chev" viewBox="0 0 24 24"><polyline points="9 18 15 12 9 6"/></svg>
         </div>
         <div class="sb-sub">
-          @if (in_array('gt-gaji', $akses)) <a class="sb-item sub{{ $activeNav === 'gt-gaji' ? ' active' : '' }}" href="{{ $href('gt-gaji') }}">Gaji Induk</a> @endif
-          @if (in_array('gt-beban', $akses)) <a class="sb-item sub{{ $activeNav === 'gt-beban' ? ' active' : '' }}" href="{{ $href('gt-beban') }}">TPP Beban Kerja</a> @endif
-          @if (in_array('gt-kondisi', $akses)) <a class="sb-item sub{{ $activeNav === 'gt-kondisi' ? ' active' : '' }}" href="{{ $href('gt-kondisi') }}">TPP Kondisi Kerja</a> @endif
-          @if (in_array('gt-total', $akses)) <a class="sb-item sub{{ $activeNav === 'gt-total' ? ' active' : '' }}" href="{{ $href('gt-total') }}">Total Penghasilan</a> @endif
+          {{-- Rincian Penghasilan = SATU butir untuk empat penyajian (Gaji
+               Induk, TPP Beban Kerja, TPP Kondisi Kerja, Total Penghasilan)
+               yang dipilih di dalam halamannya. Kunci aksesnya tetap empat,
+               jadi tautannya menuju penyajian pertama yang dipegang role
+               ini, dan butirnya menyala di penyajian mana pun. --}}
+          @php($gtTabel = array_values(array_intersect(['gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total'], $akses)))
+          @if ($gtTabel) <a class="sb-item sub{{ in_array($activeNav, $gtTabel, true) ? ' active' : '' }}" href="{{ $href($gtTabel[0]) }}">Rincian Penghasilan</a> @endif
           @if (in_array('gt-cetak', $akses)) <a class="sb-item sub{{ $activeNav === 'gt-cetak' ? ' active' : '' }}" href="{{ $href('gt-cetak') }}">Cetak Rincian Penghasilan</a> @endif
           @if (in_array('gt-daftar', $akses)) <a class="sb-item sub{{ $activeNav === 'gt-daftar' ? ' active' : '' }}" href="{{ $href('gt-daftar') }}">Daftar Rincian Penghasilan</a> @endif
           @if (in_array('gt-rekon', $akses)) <a class="sb-item sub{{ $activeNav === 'gt-rekon' ? ' active' : '' }}" href="{{ $href('gt-rekon') }}">Rekonsiliasi Gaji Induk</a> @endif
