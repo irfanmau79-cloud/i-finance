@@ -52,18 +52,21 @@ return [
      * baris miliknya sendiri. Penyaringannya di server, bukan di browser:
      * data pegawai lain tidak pernah dikirim. Lihat perubahan 22 di
      * README_PERUBAHAN.txt.
+     *
+     * Hanya superadmin dan Bendahara Pengeluaran. Kasubbag, Sekretaris, dan
+     * Inspektur Daerah dulu ikut di sini (mengikuti GAS); sejak ringkasan
+     * role Oktober 2026 mereka pun melewati gerbang yang sama.
      */
     'role_data_penuh' => [
         'superadmin',
         'bendahara_pengeluaran',
-        'kasubbag',
-        'sekretaris',
-        'inspektur',
     ],
 
     /*
-     * Role yang boleh mengimpor berkas gaji/TPP dan menghapus dokumen pada
-     * Daftar Rincian Penghasilan.
+     * Role yang boleh menghapus dokumen pada Daftar Rincian Penghasilan.
+     *
+     * Impor berkas gaji/TPP tidak lagi ikut daftar ini: rutenya berada di
+     * Manajemen Data, yang sejak ringkasan role Oktober 2026 khusus superadmin.
      */
     'role_kelola' => [
         'superadmin',

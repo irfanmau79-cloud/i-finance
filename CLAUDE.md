@@ -67,9 +67,10 @@ nominal via tabel `spm_detail` terpisah).
 
 Role login:
 - `superadmin` — kuasa penuh (dulu bernama "bendahara"). Akun: `superadmin-if`.
-- `bendahara_pengeluaran` (`bp`) — level OPD. Akses = seperti bpp + SPM +
-  Manajemen Data + approve Pengembalian. Di alur NPD HANYA MEMANTAU
-  (read-only, tanpa tombol aksi).
+- `bendahara_pengeluaran` (`bp`) — level OPD. Akses = seperti bpp + kelola
+  SPM + approve Pengembalian. Di alur NPD HANYA MEMANTAU (read-only, tanpa
+  tombol aksi) lewat Data NPD dan antrean Persetujuan. TIDAK memegang
+  Manajemen Data — seluruh grup Setting khusus superadmin.
 - `bpp` — Bendahara Pengeluaran Pembantu, level KPA. Aktif di alur NPD
   (teruskan/setuju/selesai).
 - `pptk`, `verifikator`, `layanan` — seperti biasa. `layanan` = tanpa login.
@@ -78,6 +79,21 @@ Role login:
   unit kerja (`BidangOrganisasi::unitRole()`), dan modul Estimasi Kebutuhan
   memakai ikatan itu untuk mengunci Unit Kerja pada formulir serta menyaring
   data yang boleh dilihat/dihapus — unitnya tidak pernah diambil dari isian.
+- `pengelola_spj` — Pengelola SPJ. Satu-satunya role selain superadmin yang
+  boleh MENGUBAH Inventarisasi SPJ; di luar itu hanya menu "semua role".
+- `pengawas` — baca-saja (`akses.role_baca_saja`), tidak boleh mengubah apa pun.
+
+**Sumber kebenaran akses = `config/akses.php`** (ringkasan role Oktober 2026):
+- `$matriks` — kunci menu → role yang boleh MEMBUKA. Daftar per role
+  diturunkan dari sini; dijaga middleware `menu-akses`. "Pimpinan" =
+  inspektur, sekretaris, kasubbag, inspektur_pembantu, dan kelima Irban.
+- `kelola` — role yang boleh MENGUBAH pada menu yang pembacanya lebih luas
+  (SP2D, Inventarisasi SPJ, Data Pegawai, Data Tunjangan Keluarga); dijaga
+  middleware `kelola:<kunci>` dan helper `boleh_kelola()` di tampilan.
+- Memberi kunci menu ke sebuah role TIDAK otomatis memberi hak ubah. Saat
+  menambah pembaca baru, periksa tombol di halamannya ikut tersembunyi.
+- `RingkasanRoleTest` menguji tiap role × tiap menu; perubahan akses harus
+  diikuti perubahan daftar di test itu.
 
 ---
 
@@ -89,7 +105,14 @@ Bendahara Pengeluaran          — 1 orang, milik PA (JABATAN TTD)
 KPA                            — bisa banyak; tiap KPA punya TEPAT 1 BPP
 PPTK                           — bisa banyak; 1 PPTK bisa banyak Sub Kegiatan
 Tiap Sub Kegiatan -> 1 KPA (BPP ikut otomatis) + 1 PPTK
+Tiap Sub Kegiatan -> 1 AKUN Verifikator (tabel pelimpahan_verifikator,
+                     terpisah dari rantai KPA/PPTK; tidak untuk TTD)
 ```
+
+Verifikasi & Kembalikan ke BPP hanya oleh akun Verifikator Sub Kegiatan itu
+(atau superadmin) — dicek terpusat di `Npd::alasanTolakAksi()`. Sub Kegiatan
+TANPA Verifikator tidak bisa diverifikasi SIAPA PUN, termasuk superadmin
+(keputusan Irfan, Oktober 2026).
 
 TTD NPD diambil lewat `PejabatResolver` dari pelimpahan sub kegiatan, fallback
 ke `data_tambahan` lama + peringatan bila belum diset.

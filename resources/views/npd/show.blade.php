@@ -40,9 +40,22 @@
     @endif
 
     @php
-        $bisaKembaliBpp = in_array('kembali_bpp', $npd->aksiTersedia(auth()->user()->role), true);
+        $bisaKembaliBpp = in_array('kembali_bpp', $aksiTersedia, true);
         $adaCoretan = $npd->coretanJsonTerbaru() !== null;
     @endphp
+
+    @if ($npd->status === 'Verifikasi - Verifikator' && $verifikatorNpd === null)
+        <div class="sumbar" style="background:var(--warn-bg);color:var(--warn-teks);margin-bottom:14px;">
+            <span>
+                Verifikator untuk Sub Kegiatan NPD ini belum ditetapkan, jadi NPD ini <b>belum bisa diverifikasi</b>.
+                @if (auth()->user()->isSuperadmin())
+                    <a href="{{ route('pelimpahan.index', ['status' => 'tanpa_verifikator']) }}" style="color:inherit;font-weight:700;">Tetapkan di menu Pelimpahan</a>.
+                @else
+                    Minta superadmin menetapkannya di menu Pelimpahan.
+                @endif
+            </span>
+        </div>
+    @endif
 
     @if ($bisaKembaliBpp)
         <div class="sumbar" style="background:var(--warn-bg);color:var(--warn);margin-bottom:14px;">
@@ -54,11 +67,31 @@
         </div>
     @endif
 
-    <div class="rev">
+    {{-- Ringkasan: yang paling sering dicari - berapa, statusnya apa, kapan,
+         dari mata anggaran mana - terbaca tanpa menyisir daftar di bawahnya. --}}
+    <div class="npd-ring">
+        <div class="it utama">
+            <div class="k">Nominal NPD</div>
+            <div class="v">Rp {{ number_format((float) $npd->nominal, 2, ',', '.') }}</div>
+            <div class="t">{{ $npd->terbilang }}</div>
+        </div>
+        <div class="it">
+            <div class="k">Status</div>
+            <div class="v"><span class="badge {{ \App\Models\Npd::STATUS_BADGE_CLASS[$npd->status] ?? 'st-diterima' }}">{{ $npd->status }}</span></div>
+        </div>
+        <div class="it">
+            <div class="k">Tanggal NPD</div>
+            <div class="v">{{ $npd->tanggal_npd->format('d-m-Y') }}</div>
+        </div>
+        <div class="it">
+            <div class="k">Tagging</div>
+            <div class="v">{{ $npd->tagging_snapshot ?: ($npd->masterAnggaran->tagging->nama ?? '-') }}</div>
+        </div>
+    </div>
+
+    <div class="rev npd-grid">
         <div class="grp">
             <div class="gt">Informasi Umum</div>
-            <div class="li"><span class="k">Status</span><span class="v"><span class="badge {{ \App\Models\Npd::STATUS_BADGE_CLASS[$npd->status] ?? 'st-diterima' }}">{{ $npd->status }}</span></span></div>
-            <div class="li"><span class="k">Tanggal NPD</span><span class="v">{{ $npd->tanggal_npd->format('d-m-Y') }}</span></div>
             <div class="li"><span class="k">Bulan / Tahun</span><span class="v">{{ $npd->bulan }} / {{ $npd->tahun }}</span></div>
             <div class="li"><span class="k">KEU</span><span class="v">{{ $npd->keu }}</span></div>
             @if ($npd->jenis_panjar)
@@ -89,6 +122,22 @@
                 </span></div>
             @endif
             <div class="li"><span class="k">Dibuat oleh</span><span class="v">{{ $npd->dibuatOleh->nama ?? '—' }}</span></div>
+            {{-- Verifikator = yang ditetapkan untuk Sub Kegiatannya sekarang;
+                 Diverifikasi oleh = yang tercatat di histori, tidak ikut
+                 berubah bila penugasannya dipindah belakangan. --}}
+            <div class="li">
+                <span class="k">Verifikator</span>
+                <span class="v">
+                    @if ($verifikatorNpd)
+                        {{ $verifikatorNpd->nama }}
+                    @else
+                        <span style="color:var(--err-teks);font-style:italic;font-weight:600;">Belum ditetapkan</span>
+                    @endif
+                </span>
+            </div>
+            @if ($diverifikasiOleh)
+                <div class="li"><span class="k">Diverifikasi oleh</span><span class="v">{{ $diverifikasiOleh->nama }}</span></div>
+            @endif
         </div>
 
         <div class="grp">
@@ -101,19 +150,18 @@
             <div class="li"><span class="k">Pagu</span><span class="v">Rp {{ number_format((float) $npd->masterAnggaran->pagu, 2, ',', '.') }}</span></div>
         </div>
 
+        {{-- Nominal & terbilang sudah ada di ringkasan atas, jadi kotak ini
+             hanya muncul bila ada yang perlu ditambahkan: verifikator harus
+             tahu PDF-nya memakai angka ketikan, bukan angka sistem. --}}
+        @if ($npd->sisa_anggaran_manual !== null)
         <div class="grp">
             <div class="gt">Nominal</div>
-            <div class="li"><span class="k">Nominal NPD</span><span class="v">Rp {{ number_format((float) $npd->nominal, 2, ',', '.') }}</span></div>
-            <div class="li"><span class="k">Terbilang</span><span class="v">{{ $npd->terbilang }}</span></div>
-            @if ($npd->sisa_anggaran_manual !== null)
-                {{-- Ditampilkan supaya verifikator tahu PDF-nya memakai angka
-                     ketikan, bukan angka sistem. --}}
-                <div class="li">
-                    <span class="k">Sisa Anggaran di PDF</span>
-                    <span class="v">Rp {{ number_format((float) $npd->sisa_anggaran_manual, 2, ',', '.') }} <span class="sub">(diketik manual)</span></span>
-                </div>
-            @endif
+            <div class="li">
+                <span class="k">Sisa Anggaran di PDF</span>
+                <span class="v">Rp {{ number_format((float) $npd->sisa_anggaran_manual, 2, ',', '.') }} <span class="sub">(diketik manual)</span></span>
+            </div>
         </div>
+        @endif
 
         @if ($npd->catatan)
         <div class="grp">
@@ -124,117 +172,156 @@
     </div>
 
     @if (in_array($npd->jenis, ['pd', 'tr'], true))
-        <h3 style="margin-top:22px;">Anggota Tim</h3>
-        <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">
-            <table class="realisasi">
+        @php
+            // Dihitung sekali di sini: angkanya dipakai baris DAN baris Total.
+            $timHitung = $npd->tim->map(fn ($t) => ['t' => $t, 'h' => $t->hitung()]);
+            $timTotal = [
+                'uh' => $timHitung->sum(fn ($x) => $x['h']['jml_harian'] + $x['h']['jml_akom']),
+                'transport' => $timHitung->sum(fn ($x) => $x['h']['jml_transport']),
+                'representatif' => $timHitung->sum(fn ($x) => $x['h']['representatif']),
+                'jumlah' => $timHitung->sum(fn ($x) => $x['h']['jumlah']),
+            ];
+        @endphp
+        <div class="npd-sek"><h3>Anggota Tim</h3><span class="jml">{{ $timHitung->count() }} orang</span></div>
+        <div class="tbl-npd-wrap">
+            <table class="tbl-npd">
                 <thead>
                     <tr>
-                        <th>Nama</th>
-                        <th>Jabatan</th>
+                        <th class="mid">No</th>
+                        <th>Nama / Jabatan</th>
                         <th>Paket Tujuan</th>
-                        <th>UH + Akomodasi</th>
-                        <th>Transport</th>
-                        <th>Representatif</th>
-                        <th>Jumlah</th>
-                        <th>Penerima</th>
+                        <th class="num">UH + Akomodasi</th>
+                        <th class="num">Transport</th>
+                        <th class="num">Representatif</th>
+                        <th class="num">Jumlah</th>
+                        <th class="mid">Penerima</th>
                     </tr>
                 </thead>
                 <tbody>
-                    @forelse ($npd->tim as $t)
+                    @forelse ($timHitung as $baris)
                         @php
-                            $h = $t->hitung();
+                            $t = $baris['t'];
+                            $h = $baris['h'];
+                            $uh = $h['jml_harian'] + $h['jml_akom'];
                         @endphp
                         <tr>
-                            <td>{{ $t->nama }}</td>
-                            <td>{{ $t->jabatan ?? '—' }}</td>
+                            <td class="no">{{ $loop->iteration }}</td>
                             <td>
-                                @foreach ($t->paket as $p)
-                                    {{ $p->cluster }} &mdash; {{ $p->wilayah }} ({{ $p->lama_hari }} hari, {{ $p->malam }} malam)<br>
-                                @endforeach
+                                <span class="nm">{{ $t->nama }}</span>
+                                <span class="nm-sub">{{ $t->jabatan ?? '—' }}</span>
                             </td>
-                            <td>Rp {{ number_format($h['jml_harian'] + $h['jml_akom'], 2, ',', '.') }}</td>
-                            <td>Rp {{ number_format($h['jml_transport'], 2, ',', '.') }}</td>
-                            <td>Rp {{ number_format($h['representatif'], 2, ',', '.') }}</td>
-                            <td>Rp {{ number_format($h['jumlah'], 2, ',', '.') }}</td>
-                            <td>{{ $t->is_penerima ? 'Ya' : '—' }}</td>
+                            <td>
+                                @forelse ($t->paket as $p)
+                                    <div class="npd-paket">
+                                        <span class="cl">{{ $p->cluster }}</span>
+                                        <span class="wl">{{ $p->wilayah }}</span>
+                                        <span class="lm">{{ $p->lama_hari }} hari &middot; {{ $p->malam }} malam</span>
+                                    </div>
+                                @empty
+                                    <span style="color:var(--mut);">—</span>
+                                @endforelse
+                            </td>
+                            <td class="num @if ($uh == 0) nol @endif">Rp {{ number_format($uh, 2, ',', '.') }}</td>
+                            <td class="num @if ($h['jml_transport'] == 0) nol @endif">Rp {{ number_format($h['jml_transport'], 2, ',', '.') }}</td>
+                            <td class="num @if ($h['representatif'] == 0) nol @endif">Rp {{ number_format($h['representatif'], 2, ',', '.') }}</td>
+                            <td class="num jml">Rp {{ number_format($h['jumlah'], 2, ',', '.') }}</td>
+                            <td class="mid">
+                                @if ($t->is_penerima)
+                                    <span class="badge st-aktif">Penerima</span>
+                                @else
+                                    <span style="color:var(--mut);">—</span>
+                                @endif
+                            </td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" style="text-align:center;color:var(--mut);padding:20px;">Belum ada anggota tim.</td>
+                            <td colspan="8" class="kosong">Belum ada anggota tim.</td>
                         </tr>
                     @endforelse
                 </tbody>
+                @if ($timHitung->isNotEmpty())
+                    <tfoot>
+                        <tr>
+                            <td colspan="3">Total</td>
+                            <td class="num">Rp {{ number_format($timTotal['uh'], 2, ',', '.') }}</td>
+                            <td class="num">Rp {{ number_format($timTotal['transport'], 2, ',', '.') }}</td>
+                            <td class="num">Rp {{ number_format($timTotal['representatif'], 2, ',', '.') }}</td>
+                            <td class="num">Rp {{ number_format($timTotal['jumlah'], 2, ',', '.') }}</td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                @endif
             </table>
         </div>
     @elseif ($npd->jenis === 'ns')
-        <h3 style="margin-top:22px;">Daftar Narasumber</h3>
-        <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">
-            <table class="realisasi">
+        <div class="npd-sek"><h3>Daftar Narasumber</h3></div>
+        <div class="tbl-npd-wrap">
+            <table class="tbl-npd">
                 <thead>
                     <tr>
                         <th>Nama</th>
                         <th>Jabatan</th>
                         <th>JP</th>
-                        <th>Tarif/JP</th>
-                        <th>Honor</th>
-                        <th>Transport</th>
-                        <th>Bruto</th>
-                        <th>PPh 21</th>
-                        <th>Diterima</th>
+                        <th class="num">Tarif/JP</th>
+                        <th class="num">Honor</th>
+                        <th class="num">Transport</th>
+                        <th class="num">Bruto</th>
+                        <th class="num">PPh 21</th>
+                        <th class="num">Diterima</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($npd->narasumber as $n)
                         <tr>
-                            <td>{{ $n->nama }}</td>
+                            <td><span class="nm">{{ $n->nama }}</span></td>
                             <td>{{ $n->jabatan ?? '—' }}</td>
                             <td>{{ $n->jumlah_jp }}</td>
-                            <td>Rp {{ number_format((float) $n->tarif_jp, 2, ',', '.') }}</td>
-                            <td>Rp {{ number_format($n->honor, 2, ',', '.') }}</td>
-                            <td>Rp {{ number_format((float) $n->transport, 2, ',', '.') }}</td>
-                            <td>Rp {{ number_format($n->bruto, 2, ',', '.') }}</td>
-                            <td>Rp {{ number_format((float) $n->pph21, 2, ',', '.') }}</td>
-                            <td>Rp {{ number_format($n->netto, 2, ',', '.') }}</td>
+                            <td class="num">Rp {{ number_format((float) $n->tarif_jp, 2, ',', '.') }}</td>
+                            <td class="num">Rp {{ number_format($n->honor, 2, ',', '.') }}</td>
+                            <td class="num">Rp {{ number_format((float) $n->transport, 2, ',', '.') }}</td>
+                            <td class="num">Rp {{ number_format($n->bruto, 2, ',', '.') }}</td>
+                            <td class="num">Rp {{ number_format((float) $n->pph21, 2, ',', '.') }}</td>
+                            <td class="num">Rp {{ number_format($n->netto, 2, ',', '.') }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" style="text-align:center;color:var(--mut);padding:20px;">Belum ada narasumber.</td>
+                            <td colspan="9" class="kosong">Belum ada narasumber.</td>
                         </tr>
                     @endforelse
                 </tbody>
             </table>
         </div>
     @elseif ($npd->jenis === 'kd')
-        <h3 style="margin-top:22px;">Daftar Peserta</h3>
-        <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">
-            <table class="realisasi">
+        <div class="npd-sek"><h3>Daftar Peserta</h3></div>
+        <div class="tbl-npd-wrap">
+            <table class="tbl-npd">
                 @if ($npd->mode_kd === 'perjalanan')
                     <thead>
                         <tr>
                             <th>Nama</th>
                             <th>Pangkat</th>
                             <th>Hari UH</th>
-                            <th>Jumlah Harian</th>
-                            <th>Akomodasi</th>
-                            <th>Uang Saku</th>
-                            <th>Transport</th>
-                            <th>Subtotal</th>
+                            <th class="num">Jumlah Harian</th>
+                            <th class="num">Akomodasi</th>
+                            <th class="num">Uang Saku</th>
+                            <th class="num">Transport</th>
+                            <th class="num">Subtotal</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse ($npd->peserta as $p)
                             <tr>
-                                <td>{{ $p->nama }}</td>
+                                <td><span class="nm">{{ $p->nama }}</span></td>
                                 <td>{{ $p->pangkat ?? '—' }}</td>
                                 <td>{{ $p->hari_uh }}</td>
-                                <td>Rp {{ number_format($p->jumlah_harian, 2, ',', '.') }}</td>
-                                <td>Rp {{ number_format($p->jumlah_akomodasi, 2, ',', '.') }}</td>
-                                <td>Rp {{ number_format($p->jumlah_saku, 2, ',', '.') }}</td>
-                                <td>Rp {{ number_format((float) $p->transport, 2, ',', '.') }}</td>
-                                <td>Rp {{ number_format($p->sub_perjalanan, 2, ',', '.') }}</td>
+                                <td class="num">Rp {{ number_format($p->jumlah_harian, 2, ',', '.') }}</td>
+                                <td class="num">Rp {{ number_format($p->jumlah_akomodasi, 2, ',', '.') }}</td>
+                                <td class="num">Rp {{ number_format($p->jumlah_saku, 2, ',', '.') }}</td>
+                                <td class="num">Rp {{ number_format((float) $p->transport, 2, ',', '.') }}</td>
+                                <td class="num">Rp {{ number_format($p->sub_perjalanan, 2, ',', '.') }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="8" style="text-align:center;color:var(--mut);padding:20px;">Belum ada peserta.</td></tr>
+                            <tr><td colspan="8" class="kosong">Belum ada peserta.</td></tr>
                         @endforelse
                     </tbody>
                 @else
@@ -243,53 +330,53 @@
                             <th>Nama</th>
                             <th>Pangkat</th>
                             <th>Volume Kontribusi</th>
-                            <th>Jumlah Kontribusi</th>
+                            <th class="num">Jumlah Kontribusi</th>
                             <th>Volume MOOC</th>
-                            <th>Jumlah MOOC</th>
-                            <th>Subtotal</th>
+                            <th class="num">Jumlah MOOC</th>
+                            <th class="num">Subtotal</th>
                         </tr>
                     </thead>
                     <tbody>
                         @forelse ($npd->peserta as $p)
                             <tr>
-                                <td>{{ $p->nama }}</td>
+                                <td><span class="nm">{{ $p->nama }}</span></td>
                                 <td>{{ $p->pangkat ?? '—' }}</td>
                                 <td>{{ $p->volume_kontribusi }}</td>
-                                <td>Rp {{ number_format($p->jumlah_kontribusi, 2, ',', '.') }}</td>
+                                <td class="num">Rp {{ number_format($p->jumlah_kontribusi, 2, ',', '.') }}</td>
                                 <td>{{ $p->volume_mooc }}</td>
-                                <td>Rp {{ number_format($p->jumlah_mooc, 2, ',', '.') }}</td>
-                                <td>Rp {{ number_format($p->sub_kontribusi, 2, ',', '.') }}</td>
+                                <td class="num">Rp {{ number_format($p->jumlah_mooc, 2, ',', '.') }}</td>
+                                <td class="num">Rp {{ number_format($p->sub_kontribusi, 2, ',', '.') }}</td>
                             </tr>
                         @empty
-                            <tr><td colspan="7" style="text-align:center;color:var(--mut);padding:20px;">Belum ada peserta.</td></tr>
+                            <tr><td colspan="7" class="kosong">Belum ada peserta.</td></tr>
                         @endforelse
                     </tbody>
                 @endif
             </table>
         </div>
     @else
-        <h3 style="margin-top:22px;">Daftar Penerima</h3>
-        <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">
-            <table class="realisasi">
+        <div class="npd-sek"><h3>Daftar Penerima</h3></div>
+        <div class="tbl-npd-wrap">
+            <table class="tbl-npd">
                 <thead>
                     <tr>
                         <th>Nama</th>
                         <th>Rekening</th>
-                        <th>Bruto</th>
-                        <th>PPN</th>
+                        <th class="num">Bruto</th>
+                        <th class="num">PPN</th>
                         <th>PPh</th>
-                        <th>Biaya KU/RTGS</th>
-                        <th>Netto</th>
+                        <th class="num">Biaya KU/RTGS</th>
+                        <th class="num">Netto</th>
                         <th>Keterangan</th>
                     </tr>
                 </thead>
                 <tbody>
                     @forelse ($npd->penerima as $p)
                         <tr>
-                            <td>{{ $p->nama }}</td>
+                            <td><span class="nm">{{ $p->nama }}</span></td>
                             <td>{{ $p->rekening ?? '—' }}</td>
-                            <td>Rp {{ number_format((float) $p->bruto, 2, ',', '.') }}</td>
-                            <td>Rp {{ number_format((float) $p->ppn, 2, ',', '.') }}</td>
+                            <td class="num">Rp {{ number_format((float) $p->bruto, 2, ',', '.') }}</td>
+                            <td class="num">Rp {{ number_format((float) $p->ppn, 2, ',', '.') }}</td>
                             <td>
                                 @forelse ($p->pphList as $pph)
                                     {{ $pph->jenis }}: Rp {{ number_format((float) $pph->nilai, 2, ',', '.') }}<br>
@@ -297,13 +384,13 @@
                                     —
                                 @endforelse
                             </td>
-                            <td>Rp {{ number_format((float) $p->biaya_ku_rtgs, 2, ',', '.') }}</td>
-                            <td>Rp {{ number_format($p->netto, 2, ',', '.') }}</td>
+                            <td class="num">Rp {{ number_format((float) $p->biaya_ku_rtgs, 2, ',', '.') }}</td>
+                            <td class="num">Rp {{ number_format($p->netto, 2, ',', '.') }}</td>
                             <td>{{ $p->keterangan ?? '—' }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="8" style="text-align:center;color:var(--mut);padding:20px;">Belum ada penerima.</td>
+                            <td colspan="8" class="kosong">Belum ada penerima.</td>
                         </tr>
                     @endforelse
                 </tbody>
@@ -319,8 +406,8 @@
 
     @include('npd._spj-berkas', ['npd' => $npd, 'bolehKelola' => $bolehKelolaArsip])
 
-    <h3 style="margin-top:22px;">Lokasi Arsip SPJ</h3>
-    <div class="dash-card" style="box-shadow:none;border:1px solid var(--line);">
+    <div class="npd-sek"><h3>Lokasi Arsip SPJ</h3></div>
+    <div class="dash-card" style="box-shadow:none;border:1px solid var(--line);margin-top:10px;">
         @if ($bolehKelolaArsip && $npd->status === 'Selesai')
         <form method="POST" action="{{ route('npd.arsip-spj.store', $npd) }}" class="row" style="align-items:end;margin-bottom:16px;">
             @csrf
@@ -339,17 +426,23 @@
     </div>
 
     @if ($npd->historiStatus->isNotEmpty())
-        <h3 style="margin-top:22px;">Histori Status</h3>
-        <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">
-            <table class="realisasi">
-                <thead><tr><th>#</th><th>Waktu</th><th>Aksi</th><th>Perubahan Status</th><th>Pengguna</th><th>Catatan</th></tr></thead>
+        <div class="npd-sek"><h3>Histori Status</h3><span class="jml">{{ $npd->historiStatus->count() }} langkah</span></div>
+        <div class="tbl-npd-wrap">
+            <table class="tbl-npd">
+                <thead><tr><th class="mid">#</th><th>Waktu</th><th>Aksi</th><th>Perubahan Status</th><th>Pengguna</th><th>Catatan</th></tr></thead>
                 <tbody>
                     @foreach ($npd->historiStatus as $histori)
                         <tr>
-                            <td>{{ $histori->nomor_urut }}</td>
-                            <td>{{ $histori->created_at->format('d-m-Y H:i') }}</td>
-                            <td>{{ str($histori->aksi)->replace('_', ' ')->title() }}</td>
-                            <td>{{ $histori->status_asal ?? 'Awal' }} &rarr; {{ $histori->status_tujuan }}</td>
+                            <td class="mid"><span class="hs-no">{{ $histori->nomor_urut }}</span></td>
+                            <td class="hs-wkt"><b>{{ $histori->created_at->format('d-m-Y') }}</b><span>{{ $histori->created_at->format('H:i') }}</span></td>
+                            <td><span class="hs-aksi">{{ str($histori->aksi)->replace('_', ' ')->title() }}</span></td>
+                            {{-- Status akhir yang ditebalkan; status asal dan
+                                 kata "menjadi" dibiarkan biasa. --}}
+                            <td class="hs-ubah">
+                                <span class="asal">{{ $histori->status_asal ?? 'Awal' }}</span>
+                                <span class="kata">menjadi</span>
+                                <span class="tuju">{{ $histori->status_tujuan }}</span>
+                            </td>
                             <td>{{ $histori->user->nama ?? 'Sistem' }}</td>
                             <td>
                                 {{ $histori->catatan ?? '—' }}
@@ -364,7 +457,7 @@
         </div>
     @endif
 
-    <h3 style="margin-top:22px;">Dokumen &amp; Cetak</h3>
+    <div class="npd-sek" style="margin-bottom:10px;"><h3>Dokumen &amp; Cetak</h3></div>
     <div class="cetak-bar">
         @if (in_array($npd->jenis, ['pd', 'tr'], true))
             <a class="btn prim" href="{{ route('npd.cetak-daftar', $npd) }}" target="_blank">Cetak Daftar Pembayaran</a>

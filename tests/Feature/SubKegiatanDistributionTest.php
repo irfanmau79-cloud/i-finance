@@ -262,7 +262,7 @@ class SubKegiatanDistributionTest extends TestCase
         $pegawaiPptk = $this->pegawai('PPTK Otorisasi');
 
         $this->actingAs($admin)->post(route('pelimpahan.pptk.store'), ['pegawai_id' => $pegawaiPptk->id])->assertSessionHasNoErrors();
-        $this->actingAs($bendahara)->get(route('npd.index'))->assertOk();
+        $this->actingAs($bendahara)->get(route('npd.data'))->assertOk();
         $this->actingAs($bendahara)->get(route('pelimpahan.index'))->assertForbidden();
         $this->actingAs($bendahara)->post(route('pelimpahan.pptk.store'), ['pegawai_id' => $pegawaiPptk->id])->assertForbidden();
         $this->actingAs($pptkUser)->post(route('pelimpahan.pptk.store'), ['pegawai_id' => $pegawaiPptk->id])->assertForbidden();

@@ -9,6 +9,7 @@ use App\Models\MasterAnggaran;
 use App\Models\Pegawai;
 use App\Models\PejabatOpd;
 use App\Models\Pelimpahan;
+use App\Models\PelimpahanVerifikator;
 use App\Models\User;
 use Illuminate\Foundation\Testing\TestCase as BaseTestCase;
 
@@ -61,6 +62,36 @@ abstract class TestCase extends BaseTestCase
             $kpa->bpp_pegawai_id,
             $pptk->pegawai_id,
         );
+    }
+
+    /**
+     * Tetapkan akun Verifikator untuk SELURUH Sub Kegiatan aktif saat ini.
+     *
+     * Sejak Verifikator terikat ke Sub Kegiatan (PelimpahanVerifikator), NPD
+     * yang Sub Kegiatannya belum punya Verifikator tidak bisa diverifikasi
+     * siapa pun. Test alur NPD yang tidak sedang menguji ikatan itu memakai
+     * jalan pintas ini - dipanggil SETELAH mata anggarannya dibuat. Tanpa
+     * $verifikator, satu akun Verifikator uji dibuatkan (untuk test yang
+     * memverifikasi sebagai superadmin).
+     */
+    protected function tetapkanVerifikator(?User $verifikator = null): User
+    {
+        $verifikator ??= User::firstOrCreate(
+            ['username' => 'verifikator-uji-otomatis'],
+            ['nama' => 'Verifikator Uji', 'role' => User::ROLE_VERIFIKATOR, 'password' => 'rahasia-uji', 'aktif' => true],
+        );
+
+        $baris = MasterAnggaran::query()->where('aktif', true)->get()
+            ->unique(fn (MasterAnggaran $m) => $m->program_kunci.'|'.$m->sub_kegiatan_kunci)
+            ->map(fn (MasterAnggaran $m) => [
+                'program' => $m->program_lengkap,
+                'sub_kegiatan' => $m->sub_kegiatan_lengkap,
+                'verifikator_user_id' => $verifikator->id,
+            ])->values()->all();
+
+        PelimpahanVerifikator::tetapkan($baris);
+
+        return $verifikator;
     }
 
     private function pegawaiPelimpahanUji(string $nama): Pegawai

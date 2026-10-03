@@ -65,6 +65,7 @@ class NpdCoretanTest extends TestCase
         $verifikator = $this->buatUser('verifikator', 'coret-verif');
         $npd = $this->buatNpd();
 
+        $this->tetapkanVerifikator($verifikator);
         $this->actingAs($verifikator)
             ->post(route('npd.transisi', $npd), [
                 'aksi' => 'kembali_bpp',
@@ -87,6 +88,7 @@ class NpdCoretanTest extends TestCase
         $verifikator = $this->buatUser('verifikator', 'coret-verif-kosong');
         $npd = $this->buatNpd();
 
+        $this->tetapkanVerifikator($verifikator);
         $this->actingAs($verifikator)
             ->post(route('npd.transisi', $npd), [
                 'aksi' => 'kembali_bpp',
@@ -104,6 +106,7 @@ class NpdCoretanTest extends TestCase
         $verifikator = $this->buatUser('verifikator', 'coret-verif-invalid');
         $npd = $this->buatNpd();
 
+        $this->tetapkanVerifikator($verifikator);
         $this->actingAs($verifikator)
             ->post(route('npd.transisi', $npd), [
                 'aksi' => 'kembali_bpp',
@@ -121,6 +124,7 @@ class NpdCoretanTest extends TestCase
         $verifikator = $this->buatUser('verifikator', 'coret-lihat-tombol');
         $npd = $this->buatNpd();
 
+        $this->tetapkanVerifikator($verifikator);
         $this->actingAs($verifikator)->get(route('npd.show', $npd))
             ->assertOk()
             ->assertSee('Beri Coretan pada Dokumen &amp; Kembalikan ke BPP', false);
@@ -131,6 +135,7 @@ class NpdCoretanTest extends TestCase
         $verifikator = $this->buatUser('verifikator', 'coret-halaman-verif');
         $npd = $this->buatNpd();
 
+        $this->tetapkanVerifikator($verifikator);
         $this->actingAs($verifikator)->get(route('npd.coret', $npd))->assertOk();
     }
 
@@ -147,6 +152,7 @@ class NpdCoretanTest extends TestCase
         $verifikator = $this->buatUser('verifikator', 'coret-halaman-status');
         $npd = $this->buatNpd('Draft NPD - BPP');
 
+        $this->tetapkanVerifikator($verifikator);
         $this->actingAs($verifikator)->get(route('npd.coret', $npd))->assertForbidden();
     }
 
@@ -159,6 +165,7 @@ class NpdCoretanTest extends TestCase
         $verifikator = $this->buatUser('verifikator', 'coret-redirect-verif');
         $npd = $this->buatNpd();
 
+        $this->tetapkanVerifikator($verifikator);
         $response = $this->actingAs($verifikator)
             ->from(route('npd.coret', $npd))
             ->post(route('npd.transisi', $npd), [
@@ -180,6 +187,7 @@ class NpdCoretanTest extends TestCase
         $bpp = $this->buatUser('bpp', 'coret-alur-bpp');
         $npd = $this->buatNpd();
 
+        $this->tetapkanVerifikator($verifikator);
         $this->actingAs($verifikator)
             ->post(route('npd.transisi', $npd), [
                 'aksi' => 'kembali_bpp',
@@ -203,6 +211,7 @@ class NpdCoretanTest extends TestCase
         $verifikator = $this->buatUser('verifikator', 'coret-cetak-verif');
         $npd = $this->buatNpd();
 
+        $this->tetapkanVerifikator($verifikator);
         $pdfTanpaCoretan = $this->actingAs($verifikator)->get(route('npd.cetak-npd', $npd))->getContent();
 
         $this->actingAs($verifikator)
@@ -237,6 +246,7 @@ class NpdCoretanTest extends TestCase
         $coretanLama = json_encode(['strokes' => [['page' => 1, 'color' => '#000000', 'width' => 0.01, 'points' => [[0, 0], [0.1, 0.1]]]]]);
         $coretanBaru = json_encode(['strokes' => [['page' => 1, 'color' => '#e11d48', 'width' => 0.01, 'points' => [[0.5, 0.5], [0.9, 0.9]]]]]);
 
+        $this->tetapkanVerifikator($verifikator);
         $this->actingAs($verifikator)->post(route('npd.transisi', $npd), [
             'aksi' => 'kembali_bpp', 'catatan' => 'Revisi pertama', 'coretan_json' => $coretanLama,
         ])->assertSessionHasNoErrors();
@@ -257,6 +267,7 @@ class NpdCoretanTest extends TestCase
         $verifikator = $this->buatUser('verifikator', 'coret-isolasi-verif');
         $npd = $this->buatNpd();
 
+        $this->tetapkanVerifikator($verifikator);
         $npdKosong = $this->actingAs($verifikator)->get(route('npd.cetak-npd', $npd))->getContent();
         $lampiranKosong = $this->actingAs($verifikator)->get(route('npd.cetak-lampiran', $npd))->getContent();
 
@@ -308,6 +319,7 @@ class NpdCoretanTest extends TestCase
         $verifikator = $this->buatUser('verifikator', 'coret-daftar-dok-bj');
         $npdBarangJasa = $this->buatNpd();
 
+        $this->tetapkanVerifikator($verifikator);
         $response = $this->actingAs($verifikator)->get(route('npd.coret', $npdBarangJasa))->assertOk();
         $response->assertSee('NPD', false);
         $response->assertSee('Lampiran', false);
@@ -327,6 +339,7 @@ class NpdCoretanTest extends TestCase
         $verifikator = $this->buatUser('verifikator', 'coret-4jenis-verif');
         $npd = $this->buatNpd();
 
+        $this->tetapkanVerifikator($verifikator);
         $sebelum = $this->actingAs($verifikator)->get(route('npd.cetak-npd', $npd))->getContent();
 
         $this->actingAs($verifikator)
@@ -393,6 +406,7 @@ class NpdCoretanTest extends TestCase
         $verifikator = $this->buatUser('verifikator', 'coret-lama-verif');
         $npd = $this->buatNpd();
 
+        $this->tetapkanVerifikator($verifikator);
         $sebelum = $this->actingAs($verifikator)->get(route('npd.cetak-npd', $npd))->getContent();
 
         $this->actingAs($verifikator)
@@ -419,6 +433,7 @@ class NpdCoretanTest extends TestCase
         $verifikator = $this->buatUser('verifikator', 'coret-alat-verif');
         $npd = $this->buatNpd();
 
+        $this->tetapkanVerifikator($verifikator);
         $isi = $this->actingAs($verifikator)->get(route('npd.coret', $npd))->assertOk()->getContent();
 
         // Enam mode, dengan Geser sebagai mode awal.
@@ -450,6 +465,7 @@ class NpdCoretanTest extends TestCase
         $verifikator = $this->buatUser('verifikator', 'coret-catatan-verif');
         $npd = $this->buatNpd();
 
+        $this->tetapkanVerifikator($verifikator);
         $npdSebelum = $this->actingAs($verifikator)->get(route('npd.cetak-npd', $npd))->getContent();
         $this->assertSame(1, $this->jumlahHalaman($npdSebelum));
 
@@ -482,6 +498,7 @@ class NpdCoretanTest extends TestCase
         $verifikator = $this->buatUser('verifikator', 'coret-mode-verif');
         $npd = $this->buatNpd();
 
+        $this->tetapkanVerifikator($verifikator);
         $this->actingAs($verifikator)->get(route('npd.coret', $npd))->assertOk()
             ->assertSee('data-mode="coret"', false)
             ->assertSee('Coret + Catatan')

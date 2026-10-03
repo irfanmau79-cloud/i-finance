@@ -9,9 +9,20 @@
         <div class="ph-crumb">Beranda / <b>Data Kepegawaian</b> / Data Tunjangan Keluarga</div>
         <div class="ph-title">Data Tunjangan Keluarga</div>
     </div>
+    {{-- Daftar ini dibaca beberapa role; mengubah isinya, mengimpor, dan
+         membuka dokumen pendukung keluarga hanya milik superadmin dan
+         Kepegawaian (config akses.kelola). Unduh Excel menumpang rute
+         Manajemen Data, jadi mengikuti kunci menu itu. --}}
+    @php
+        $bolehKelola = boleh_kelola('tk-data');
+    @endphp
     <div class="ph-actions">
-        <a class="btn" href="{{ route('manajemen-data.export', 'tunjangan-keluarga') }}">Unduh Excel</a>
-        <a class="btn prim" href="{{ route('tunjangan.import.create') }}">Import Excel</a>
+        @if (pegang_menu('manajemen-data'))
+            <a class="btn" href="{{ route('manajemen-data.export', 'tunjangan-keluarga') }}">Unduh Excel</a>
+        @endif
+        @if ($bolehKelola)
+            <a class="btn prim" href="{{ route('tunjangan.import.create') }}">Import Excel</a>
+        @endif
     </div>
 </div>
 
@@ -24,7 +35,7 @@
 
 <div class="dash-card wf-card">
     <div class="sub" style="margin-bottom:12px;">
-        Daftarnya mengikuti <a href="{{ route('tunjangan.pegawai.index') }}">Data Pegawai</a>, dibatasi pada status
+        Daftarnya mengikuti @if (pegang_menu('tk-pegawai'))<a href="{{ route('tunjangan.pegawai.index') }}">Data Pegawai</a>@else Data Pegawai @endif, dibatasi pada status
         <strong>PNS</strong> dan <strong>PPPK Penuh Waktu</strong>. Status Tunjangan dihitung otomatis dari data pasangan dan anak.
     </div>
 
@@ -44,7 +55,7 @@
                     <th>NIP</th>
                     <th>Jabatan</th>
                     <th style="text-align:center;">Status Tunjangan</th>
-                    <th style="text-align:center;">Aksi</th>
+                    @if ($bolehKelola)<th style="text-align:center;">Aksi</th>@endif
                 </tr>
             </thead>
             <tbody>
@@ -61,6 +72,7 @@
                         <td style="text-align:center;">
                             <span class="badge {{ $adaData ? 'st-aktif' : 'st-diterima' }}" title="K = punya pasangan, TK = tidak. Angka = jumlah anak yang berhak tunjangan.">{{ $status }}</span>
                         </td>
+                        @if ($bolehKelola)
                         <td style="text-align:center;">
                             <div class="aksi-wrap" style="width:auto;grid-template-columns:repeat({{ $adaData ? 3 : 2 }},30px);justify-content:center;">
                                 @if ($keluarga?->dokumen_pendukung_path)
@@ -79,9 +91,10 @@
                                 @endif
                             </div>
                         </td>
+                        @endif
                     </tr>
                 @empty
-                    <tr><td colspan="5" style="text-align:center;color:var(--mut);padding:20px;">Belum ada pegawai berstatus PNS atau PPPK Penuh Waktu.</td></tr>
+                    <tr><td colspan="{{ $bolehKelola ? 5 : 4 }}" style="text-align:center;color:var(--mut);padding:20px;">Belum ada pegawai berstatus PNS atau PPPK Penuh Waktu.</td></tr>
                 @endforelse
             </tbody>
         </table>

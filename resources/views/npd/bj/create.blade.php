@@ -66,6 +66,7 @@
                 <div class="ai"><span class="k">Tagging</span><span class="v" id="ma-tagging"></span></div>
                 <div class="ai"><span class="k">Pagu Anggaran</span><span class="v" id="ma-pagu"></span></div>
                 <div class="ai"><span class="k">Sisa Anggaran</span><span class="v" id="ma-sisa" style="color:var(--ok);font-weight:800;"></span></div>
+                @include('npd._sisa-kas')
                 <div class="ai"><span class="k">KEU</span><span class="v" id="ma-keu"></span></div>
             </div>
 
@@ -154,6 +155,8 @@
 </div>
 
 <?php
+    $sisaKas = app(\App\Services\AnggaranRealisasiService::class)->sisaAnggaranKas($masterAnggaran, $npdEdit);
+
     $masterAnggaranJs = $masterAnggaran->map(fn ($m) => [
         'id' => $m->id,
         'program' => $m->program_lengkap,
@@ -165,6 +168,8 @@
         'tagging' => $m->tagging->nama ?? 'Tanpa Tagging',
         'pagu' => (float) $m->pagu,
         'sisa' => $m->sisaTersedia() + ($npdEdit && $npdEdit->master_anggaran_id === $m->id ? (float) $npdEdit->nominal : 0),
+        'sisa_kas' => $sisaKas[$m->id]['sisa'] ?? null,
+        'rak_kas' => $sisaKas[$m->id]['rak'] ?? null,
         'keu' => $m->tentukanKeu(),
     ]);
 
@@ -312,6 +317,7 @@
         document.getElementById('ma-tagging').textContent = m.tagging;
         document.getElementById('ma-pagu').textContent = formatRupiah(m.pagu);
         document.getElementById('ma-sisa').textContent = formatRupiah(m.sisa);
+        window.NpdSisaKas.tampil(m);
         document.getElementById('ma-keu').textContent = m.keu ? ('KEU ' + m.keu) : 'Tidak dapat ditentukan';
         maDetail.style.display = 'block';
     }
@@ -581,6 +587,7 @@
             ? liRow('Program', m.program) + liRow('Kegiatan', m.kegiatan) + liRow('Sub Kegiatan', m.sub_kegiatan)
                 + liRow('Kode Rekening', kodeLabel(m)) + liRow('Tagging', m.tagging)
                 + liRow('Pagu Anggaran', formatRupiah(m.pagu)) + liRow('Sisa Anggaran', formatRupiah(m.sisa))
+                + liRow('Sisa Anggaran Kas', escapeHtml(window.NpdSisaKas.teks(m)))
             : liRow('Sumber dana', 'Belum dipilih');
         html += '</div>';
 

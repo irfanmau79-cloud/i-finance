@@ -45,7 +45,8 @@ class InventarisasiSpjController extends Controller
         return view('inventarisasi-spj.index', [
             'filters' => $filters,
             'inventaris' => $service->data($filters),
-            'bolehEditDetail' => in_array($request->user()?->role, ['superadmin', 'bendahara_pengeluaran', 'bpp'], true),
+            // Superadmin dan Pengelola SPJ saja; pemegang menu lainnya membaca.
+            'bolehEditDetail' => boleh_kelola('invspj'),
         ]);
     }
 

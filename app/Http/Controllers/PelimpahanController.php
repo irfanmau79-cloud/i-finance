@@ -8,7 +8,9 @@ use App\Models\MasterAnggaran;
 use App\Models\Pegawai;
 use App\Models\PejabatOpd;
 use App\Models\Pelimpahan;
+use App\Models\PelimpahanVerifikator;
 use App\Models\PptkRoster;
+use App\Models\User;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -23,6 +25,10 @@ class PelimpahanController extends Controller
         $pegawaiList = Pegawai::where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'nip', 'jabatan', 'pangkat', 'golongan']);
         $kpaList = Kpa::with(['kpaPegawai', 'bppPegawai'])->orderBy('id')->get();
         $pptkRoster = PptkRoster::with('pegawai')->aktif()->orderBy('id')->get();
+        // Verifikator yang bisa dipilih = AKUN aktif ber-role Verifikator,
+        // supaya tiap NPD jelas diverifikasi oleh akun yang mana.
+        $verifikatorList = User::query()->where('role', User::ROLE_VERIFIKATOR)->where('aktif', true)
+            ->orderBy('nama')->get(['id', 'nama', 'username']);
 
         $scopeDasar = MasterAnggaran::query()->where('aktif', true)
             ->selectRaw('program_normal, program_kunci, MIN(kegiatan_normal) kegiatan_normal, sub_kegiatan_normal, sub_kegiatan_kunci')
@@ -35,11 +41,18 @@ class PelimpahanController extends Controller
                 ->whereColumn('ma.program_kunci', 'pelimpahan.program_kunci')
                 ->whereColumn('ma.sub_kegiatan_kunci', 'pelimpahan.sub_kegiatan_kunci');
         })->count();
+        $berVerifikator = PelimpahanVerifikator::aktif()->whereExists(function ($query) {
+            $query->selectRaw('1')->from('master_anggaran as ma')
+                ->where('ma.aktif', true)
+                ->whereColumn('ma.program_kunci', 'pelimpahan_verifikator.program_kunci')
+                ->whereColumn('ma.sub_kegiatan_kunci', 'pelimpahan_verifikator.sub_kegiatan_kunci');
+        })->count();
         $ringkasan = [
             'total' => $totalSubKegiatan,
             'assigned' => $assignedSubKegiatan,
             'unassigned' => max(0, $totalSubKegiatan - $assignedSubKegiatan),
             'percentage' => $totalSubKegiatan > 0 ? round($assignedSubKegiatan / $totalSubKegiatan * 100, 1) : 0,
+            'tanpa_verifikator' => max(0, $totalSubKegiatan - $berVerifikator),
         ];
 
         $subKegiatanQuery = clone $scopeDasar;
@@ -51,6 +64,20 @@ class PelimpahanController extends Controller
             $subKegiatanQuery->whereNotExists($existsCallback);
         } elseif ($request->filled('kpa_id') || $request->filled('pptk_pegawai_id')) {
             $subKegiatanQuery->whereExists($existsCallback);
+        }
+
+        // Verifikator disaring terpisah dari rantai KPA/PPTK: Sub Kegiatan
+        // boleh punya Verifikator walau KPA/PPTK-nya belum diset, dan
+        // sebaliknya.
+        $verifikatorCallback = fn ($query) => $query->selectRaw('1')->from('pelimpahan_verifikator as pv')
+            ->whereColumn('pv.program_kunci', 'master_anggaran.program_kunci')
+            ->whereColumn('pv.sub_kegiatan_kunci', 'master_anggaran.sub_kegiatan_kunci')
+            ->where('pv.aktif', true)
+            ->when($request->filled('verifikator_user_id'), fn ($q) => $q->where('pv.verifikator_user_id', $request->integer('verifikator_user_id')));
+        if ($status === 'tanpa_verifikator') {
+            $subKegiatanQuery->whereNotExists($verifikatorCallback);
+        } elseif ($request->filled('verifikator_user_id')) {
+            $subKegiatanQuery->whereExists($verifikatorCallback);
         }
 
         $subKegiatanQuery
@@ -75,13 +102,14 @@ class PelimpahanController extends Controller
                 })->get();
             $pelimpahanMap = $pelimpahanHalaman->keyBy(fn ($p) => $p->program_kunci.'|'.$p->sub_kegiatan_kunci);
         }
+        $verifikatorMap = PelimpahanVerifikator::peta();
 
         $programList = MasterAnggaran::query()->where('aktif', true)
             ->select('program_normal', 'program_kunci')->distinct()->orderBy('program_normal')->get();
 
         return view('pelimpahan.index', compact(
             'pejabatOpd', 'pegawaiList', 'kpaList', 'pptkRoster', 'subKegiatanList',
-            'pelimpahanMap', 'programList', 'ringkasan'
+            'pelimpahanMap', 'programList', 'ringkasan', 'verifikatorList', 'verifikatorMap'
         ));
     }
 
@@ -220,29 +248,56 @@ class PelimpahanController extends Controller
 
     public function setSubKegiatan(Request $request)
     {
+        // KPA & PPTK berpasangan: diisi keduanya atau tidak sama sekali.
+        // Verifikator berdiri sendiri - baris boleh hanya mengubah
+        // Verifikatornya. 'verifikator_user_id' yang DIKIRIM kosong berarti
+        // mengosongkan; yang tidak dikirim berarti tidak disentuh.
         $validated = $request->validate([
             'rows' => ['required', 'array', 'min:1'],
             'rows.*.scope' => ['required', 'string', 'max:2000'],
-            'rows.*.kpa_id' => ['required', Rule::exists('kpa', 'id')->where('aktif', true)],
-            'rows.*.pptk_pegawai_id' => ['required', Rule::exists('pegawai', 'id')->where('aktif', true)],
+            'rows.*.kpa_id' => ['nullable', 'required_with:rows.*.pptk_pegawai_id', Rule::exists('kpa', 'id')->where('aktif', true)],
+            'rows.*.pptk_pegawai_id' => ['nullable', 'required_with:rows.*.kpa_id', Rule::exists('pegawai', 'id')->where('aktif', true)],
+            'rows.*.verifikator_user_id' => ['nullable', Rule::exists('users', 'id')->where('role', User::ROLE_VERIFIKATOR)->where('aktif', true)],
+        ], [], [
+            'rows.*.verifikator_user_id' => 'Verifikator',
+            'rows.*.kpa_id' => 'KPA',
+            'rows.*.pptk_pegawai_id' => 'PPTK',
         ]);
 
-        $rows = collect($validated['rows'])->map(function (array $baris) {
+        $rantai = [];
+        $verifikator = [];
+
+        foreach ($validated['rows'] as $i => $baris) {
             $scope = json_decode((string) base64_decode($baris['scope'], true), true);
             if (! is_array($scope) || ! isset($scope['program'], $scope['sub_kegiatan'])) {
                 throw ValidationException::withMessages(['rows' => 'Lingkup Sub Kegiatan tidak valid.']);
             }
 
-            return [
-                'program' => $scope['program'],
-                'sub_kegiatan' => $scope['sub_kegiatan'],
-                'kpa_id' => (int) $baris['kpa_id'],
-                'pptk_pegawai_id' => (int) $baris['pptk_pegawai_id'],
-            ];
-        })->all();
+            if (! empty($baris['kpa_id']) && ! empty($baris['pptk_pegawai_id'])) {
+                $rantai[] = [
+                    'program' => $scope['program'],
+                    'sub_kegiatan' => $scope['sub_kegiatan'],
+                    'kpa_id' => (int) $baris['kpa_id'],
+                    'pptk_pegawai_id' => (int) $baris['pptk_pegawai_id'],
+                ];
+            }
+
+            // Dibaca dari request mentah: validated() tidak membedakan kunci
+            // yang dikirim kosong dari kunci yang tidak dikirim sama sekali.
+            if (array_key_exists('verifikator_user_id', (array) $request->input("rows.{$i}"))) {
+                $verifikator[] = [
+                    'program' => $scope['program'],
+                    'sub_kegiatan' => $scope['sub_kegiatan'],
+                    'verifikator_user_id' => ! empty($baris['verifikator_user_id']) ? (int) $baris['verifikator_user_id'] : null,
+                ];
+            }
+        }
 
         try {
-            $hasil = Pelimpahan::tetapkanBaris($rows, $request->user()->id);
+            [$hasil, $hasilVerifikator] = DB::transaction(fn () => [
+                $rantai !== [] ? Pelimpahan::tetapkanBaris($rantai, $request->user()->id) : ['baru' => 0, 'dipindahkan' => 0, 'tetap' => 0],
+                $verifikator !== [] ? PelimpahanVerifikator::tetapkan($verifikator, $request->user()->id) : ['baru' => 0, 'dipindahkan' => 0, 'dikosongkan' => 0, 'tetap' => 0],
+            ]);
         } catch (QueryException $e) {
             if (str_contains(strtolower($e->getMessage()), 'unique') || ($e->errorInfo[0] ?? null) === '23000') {
                 throw ValidationException::withMessages(['rows' => 'Sub Kegiatan baru saja ditugaskan oleh transaksi lain. Muat ulang halaman.']);
@@ -250,10 +305,11 @@ class PelimpahanController extends Controller
             throw $e;
         }
 
-        $jumlah = count($rows);
+        $jumlah = count($validated['rows']);
         AuditLog::catat(
             'Set Pelimpahan Sub Kegiatan',
-            "{$jumlah} baris diproses; baru {$hasil['baru']}, dipindahkan {$hasil['dipindahkan']}, tetap {$hasil['tetap']}"
+            "{$jumlah} baris diproses; KPA/PPTK: baru {$hasil['baru']}, dipindahkan {$hasil['dipindahkan']}, tetap {$hasil['tetap']}"
+                ."; Verifikator: baru {$hasilVerifikator['baru']}, dipindahkan {$hasilVerifikator['dipindahkan']}, dikosongkan {$hasilVerifikator['dikosongkan']}, tetap {$hasilVerifikator['tetap']}"
         );
 
         return back()->with('success', "{$jumlah} Sub Kegiatan berhasil diproses.");

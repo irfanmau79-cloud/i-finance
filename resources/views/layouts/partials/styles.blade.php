@@ -1639,6 +1639,71 @@
   .rev .li{display:flex;justify-content:space-between;padding:3px 0;border-bottom:1px dashed var(--surface-3);}
   .rev .li:last-child{border-bottom:none;} .rev .li .k{color:var(--mut);} .rev .li .v{font-weight:600;text-align:right;max-width:60%;}
 
+  /* ===== Halaman Detail NPD (npd/show) =====
+     Halamannya dulu berupa daftar polos dari atas ke bawah. Tiga hal yang
+     dibenahi: ringkasan di puncak (nominal & status langsung terbaca), kotak
+     informasi berdampingan alih-alih bertumpuk, dan tabel berkepala navy
+     dengan nama tebal serta angka rata kanan. Semua warna lewat token, jadi
+     mode gelap ikut tanpa aturan tersendiri. */
+  .npd-ring{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px;margin-top:14px;}
+  .npd-ring .it{border:1px solid var(--line);border-radius:var(--radius-sm);background:var(--surface-2);padding:10px 13px;min-width:0;}
+  .npd-ring .it .k{font-size:10.5px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;color:var(--mut);}
+  .npd-ring .it .v{margin-top:5px;font-size:14px;font-weight:700;color:var(--tegas);font-variant-numeric:tabular-nums;overflow-wrap:anywhere;}
+  .npd-ring .it.utama{background:var(--navy);border-color:var(--navy);grid-column:span 2;}
+  .npd-ring .it.utama .k{color:rgba(255,255,255,.72);}
+  .npd-ring .it.utama .v{color:#fff;font-size:19px;letter-spacing:-.2px;}
+  .npd-ring .it.utama .t{margin-top:3px;font-size:11.5px;font-style:italic;color:rgba(255,255,255,.8);line-height:1.4;}
+  @media(max-width:560px){.npd-ring .it.utama{grid-column:auto;}}
+  .rev.npd-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(320px,1fr));gap:12px;align-items:start;margin-top:12px;}
+  .rev.npd-grid .grp{margin-top:0;background:var(--surface);}
+  .rev.npd-grid .li{gap:14px;padding:5px 0;}
+  .rev.npd-grid .li .k{flex:0 0 auto;}
+  .rev.npd-grid .li .v{color:var(--ink);}
+  .npd-sek{display:flex;align-items:center;gap:9px;margin-top:24px;}
+  .npd-sek::before{content:"";width:4px;height:17px;border-radius:2px;background:var(--navy);flex:0 0 4px;}
+  .npd-sek h3{margin:0;}
+  .npd-sek .jml{padding:2px 9px;border-radius:50px;background:var(--navy-l);color:var(--tegas);font-size:11px;font-weight:700;}
+  .tbl-npd-wrap{margin-top:10px;border:1px solid var(--line);border-radius:var(--radius-sm);overflow:auto;background:var(--surface);}
+  table.tbl-npd{width:100%;border-collapse:separate;border-spacing:0;font-size:12.5px;}
+  table.tbl-npd thead th{background:var(--navy);color:#fff;font-size:10.5px;font-weight:600;letter-spacing:.4px;text-transform:uppercase;padding:10px 12px;text-align:left;white-space:nowrap;}
+  table.tbl-npd tbody td{padding:10px 12px;border-bottom:1px solid var(--line);vertical-align:top;color:var(--ink);}
+  table.tbl-npd tbody tr:last-child td{border-bottom:none;}
+  table.tbl-npd tbody tr:hover{background:var(--surface-2);}
+  table.tbl-npd th.num,table.tbl-npd td.num{text-align:right;white-space:nowrap;font-variant-numeric:tabular-nums;}
+  table.tbl-npd th.mid,table.tbl-npd td.mid{text-align:center;}
+  table.tbl-npd td.no{width:38px;text-align:center;color:var(--mut);font-variant-numeric:tabular-nums;}
+  table.tbl-npd .nm{font-weight:700;color:var(--tegas);}
+  table.tbl-npd .nm-sub{display:block;margin-top:2px;font-size:11px;font-weight:400;color:var(--mut);line-height:1.35;}
+  table.tbl-npd td.nol{color:var(--mut);}
+  table.tbl-npd td.jml{font-weight:700;color:var(--tegas);}
+  table.tbl-npd td.kosong{text-align:center;color:var(--mut);padding:22px;}
+  table.tbl-npd tfoot td{background:var(--surface-2);border-top:2px solid var(--line);padding:10px 12px;font-weight:700;color:var(--tegas);}
+  .npd-paket{display:flex;align-items:baseline;gap:7px;flex-wrap:wrap;}
+  .npd-paket + .npd-paket{margin-top:5px;}
+  .npd-paket .cl{padding:1px 8px;border-radius:50px;background:var(--navy-l);color:var(--tegas);font-size:10.5px;font-weight:700;white-space:nowrap;}
+  .npd-paket .wl{font-weight:600;}
+  .npd-paket .lm{font-size:11px;color:var(--mut);white-space:nowrap;}
+  /* Histori Status: yang perlu terbaca sekilas adalah status AKHIR tiap
+     langkah, jadi hanya dia yang tebal - status asal dan kata sambungnya
+     dibiarkan tenang. */
+  .hs-no{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;border-radius:50%;background:var(--navy-l);color:var(--tegas);font-size:11px;font-weight:700;}
+  .hs-wkt b{display:block;font-weight:600;color:var(--ink);white-space:nowrap;}
+  .hs-wkt span{font-size:11px;color:var(--mut);}
+  .hs-aksi{display:inline-block;padding:2px 9px;border-radius:50px;background:var(--surface-3);color:var(--ink);font-size:11px;font-weight:600;white-space:nowrap;}
+  .hs-ubah{line-height:1.5;}
+  .hs-ubah .asal{font-weight:400;color:var(--ink);}
+  .hs-ubah .kata{margin:0 4px;font-size:11.5px;color:var(--mut);}
+  .hs-ubah .tuju{font-weight:700;color:var(--tegas);}
+
+  /* Baris Sisa Anggaran Kas pada kotak mata anggaran formulir NPD
+     (npd/_sisa-kas). Keterangannya ditaruh di bawah label supaya jelas
+     cakupannya beda dari Sisa Anggaran di atasnya. */
+  .auto .ai.sisa-kas{align-items:flex-start;gap:14px;}
+  .sisa-kas-ket{display:block;font-size:10.5px;line-height:1.35;color:var(--mut);opacity:.9;}
+  .auto .ai .v.sisa-kas-nilai{color:var(--ok);font-weight:800;white-space:nowrap;}
+  .auto .ai .v.sisa-kas-nilai.minus{color:var(--err);}
+  .auto .ai .v.sisa-kas-nilai.kosong{color:var(--mut);font-weight:600;font-style:italic;}
+
   .toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%);background:var(--navy);color:#fff;padding:12px 18px;border-radius:var(--r-sm);font-size:13.5px;box-shadow:0 4px 14px rgba(0,0,0,.2);display:none;z-index:50;max-width:90%;}
   .spin{display:inline-block;width:15px;height:15px;border:2px solid rgba(255,255,255,.4);border-top-color:#fff;border-radius:50%;animation:sp .7s linear infinite;vertical-align:-2px;margin-right:6px;}
   @keyframes sp{to{transform:rotate(360deg);}}

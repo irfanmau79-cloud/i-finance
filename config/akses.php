@@ -5,10 +5,120 @@
 | Konstanta akses menu per role
 |--------------------------------------------------------------------------
 |
-| Dipindahkan apa adanya dari variabel AKSES & ROLE_LABEL pada sistem lama
-| (gas-lama/index.html). Dipakai oleh sidebar (resources/views/layouts/app.blade.php)
-| untuk menentukan menu apa saja yang tampil untuk role yang sedang login.
+| Dipakai oleh sidebar (resources/views/layouts/app.blade.php) untuk
+| menentukan menu apa saja yang tampil, dan oleh middleware 'menu-akses'
+| untuk menjaga rutenya.
+|
+| Sumbernya MATRIKS di bawah: satu baris per kunci menu, berisi role yang
+| boleh membukanya - susunan yang sama dengan ringkasan role yang disepakati
+| kantor, supaya keduanya bisa dicocokkan baris demi baris. Daftar per role
+| ('menu') diturunkan dari matriks itu, tidak ditulis tangan.
 */
+
+// "Pimpinan" pada ringkasan role: seluruh pejabat struktural.
+$irban = ['irban1', 'irban2', 'irban3', 'irban4', 'irban_inv'];
+$pimpinan = ['inspektur', 'sekretaris', 'kasubbag', 'inspektur_pembantu', ...$irban];
+
+// Lima role yang mengerjakan atau memantau alur keuangan sehari-hari.
+$keuangan = ['superadmin', 'bendahara_pengeluaran', 'bpp', 'pptk', 'verifikator'];
+
+// "All role": semua role yang login, ditambah Pengguna Layanan (tanpa akun).
+$login = [...$keuangan, ...$pimpinan, 'perencanaan', 'kepegawaian', 'pengawas', 'pengelola_spj'];
+$semua = [...$login, 'layanan'];
+
+// Pengawas hanya membaca (lihat 'role_baca_saja'), jadi dua formulir isian
+// yang "All role" ini tidak ikut dipegangnya - rutenya pun menolaknya.
+$semuaPengisi = array_values(array_diff($semua, ['pengawas']));
+
+$pemantau = [...$keuangan, ...$pimpinan, 'pengawas'];
+
+$matriks = [
+    // Dashboard
+    'dashboard' => $semua,
+    'dashpd' => [...$keuangan, ...$pimpinan, 'perencanaan', 'pengawas'],
+    'dash-tk' => [...$keuangan, ...$pimpinan, 'kepegawaian', 'pengawas'],
+    'dashspj' => $pemantau,
+
+    // Rincian Realisasi (Tahunan & Periodik berbagi satu kunci)
+    'rincian' => [...$keuangan, ...$pimpinan, 'perencanaan', 'pengawas'],
+
+    // Analisis dan Tren. 'analisis' = Tren Realisasi + dua Simulasi.
+    'analisis' => [...$keuangan, ...$pimpinan, 'perencanaan', 'pengawas'],
+    /*
+     * Monitoring PKPT & Data Kebutuhan: Superadmin, Perencanaan, Pengawas -
+     * DITAMBAH para Inspektur Pembantu. Irban per unit mengisi Estimasi
+     * Kebutuhan dari daftar PKPT unitnya dan harus bisa melihat hasil
+     * isiannya sendiri; ikatan unitnya ditegakkan di KebutuhanController
+     * (lihat App\Support\BidangOrganisasi::unitRole()).
+     */
+    'pkpt' => ['superadmin', 'perencanaan', 'pengawas', 'inspektur_pembantu', ...$irban],
+    'keb-data' => ['superadmin', 'perencanaan', 'pengawas', 'inspektur_pembantu', ...$irban],
+    'keb-input' => $irban,
+
+    // Nota Pencairan Dana (NPD)
+    'npd-data' => $pemantau,
+    'npd' => ['superadmin', 'pptk'],
+    // Bendahara Pengeluaran membuka antrean ini untuk MEMANTAU; aksi
+    // persetujuannya tetap milik BPP (lihat Npd::TRANSISI).
+    'persetujuan' => ['superadmin', 'bendahara_pengeluaran', 'bpp'],
+    'verifikasi' => ['superadmin', 'verifikator'],
+    'npd-rekanan' => $keuangan,
+
+    // Pengembalian (Input Data & Daftar)
+    'pengembalian-create' => ['superadmin', 'bendahara_pengeluaran', 'bpp', 'verifikator'],
+    'pengembalian' => ['superadmin', 'bendahara_pengeluaran', 'bpp', 'verifikator'],
+
+    'invspj' => ['superadmin', 'pptk', 'bpp', 'bendahara_pengeluaran', 'sekretaris', 'kasubbag', 'pengawas', 'pengelola_spj'],
+
+    // Data Realisasi SP2D (UP/GU/TU & LS berbagi satu kunci)
+    'spm' => $pemantau,
+
+    // Surat Perintah
+    'sp-input' => $semuaPengisi,
+    'sp-data' => $pemantau,
+    'sp-monitor' => $semua,
+    'sp-cetakspj' => $semua,
+    'sp-cetaksppd' => $semua,
+
+    // Data Kepegawaian
+    'tk-pegawai' => [...$keuangan, ...$pimpinan, 'kepegawaian', 'perencanaan', 'pengawas'],
+    'tk-data' => ['superadmin', 'bendahara_pengeluaran', 'pptk', 'kepegawaian', 'pengawas'],
+    'tk-form' => $semuaPengisi,
+    'tk-monitor' => $semua,
+
+    /*
+     * Gaji dan Tunjangan. Empat kunci pertama adalah empat penyajian sub
+     * menu "Rincian Penghasilan". Semua role boleh membukanya, tetapi di
+     * luar config('gaji_tunjangan.role_data_penuh') wajib memasukkan NIP +
+     * 4 digit akhir rekening dan hanya menerima barisnya sendiri.
+     */
+    'gt-gaji' => $semua,
+    'gt-beban' => $semua,
+    'gt-kondisi' => $semua,
+    'gt-total' => $semua,
+    'gt-cetak' => $semua,
+    'gt-daftar' => ['superadmin', 'bendahara_pengeluaran'],
+    'gt-rekon' => ['superadmin', 'bendahara_pengeluaran'],
+    'gt-potensi' => ['superadmin', 'bendahara_pengeluaran', 'kasubbag', 'sekretaris', 'inspektur'],
+
+    'audit-log' => ['superadmin'],
+
+    // Setting
+    'pelimpahan' => ['superadmin'],
+    'manajemen-data' => ['superadmin'],
+    'users' => ['superadmin'],
+
+    // Pengguna Layanan tidak punya akun, jadi tidak punya profil.
+    'profil' => $login,
+];
+
+$menu = array_fill_keys($semua, []);
+
+foreach ($matriks as $kunci => $roles) {
+    foreach ($roles as $role) {
+        $menu[$role][] = $kunci;
+    }
+}
 
 return [
 
@@ -20,38 +130,26 @@ return [
      */
     'sandi_layanan' => env('SANDI_LAYANAN', 'itprovjabar'),
 
-    'menu' => [
-        'superadmin' => ['dashboard', 'rincian', 'analisis', 'pkpt', 'keb-data', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd-data', 'npd', 'npd-rekanan', 'persetujuan', 'verifikasi', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-pegawai', 'tk-data', 'tk-form', 'spm', 'pengembalian-create', 'pengembalian', 'manajemen-data', 'audit-log', 'users', 'pelimpahan', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'gt-daftar', 'gt-rekon', 'gt-potensi', 'profil'],
-        'bendahara_pengeluaran' => ['dashboard', 'rincian', 'analisis', 'pkpt', 'keb-data', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd-data', 'npd', 'npd-rekanan', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'spm', 'pengembalian-create', 'pengembalian', 'manajemen-data', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'gt-daftar', 'gt-rekon', 'gt-potensi', 'profil'],
-        'pptk' => ['dashboard', 'rincian', 'analisis', 'pkpt', 'invspj', 'dash-tk', 'tk-monitor', 'dashspj', 'npd-data', 'npd', 'npd-rekanan', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
-        'bpp' => ['dashboard', 'rincian', 'analisis', 'pkpt', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd-data', 'persetujuan', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'pengembalian-create', 'pengembalian', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
-        'verifikator' => ['dashboard', 'rincian', 'analisis', 'pkpt', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd-data', 'verifikasi', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
-        'perencanaan' => ['dashboard', 'rincian', 'analisis', 'pkpt', 'keb-data', 'dashpd', 'dash-tk', 'tk-monitor', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
-        'inspektur' => ['dashboard', 'rincian', 'analisis', 'pkpt', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'audit-log', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
-        'sekretaris' => ['dashboard', 'rincian', 'analisis', 'pkpt', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
-        'kasubbag' => ['dashboard', 'rincian', 'analisis', 'pkpt', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
-        'inspektur_pembantu' => ['dashboard', 'rincian', 'analisis', 'pkpt', 'keb-data', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
+    // role => daftar kunci menu, diturunkan dari $matriks di atas.
+    'menu' => $menu,
 
-        /*
-         * Lima role Irban per unit kerja. Beda dengan 'inspektur_pembantu'
-         * yang generik: role ini MENGIKAT satu unit kerja, dan modul Estimasi
-         * Kebutuhan memakai ikatan itu untuk mengunci input serta menyaring
-         * data - lihat App\Support\BidangOrganisasi::unitRole(). Menunya sama
-         * dengan inspektur_pembantu, ditambah form kebutuhan (keb-input).
-         */
-        'irban1' => ['dashboard', 'rincian', 'analisis', 'pkpt', 'keb-data', 'keb-input', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
-        'irban2' => ['dashboard', 'rincian', 'analisis', 'pkpt', 'keb-data', 'keb-input', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
-        'irban3' => ['dashboard', 'rincian', 'analisis', 'pkpt', 'keb-data', 'keb-input', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
-        'irban4' => ['dashboard', 'rincian', 'analisis', 'pkpt', 'keb-data', 'keb-input', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
-        'irban_inv' => ['dashboard', 'rincian', 'analisis', 'pkpt', 'keb-data', 'keb-input', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-form', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'profil'],
-        'pengawas' => ['dashboard', 'rincian', 'analisis', 'pkpt', 'keb-data', 'invspj', 'dashpd', 'dash-tk', 'tk-monitor', 'dashspj', 'npd-data', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'spm', 'pengembalian', 'audit-log', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'gt-rekon', 'gt-potensi', 'profil'],
-        'kepegawaian' => ['dashboard', 'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'tk-pegawai', 'tk-data', 'tk-form', 'tk-monitor', 'profil'],
-        'layanan' => ['dashboard', 'rincian', 'sp-input', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd', 'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak', 'tk-form'],
+    /*
+     * Role yang boleh MENGUBAH data pada menu yang pembacanya lebih luas
+     * daripada pengelolanya. Memegang kunci menunya hanya berarti boleh
+     * membuka halamannya; tombol dan rute pengubahnya dijaga daftar ini,
+     * lewat middleware 'kelola' (App\Http\Middleware\EnsureRoleBolehKelola)
+     * dan helper boleh_kelola() di tampilan.
+     */
+    'kelola' => [
+        'spm' => ['superadmin', 'bendahara_pengeluaran'],
+        'invspj' => ['superadmin', 'pengelola_spj'],
+        'tk-pegawai' => ['superadmin', 'kepegawaian'],
+        'tk-data' => ['superadmin', 'kepegawaian'],
     ],
 
     /*
-     * Role yang HANYA boleh membaca. Mereka melihat luas - hampir seluas
-     * superadmin - tetapi tidak boleh mengubah apa pun.
+     * Role yang HANYA boleh membaca. Mereka melihat luas tetapi tidak boleh
+     * mengubah apa pun.
      *
      * Sebagian besar aksi ubah sudah dijaga daftar-izin role eksplisit,
      * sehingga role baru otomatis tertutup di sana. Daftar ini menutup celah
@@ -100,6 +198,7 @@ return [
         'perencanaan' => 'Perencanaan',
         'pengawas' => 'Pengawas',
         'kepegawaian' => 'Kepegawaian',
+        'pengelola_spj' => 'Pengelola SPJ',
         'layanan' => 'Pengguna Layanan',
     ],
 

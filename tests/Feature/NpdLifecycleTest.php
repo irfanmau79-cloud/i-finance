@@ -125,6 +125,7 @@ class NpdLifecycleTest extends TestCase
 
         $this->actingAs($pptk)->post(route('npd.transisi', $npd), ['aksi' => 'ajukan_bpp']);
         $this->actingAs($bpp)->post(route('npd.transisi', $npd), ['aksi' => 'teruskan']);
+        $this->tetapkanVerifikator($verifikator);
         $this->actingAs($verifikator)->post(route('npd.transisi', $npd), ['aksi' => 'verifikasi', 'nomor_lengkap' => '08/NPD-Keu.1.IBC/7/2026']);
         $this->actingAs($bpp)->post(route('npd.transisi', $npd), ['aksi' => 'setuju']);
         $this->actingAs($bpp)->post(route('npd.transisi', $npd), ['aksi' => 'selesai']);
@@ -272,6 +273,7 @@ class NpdLifecycleTest extends TestCase
             'status' => 'Verifikasi - Verifikator',
         ]);
 
+        $this->tetapkanVerifikator($verifikator);
         $response = $this->actingAs($verifikator)
             ->post(route('npd.transisi', $target), ['aksi' => 'verifikasi', 'nomor_lengkap' => '09/NPD-Keu.1.IBC/6/2026']);
 

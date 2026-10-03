@@ -199,8 +199,9 @@ class DashboardPerjalananDinasTest extends TestCase
         $this->assertSame([], $hasil['rekap']['rows']);
         $this->assertTrue($hasil['tren']['kosong']);
 
-        $pptk = User::create(['username' => 'dash-pd-no', 'nama' => 'No', 'role' => 'pptk', 'password' => 'rahasia']);
-        $this->actingAs($pptk)->get(route('dashboard.perjalanan.index'))->assertForbidden();
+        // PPTK kini memegang Dashboard Perjalanan Dinas; Kepegawaian tidak.
+        $kepegawaian = User::create(['username' => 'dash-pd-no', 'nama' => 'No', 'role' => 'kepegawaian', 'password' => 'rahasia']);
+        $this->actingAs($kepegawaian)->get(route('dashboard.perjalanan.index'))->assertForbidden();
     }
 
     public function test_halaman_menampilkan_rekap_metrik_dan_baris_total(): void

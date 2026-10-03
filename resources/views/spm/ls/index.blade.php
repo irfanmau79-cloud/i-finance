@@ -25,7 +25,7 @@
     @endif
 
     <div class="tbl-tools">
-        @if (boleh_ubah())
+        @if (boleh_kelola('spm'))
             <a href="{{ route('spm.ls.create') }}" class="btn prim" style="white-space:nowrap;">Tambah Realisasi SP2D LS</a>
         @endif
         <form method="GET" action="{{ route('spm.ls.index') }}" class="spm-cari">
@@ -113,7 +113,7 @@
                                     <svg viewBox="0 0 24 24"><path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7S2 12 2 12Z"/><circle cx="12" cy="12" r="3"/></svg>
                                 </a>
 
-                                @if (boleh_ubah())
+                                @if (boleh_kelola('spm'))
                                     @unless ($spm->divalidasi())
                                         <form method="POST" action="{{ route('spm.validasi', $spm) }}">
                                             @csrf

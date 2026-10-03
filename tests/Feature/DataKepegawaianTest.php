@@ -67,13 +67,37 @@ class DataKepegawaianTest extends TestCase
             ->assertSee(Pegawai::STATUS_PNS);
     }
 
-    public function test_hanya_superadmin_yang_boleh_membuka_data_pegawai(): void
+    /**
+     * Data Pegawai dibaca banyak role, tetapi menambah dan menyuntingnya
+     * hanya milik superadmin dan Kepegawaian.
+     */
+    public function test_data_pegawai_dibaca_banyak_role_tetapi_hanya_dikelola_superadmin_dan_kepegawaian(): void
     {
-        foreach (['pptk', 'bendahara_pengeluaran', 'bpp'] as $role) {
-            $this->actingAs($this->user($role))->get(route('tunjangan.pegawai.index'))->assertForbidden();
+        $pegawai = $this->pegawai('Budi Santoso', '199001012010011001');
+
+        foreach (['superadmin', 'kepegawaian'] as $role) {
+            $this->actingAs($this->user($role))->get(route('tunjangan.pegawai.index'))
+                ->assertOk()
+                ->assertSee('+ Tambah Pegawai')
+                ->assertSee(route('tunjangan.pegawai.edit', $pegawai), false);
         }
 
-        $this->actingAs($this->user('superadmin'))->get(route('tunjangan.pegawai.index'))->assertOk();
+        foreach (['pptk', 'bendahara_pengeluaran', 'bpp', 'verifikator', 'inspektur', 'irban2', 'perencanaan', 'pengawas'] as $role) {
+            $pembaca = $this->user($role);
+
+            $this->actingAs($pembaca)->get(route('tunjangan.pegawai.index'))
+                ->assertOk()
+                ->assertSee('Budi Santoso')
+                ->assertDontSee('+ Tambah Pegawai')
+                ->assertDontSee(route('tunjangan.pegawai.edit', $pegawai), false);
+
+            $this->actingAs($pembaca)->get(route('tunjangan.pegawai.create'))->assertForbidden();
+            $this->actingAs($pembaca)->get(route('tunjangan.pegawai.edit', $pegawai))->assertForbidden();
+            $this->actingAs($pembaca)->put(route('tunjangan.pegawai.update', $pegawai), [])->assertForbidden();
+            $this->actingAs($pembaca)->post(route('tunjangan.pegawai.store'), [])->assertForbidden();
+        }
+
+        $this->actingAs($this->user('pengelola_spj'))->get(route('tunjangan.pegawai.index'))->assertForbidden();
     }
 
     public function test_tambah_dan_edit_pegawai_menyimpan_periode_kgb_dan_status_kepegawaian(): void

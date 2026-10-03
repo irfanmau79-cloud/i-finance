@@ -37,6 +37,10 @@ class NpdAksiMassalTest extends TestCase
             'pagu' => 500_000_000,
             'aktif' => true,
         ]);
+
+        // Verifikasi massal dijalankan superadmin; Sub Kegiatannya tetap harus
+        // punya Verifikator (lihat Npd::alasanTolakAksi).
+        $this->tetapkanVerifikator();
     }
 
     private function user(string $role): User

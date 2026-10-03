@@ -83,6 +83,7 @@ class NpdAntreanTest extends TestCase
         $draftPptk = $this->buatNpd('Draft NPD - PPTK');
         $verifikasi = $this->buatNpd('Verifikasi - Verifikator');
 
+        $this->tetapkanVerifikator($verifikator);
         $this->actingAs($verifikator)->get(route('npd.verifikasi'))
             ->assertOk()
             ->assertSee($verifikasi->status)
@@ -100,6 +101,7 @@ class NpdAntreanTest extends TestCase
         $bpp = $this->buatUser('bpp', 'salah-antrean-bpp');
         $verifikator = $this->buatUser('verifikator', 'salah-antrean-verif');
 
+        $this->tetapkanVerifikator($verifikator);
         $this->actingAs($verifikator)->get(route('npd.persetujuan'))->assertForbidden();
         $this->actingAs($bpp)->get(route('npd.verifikasi'))->assertForbidden();
     }

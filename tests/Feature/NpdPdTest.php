@@ -136,6 +136,48 @@ class NpdPdTest extends TestCase
         ];
     }
 
+    /**
+     * Halaman detail: nama anggota ditebalkan, ada baris Total yang sama
+     * dengan nominal NPD, dan Histori Status menulis "asal menjadi akhir"
+     * dengan status AKHIR yang ditebalkan - bukan lagi tanda panah.
+     */
+    public function test_halaman_detail_menampilkan_anggota_tim_dan_histori_status_yang_terbaca(): void
+    {
+        $superadmin = $this->buatUser('superadmin', 'pd-detail');
+        $this->actingAs($superadmin)->post(route('npd.pd.store'), $this->payload($this->buatMasterAnggaran()))
+            ->assertSessionHasNoErrors();
+
+        $npd = Npd::query()->latest('id')->firstOrFail();
+        $this->actingAs($superadmin)->post(route('npd.transisi', $npd), ['aksi' => 'terima_npd'])
+            ->assertSessionHasNoErrors();
+
+        $halaman = $this->actingAs($superadmin)->get(route('npd.show', $npd))->assertOk();
+        $isi = $halaman->getContent();
+
+        $halaman->assertSee('<span class="nm">Anggota Pertama</span>', false)
+            ->assertSee('<span class="nm">Anggota Kedua</span>', false)
+            ->assertSee('<span class="cl">A</span>', false)
+            ->assertSee('2 orang')
+            ->assertSee('<span class="badge st-aktif">Penerima</span>', false);
+
+        // Baris Total anggota = nominal NPD.
+        $this->assertMatchesRegularExpression(
+            '/<tfoot>.*?Rp '.preg_quote(number_format((float) $npd->nominal, 2, ',', '.'), '/').'.*?<\/tfoot>/s',
+            $isi
+        );
+
+        // Histori Status: dua langkah (buat, terima), tanpa tanda panah.
+        $this->assertStringNotContainsString('&rarr;', substr($isi, (int) strpos($isi, 'Histori Status')));
+        $this->assertMatchesRegularExpression(
+            '/<span class="asal">Awal<\/span>\s*<span class="kata">menjadi<\/span>\s*<span class="tuju">Draft NPD - PPTK<\/span>/',
+            $isi
+        );
+        $this->assertMatchesRegularExpression(
+            '/<span class="asal">Draft NPD - PPTK<\/span>\s*<span class="kata">menjadi<\/span>\s*<span class="tuju">Draft NPD - BPP<\/span>/',
+            $isi
+        );
+    }
+
     public function test_hanya_pptk_dan_superadmin_dapat_mengakses_pembuatan_npd_perjalanan(): void
     {
         $pptk = $this->buatUser('pptk', 'pd-pptk');

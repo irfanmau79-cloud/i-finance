@@ -274,24 +274,28 @@ class PengembalianTest extends TestCase
 
     // ---------------- UJI 9: role lain tidak bisa akses menu ----------------
 
-    public function test_role_selain_bp_dan_bpp_tidak_bisa_akses_menu_pengembalian_sama_sekali(): void
+    public function test_role_di_luar_menu_pengembalian_tidak_bisa_mengaksesnya_sama_sekali(): void
     {
         $pptk = $this->buatUser('pptk', 'peng-pptk');
-        $verifikator = $this->buatUser('verifikator', 'peng-verifikator');
+        // Pengawas dulu boleh membaca daftarnya; sekarang menunya tidak ia pegang.
+        $pengawas = $this->buatUser('pengawas', 'peng-pengawas');
 
-        foreach ([$pptk, $verifikator] as $user) {
+        foreach ([$pptk, $pengawas] as $user) {
             $this->actingAs($user)->get(route('pengembalian.index'))->assertForbidden();
             $this->actingAs($user)->get(route('pengembalian.create'))->assertForbidden();
             $this->actingAs($user)->post(route('pengembalian.store'), [])->assertForbidden();
         }
 
-        // superadmin, bendahara_pengeluaran, bpp semua boleh mengakses (bukan menyetujui) daftar.
+        // superadmin, bendahara_pengeluaran, bpp, dan verifikator semua boleh
+        // mengakses (bukan menyetujui) daftar dan formulir inputnya.
         foreach ([
             $this->buatUser('superadmin', 'peng-superadmin'),
             $this->buatUser('bendahara_pengeluaran', 'peng-bendahara-9'),
             $this->buatUser('bpp', 'peng-bpp-9'),
+            $this->buatUser('verifikator', 'peng-verifikator'),
         ] as $user) {
             $this->actingAs($user)->get(route('pengembalian.index'))->assertOk();
+            $this->actingAs($user)->get(route('pengembalian.create'))->assertOk();
         }
     }
 

@@ -8,6 +8,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
 use Illuminate\Database\Eloquent\Relations\HasOne;
 use Illuminate\Database\Eloquent\SoftDeletes;
+use Illuminate\Support\Collection;
 
 #[Fillable([
     'jenis',
@@ -185,6 +186,12 @@ class Npd extends Model
 
     /** Aksi yang mewajibkan catatan/alasan diisi. */
     public const AKSI_WAJIB_CATATAN = ['kembali_bpp', 'kembali_pptk', 'batal_selesai'];
+
+    /**
+     * Aksi meja Verifikator. Keduanya terikat ke Verifikator yang ditetapkan
+     * untuk Sub Kegiatan NPD ini di menu Pelimpahan - lihat bolehAksiOleh().
+     */
+    public const AKSI_VERIFIKATOR = ['verifikasi', 'kembali_bpp'];
 
     protected function casts(): array
     {
@@ -495,7 +502,12 @@ class Npd extends Model
         return $rule !== null && ($role === User::ROLE_SUPERADMIN || in_array($role, $rule['roles'], true));
     }
 
-    /** Daftar kunci aksi yang bisa dilakukan role tsb, sesuai status NPD saat ini. */
+    /**
+     * Daftar kunci aksi yang bisa dilakukan role tsb, sesuai status NPD saat ini.
+     *
+     * Hanya memeriksa ROLE. Untuk pengguna sungguhan pakai aksiTersediaUntuk(),
+     * yang ikut memeriksa ikatan Verifikator ke Sub Kegiatan.
+     */
     public function aksiTersedia(string $role): array
     {
         return collect(self::TRANSISI)
@@ -504,6 +516,58 @@ class Npd extends Model
                 && self::bolehAksi($aksi, $role))
             ->keys()
             ->all();
+    }
+
+    /**
+     * Seperti aksiTersedia(), tetapi untuk SATU pengguna: aksi meja
+     * Verifikator hanya muncul bagi akun yang ditetapkan untuk Sub Kegiatan
+     * NPD ini (atau superadmin), dan tidak muncul sama sekali selama
+     * Verifikatornya belum ditetapkan.
+     *
+     * @param  Collection<string, User>|null  $petaVerifikator  hasil PelimpahanVerifikator::peta()
+     */
+    public function aksiTersediaUntuk(User $user, ?Collection $petaVerifikator = null): array
+    {
+        return array_values(array_filter(
+            $this->aksiTersedia($user->role),
+            fn (string $aksi) => $this->alasanTolakAksi($aksi, $user, $petaVerifikator) === null
+        ));
+    }
+
+    /** Akun Verifikator yang ditetapkan untuk Sub Kegiatan NPD ini, atau NULL. */
+    public function verifikatorDitugaskan(?Collection $petaVerifikator = null): ?User
+    {
+        return PelimpahanVerifikator::untukMasterAnggaran($this->masterAnggaran, $petaVerifikator);
+    }
+
+    /**
+     * NULL bila pengguna ini boleh menjalankan aksi tsb pada NPD ini dari sisi
+     * ikatan Verifikator; selain itu kalimat alasan penolakannya.
+     *
+     * Hanya mengurus ikatan Verifikator - kecocokan role dan status asal
+     * tetap diperiksa pemanggil lewat bolehAksi()/TRANSISI.
+     *
+     * Sub Kegiatan TANPA Verifikator ditolak untuk SIAPA PUN, termasuk
+     * superadmin: keputusan kantor, supaya setiap NPD jelas siapa
+     * verifikatornya. Superadmin cukup menetapkannya di menu Pelimpahan.
+     */
+    public function alasanTolakAksi(string $aksi, User $user, ?Collection $petaVerifikator = null): ?string
+    {
+        if (! in_array($aksi, self::AKSI_VERIFIKATOR, true)) {
+            return null;
+        }
+
+        $verifikator = $this->verifikatorDitugaskan($petaVerifikator);
+
+        if ($verifikator === null) {
+            return 'Verifikator untuk Sub Kegiatan NPD ini belum ditetapkan. Tetapkan dulu Verifikatornya di menu Pelimpahan.';
+        }
+
+        if ($user->isSuperadmin() || (int) $verifikator->id === (int) $user->id) {
+            return null;
+        }
+
+        return "NPD ini ditugaskan ke Verifikator {$verifikator->nama}, bukan ke akun Anda.";
     }
 
     /**

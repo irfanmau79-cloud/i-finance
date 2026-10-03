@@ -111,7 +111,7 @@
     <div class="spm-kaki">
         <a class="btn" href="{{ route('spm.ls.index') }}">Kembali ke Daftar</a>
 
-        @if (boleh_ubah())
+        @if (boleh_kelola('spm'))
             @if (! $spm->divalidasi())
                 <a class="btn" href="{{ route('spm.ls.edit', $spm) }}">Edit</a>
                 <form method="POST" action="{{ route('spm.validasi', $spm) }}">

@@ -208,13 +208,14 @@ class VersiPaguTest extends TestCase
         $this->assertNotNull(VersiPagu::find($aktif->id));
     }
 
-    public function test_akses_versi_pagu_terbatas_pada_superadmin_dan_bendahara_pengeluaran(): void
+    public function test_akses_versi_pagu_terbatas_pada_superadmin(): void
     {
         $master = $this->buatMaster('5.1.02.05.01.7001');
         $versi = $this->buatVersi('DPA Murni', [[$master, 15_000_000]]);
 
         $this->actingAs($this->buatUser(User::ROLE_SUPERADMIN))->get(route('versi-pagu.index'))->assertOk();
-        $this->actingAs($this->buatUser(User::ROLE_BENDAHARA_PENGELUARAN))->get(route('versi-pagu.index'))->assertOk();
+        // Versi Pagu bagian dari Manajemen Data, yang kini khusus superadmin.
+        $this->actingAs($this->buatUser(User::ROLE_BENDAHARA_PENGELUARAN))->get(route('versi-pagu.index'))->assertForbidden();
 
         $pptk = $this->buatUser(User::ROLE_PPTK);
         $this->actingAs($pptk)->get(route('versi-pagu.index'))->assertForbidden();

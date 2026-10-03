@@ -2,10 +2,12 @@
 
 namespace Tests\Feature;
 
+use App\Exports\RekapPotensiExport;
 use App\Models\RekapPotensiImport;
 use App\Models\RekapPotensiImportRow;
 use App\Models\RekapPotensiPengembalian;
 use App\Models\User;
+use App\Support\AngkaBerkas;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Hash;
@@ -162,11 +164,11 @@ class RekapPotensiPengembalianTest extends TestCase
 
     public function test_role_di_luar_daftar_ditolak(): void
     {
-        foreach ([User::ROLE_SUPERADMIN, User::ROLE_BENDAHARA_PENGELUARAN, 'pengawas'] as $role) {
+        foreach ([User::ROLE_SUPERADMIN, User::ROLE_BENDAHARA_PENGELUARAN, 'kasubbag', 'sekretaris', 'inspektur'] as $role) {
             $this->actingAs($this->user($role))->get(route('gaji-tunjangan.rekap-potensi'))->assertOk();
         }
 
-        foreach (['pptk', 'bpp', 'verifikator'] as $role) {
+        foreach (['pptk', 'bpp', 'verifikator', 'pengawas', 'irban1', 'perencanaan'] as $role) {
             $this->actingAs($this->user($role))->get(route('gaji-tunjangan.rekap-potensi'))->assertForbidden();
         }
     }
@@ -260,7 +262,7 @@ class RekapPotensiPengembalianTest extends TestCase
         // Sel yang BENAR-BENAR teks - mis. hasil salin-tempel dari dokumen.
         // Sel bertipe angka tidak melewati jalur ini; PhpSpreadsheet sudah
         // menyerahkannya sebagai float.
-        $angka = fn ($nilai) => \App\Support\AngkaBerkas::dari($nilai);
+        $angka = fn ($nilai) => AngkaBerkas::dari($nilai);
 
         // Titik sebagai pemisah RIBUAN - inilah yang paling mudah salah:
         // is_numeric() menerima "250.000" dan membacanya 250.
@@ -301,7 +303,7 @@ class RekapPotensiPengembalianTest extends TestCase
     {
         $this->rekap('198001012000011001', 'Budi', 1_000_000, 250_000, 'Auditor');
 
-        $export = new \App\Exports\RekapPotensiExport;
+        $export = new RekapPotensiExport;
 
         $this->assertContains('Sisa Pengembalian', $export->headings());
         $this->assertSame(750_000.0, $export->map(RekapPotensiPengembalian::sole())[6]);

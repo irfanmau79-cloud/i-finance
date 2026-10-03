@@ -6,8 +6,8 @@ use App\Models\MasterAnggaran;
 use App\Models\Npd;
 use App\Models\Pegawai;
 use App\Models\Spm;
-use App\Models\Vendor;
 use App\Models\User;
+use App\Models\Vendor;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Tests\TestCase;
 
@@ -517,7 +517,11 @@ class SpmTest extends TestCase
 
     // ---------------- Akses role ----------------
 
-    public function test_hanya_superadmin_dan_bendahara_pengeluaran_boleh_akses_spm(): void
+    /**
+     * Membaca daftar SP2D terbuka untuk role keuangan, Pimpinan, dan
+     * Pengawas; mengubahnya tetap hanya superadmin dan Bendahara Pengeluaran.
+     */
+    public function test_spm_dibaca_banyak_role_tetapi_hanya_dikelola_superadmin_dan_bendahara_pengeluaran(): void
     {
         $pptk = $this->buatUser('pptk', 'spm-akses-pptk');
         $bpp = $this->buatUser('bpp', 'spm-akses-bpp');
@@ -529,10 +533,27 @@ class SpmTest extends TestCase
         $this->actingAs($superadmin)->get(route('spm.ls.index'))->assertOk();
         $this->actingAs($bendahara)->get(route('spm.ls.index'))->assertOk();
 
-        $this->actingAs($pptk)->get(route('spm.up-gu.index'))->assertForbidden();
-        $this->actingAs($bpp)->get(route('spm.ls.index'))->assertForbidden();
-        $this->actingAs($pptk)->post(route('spm.up-gu.store'), [])->assertForbidden();
-        $this->actingAs($bpp)->post(route('spm.ls.store'), [])->assertForbidden();
+        $this->actingAs($bendahara)->get(route('spm.up-gu.index'))->assertSee('Tambah Realisasi SP2D UP/GU/TU');
+
+        $inspektur = $this->buatUser('inspektur', 'spm-akses-inspektur');
+
+        foreach ([$pptk, $bpp, $inspektur] as $pembaca) {
+            $this->actingAs($pembaca)->get(route('spm.up-gu.index'))
+                ->assertOk()->assertDontSee('Tambah Realisasi SP2D UP/GU/TU');
+            $this->actingAs($pembaca)->get(route('spm.ls.index'))
+                ->assertOk()->assertDontSee('Tambah Realisasi SP2D LS');
+
+            $this->actingAs($pembaca)->get(route('spm.up-gu.create'))->assertForbidden();
+            $this->actingAs($pembaca)->get(route('spm.ls.create'))->assertForbidden();
+            $this->actingAs($pembaca)->post(route('spm.up-gu.store'), [])->assertForbidden();
+            $this->actingAs($pembaca)->post(route('spm.ls.store'), [])->assertForbidden();
+        }
+
+        foreach (['perencanaan', 'kepegawaian', 'pengelola_spj'] as $role) {
+            $luar = $this->buatUser($role, 'spm-akses-'.$role);
+            $this->actingAs($luar)->get(route('spm.up-gu.index'))->assertForbidden();
+            $this->actingAs($luar)->get(route('spm.ls.index'))->assertForbidden();
+        }
     }
 
     // ---------------- Validasi ----------------

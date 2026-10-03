@@ -146,14 +146,16 @@ class RiwayatPerjalananDinasPegawaiTest extends TestCase
         $pd = $this->npd('pd', '2026-01-10');
         $pd->tim()->create(['pegawai_id' => $pegawai->id, 'nama' => $pegawai->nama, 'tiket' => 100_000]);
 
-        $inspektur = User::create(['username' => 'riwayat-insp', 'nama' => 'Insp', 'role' => 'inspektur', 'password' => 'rahasia']);
+        // Perencanaan memegang Dashboard Perjalanan Dinas tetapi tidak Data
+        // NPD, jadi nomor NPD-nya tampil sebagai teks - bukan tautan mati.
+        $perencanaan = User::create(['username' => 'riwayat-renc', 'nama' => 'Renc', 'role' => 'perencanaan', 'password' => 'rahasia']);
 
-        $this->actingAs($inspektur)
+        $this->actingAs($perencanaan)
             ->get(route('dashboard.perjalanan.pegawai', $pegawai->id))
             ->assertOk()
             ->assertDontSee(route('npd.show', $pd->id));
 
-        $this->actingAs($inspektur)->get(route('npd.show', $pd->id))->assertForbidden();
+        $this->actingAs($perencanaan)->get(route('npd.show', $pd->id))->assertForbidden();
     }
 
     public function test_role_dengan_akses_npd_show_melihat_tautan_dan_dapat_membuka_detail(): void
@@ -172,9 +174,9 @@ class RiwayatPerjalananDinasPegawaiTest extends TestCase
     public function test_role_tanpa_menu_dashpd_tidak_bisa_akses_halaman(): void
     {
         $pegawai = Pegawai::create(['nama' => 'Ani Auditor', 'nip' => '1', 'jabatan' => 'Auditor', 'bidang' => 'Irban I', 'aktif' => true]);
-        $pptk = User::create(['username' => 'riwayat-pptk', 'nama' => 'PPTK', 'role' => 'pptk', 'password' => 'rahasia']);
+        $kepegawaian = User::create(['username' => 'riwayat-kepeg', 'nama' => 'Kepeg', 'role' => 'kepegawaian', 'password' => 'rahasia']);
 
-        $this->actingAs($pptk)->get(route('dashboard.perjalanan.pegawai', $pegawai->id))->assertForbidden();
+        $this->actingAs($kepegawaian)->get(route('dashboard.perjalanan.pegawai', $pegawai->id))->assertForbidden();
     }
 
     private function npd(string $jenis, string $tanggal, array $override = []): Npd

@@ -58,6 +58,12 @@ class User extends Authenticatable
     public const ROLE_PENGAWAS = 'pengawas';
 
     /**
+     * Pengelola SPJ: satu-satunya role selain superadmin yang boleh mengubah
+     * isi Inventarisasi SPJ (lihat config('akses.kelola.invspj')).
+     */
+    public const ROLE_PENGELOLA_SPJ = 'pengelola_spj';
+
+    /**
      * Role Irban per unit kerja. Terikat ke satu unit (lihat
      * BidangOrganisasi::unitRole) sehingga modul Estimasi Kebutuhan bisa
      * mengunci input dan menyaring data tanpa menanyakan unitnya ke pengguna.
@@ -88,6 +94,7 @@ class User extends Authenticatable
         'perencanaan',
         self::ROLE_KEPEGAWAIAN,
         self::ROLE_PENGAWAS,
+        self::ROLE_PENGELOLA_SPJ,
     ];
 
     /**

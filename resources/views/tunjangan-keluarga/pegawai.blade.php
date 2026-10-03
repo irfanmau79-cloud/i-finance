@@ -9,9 +9,14 @@
         <div class="ph-crumb">Beranda / <b>Data Kepegawaian</b> / Data Pegawai</div>
         <div class="ph-title">Data Pegawai</div>
     </div>
-    <div class="ph-actions">
-        <a class="btn prim" href="{{ route('tunjangan.pegawai.create') }}">+ Tambah Pegawai</a>
-    </div>
+    {{-- Daftar ini dibaca banyak role; menambah & menyunting pegawai hanya
+         milik superadmin dan Kepegawaian (config akses.kelola). --}}
+    @php($bolehKelola = boleh_kelola('tk-pegawai'))
+    @if ($bolehKelola)
+        <div class="ph-actions">
+            <a class="btn prim" href="{{ route('tunjangan.pegawai.create') }}">+ Tambah Pegawai</a>
+        </div>
+    @endif
 </div>
 
 @if (session('success'))
@@ -53,7 +58,7 @@
                     <th>Periode KGB</th>
                     <th>Status Kepegawaian</th>
                     <th>Nomor Handphone</th>
-                    <th style="text-align:center;">Aksi</th>
+                    @if ($bolehKelola)<th style="text-align:center;">Aksi</th>@endif
                 </tr>
             </thead>
             <tbody>
@@ -85,12 +90,14 @@
                                 <span style="color:var(--warn);">Belum diisi</span>
                             @endif
                         </td>
-                        <td style="text-align:center;">
-                            <a class="ic-btn" title="Edit" href="{{ route('tunjangan.pegawai.edit', $pegawai) }}"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></a>
-                        </td>
+                        @if ($bolehKelola)
+                            <td style="text-align:center;">
+                                <a class="ic-btn" title="Edit" href="{{ route('tunjangan.pegawai.edit', $pegawai) }}"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></a>
+                            </td>
+                        @endif
                     </tr>
                 @empty
-                    <tr><td colspan="9" style="text-align:center;color:var(--mut);padding:20px;">Belum ada pegawai.</td></tr>
+                    <tr><td colspan="{{ $bolehKelola ? 9 : 8 }}" style="text-align:center;color:var(--mut);padding:20px;">Belum ada pegawai.</td></tr>
                 @endforelse
             </tbody>
         </table>

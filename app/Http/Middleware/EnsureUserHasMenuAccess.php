@@ -14,13 +14,18 @@ class EnsureUserHasMenuAccess
      * middleware (atau {key} pada placeholder generik) ada di config('akses.menu') milik role
      * user yang login (atau tamu layanan) — mengikuti aturan visibilitas
      * menu yang sama dengan yang dipakai sidebar (layouts/app.blade.php).
+     *
+     * Boleh menyebut beberapa kunci: 'menu-akses:npd-data,invspj' lolos bila
+     * role memegang SALAH SATUNYA. Dipakai untuk rute yang dibuka dari lebih
+     * dari satu menu, mis. berkas SPJ (dari detail NPD maupun Inventarisasi
+     * SPJ).
      */
-    public function handle(Request $request, Closure $next, ?string $menuKey = null): Response
+    public function handle(Request $request, Closure $next, string ...$menuKeys): Response
     {
         $akses = config('akses.menu')[GuestSession::role()] ?? [];
-        $menuKey ??= $request->route('key');
+        $menuKeys = $menuKeys ?: [(string) $request->route('key')];
 
-        if (! in_array($menuKey, $akses, true)) {
+        if (array_intersect($menuKeys, $akses) === []) {
             abort(403);
         }
 

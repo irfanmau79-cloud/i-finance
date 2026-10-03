@@ -5,8 +5,8 @@
     $npd            Npd yang sedang dilihat
     $bolehKelola    true bila pengguna boleh mengunggah/menghapus (Pengawas tidak)
 --}}
-<h3 style="margin-top:22px;">Berkas SPJ <span class="spj-ops">opsional</span></h3>
-<div class="dash-card" style="box-shadow:none;border:1px solid var(--line);">
+<div class="npd-sek"><h3>Berkas SPJ <span class="spj-ops">opsional</span></h3></div>
+<div class="dash-card" style="box-shadow:none;border:1px solid var(--line);margin-top:10px;">
     <div class="sub" style="margin-bottom:12px;">
         Hasil pindaian SPJ untuk NPD ini. Berkas di sini <strong>ikut tercetak</strong> pada
         &ldquo;Cetak Semua (1 Berkas)&rdquo;, di urutan paling belakang. Menyimpan SPJ belum

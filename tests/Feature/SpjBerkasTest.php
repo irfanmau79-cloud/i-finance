@@ -10,6 +10,8 @@ use App\Services\SpjBerkasService;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
+use Mpdf\Mpdf;
+use Mpdf\Output\Destination;
 use Tests\TestCase;
 
 /**
@@ -258,10 +260,12 @@ class SpjBerkasTest extends TestCase
         ]);
         $berkas = SpjBerkas::query()->firstOrFail();
 
+        // Pengelola SPJ: tidak memegang Data NPD, tetapi dari Inventarisasi
+        // SPJ ia harus bisa melihat, mengunggah, dan menghapus berkasnya.
         $bp = User::create([
-            'username' => 'bp-spj',
-            'nama' => 'BP SPJ',
-            'role' => User::ROLE_BENDAHARA_PENGELUARAN,
+            'username' => 'pengelola-spj',
+            'nama' => 'Pengelola SPJ',
+            'role' => User::ROLE_PENGELOLA_SPJ,
             'password' => 'rahasia',
         ]);
 
@@ -277,6 +281,16 @@ class SpjBerkasTest extends TestCase
             ->assertOk()
             ->assertSee('Upload SPJ')
             ->assertSee('inv-spj-input', false);
+
+        $this->actingAs($bp)->get(route('npd.show', $npd))->assertForbidden();
+        $this->actingAs($bp)->get(route('npd.spj-berkas.show', [$npd, $berkas]))->assertOk();
+        $this->actingAs($bp)->post(route('npd.spj-berkas.store', $npd), [
+            'spj' => [UploadedFile::fake()->create('tambahan.pdf', 40, 'application/pdf')],
+        ])->assertSessionHasNoErrors();
+        $this->assertSame(2, SpjBerkas::count());
+
+        $this->actingAs($bp)->delete(route('npd.spj-berkas.destroy', [$npd, $berkas]))->assertSessionHasNoErrors();
+        $this->assertSame(1, SpjBerkas::count());
     }
 
     public function test_hapus_permanen_npd_ikut_menghapus_berkas_di_disk(): void
@@ -473,8 +487,8 @@ endstream#s', $pdf, $aliran)) {
             foreach ($aliran[1] as $blok) {
                 $mekar = @gzuncompress($blok);
                 if (is_string($mekar) && $mekar !== '') {
-                    $isi .= "
-".$mekar;
+                    $isi .= '
+'.$mekar;
                 }
             }
         }
@@ -535,10 +549,10 @@ endstream#s', $pdf, $aliran)) {
     /** PDF satu halaman paling sederhana yang masih sah, untuk diunggah sebagai SPJ. */
     private function pdfSatuHalaman(): string
     {
-        $mpdf = new \Mpdf\Mpdf(['mode' => 'utf-8', 'format' => [215, 330]]);
+        $mpdf = new Mpdf(['mode' => 'utf-8', 'format' => [215, 330]]);
         $mpdf->WriteHTML('<p>Lampiran SPJ pengujian</p>');
 
-        return $mpdf->Output('', \Mpdf\Output\Destination::STRING_RETURN);
+        return $mpdf->Output('', Destination::STRING_RETURN);
     }
 
     /** Jumlah halaman PDF, dibaca dari objek /Type /Page di dalam berkasnya. */

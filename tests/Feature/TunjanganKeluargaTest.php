@@ -153,9 +153,12 @@ class TunjanganKeluargaTest extends TestCase
         $this->assertSame('disetujui', $pengajuan->fresh()->status);
         $this->assertDatabaseHas('anggota_keluarga', ['nama' => 'Anak', 'status_tunjangan' => true]);
         $this->assertDatabaseHas('audit_log', ['user_id' => $bendahara->id, 'aktivitas' => 'Setujui Perubahan Tunjangan']);
-        $this->actingAs($perencanaan)->get(route('tunjangan.dashboard'))->assertOk();
-        $layanan = $this->user('layanan');
-        $this->actingAs($layanan)->get(route('tunjangan.monitoring'))->assertForbidden();
+        // Dashboard Tunjangan Keluarga tidak lagi dipegang Perencanaan.
+        $this->actingAs($perencanaan)->get(route('tunjangan.dashboard'))->assertForbidden();
+        // Monitoring Pengajuan terbuka untuk semua role, tetapi lampiran dan
+        // tombol prosesnya tetap hanya untuk yang berwenang.
+        $this->actingAs($perencanaan)->get(route('tunjangan.monitoring'))
+            ->assertOk()->assertDontSee('Setujui');
     }
 
     public function test_import_awal_preview_tidak_mengubah_master_lalu_konfirmasi_menyimpan(): void
@@ -188,16 +191,28 @@ class TunjanganKeluargaTest extends TestCase
         }
     }
 
-    public function test_data_tunjangan_keluarga_hanya_superadmin_dan_jadi_acuan_dashboard(): void
+    public function test_data_tunjangan_keluarga_hanya_dikelola_superadmin_dan_jadi_acuan_dashboard(): void
     {
         $pegawai = $this->pegawai('500');
         $admin = $this->user('superadmin');
 
-        foreach (['pptk', 'bendahara_pengeluaran'] as $role) {
-            $bukanAdmin = $this->user($role);
-            $this->actingAs($bukanAdmin)->get(route('tunjangan.data.index'))->assertForbidden();
-            $this->actingAs($bukanAdmin)->get(route('tunjangan.data.edit', $pegawai))->assertForbidden();
-            $this->actingAs($bukanAdmin)->post(route('tunjangan.data.simpan', $pegawai), [])->assertForbidden();
+        // PPTK, Bendahara Pengeluaran, dan Pengawas membaca daftarnya tanpa
+        // tombol ubah; mengubah isinya tetap ditolak.
+        foreach (['pptk', 'bendahara_pengeluaran', 'pengawas'] as $role) {
+            $pembaca = $this->user($role);
+            $this->actingAs($pembaca)->get(route('tunjangan.data.index'))
+                ->assertOk()
+                ->assertSee($pegawai->nama)
+                ->assertDontSee('Import Excel')
+                ->assertDontSee(route('tunjangan.data.edit', $pegawai), false);
+            $this->actingAs($pembaca)->get(route('tunjangan.data.edit', $pegawai))->assertForbidden();
+            $this->actingAs($pembaca)->post(route('tunjangan.data.simpan', $pegawai), [])->assertForbidden();
+            $this->actingAs($pembaca)->delete(route('tunjangan.data.hapus', $pegawai))->assertForbidden();
+        }
+
+        // Role tanpa kunci menunya tidak membuka daftarnya sama sekali.
+        foreach (['bpp', 'verifikator', 'inspektur'] as $role) {
+            $this->actingAs($this->user($role))->get(route('tunjangan.data.index'))->assertForbidden();
         }
 
         // Pegawai tanpa data keluarga tetap terdaftar, berstatus TK/0.
@@ -314,10 +329,12 @@ class TunjanganKeluargaTest extends TestCase
             ->assertSee('Anak Rahasia');
 
         // Kepegawaian ada di daftar bebas gerbang karena merekalah yang
-        // memelihara data ini - tetapi kunci menu dashboardnya memang belum
-        // diberikan, jadi hari ini halamannya tetap tertutup untuk mereka.
+        // memelihara data ini, dan sekarang memegang kunci menu dashboardnya.
         $this->assertContains('kepegawaian', config('akses.role_tk_data_penuh'));
-        $this->assertNotContains('dash-tk', config('akses.menu')['kepegawaian']);
+        $this->actingAs($this->user('kepegawaian'))->get(route('tunjangan.dashboard'))
+            ->assertOk()
+            ->assertDontSee('Verifikasi Identitas')
+            ->assertSee('Anak Rahasia');
     }
 
     public function test_verifikasi_benar_membuka_baris_sendiri_saja(): void

@@ -165,11 +165,11 @@ class InventarisasiSpjTest extends TestCase
      */
     public function test_pengelola_spj_hanya_dapat_mengubah_lokasi_status_dan_catatan(): void
     {
-        $bendahara = $this->user('bendahara_pengeluaran');
+        $pengelola = $this->user('pengelola_spj');
         $npd = $this->npd('6.01.02.1.01 Pengawasan', '5.1.02.01', null);
         BantexSpj::create(['nomor' => '03', 'nama' => 'Bantex C', 'aktif' => true]);
 
-        $response = $this->actingAs($bendahara)->put(route('inventarisasi-spj.detail.update', $npd), [
+        $response = $this->actingAs($pengelola)->put(route('inventarisasi-spj.detail.update', $npd), [
             'bulan' => 5, 'nomor_sp' => 'SP-MANUAL-1', 'koordinator' => 'Koordinator Manual',
             'lokasi' => '03 - Bantex C', 'status' => 'lengkap', 'catatan' => 'Sudah lengkap dokumennya',
         ]);
@@ -180,7 +180,7 @@ class InventarisasiSpjTest extends TestCase
         $this->assertSame('03 - Bantex C', $detail->lokasi);
         $this->assertSame('lengkap', $detail->status);
         $this->assertSame('Sudah lengkap dokumennya', $detail->catatan);
-        $this->assertSame($bendahara->id, $detail->diedit_oleh);
+        $this->assertSame($pengelola->id, $detail->diedit_oleh);
 
         // Kiriman untuk kolom hitung diabaikan.
         $this->assertNull($detail->bulan);
@@ -197,29 +197,29 @@ class InventarisasiSpjTest extends TestCase
     /** Empat status: Lengkap, Belum Lengkap, Dikembalikan, Tidak Ditemukan. */
     public function test_empat_status_spj_diterima_dan_selain_itu_ditolak(): void
     {
-        $bendahara = $this->user('bendahara_pengeluaran');
+        $pengelola = $this->user('pengelola_spj');
         $npd = $this->npd('6.01.02.1.01 Pengawasan', '5.1.02.01', null);
 
         foreach (array_keys(SpjDetail::STATUS) as $status) {
-            $this->actingAs($bendahara)
+            $this->actingAs($pengelola)
                 ->put(route('inventarisasi-spj.detail.update', $npd), ['status' => $status])
                 ->assertSessionHasNoErrors();
         }
 
         $this->assertSame('tidak_ditemukan', SpjDetail::where('npd_id', $npd->id)->firstOrFail()->status);
 
-        $this->actingAs($bendahara)
+        $this->actingAs($pengelola)
             ->put(route('inventarisasi-spj.detail.update', $npd), ['status' => 'entah'])
             ->assertSessionHasErrors('status');
     }
 
     public function test_kpi_menghitung_npd_lengkap_dan_belum_lengkap_beserta_persentasenya(): void
     {
-        $bendahara = $this->user('bendahara_pengeluaran');
+        $pengelola = $this->user('pengelola_spj');
         $a = $this->npd('6.01.02.1.01 Pengawasan', '5.1.02.01', null);
         $this->npd('6.01.02.1.01 Pengawasan', '5.1.02.02', null);
 
-        $this->actingAs($bendahara)->put(route('inventarisasi-spj.detail.update', $a), ['status' => 'lengkap']);
+        $this->actingAs($pengelola)->put(route('inventarisasi-spj.detail.update', $a), ['status' => 'lengkap']);
 
         $kpi = app(InventarisasiSpjService::class)->data([])['kpi'];
 
@@ -230,30 +230,56 @@ class InventarisasiSpjTest extends TestCase
         $this->assertSame(50.0, $kpi['belum_lengkap_persen']);
     }
 
-    public function test_bpp_boleh_tapi_role_lain_tidak_boleh_edit_detail_spj(): void
+    /**
+     * Hanya superadmin dan Pengelola SPJ yang mengubah isi Inventarisasi SPJ.
+     * Pemegang menu lainnya - termasuk Bendahara Pengeluaran dan BPP yang
+     * dulu boleh - membuka halamannya tanpa tombol ubah, dan rutenya menolak.
+     */
+    public function test_selain_superadmin_dan_pengelola_spj_hanya_membaca(): void
     {
-        $bpp = $this->user('bpp');
-        $pptk = $this->user('pptk');
         $npd = $this->npd('6.01.02.1.01 Pengawasan', '5.1.02.01', null);
 
-        $this->actingAs($bpp)->put(route('inventarisasi-spj.detail.update', $npd), [
-            'status' => 'belum_lengkap',
-        ])->assertSessionHasNoErrors();
+        foreach (['superadmin', 'pengelola_spj'] as $role) {
+            $user = $this->user($role);
 
-        $this->actingAs($pptk)->put(route('inventarisasi-spj.detail.update', $npd), [
-            'status' => 'belum_lengkap',
-        ])->assertForbidden();
-        $this->actingAs($pptk)->post(route('inventarisasi-spj.detail.restore', $npd))->assertForbidden();
+            $this->actingAs($user)->get(route('inventarisasi-spj.index'))
+                ->assertOk()->assertViewHas('bolehEditDetail', true);
+            $this->actingAs($user)->put(route('inventarisasi-spj.detail.update', $npd), [
+                'status' => 'belum_lengkap',
+            ])->assertSessionHasNoErrors();
+        }
+
+        foreach (['bendahara_pengeluaran', 'bpp', 'pptk', 'sekretaris', 'kasubbag', 'pengawas'] as $role) {
+            $user = $this->user($role);
+
+            $this->actingAs($user)->get(route('inventarisasi-spj.index'))
+                ->assertOk()->assertViewHas('bolehEditDetail', false);
+            $this->actingAs($user)->get(route('inventarisasi-spj.rincian', $npd))->assertOk();
+
+            $this->actingAs($user)->put(route('inventarisasi-spj.detail.update', $npd), [
+                'status' => 'lengkap',
+            ])->assertForbidden();
+            $this->actingAs($user)->post(route('inventarisasi-spj.detail.restore', $npd))->assertForbidden();
+            $this->actingAs($user)->post(route('inventarisasi-spj.bantex.store'), [
+                'nomor' => '11', 'nama' => 'Box '.$role,
+            ])->assertForbidden();
+        }
+
+        $this->assertSame('belum_lengkap', SpjDetail::where('npd_id', $npd->id)->firstOrFail()->status);
+        $this->assertSame(0, BantexSpj::count());
+
+        // Verifikator tidak lagi memegang menu ini sama sekali.
+        $this->actingAs($this->user('verifikator'))->get(route('inventarisasi-spj.index'))->assertForbidden();
     }
 
     public function test_edit_detail_spj_ditolak_bila_npd_belum_selesai(): void
     {
-        $bendahara = $this->user('bendahara_pengeluaran');
+        $pengelola = $this->user('pengelola_spj');
         $master = MasterAnggaran::create(['program' => 'P', 'kegiatan' => 'K', 'sub_kegiatan' => '6.01.02.1.01 Uji', 'kode_rekening' => '5.1.02.09', 'pagu' => 1_000_000, 'aktif' => true]);
         $npd = Npd::create(['jenis' => 'bj', 'master_anggaran_id' => $master->id, 'keu' => '2', 'bulan' => 7, 'tahun' => 2026,
             'tanggal_npd' => '2026-07-10', 'nominal' => 500_000, 'terbilang' => 'uji', 'status' => 'Draft NPD - PPTK']);
 
-        $this->actingAs($bendahara)->put(route('inventarisasi-spj.detail.update', $npd), ['status' => 'lengkap'])->assertStatus(422);
+        $this->actingAs($pengelola)->put(route('inventarisasi-spj.detail.update', $npd), ['status' => 'lengkap'])->assertStatus(422);
     }
 
     private function user(string $role): User

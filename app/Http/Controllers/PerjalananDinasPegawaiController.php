@@ -11,9 +11,6 @@ use Illuminate\View\View;
 
 class PerjalananDinasPegawaiController extends Controller
 {
-    /** Role yang boleh membuka detail NPD (/npd/{npd}) — sama seperti middleware route npd.show, jangan diperluas di sini. */
-    private const ROLE_BOLEH_LIHAT_NPD = ['superadmin', 'bendahara_pengeluaran', 'pptk', 'bpp', 'verifikator'];
-
     public function __invoke(Request $request, Pegawai $pegawai, RiwayatPerjalananDinasPegawaiService $service): View
     {
         $validated = $request->validate([
@@ -35,7 +32,9 @@ class PerjalananDinasPegawaiController extends Controller
             'pegawai' => $pegawai,
             'filters' => $filters,
             'riwayat' => $service->riwayat($pegawai, $filters, (int) ($validated['page'] ?? 1)),
-            'bolehLihatDetailNpd' => in_array($request->user()->role, self::ROLE_BOLEH_LIHAT_NPD, true),
+            // Detail NPD (/npd/{npd}) dijaga kunci menu Data NPD - sama
+            // seperti middleware route npd.show, jangan diperluas di sini.
+            'bolehLihatDetailNpd' => pegang_menu('npd-data'),
         ]);
     }
 }

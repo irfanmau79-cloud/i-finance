@@ -29,11 +29,9 @@ class NpdNavigationTest extends TestCase
             $response->assertSee(route($route), false);
         }
 
-        // Bendahara Pengeluaran boleh memantau daftarnya tapi tidak melihat pemilih jenis (tidak boleh membuat NPD).
-        $this->actingAs($this->user('bendahara_pengeluaran'))->get(route('npd.index'))
-            ->assertOk()
-            ->assertDontSee(route('npd.bj.create'), false);
-
+        // Pembuatan NPD hanya untuk superadmin dan PPTK. Bendahara Pengeluaran
+        // memantau lewat Data NPD dan antrean Persetujuan.
+        $this->actingAs($this->user('bendahara_pengeluaran'))->get(route('npd.index'))->assertForbidden();
         $this->actingAs($this->user('bpp'))->get(route('npd.index'))->assertForbidden();
         $this->actingAs($this->user('verifikator'))->get(route('npd.index'))->assertForbidden();
     }
@@ -100,7 +98,9 @@ class NpdNavigationTest extends TestCase
         $this->actingAs($superadmin)->get(route('npd.persetujuan'))->assertOk();
         $this->actingAs($superadmin)->get(route('npd.verifikasi'))->assertOk();
 
-        $this->actingAs($this->user('bendahara_pengeluaran'))->get(route('npd.index'))->assertOk();
+        $this->actingAs($this->user('pptk'))->get(route('npd.index'))->assertOk();
+        $this->actingAs($this->user('bendahara_pengeluaran'))->get(route('npd.data'))->assertOk();
+        $this->actingAs($this->user('bendahara_pengeluaran'))->get(route('npd.persetujuan'))->assertOk();
         $this->actingAs($this->user('bpp'))->get(route('npd.persetujuan'))->assertOk();
         $this->actingAs($this->user('verifikator'))->get(route('npd.verifikasi'))->assertOk();
     }

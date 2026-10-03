@@ -304,13 +304,15 @@ class MonitoringPkptTest extends TestCase
         $this->assertStringContainsString('ganda', (string) $alasan[6]);
     }
 
-    public function test_import_hanya_untuk_superadmin_dan_bendahara(): void
+    public function test_import_hanya_untuk_superadmin(): void
     {
-        $this->actingAs($this->buatUser(User::ROLE_PPTK))
-            ->get(route('manajemen-data.import.pkpt.create'))
-            ->assertForbidden();
+        foreach ([User::ROLE_PPTK, User::ROLE_BENDAHARA_PENGELUARAN] as $role) {
+            $this->actingAs($this->buatUser($role))
+                ->get(route('manajemen-data.import.pkpt.create'))
+                ->assertForbidden();
+        }
 
-        $this->actingAs($this->buatUser(User::ROLE_BENDAHARA_PENGELUARAN))
+        $this->actingAs($this->buatUser(User::ROLE_SUPERADMIN))
             ->get(route('manajemen-data.import.pkpt.create'))
             ->assertOk();
     }

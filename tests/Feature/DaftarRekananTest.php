@@ -161,15 +161,15 @@ class DaftarRekananTest extends TestCase
         $this->assertFalse($rekanan->pkp);
     }
 
-    public function test_hanya_role_pembuat_npd_yang_boleh_membuka_daftar_rekanan(): void
+    public function test_hanya_lima_role_keuangan_yang_boleh_membuka_daftar_rekanan(): void
     {
-        foreach (['superadmin', 'bendahara_pengeluaran', 'pptk'] as $i => $role) {
+        foreach (['superadmin', 'bendahara_pengeluaran', 'pptk', 'bpp', 'verifikator'] as $i => $role) {
             $this->actingAs($this->buatUser($role, 'rek-boleh-'.$i))
                 ->get(route('rekanan.index'))
                 ->assertOk();
         }
 
-        foreach (['bpp', 'verifikator', 'kepegawaian'] as $i => $role) {
+        foreach (['inspektur', 'perencanaan', 'kepegawaian', 'pengelola_spj'] as $i => $role) {
             $this->actingAs($this->buatUser($role, 'rek-tolak-'.$i))
                 ->get(route('rekanan.index'))
                 ->assertForbidden();
@@ -178,7 +178,7 @@ class DaftarRekananTest extends TestCase
 
     public function test_role_baca_saja_tidak_boleh_menambah_rekanan(): void
     {
-        // 'pengawas' baca-saja DAN di luar role pembuat NPD, jadi tertahan dua
+        // 'pengawas' baca-saja DAN di luar pemegang Daftar Rekanan, jadi tertahan dua
         // lapis - rutenya pun tidak terbuka untuknya.
         $this->actingAs($this->buatUser('pengawas', 'rek-pengawas'))
             ->get(route('rekanan.create'))

@@ -71,24 +71,32 @@ class RoleAccessMatrixTest extends TestCase
         $bendaharaPengeluaran = $this->buatUser(User::ROLE_BENDAHARA_PENGELUARAN);
         $npd = $this->buatNpd();
 
-        $this->actingAs($bendaharaPengeluaran)->get(route('npd.index'))
+        // Memantau lewat Data NPD dan antrean Persetujuan; Pembuatan NPD
+        // (npd.index) kini hanya untuk superadmin dan PPTK.
+        $this->actingAs($bendaharaPengeluaran)->get(route('npd.data'))->assertOk();
+        $this->actingAs($bendaharaPengeluaran)->get(route('npd.persetujuan'))
             ->assertOk()
             ->assertSee($npd->status)
-            ->assertDontSee('+ NPD Barang/Jasa');
+            ->assertDontSee('Terima NPD');
         $this->actingAs($bendaharaPengeluaran)->get(route('npd.show', $npd))
             ->assertOk()
             ->assertDontSee('Ajukan ke BPP');
 
+        $this->actingAs($bendaharaPengeluaran)->get(route('npd.index'))->assertForbidden();
         $this->actingAs($bendaharaPengeluaran)->get(route('npd.bj.create'))->assertForbidden();
-        $this->actingAs($bendaharaPengeluaran)->get(route('npd.persetujuan'))->assertForbidden();
         $this->actingAs($bendaharaPengeluaran)->get(route('npd.verifikasi'))->assertForbidden();
+        $this->actingAs($bendaharaPengeluaran)->post(route('npd.transisi', $npd), ['aksi' => 'terima_npd'])->assertForbidden();
         $this->actingAs($bendaharaPengeluaran)->post(route('npd.transisi', $npd), ['aksi' => 'ajukan_bpp'])->assertForbidden();
         $this->actingAs($bendaharaPengeluaran)->get(route('users.index'))->assertForbidden();
         $this->actingAs($bendaharaPengeluaran)->get(route('pelimpahan.index'))->assertForbidden();
 
         $this->assertSame('Draft NPD - PPTK', $npd->fresh()->status);
+        $this->actingAs($bendaharaPengeluaran)->get(route('manajemen-data.index'))->assertForbidden();
+
         $this->assertContains('spm', config('akses.menu.bendahara_pengeluaran'));
-        $this->assertContains('manajemen-data', config('akses.menu.bendahara_pengeluaran'));
+        $this->assertContains('persetujuan', config('akses.menu.bendahara_pengeluaran'));
+        $this->assertNotContains('npd', config('akses.menu.bendahara_pengeluaran'));
+        $this->assertNotContains('manajemen-data', config('akses.menu.bendahara_pengeluaran'));
     }
 
     public function test_pptk_bpp_dan_verifikator_hanya_mendapat_akses_workflow_masing_masing(): void
@@ -157,18 +165,24 @@ class RoleAccessMatrixTest extends TestCase
         ]);
     }
 
-    /** Cakupan yang diminta: Dashboard, Surat Perintah, dan Data Kepegawaian. */
+    /**
+     * Cakupan Kepegawaian: Dashboard (termasuk Tunjangan Keluarga), Surat
+     * Perintah tanpa Data SP, seluruh Data Kepegawaian, dan menu Gaji yang
+     * terbuka untuk semua role.
+     */
     public function test_kepegawaian_membuka_dashboard_surat_perintah_dan_seluruh_data_kepegawaian(): void
     {
         $kepegawaian = $this->buatUser(User::ROLE_KEPEGAWAIAN);
 
         foreach ([
             'dashboard.index',
-            'surat-perintah.index',
+            'tunjangan.dashboard',
             'surat-perintah.create',
             'surat-perintah.monitoring',
             'cetak-spj.index',
             'segera.sp-cetaksppd',
+            'gaji-tunjangan.tabel.gaji',
+            'gaji-tunjangan.rincian.create',
             'tunjangan.pegawai.index',
             'tunjangan.pegawai.create',
             'tunjangan.data.index',
@@ -227,8 +241,7 @@ class RoleAccessMatrixTest extends TestCase
             'pengembalian.index',
             'dashboard.spj.index',
             'dashboard.perjalanan.index',
-            'tunjangan.dashboard',
-            'gaji-tunjangan.tabel.gaji',
+            'surat-perintah.index',
             'gaji-tunjangan.rincian.index',
             'gaji-tunjangan.rekonsiliasi',
             'versi-pagu.index',
@@ -241,9 +254,10 @@ class RoleAccessMatrixTest extends TestCase
     public function test_kunci_menu_kepegawaian_persis_sesuai_cakupan_yang_disepakati(): void
     {
         $this->assertSame([
-            'dashboard',
-            'sp-input', 'sp-data', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd',
+            'dashboard', 'dash-tk',
+            'sp-input', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd',
             'tk-pegawai', 'tk-data', 'tk-form', 'tk-monitor',
+            'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak',
             'profil',
         ], config('akses.menu.kepegawaian'));
 
@@ -283,7 +297,7 @@ class RoleAccessMatrixTest extends TestCase
 
     // ---------------- Role Pengawas ----------------
 
-    /** Pengawas memantau seluas superadmin: dashboard, realisasi, NPD, SPM, SPJ, jejak audit. */
+    /** Pengawas memantau luas: dashboard, realisasi, NPD, SPM, SPJ, dan Data Kepegawaian. */
     public function test_pengawas_membuka_seluruh_halaman_pemantauan(): void
     {
         $pengawas = $this->buatUser(User::ROLE_PENGAWAS);
@@ -300,12 +314,11 @@ class RoleAccessMatrixTest extends TestCase
             'npd.data',
             'spm.up-gu.index',
             'spm.ls.index',
-            'pengembalian.index',
             'inventarisasi-spj.index',
             'surat-perintah.index',
             'surat-perintah.monitoring',
-            'audit-log.index',
-            'gaji-tunjangan.rekonsiliasi',
+            'tunjangan.pegawai.index',
+            'tunjangan.data.index',
             'profil.show',
         ] as $rute) {
             $this->actingAs($pengawas)->get(route($rute))
@@ -352,9 +365,12 @@ class RoleAccessMatrixTest extends TestCase
             'manajemen-data.index',
             'manajemen-data.import.master-anggaran.create',
             'manajemen-data.import.npd-historis.create',
-            'tunjangan.pegawai.index', 'tunjangan.data.index', 'tunjangan.import.create',
+            'tunjangan.pegawai.create', 'tunjangan.import.create',
             'versi-pagu.index',
             'gaji-tunjangan.rincian.index',
+            // Dulu boleh dipantau Pengawas; sejak ringkasan role Oktober 2026 tidak.
+            'pengembalian.index', 'audit-log.index',
+            'gaji-tunjangan.rekonsiliasi', 'gaji-tunjangan.rekap-potensi',
         ];
         foreach ($get as $rute) {
             $this->actingAs($pengawas)->get(route($rute))
@@ -387,8 +403,10 @@ class RoleAccessMatrixTest extends TestCase
             ->assertOk()
             ->assertDontSee('Tambah Realisasi SP2D LS')
             ->assertDontSee('Lihat saja');
-        $this->actingAs($pengawas)->get(route('pengembalian.index'))
-            ->assertOk()->assertDontSee('+ Input Pengembalian');
+        $this->actingAs($pengawas)->get(route('tunjangan.pegawai.index'))
+            ->assertOk()->assertDontSee('+ Tambah Pegawai');
+        $this->actingAs($pengawas)->get(route('tunjangan.data.index'))
+            ->assertOk()->assertDontSee('Import Excel');
         $this->actingAs($pengawas)->get(route('simulasi-anggaran.index'))
             ->assertOk()->assertDontSee('+ Buat Simulasi Baru');
     }
@@ -406,13 +424,19 @@ class RoleAccessMatrixTest extends TestCase
     {
         $menu = config('akses.menu.pengawas');
 
-        foreach (['dashboard', 'rincian', 'analisis', 'npd-data', 'spm', 'pengembalian', 'audit-log', 'profil'] as $kunci) {
+        foreach (['dashboard', 'rincian', 'analisis', 'npd-data', 'spm', 'invspj', 'tk-pegawai', 'tk-data', 'profil'] as $kunci) {
             $this->assertContains($kunci, $menu, "Pengawas kehilangan menu pemantauan {$kunci}.");
         }
 
-        foreach (['npd', 'persetujuan', 'verifikasi', 'sp-input', 'pengembalian-create',
-            'manajemen-data', 'users', 'pelimpahan', 'tk-pegawai', 'tk-data', 'tk-form', 'gt-daftar'] as $kunci) {
-            $this->assertNotContains($kunci, $menu, "Pengawas tidak boleh memegang menu pengubah {$kunci}.");
+        // 'sp-input' dan 'tk-form' terbuka untuk semua role LAIN; Pengawas
+        // tidak memegangnya karena keduanya formulir isian.
+        foreach (['npd', 'persetujuan', 'verifikasi', 'sp-input', 'pengembalian-create', 'pengembalian',
+            'manajemen-data', 'users', 'pelimpahan', 'audit-log', 'tk-form', 'gt-daftar', 'gt-rekon', 'gt-potensi'] as $kunci) {
+            $this->assertNotContains($kunci, $menu, "Pengawas tidak boleh memegang menu {$kunci}.");
+        }
+
+        foreach (array_keys(config('akses.kelola')) as $kunci) {
+            $this->assertNotContains(User::ROLE_PENGAWAS, config('akses.kelola.'.$kunci), "Pengawas tidak boleh mengelola {$kunci}.");
         }
 
         $this->assertContains(User::ROLE_PENGAWAS, config('akses.role_baca_saja'));

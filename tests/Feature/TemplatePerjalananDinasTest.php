@@ -133,13 +133,11 @@ class TemplatePerjalananDinasTest extends TestCase
     {
         Excel::fake();
 
-        foreach ([User::ROLE_SUPERADMIN, User::ROLE_BENDAHARA_PENGELUARAN] as $role) {
-            $this->actingAs($this->buatUser($role))
-                ->get(route('manajemen-data.template.perjalanan-dinas'))
-                ->assertOk();
-        }
+        $this->actingAs($this->buatUser(User::ROLE_SUPERADMIN))
+            ->get(route('manajemen-data.template.perjalanan-dinas'))
+            ->assertOk();
 
-        foreach ([User::ROLE_PPTK, User::ROLE_BPP, User::ROLE_VERIFIKATOR] as $role) {
+        foreach ([User::ROLE_BENDAHARA_PENGELUARAN, User::ROLE_PPTK, User::ROLE_BPP, User::ROLE_VERIFIKATOR] as $role) {
             $this->actingAs($this->buatUser($role))
                 ->get(route('manajemen-data.template.perjalanan-dinas'))
                 ->assertForbidden();

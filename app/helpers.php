@@ -18,6 +18,38 @@ if (! function_exists('fmt_rupiah')) {
     }
 }
 
+if (! function_exists('boleh_kelola')) {
+    /**
+     * True bila role yang sedang membuka boleh MENGUBAH data pada menu itu
+     * (lihat config('akses.kelola')).
+     *
+     * Dipakai di tampilan untuk menu yang pembacanya lebih luas daripada
+     * pengelolanya, supaya pembaca tidak disodori tombol yang berujung 403.
+     * Pelengkap, BUKAN pengganti penjagaan di route: middleware 'kelola'
+     * yang menegakkannya.
+     */
+    function boleh_kelola(string $menuKey): bool
+    {
+        return in_array(
+            GuestSession::role(),
+            config('akses.kelola.'.$menuKey, []),
+            true
+        );
+    }
+}
+
+if (! function_exists('pegang_menu')) {
+    /** True bila role yang sedang membuka memegang kunci menu itu. */
+    function pegang_menu(string $menuKey): bool
+    {
+        return in_array(
+            $menuKey,
+            config('akses.menu')[GuestSession::role()] ?? [],
+            true
+        );
+    }
+}
+
 if (! function_exists('boleh_ubah')) {
     /**
      * False untuk role baca-saja (lihat config('akses.role_baca_saja')).

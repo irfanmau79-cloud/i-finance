@@ -187,7 +187,7 @@ class RealisasiPeriodeTest extends TestCase
         $anggaran = $this->buatAnggaran();
         $this->buatNpd($anggaran, 1_000_000, '2026-08-09');
 
-        $this->actingAs($this->buatUser(User::ROLE_BENDAHARA_PENGELUARAN))
+        $this->actingAs($this->buatUser(User::ROLE_SUPERADMIN))
             ->get(route('manajemen-data.realisasi-periode.index', ['dari' => '2026-08-01', 'sampai' => '2026-08-31']))
             ->assertOk()
             ->assertSee('Data Realisasi Anggaran')
@@ -225,12 +225,10 @@ class RealisasiPeriodeTest extends TestCase
 
     public function test_hanya_pemegang_manajemen_data_yang_boleh_membuka(): void
     {
-        foreach ([User::ROLE_SUPERADMIN, User::ROLE_BENDAHARA_PENGELUARAN] as $role) {
-            $this->actingAs($this->buatUser($role))
-                ->get(route('manajemen-data.realisasi-periode.index'))->assertOk();
-        }
+        $this->actingAs($this->buatUser(User::ROLE_SUPERADMIN))
+            ->get(route('manajemen-data.realisasi-periode.index'))->assertOk();
 
-        foreach ([User::ROLE_PPTK, User::ROLE_BPP, User::ROLE_VERIFIKATOR, User::ROLE_PENGAWAS] as $role) {
+        foreach ([User::ROLE_BENDAHARA_PENGELUARAN, User::ROLE_PPTK, User::ROLE_BPP, User::ROLE_VERIFIKATOR, User::ROLE_PENGAWAS] as $role) {
             $user = $this->buatUser($role);
 
             foreach (['index', 'excel', 'pdf'] as $aksi) {

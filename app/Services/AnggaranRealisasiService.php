@@ -74,23 +74,7 @@ class AnggaranRealisasiService
     /** @param array{sub_kegiatan: string, kode_rekening: string, tagging: string, q: string} $filters */
     public function rincian(array $filters): array
     {
-        $query = $this->masterQuery($filters)
-            ->with('tagging:id,nama')
-            ->withSum([
-                'npd as dana_terikat_npd_total' => fn (Builder $query) => $query->where('status', 'not like', '%batal%'),
-            ], 'nominal')
-            ->withSum([
-                'npd as realisasi_npd_total' => fn (Builder $query) => $query->where('status', 'Selesai'),
-            ], 'nominal')
-            ->withSum('spmDetail as realisasi_ls_total', 'nominal')
-            ->withSum([
-                'pengembalianDetail as pengembalian_disetujui_npd_total' => fn (Builder $query) => $query
-                    ->whereHas('pengembalian', fn (Builder $q) => $q->where('status', 'disetujui')->where('dokumen_tipe', 'npd')),
-            ], 'nominal')
-            ->withSum([
-                'pengembalianDetail as pengembalian_disetujui_ls_total' => fn (Builder $query) => $query
-                    ->whereHas('pengembalian', fn (Builder $q) => $q->where('status', 'disetujui')->where('dokumen_tipe', 'spm_ls')),
-            ], 'nominal');
+        $query = $this->denganJumlahTransaksi($this->masterQuery($filters)->with('tagging:id,nama'));
 
         $masters = $query
             ->orderBy('sub_kegiatan_normal')
@@ -808,6 +792,88 @@ class AnggaranRealisasiService
     }
 
     /**
+     * Sisa Anggaran Kas untuk tiap mata anggaran pada daftar yang diberikan.
+     *
+     * Beda dari Sisa Anggaran (MasterAnggaran::sisaTersedia) yang dihitung
+     * per TAGGING terhadap pagu setahun, angka ini dihitung per KODE REKENING
+     * dalam satu Sub Kegiatan terhadap Rencana Anggaran Kas (RAK):
+     *
+     *   sisa_kas = RAK kumulatif Januari s.d. bulan acuan
+     *              - (dana_terikat_npd + realisasi_ls) SELURUH tagging
+     *                pada Sub Kegiatan + Kode Rekening itu
+     *
+     * RAK memang tidak mengenal Tagging (lihat RakBulanan), jadi semua
+     * mata anggaran dengan Sub Kegiatan + Kode Rekening yang sama menerima
+     * angka yang SAMA. Pemakaiannya memakai definisi yang sama dengan
+     * sisa_tersedia - NPD non-batal termasuk draft, plus SPM LS, neto
+     * pengembalian disetujui - supaya kedua sisa itu bisa dibandingkan.
+     *
+     * 'rak' dan 'sisa' bernilai NULL bila RAK tahun itu belum diimpor untuk
+     * pasangan tersebut. SENGAJA tidak jatuh ke pagu/12: pemanggil wajib
+     * menampilkan "RAK belum tersedia", bukan angka perkiraan.
+     *
+     * $kecuali diisi saat menyunting NPD: nominalnya sendiri dikeluarkan dari
+     * pemakaian, sama seperti Sisa Anggaran pada formulir sunting.
+     *
+     * @param  Collection<int, MasterAnggaran>  $masters
+     * @return array<int, array{rak: ?float, terpakai: float, sisa: ?float}> dikunci id mata anggaran
+     */
+    public function sisaAnggaranKas(Collection $masters, ?Npd $kecuali = null, ?int $tahun = null, ?int $bulan = null): array
+    {
+        if ($masters->isEmpty()) {
+            return [];
+        }
+
+        $tahun ??= (int) now()->year;
+        $bulan = max(1, min(12, $bulan ?? (int) now()->month));
+        $kunci = fn (string $sub, string $kode) => $sub.'|'.$kode;
+        $subKunci = $masters->pluck('sub_kegiatan_kunci')->unique()->values();
+
+        // Diambil ulang dari tabel, bukan dari $masters: daftar formulir bisa
+        // sudah dipersempit (PPTK hanya melihat Sub Kegiatan limpahannya, dan
+        // saat menyunting satu baris di luar limpahan ikut disertakan), padahal
+        // pemakaian kas harus mencakup SEMUA tagging pada kode rekening itu.
+        $terpakai = [];
+        $this->denganJumlahTransaksi(
+            MasterAnggaran::query()->where('aktif', true)->whereIn('sub_kegiatan_kunci', $subKunci)
+        )->get()->each(function (MasterAnggaran $master) use (&$terpakai, $kunci, $kecuali) {
+            $k = $kunci($master->sub_kegiatan_kunci, (string) $master->kode_rekening_bersih);
+            $terpakai[$k] = ($terpakai[$k] ?? 0.0) + $master->danaTerikatNpd() + $master->realisasiLs();
+
+            if ($kecuali !== null
+                && (int) $kecuali->master_anggaran_id === (int) $master->id
+                && ! str_contains(strtolower((string) $kecuali->status), 'batal')) {
+                $terpakai[$k] -= (float) $kecuali->nominal;
+            }
+        });
+
+        // Kumulatif dijumlah di PHP dari baris bulanan. "Ada RAK" berarti
+        // setidaknya satu bulan pada tahun itu terisi - bulan yang kosong di
+        // antaranya dihitung nol, sama seperti targetRakKumulatifSampai().
+        $rak = [];
+        RakBulanan::query()
+            ->where('tahun', $tahun)
+            ->whereIn('sub_kegiatan_kunci', $subKunci)
+            ->get(['sub_kegiatan_kunci', 'kode_rekening', 'bulan', 'target'])
+            ->each(function (RakBulanan $baris) use (&$rak, $kunci, $bulan) {
+                $k = $kunci($baris->sub_kegiatan_kunci, (string) $baris->kode_rekening);
+                $rak[$k] = ($rak[$k] ?? 0.0) + ((int) $baris->bulan <= $bulan ? (float) $baris->target : 0.0);
+            });
+
+        return $masters->mapWithKeys(function (MasterAnggaran $master) use ($terpakai, $rak, $kunci) {
+            $k = $kunci($master->sub_kegiatan_kunci, (string) $master->kode_rekening_bersih);
+            $pakai = (float) ($terpakai[$k] ?? 0.0);
+            $target = array_key_exists($k, $rak) ? (float) $rak[$k] : null;
+
+            return [$master->id => [
+                'rak' => $target,
+                'terpakai' => $pakai,
+                'sisa' => $target !== null ? $target - $pakai : null,
+            ]];
+        })->all();
+    }
+
+    /**
      * Total nominal SPM UP/GU/TU (replenishment kas BPP untuk isi ulang
      * panjar - BUKAN realisasi per mata anggaran, lihat Spm::buatUpGu()).
      * SPM jenis ini tidak pernah tertaut ke master_anggaran sama sekali,
@@ -817,6 +883,31 @@ class AnggaranRealisasiService
     public function totalSpmUpGu(): float
     {
         return (float) Spm::where('jenis_spm', 'up_gu')->sum('nominal');
+    }
+
+    /**
+     * Muat sekaligus seluruh jumlah transaksi yang dibaca method realisasi di
+     * MasterAnggaran (danaTerikatNpd, realisasiNpd, realisasiLs, ...), supaya
+     * method-method itu tidak menjalankan query sendiri per baris.
+     */
+    private function denganJumlahTransaksi(Builder $query): Builder
+    {
+        return $query
+            ->withSum([
+                'npd as dana_terikat_npd_total' => fn (Builder $query) => $query->where('status', 'not like', '%batal%'),
+            ], 'nominal')
+            ->withSum([
+                'npd as realisasi_npd_total' => fn (Builder $query) => $query->where('status', 'Selesai'),
+            ], 'nominal')
+            ->withSum('spmDetail as realisasi_ls_total', 'nominal')
+            ->withSum([
+                'pengembalianDetail as pengembalian_disetujui_npd_total' => fn (Builder $query) => $query
+                    ->whereHas('pengembalian', fn (Builder $q) => $q->where('status', 'disetujui')->where('dokumen_tipe', 'npd')),
+            ], 'nominal')
+            ->withSum([
+                'pengembalianDetail as pengembalian_disetujui_ls_total' => fn (Builder $query) => $query
+                    ->whereHas('pengembalian', fn (Builder $q) => $q->where('status', 'disetujui')->where('dokumen_tipe', 'spm_ls')),
+            ], 'nominal');
     }
 
     private function masterQuery(array $filters): Builder

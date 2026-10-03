@@ -58,7 +58,7 @@ class ManajemenDataExportTest extends TestCase
 
     // ---------------- Akses ----------------
 
-    public function test_hanya_superadmin_dan_bendahara_pengeluaran_dapat_mengakses_manajemen_data(): void
+    public function test_hanya_superadmin_dapat_mengakses_manajemen_data(): void
     {
         $superadmin = $this->buatUser(User::ROLE_SUPERADMIN);
         $bendahara = $this->buatUser(User::ROLE_BENDAHARA_PENGELUARAN);
@@ -68,12 +68,12 @@ class ManajemenDataExportTest extends TestCase
 
         Excel::fake();
 
-        foreach ([$superadmin, $bendahara] as $user) {
-            $this->actingAs($user)->get(route('manajemen-data.index'))->assertOk();
-            $this->actingAs($user)->get(route('manajemen-data.export', 'master-anggaran'))->assertOk();
-        }
+        $this->actingAs($superadmin)->get(route('manajemen-data.index'))->assertOk();
+        $this->actingAs($superadmin)->get(route('manajemen-data.export', 'master-anggaran'))->assertOk();
 
-        foreach ([$pptk, $bpp, $verifikator] as $user) {
+        // Bendahara Pengeluaran dulu ikut memegang menu ini; sekarang seluruh
+        // grup Setting khusus superadmin.
+        foreach ([$bendahara, $pptk, $bpp, $verifikator] as $user) {
             $this->actingAs($user)->get(route('manajemen-data.index'))->assertForbidden();
             $this->actingAs($user)->get(route('manajemen-data.export', 'master-anggaran'))->assertForbidden();
         }

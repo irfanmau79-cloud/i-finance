@@ -77,6 +77,7 @@ class NpdTransisiTest extends TestCase
         $this->assertSame('Verifikasi - Verifikator', $npd->status);
 
         // 3. Verifikator: verifikasi sambil MENGETIK PENUH nomor NPD-nya.
+        $this->tetapkanVerifikator($verifikator);
         $this->actingAs($verifikator)
             ->post(route('npd.transisi', $npd), ['aksi' => 'verifikasi', 'nomor_lengkap' => '07/NPD-Keu.1.IBC/7/2026'])
             ->assertSessionHasNoErrors();
@@ -107,6 +108,7 @@ class NpdTransisiTest extends TestCase
         $admin = $this->buatUser('superadmin', 'lifecycle-semua-jenis');
         $master = $this->buatNpd()->masterAnggaran;
         Npd::query()->delete();
+        $this->tetapkanVerifikator();
 
         foreach (array_keys(Npd::JENIS_LABEL) as $index => $jenis) {
             $npd = Npd::create([
@@ -147,6 +149,7 @@ class NpdTransisiTest extends TestCase
         $npd = $this->buatNpd();
 
         // Verifikator coba ajukan_bpp padahal aksi ini khusus PPTK.
+        $this->tetapkanVerifikator($verifikator);
         $this->actingAs($verifikator)
             ->post(route('npd.transisi', $npd), ['aksi' => 'ajukan_bpp'])
             ->assertSessionHasErrors(['aksi']);
@@ -189,6 +192,7 @@ class NpdTransisiTest extends TestCase
         $npd->update(['status' => 'Verifikasi - Verifikator']);
 
         foreach (['', '   ', str_repeat('X', 101)] as $tidakSah) {
+            $this->tetapkanVerifikator($verifikator);
             $this->actingAs($verifikator)
                 ->post(route('npd.transisi', $npd), ['aksi' => 'verifikasi', 'nomor_lengkap' => $tidakSah])
                 ->assertSessionHasErrors(['nomor_lengkap']);
@@ -206,6 +210,7 @@ class NpdTransisiTest extends TestCase
         $npd = $this->buatNpd();
         $npd->update(['status' => 'Verifikasi - Verifikator']);
 
+        $this->tetapkanVerifikator($verifikator);
         $this->actingAs($verifikator)
             ->post(route('npd.transisi', $npd), ['aksi' => 'verifikasi', 'nomor_lengkap' => '  900/NPD-KHUSUS/XII/2026  '])
             ->assertSessionHasNoErrors();
@@ -224,6 +229,7 @@ class NpdTransisiTest extends TestCase
         $npd = $this->buatNpd();
         $npd->update(['status' => 'Verifikasi - Verifikator']);
 
+        $this->tetapkanVerifikator($verifikator);
         $response = $this->actingAs($verifikator)
             ->post(route('npd.transisi', $npd), ['aksi' => 'verifikasi', 'nomor_lengkap' => '05/NPD-Keu.1.IBC/6/2026']);
 
@@ -240,6 +246,7 @@ class NpdTransisiTest extends TestCase
 
         $npdVerif = $this->buatNpd();
         $npdVerif->update(['status' => 'Verifikasi - Verifikator']);
+        $this->tetapkanVerifikator($verifikator);
         $this->actingAs($verifikator)
             ->post(route('npd.transisi', $npdVerif), ['aksi' => 'kembali_bpp'])
             ->assertSessionHasErrors(['catatan']);
@@ -324,10 +331,19 @@ class NpdTransisiTest extends TestCase
 
     public function test_role_di_luar_alur_npd_ditolak_akses_halaman_detail(): void
     {
-        $inspektur = $this->buatUser('inspektur', 'luar-alur');
         $npd = $this->buatNpd();
 
-        $this->actingAs($inspektur)->get(route('npd.show', $npd))->assertForbidden();
+        // Perencanaan, Kepegawaian, dan Pengelola SPJ tidak memegang Data NPD.
+        foreach (['perencanaan', 'kepegawaian', 'pengelola_spj'] as $role) {
+            $this->actingAs($this->buatUser($role, 'luar-alur-'.$role))
+                ->get(route('npd.show', $npd))->assertForbidden();
+        }
+
+        // Pimpinan memantau: detailnya terbuka, tanpa satu pun aksi workflow.
+        $inspektur = $this->buatUser('inspektur', 'pemantau-npd');
+        $this->actingAs($inspektur)->get(route('npd.show', $npd))
+            ->assertOk()->assertDontSee('Ajukan ke BPP');
+        $this->actingAs($inspektur)->post(route('npd.transisi', $npd), ['aksi' => 'ajukan_bpp'])->assertForbidden();
     }
 
     public function test_tombol_aksi_hanya_tampil_untuk_role_dan_status_yang_sesuai(): void
@@ -394,6 +410,7 @@ class NpdTransisiTest extends TestCase
         $disetujui = $this->buatNpd();
         $disetujui->update(['status' => 'NPD Disetujui - BPP', 'nomor_lengkap' => 'E/NPD/2026']);
 
+        $this->tetapkanVerifikator($verifikator);
         $npds = $this->actingAs($verifikator)->get(route('npd.verifikasi'))->assertOk()->viewData('npds');
         $nomor = $npds->pluck('nomor_lengkap')->all();
 
@@ -440,8 +457,8 @@ class NpdTransisiTest extends TestCase
         }
 
         // Tetapi definisinya dipertahankan supaya histori lama punya label.
-        $this->assertArrayHasKey('ajukan_bpp', \App\Models\Npd::TRANSISI);
-        $this->assertSame('Ajukan ke BPP', \App\Models\Npd::TRANSISI['ajukan_bpp']['label']);
+        $this->assertArrayHasKey('ajukan_bpp', Npd::TRANSISI);
+        $this->assertSame('Ajukan ke BPP', Npd::TRANSISI['ajukan_bpp']['label']);
     }
 
     public function test_terima_npd_hanya_dari_status_draft_pptk(): void

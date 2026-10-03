@@ -27,7 +27,7 @@
          seperti daftar SPM LS: dua baris alat yang berdiri sendiri membuat
          tabelnya terdorong jauh ke bawah tanpa alasan. --}}
     <div class="tbl-tools">
-        @if (boleh_ubah())
+        @if (boleh_kelola('spm'))
             <a href="{{ route('spm.up-gu.create') }}" class="btn prim" style="white-space:nowrap;">Tambah Realisasi SP2D UP/GU/TU</a>
         @endif
         <form method="GET" action="{{ route('spm.up-gu.index') }}" class="spm-cari">
@@ -77,7 +77,7 @@
                              tinggi. Polanya disamakan dengan tabel NPD dan
                              SPM LS - satu bahasa aksi di seluruh aplikasi. --}}
                         <td class="mid">
-                            @if (boleh_ubah())
+                            @if (boleh_kelola('spm'))
                                 <div class="spm-aksi">
                                     <a class="ic-btn" title="Edit" aria-label="Edit SPM" href="{{ route('spm.up-gu.edit', $spm) }}">
                                         <svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg>

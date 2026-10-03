@@ -11,6 +11,7 @@ use App\Models\NpdNarasumber;
 use App\Models\NpdPenerima;
 use App\Models\NpdPeserta;
 use App\Models\NpdTim;
+use App\Models\PelimpahanVerifikator;
 use App\Models\Pengembalian;
 use App\Models\User;
 use App\Services\NotifikasiNpdService;
@@ -141,8 +142,28 @@ class NpdController extends Controller
     public function verifikasi(Request $request)
     {
         [$npds, $filters] = $this->daftarNpd($request, 'verifikasi', lengkap: true);
+        $petaVerifikator = PelimpahanVerifikator::peta();
+        $user = $request->user();
 
-        return view('npd.verifikasi', compact('npds', 'filters'));
+        // NPD yang Sub Kegiatannya belum punya Verifikator tidak bisa
+        // diverifikasi siapa pun. Jumlahnya dihitung dari NPD yang sedang
+        // MENUNGGU verifikasi, apa pun penyaring layar, supaya peringatannya
+        // tidak hilang hanya karena penyaringnya diganti.
+        $tanpaVerifikator = Npd::query()
+            ->with('masterAnggaran:id,program_kunci,sub_kegiatan_kunci')
+            ->where('status', 'Verifikasi - Verifikator')
+            ->where('sumber_data', '!=', 'import_historis')
+            ->get(['id', 'master_anggaran_id'])
+            ->filter(fn (Npd $npd) => $npd->verifikatorDitugaskan($petaVerifikator) === null)
+            ->count();
+
+        // Akun Verifikator hanya melihat NPD Sub Kegiatan yang dipegangnya.
+        // Superadmin tetap melihat semuanya untuk memantau.
+        if ($user->role === User::ROLE_VERIFIKATOR) {
+            $npds = $npds->filter(fn (Npd $npd) => (int) $npd->verifikatorDitugaskan($petaVerifikator)?->id === (int) $user->id)->values();
+        }
+
+        return view('npd.verifikasi', compact('npds', 'filters', 'petaVerifikator', 'tanpaVerifikator'));
     }
 
     /**
@@ -208,16 +229,21 @@ class NpdController extends Controller
         $npd->load(['masterAnggaran.tagging', 'penerima.pphList', 'tim.paket', 'narasumber', 'peserta', 'referensi', 'turunanPerjalanan', 'induk', 'turunanTransport', 'dibuatOleh', 'historiStatus.user', 'arsipSpj.ditetapkanOleh', 'spjBerkas']);
 
         $role = $request->user()->role;
-        $aksiTersedia = $npd->aksiTersedia($role);
+        $aksiTersedia = $npd->aksiTersediaUntuk($request->user());
+        $verifikatorNpd = $npd->verifikatorDitugaskan();
+        // Siapa yang SUNGGUH memverifikasi diambil dari histori - penugasan
+        // di Pelimpahan bisa berpindah belakangan, histori tidak.
+        $diverifikasiOleh = $npd->historiStatus->where('aksi', 'verifikasi')->sortByDesc('nomor_urut')->first()?->user;
 
         [$ruteDaftar, $activeNav] = match ($role) {
+            User::ROLE_SUPERADMIN, User::ROLE_PPTK => ['npd.index', 'npd'],
             'bpp' => ['npd.persetujuan', 'persetujuan'],
             'verifikator' => ['npd.verifikasi', 'verifikasi'],
-            // Pengawas memantau lewat Data NPD; Pembuatan NPD tidak dibukanya,
-            // jadi tautan kembalinya harus ke sana - bukan ke npd.index yang
-            // akan berujung 403.
-            User::ROLE_PENGAWAS => ['npd.data', 'npd-data'],
-            default => ['npd.index', 'npd'],
+            // Pemantau - Bendahara Pengeluaran, Pimpinan, Pengawas - masuk
+            // lewat Data NPD; Pembuatan NPD tidak dibukanya, jadi tautan
+            // kembalinya harus ke sana - bukan ke npd.index yang akan
+            // berujung 403.
+            default => ['npd.data', 'npd-data'],
         };
 
         $peringatanPelimpahan = PejabatResolver::untukNpd($npd)['peringatan'];
@@ -225,7 +251,7 @@ class NpdController extends Controller
         $bantexList = BantexSpj::query()->where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'keterangan']);
         $urutanGabungan = implode(' → ', array_column($this->dokumenCetak($npd), 'judul'));
 
-        return view('npd.show', compact('npd', 'aksiTersedia', 'ruteDaftar', 'activeNav', 'peringatanPelimpahan', 'bolehKelolaArsip', 'bantexList', 'urutanGabungan'));
+        return view('npd.show', compact('npd', 'aksiTersedia', 'ruteDaftar', 'activeNav', 'peringatanPelimpahan', 'bolehKelolaArsip', 'bantexList', 'urutanGabungan', 'verifikatorNpd', 'diverifikasiOleh'));
     }
 
     /**
@@ -240,7 +266,7 @@ class NpdController extends Controller
      */
     public function coret(Npd $npd)
     {
-        abort_unless(in_array('kembali_bpp', $npd->aksiTersedia(auth()->user()->role), true), 403);
+        abort_unless(in_array('kembali_bpp', $npd->aksiTersediaUntuk(auth()->user()), true), 403);
 
         // Urutan dan syarat per jenis sama seperti blok "Dokumen & Cetak" di npd/show.blade.php.
         $dokumenList = [];
@@ -284,6 +310,11 @@ class NpdController extends Controller
             $labelRole = config('akses.role_label')[$rule['roles'][0]] ?? $rule['roles'][0];
 
             return back()->withErrors(['aksi' => "Aksi ini khusus {$labelRole}."]);
+        }
+
+        // Ikatan Verifikator ke Sub Kegiatan (menu Pelimpahan).
+        if (($alasan = $npd->alasanTolakAksi($aksi, $request->user())) !== null) {
+            return back()->withErrors(['aksi' => $alasan]);
         }
 
         if (trim((string) $npd->status) !== $rule['from']) {
@@ -410,6 +441,14 @@ class NpdController extends Controller
             return redirect()->route('npd.show', $npd)->with('success', "Status NPD diperbarui: {$rule['label']}.");
         }
 
+        // Diteruskan ke meja Verifikator yang belum ada: penerusannya sah,
+        // tetapi NPD akan tertahan di sana. Beri tahu sekarang, jangan sampai
+        // ketahuan belakangan.
+        // Ditulis di pesan sukses, bukan kotak galat: penerusannya berhasil.
+        if ($rule['to'] === 'Verifikasi - Verifikator' && $npd->verifikatorDitugaskan() === null) {
+            return back()->with('success', "Status NPD diperbarui: {$rule['label']}. Perhatian: Verifikator untuk Sub Kegiatan NPD ini belum ditetapkan, jadi NPD ini belum bisa diverifikasi. Tetapkan dulu Verifikatornya di menu Pelimpahan.");
+        }
+
         return back()->with('success', "Status NPD diperbarui: {$rule['label']}.");
     }
 
@@ -489,6 +528,14 @@ class NpdController extends Controller
 
             if ($npd->sumber_data === 'import_historis') {
                 $dilewati[] = $label . ': NPD historis tidak mengikuti alur persetujuan.';
+
+                continue;
+            }
+
+            // Pagar yang sama dengan transisi tunggal: Sub Kegiatan tanpa
+            // Verifikator tidak bisa diverifikasi, juga lewat aksi massal.
+            if (! $lewatiAlur && ($alasan = $npd->alasanTolakAksi($aksi, $user)) !== null) {
+                $dilewati[] = $label . ': ' . rtrim($alasan, '.') . '.';
 
                 continue;
             }

@@ -10,7 +10,7 @@
   .pl-add-toggle{display:flex;justify-content:space-between;align-items:center;margin-bottom:14px;}
   .pl-add-toggle h4{margin:0;}
   .pl-add-form{background:var(--surface-2);border:1px solid var(--line);border-radius:10px;padding:16px;margin-bottom:16px;}
-  .pl-dsk-filter{display:grid;grid-template-columns:repeat(5,minmax(140px,1fr));gap:10px;align-items:end;}
+  .pl-dsk-filter{display:grid;grid-template-columns:repeat(6,minmax(130px,1fr));gap:10px;align-items:end;}
   @media(max-width:1100px){.pl-dsk-filter{grid-template-columns:1fr 1fr;}}
   @media(max-width:620px){.pl-dsk-filter{grid-template-columns:1fr;}}
   .pl-dsk-filter .pl-dsk-filter-actions{display:flex;gap:7px;}
@@ -25,7 +25,8 @@
   table.pl-dsk th{white-space:normal;line-height:1.35;}
   table.pl-dsk td{white-space:normal;overflow-wrap:anywhere;word-break:break-word;}
   table.pl-dsk th:first-child,table.pl-dsk td:first-child{min-width:260px;}
-  table.pl-dsk .dsk-kpa,table.pl-dsk .dsk-pptk{min-width:170px;}
+  table.pl-dsk .dsk-kpa,table.pl-dsk .dsk-pptk,table.pl-dsk .dsk-verif{min-width:170px;}
+  table.pl-dsk .sub.kosong{color:var(--err-teks);font-style:italic;}
 
   /* Identitas pejabat yang dipilih. Sebelumnya memakai kelas .profil-info-*
      yang gayanya hanya ada di halaman Profil, jadi di sini tampil polos tanpa
@@ -71,6 +72,13 @@
     </div>
     @if ($ringkasan['unassigned'] > 0)
         <div class="err-box" style="display:block;margin-top:12px"><strong>{{ $ringkasan['unassigned'] }} Sub Kegiatan belum memiliki PPTK.</strong> Gunakan filter "Belum ditugaskan" di tabel bawah untuk menindaklanjuti.</div>
+    @endif
+    {{-- NPD dari Sub Kegiatan tanpa Verifikator tidak bisa diverifikasi sama sekali. --}}
+    @if ($ringkasan['tanpa_verifikator'] > 0)
+        <div class="err-box" style="display:block;margin-top:12px"><strong>{{ $ringkasan['tanpa_verifikator'] }} Sub Kegiatan belum memiliki Verifikator.</strong> NPD dari Sub Kegiatan tersebut tidak bisa diverifikasi sampai Verifikatornya ditetapkan. <a href="{{ route('pelimpahan.index', ['status' => 'tanpa_verifikator']) }}" style="font-weight:700;">Tampilkan Sub Kegiatannya</a>.</div>
+    @endif
+    @if ($verifikatorList->isEmpty())
+        <div class="err-box" style="display:block;margin-top:12px"><strong>Belum ada akun Verifikator aktif.</strong> Buat akunnya dulu di menu Manajemen Users (role Verifikator), lalu tetapkan per Sub Kegiatan di tabel bawah.</div>
     @endif
 </div>
 
@@ -219,7 +227,8 @@
 <div class="dash-card" style="margin-top:16px">
     <h3>Distribusi Sub Kegiatan</h3>
     <form method="GET" action="{{ route('pelimpahan.index') }}" class="pl-dsk-filter">
-        <div class="fg"><label class="fl">Status</label><select name="status"><option value="">Semua</option><option value="assigned" @selected(request('status') === 'assigned')>Ditugaskan</option><option value="unassigned" @selected(request('status') === 'unassigned')>Belum ditugaskan</option></select></div>
+        <div class="fg"><label class="fl">Status</label><select name="status"><option value="">Semua</option><option value="assigned" @selected(request('status') === 'assigned')>Ditugaskan</option><option value="unassigned" @selected(request('status') === 'unassigned')>Belum ditugaskan</option><option value="tanpa_verifikator" @selected(request('status') === 'tanpa_verifikator')>Belum ada Verifikator</option></select></div>
+        <div class="fg"><label class="fl">Verifikator</label><select name="verifikator_user_id" data-cari><option value="">Semua</option>@foreach ($verifikatorList as $verif)<option value="{{ $verif->id }}" @selected((string) request('verifikator_user_id') === (string) $verif->id)>{{ $verif->nama }}</option>@endforeach</select></div>
         <div class="fg"><label class="fl">KPA</label><select name="kpa_id" data-cari><option value="">Semua</option>@foreach ($kpaList as $kpa)<option value="{{ $kpa->id }}" @selected((string) request('kpa_id') === (string) $kpa->id)>{{ $kpa->kpaPegawai->nama }}</option>@endforeach</select></div>
         <div class="fg"><label class="fl">PPTK</label><select name="pptk_pegawai_id" data-cari><option value="">Semua</option>@foreach ($pptkRoster as $item)<option value="{{ $item->pegawai_id }}" @selected((string) request('pptk_pegawai_id') === (string) $item->pegawai_id)>{{ $item->pegawai->nama }}</option>@endforeach</select></div>
         <div class="fg"><label class="fl">Program</label><select name="program" data-cari><option value="">Semua</option>@foreach ($programList as $program)<option value="{{ $program->program_normal }}" @selected(request('program') === $program->program_normal)>{{ $program->program_normal }}</option>@endforeach</select></div>
@@ -229,11 +238,12 @@
 
     <form method="POST" action="{{ route('pelimpahan.sub-kegiatan.set') }}" id="assignment-form">
         @csrf
-        <div class="sp-table-wrap" style="margin-top:16px"><table class="realisasi pl-dsk"><thead><tr><th>Sub Kegiatan</th><th>Kuasa Pengguna Anggaran</th><th>Pejabat Pelaksana Teknis Kegiatan</th><th>Status</th></tr></thead><tbody id="dsk-tbody">
+        <div class="sp-table-wrap" style="margin-top:16px"><table class="realisasi pl-dsk"><thead><tr><th>Sub Kegiatan</th><th>Kuasa Pengguna Anggaran</th><th>Pejabat Pelaksana Teknis Kegiatan</th><th>Verifikator</th><th>Status</th></tr></thead><tbody id="dsk-tbody">
         @forelse ($subKegiatanList as $row)
             @php
                 $key = $row->program_kunci.'|'.$row->sub_kegiatan_kunci;
                 $p = $pelimpahanMap->get($key);
+                $verifAktif = $verifikatorMap->get($key);
                 $scope = base64_encode(json_encode(['program' => $row->program_normal, 'sub_kegiatan' => $row->sub_kegiatan_normal]));
             @endphp
             <tr data-scope="{{ $scope }}">
@@ -255,9 +265,25 @@
                         @endforeach
                     </select>
                 </td>
+                <td>
+                    {{-- data-awal: Verifikator yang tersimpan, supaya baris yang
+                         Verifikatornya DIKOSONGKAN tetap ikut terkirim. --}}
+                    <select class="dsk-verif" data-awal="{{ $verifAktif?->id }}">
+                        <option value="">-- Pilih Verifikator --</option>
+                        @foreach ($verifikatorList as $verif)
+                            <option value="{{ $verif->id }}" @selected($verifAktif && $verifAktif->id === $verif->id)>{{ $verif->nama }}</option>
+                        @endforeach
+                        {{-- Akun yang kini nonaktif/berganti role tetap terlihat
+                             supaya penugasannya tidak hilang diam-diam dari layar. --}}
+                        @if ($verifAktif && ! $verifikatorList->contains('id', $verifAktif->id))
+                            <option value="{{ $verifAktif->id }}" selected disabled>{{ $verifAktif->nama }} (akun tidak aktif)</option>
+                        @endif
+                    </select>
+                    <span class="sub kosong" data-verif-kosong @if ($verifAktif) hidden @endif>NPD belum bisa diverifikasi</span>
+                </td>
                 <td><span class="badge {{ $p ? 'st-aktif' : 'st-danger' }}" data-status-badge>{{ $p ? 'DITUGASKAN' : 'BELUM DITUGASKAN' }}</span></td>
             </tr>
-        @empty <tr><td colspan="4">Tidak ada Sub Kegiatan sesuai filter.</td></tr>@endforelse
+        @empty <tr><td colspan="5">Tidak ada Sub Kegiatan sesuai filter.</td></tr>@endforelse
         </tbody></table></div>
         {{ $subKegiatanList->links() }}
         <div style="text-align:right;margin-top:12px"><button class="btn prim">Simpan Perubahan</button></div>
@@ -379,22 +405,35 @@
         badge.classList.toggle('st-danger', !filled);
     }
     document.querySelectorAll('.dsk-kpa, .dsk-pptk').forEach(sel => sel.addEventListener('change', () => syncRow(sel)));
+    document.querySelectorAll('.dsk-verif').forEach(sel => sel.addEventListener('change', () => {
+        sel.closest('td').querySelector('[data-verif-kosong]').hidden = !!sel.value;
+    }));
 
     document.getElementById('assignment-form').addEventListener('submit', function (e) {
         let idx = 0;
         document.querySelectorAll('#dsk-tbody tr[data-scope]').forEach(tr => {
             const kpaId = tr.querySelector('.dsk-kpa')?.value;
             const pptkId = tr.querySelector('.dsk-pptk')?.value;
-            if (!kpaId || !pptkId) return;
+            const verifSel = tr.querySelector('.dsk-verif');
+            const verifId = verifSel ? verifSel.value : '';
+            const verifAwal = verifSel ? (verifSel.dataset.awal || '') : '';
+            const adaRantai = !!(kpaId && pptkId);
+            // Verifikator ikut dikirim bila dipilih ATAU bila sebelumnya ada
+            // lalu dikosongkan - kosong yang dikirim berarti "hapus penugasan".
+            const kirimVerif = verifId !== '' || verifAwal !== '';
+            if (!adaRantai && !kirimVerif) return;
             const mk = (name, val) => { const i = document.createElement('input'); i.type = 'hidden'; i.name = 'rows[' + idx + '][' + name + ']'; i.value = val; tr.appendChild(i); };
             mk('scope', tr.dataset.scope);
-            mk('kpa_id', kpaId);
-            mk('pptk_pegawai_id', pptkId);
+            if (adaRantai) {
+                mk('kpa_id', kpaId);
+                mk('pptk_pegawai_id', pptkId);
+            }
+            if (kirimVerif) mk('verifikator_user_id', verifId);
             idx++;
         });
         if (idx === 0) {
             e.preventDefault();
-            alert('Belum ada perubahan. Pilih KPA dan PPTK pada minimal satu baris Sub Kegiatan.');
+            alert('Belum ada perubahan. Pilih KPA dan PPTK, atau Verifikator, pada minimal satu baris Sub Kegiatan.');
         }
     });
 })();

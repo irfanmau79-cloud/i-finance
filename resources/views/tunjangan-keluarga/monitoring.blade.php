@@ -4,12 +4,18 @@
 @section('title', 'Monitoring Pengajuan Tunjangan Keluarga')
 
 @section('content')
+@php
+    // Halaman ini juga dibuka Pengguna Layanan yang tidak punya akun, jadi
+    // role-nya diambil dari GuestSession - auth()->user() bernilai null di sana.
+    $roleTk = \App\Helpers\GuestSession::role();
+    $bolehProses = in_array($roleTk, ['superadmin', 'bendahara_pengeluaran'], true);
+@endphp
 <div class="page-head">
     <div>
         <div class="ph-crumb">Beranda / <b>Tunjangan Keluarga</b> / Monitoring Pengajuan</div>
         <div class="ph-title">Monitoring Pengajuan Tunjangan Keluarga</div>
     </div>
-    @if (auth()->user()->role === 'superadmin')
+    @if ($roleTk === 'superadmin')
         <div class="ph-actions"><a class="btn" href="{{ route('tunjangan.import.create') }}">Import Awal (Dry-run)</a></div>
     @endif
 </div>
@@ -81,7 +87,7 @@
                         </td>
                         <td>
                             @foreach ($p->lampiran as $lampiran)
-                                @if (in_array(auth()->user()->role, ['superadmin', 'bendahara_pengeluaran']))
+                                @if ($bolehProses)
                                     <a href="{{ route('tunjangan.lampiran.download', $lampiran) }}">{{ $lampiran->nama_asli }}</a><br>
                                 @else
                                     <span class="sub">Private</span><br>
@@ -90,7 +96,7 @@
                         </td>
                         <td><span class="badge {{ $p->status === 'disetujui' ? 'st-aktif' : ($p->status === 'ditolak' ? 'st-danger' : 'st-verifikasi') }}">{{ strtoupper($p->status) }}</span></td>
                         <td>
-                            @if ($p->status === 'diajukan' && in_array(auth()->user()->role, ['superadmin', 'bendahara_pengeluaran']))
+                            @if ($p->status === 'diajukan' && $bolehProses)
                                 <form method="POST" action="{{ route('tunjangan.pengajuan.proses', $p) }}" style="min-width:200px">
                                     @csrf
                                     <div class="fg">

@@ -145,8 +145,7 @@ class NpdHistorisImportTest extends TestCase
 
         $this->actingAs($this->admin)->get(route('manajemen-data.index'))->assertOk()
             ->assertSee(route('manajemen-data.import.npd-historis.create'), false);
-        $this->actingAs($bendahara)->get(route('manajemen-data.index'))->assertOk()
-            ->assertDontSee(route('manajemen-data.import.npd-historis.create'), false);
+        $this->actingAs($bendahara)->get(route('manajemen-data.index'))->assertForbidden();
         $this->actingAs($this->admin)->get(route('manajemen-data.import.npd-historis.create'))->assertOk()
             ->assertSee('Unduh Template Import NPD')->assertSee('Tahun Anggaran 2026')
             // Contoh isi kolom di layar diambil dari kelas template - kalau

@@ -5,10 +5,13 @@ use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CetakSpjPerjalananController;
 use App\Http\Controllers\DashboardRealisasiController;
+use App\Http\Controllers\DataPerjalananDinasController;
+use App\Http\Controllers\DataSpjPerjalananDinasController;
 use App\Http\Controllers\GajiTunjanganController;
 use App\Http\Controllers\GajiTunjanganImportController;
 use App\Http\Controllers\InventarisasiSpjController;
 use App\Http\Controllers\KebutuhanController;
+use App\Http\Controllers\KeteranganLampiranPreviewController;
 use App\Http\Controllers\ManajemenDataController;
 use App\Http\Controllers\MasterAnggaranImportController;
 use App\Http\Controllers\NpdBjController;
@@ -28,23 +31,20 @@ use App\Http\Controllers\PerjalananDinasPegawaiController;
 use App\Http\Controllers\PkptController;
 use App\Http\Controllers\PkptImportController;
 use App\Http\Controllers\ProfilController;
-use App\Http\Controllers\DataPerjalananDinasController;
-use App\Http\Controllers\DataSpjPerjalananDinasController;
-use App\Http\Controllers\KeteranganLampiranPreviewController;
-use App\Http\Controllers\RekapPotensiImportController;
-use App\Http\Controllers\RekapPotensiPengembalianController;
-use App\Http\Controllers\RincianManualImportController;
-use App\Http\Controllers\RekananController;
 use App\Http\Controllers\RakBulananImportController;
 use App\Http\Controllers\RealisasiPeriodeController;
+use App\Http\Controllers\RekananController;
+use App\Http\Controllers\RekapPotensiImportController;
+use App\Http\Controllers\RekapPotensiPengembalianController;
 use App\Http\Controllers\RekonsiliasiGajiController;
+use App\Http\Controllers\RincianManualImportController;
 use App\Http\Controllers\RincianPenghasilanController;
 use App\Http\Controllers\RincianRealisasiController;
 use App\Http\Controllers\SegeraHadirController;
 use App\Http\Controllers\SimulasiAnggaranController;
 use App\Http\Controllers\SimulasiRealisasiController;
-use App\Http\Controllers\SpjDashboardController;
 use App\Http\Controllers\SpjBerkasController;
+use App\Http\Controllers\SpjDashboardController;
 use App\Http\Controllers\SpmController;
 use App\Http\Controllers\SpmImportController;
 use App\Http\Controllers\SuratPerintahController;
@@ -53,6 +53,7 @@ use App\Http\Controllers\TunjanganKeluargaImportController;
 use App\Http\Controllers\UserController;
 use App\Http\Controllers\VendorImportController;
 use App\Http\Controllers\VersiPaguController;
+use App\Models\User;
 use Illuminate\Support\Facades\Route;
 
 Route::get('/', function () {
@@ -209,7 +210,9 @@ Route::middleware('auth.or.guest')->group(function () {
         ->middleware('menu-akses:invspj')->name('inventarisasi-spj.index');
     Route::get('/inventarisasi-spj/{npd}/rincian', [InventarisasiSpjController::class, 'rincian'])
         ->middleware('menu-akses:invspj')->name('inventarisasi-spj.rincian');
-    Route::middleware(['menu-akses:invspj', 'role:superadmin,bendahara_pengeluaran,bpp'])->group(function () {
+    // Mengubah isi Inventarisasi SPJ: superadmin dan Pengelola SPJ saja
+    // (config akses.kelola.invspj). Pemegang kunci menu lainnya hanya membaca.
+    Route::middleware(['menu-akses:invspj', 'kelola:invspj'])->group(function () {
         Route::post('/inventarisasi-spj/bantex', [InventarisasiSpjController::class, 'storeBantex'])->name('inventarisasi-spj.bantex.store');
         Route::put('/inventarisasi-spj/{npd}', [InventarisasiSpjController::class, 'updateDetail'])->name('inventarisasi-spj.detail.update');
         Route::post('/inventarisasi-spj/{npd}/restore', [InventarisasiSpjController::class, 'restoreDetail'])->name('inventarisasi-spj.detail.restore');
@@ -303,12 +306,16 @@ Route::middleware('auth.or.guest')->group(function () {
     Route::delete('/rincian-penghasilan/{dokumen}', [RincianPenghasilanController::class, 'destroy'])
         ->middleware('menu-akses:gt-daftar')->name('gaji-tunjangan.rincian.destroy');
 
-    // Semua role yang login, kecuali "layanan" (layanan tidak login).
-    Route::middleware('role:superadmin,bendahara_pengeluaran,pptk,bpp,verifikator,sekretaris,kasubbag,inspektur,inspektur_pembantu,perencanaan,kepegawaian,pengawas')->group(function () {
-        Route::get('/surat-perintah', [SuratPerintahController::class, 'index'])->name('surat-perintah.index');
+    // Semua role yang login, kecuali "layanan" (layanan tidak login). Daftarnya
+    // diambil dari User::ROLE_OPTIONS supaya role baru otomatis ikut - dulu
+    // ditulis tangan, dan role Irban per unit sempat tertinggal dari sini.
+    Route::middleware('role:'.implode(',', User::ROLE_OPTIONS))->group(function () {
+        // Data SP: daftar seluruh SP, hanya untuk pemegang kunci menunya.
+        Route::get('/surat-perintah', [SuratPerintahController::class, 'index'])
+            ->middleware('menu-akses:sp-data')->name('surat-perintah.index');
 
         // Membuat SP mengubah data, jadi tertutup untuk role baca-saja.
-        Route::middleware('baca-saja')->group(function () {
+        Route::middleware(['menu-akses:sp-input', 'baca-saja'])->group(function () {
             Route::get('/surat-perintah/create', [SuratPerintahController::class, 'create'])->name('surat-perintah.create');
             Route::post('/surat-perintah', [SuratPerintahController::class, 'store'])->name('surat-perintah.store');
         });
@@ -347,27 +354,38 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/manajemen-data/import/npd-historis/{import}/report/{mode}', [NpdHistorisImportController::class, 'report'])->name('manajemen-data.import.npd-historis.report');
     });
 
-    // Modul Data Kepegawaian: Data Pegawai, Data Tunjangan Keluarga, dan
-    // impornya. Role Kepegawaian memegang modul ini penuh - sama luasnya
-    // dengan superadmin di sini, tanpa membawa kewenangan superadmin yang lain.
-    Route::middleware('role:superadmin,kepegawaian')->group(function () {
+    /*
+     * Modul Data Kepegawaian: Data Pegawai dan Data Tunjangan Keluarga.
+     *
+     * MEMBACA daftarnya terbuka untuk pemegang kunci menunya (tk-pegawai,
+     * tk-data). MENGUBAH - tambah, sunting, kosongkan, impor - serta membuka
+     * dokumen pendukung keluarga tetap milik superadmin dan Kepegawaian
+     * (config akses.kelola), yang memegang modul ini penuh tanpa membawa
+     * kewenangan superadmin yang lain.
+     */
+    Route::get('/tunjangan-keluarga/pegawai', [TunjanganKeluargaController::class, 'pegawai'])
+        ->middleware('menu-akses:tk-pegawai')->name('tunjangan.pegawai.index');
+    Route::get('/tunjangan-keluarga/data', [TunjanganKeluargaController::class, 'data'])
+        ->middleware('menu-akses:tk-data')->name('tunjangan.data.index');
+
+    // Data Pegawai. Rute "tambah" didaftarkan lebih dulu supaya tidak
+    // tertangkap {pegawai}.
+    Route::middleware(['menu-akses:tk-pegawai', 'kelola:tk-pegawai'])->group(function () {
+        Route::get('/tunjangan-keluarga/pegawai/tambah', [TunjanganKeluargaController::class, 'createPegawai'])->name('tunjangan.pegawai.create');
+        Route::post('/tunjangan-keluarga/pegawai', [TunjanganKeluargaController::class, 'storePegawai'])->name('tunjangan.pegawai.store');
+        Route::get('/tunjangan-keluarga/pegawai/{pegawai}/edit', [TunjanganKeluargaController::class, 'editPegawai'])->name('tunjangan.pegawai.edit');
+        Route::put('/tunjangan-keluarga/pegawai/{pegawai}', [TunjanganKeluargaController::class, 'updatePegawai'])->name('tunjangan.pegawai.update');
+    });
+
+    // Data Tunjangan Keluarga: sumber data mentah dashboard, beserta impornya.
+    Route::middleware(['menu-akses:tk-data', 'kelola:tk-data'])->group(function () {
         Route::get('/tunjangan-keluarga/import', [TunjanganKeluargaImportController::class, 'create'])->name('tunjangan.import.create');
         Route::get('/tunjangan-keluarga/import/template', [TunjanganKeluargaImportController::class, 'template'])->name('tunjangan.import.template');
         Route::post('/tunjangan-keluarga/import', [TunjanganKeluargaImportController::class, 'store'])->name('tunjangan.import.store');
         Route::get('/tunjangan-keluarga/import/{import}', [TunjanganKeluargaImportController::class, 'preview'])->name('tunjangan.import.preview');
         Route::post('/tunjangan-keluarga/import/{import}/confirm', [TunjanganKeluargaImportController::class, 'confirm'])->name('tunjangan.import.confirm');
 
-        // Data Tunjangan Keluarga: sumber data mentah dashboard, diisi langsung oleh superadmin.
-        Route::get('/tunjangan-keluarga/data', [TunjanganKeluargaController::class, 'data'])->name('tunjangan.data.index');
         Route::delete('/tunjangan-keluarga/data/{pegawai}', [TunjanganKeluargaController::class, 'hapusData'])->name('tunjangan.data.hapus');
-
-        // Data Pegawai: daftar induk modul Data Kepegawaian. Rute "tambah"
-        // didaftarkan lebih dulu supaya tidak tertangkap {pegawai}.
-        Route::get('/tunjangan-keluarga/pegawai', [TunjanganKeluargaController::class, 'pegawai'])->name('tunjangan.pegawai.index');
-        Route::get('/tunjangan-keluarga/pegawai/tambah', [TunjanganKeluargaController::class, 'createPegawai'])->name('tunjangan.pegawai.create');
-        Route::post('/tunjangan-keluarga/pegawai', [TunjanganKeluargaController::class, 'storePegawai'])->name('tunjangan.pegawai.store');
-        Route::get('/tunjangan-keluarga/pegawai/{pegawai}/edit', [TunjanganKeluargaController::class, 'editPegawai'])->name('tunjangan.pegawai.edit');
-        Route::put('/tunjangan-keluarga/pegawai/{pegawai}', [TunjanganKeluargaController::class, 'updatePegawai'])->name('tunjangan.pegawai.update');
         Route::get('/tunjangan-keluarga/data/{pegawai}/edit', [TunjanganKeluargaController::class, 'editData'])->name('tunjangan.data.edit');
         Route::post('/tunjangan-keluarga/data/{pegawai}', [TunjanganKeluargaController::class, 'simpanData'])->name('tunjangan.data.simpan');
         Route::get('/tunjangan-keluarga/data-dokumen/{tunjanganKeluarga}', [TunjanganKeluargaController::class, 'unduhDokumenData'])->name('tunjangan.data.dokumen');
@@ -394,49 +412,43 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::post('/pengumuman', [PengumumanController::class, 'store'])->name('pengumuman.store');
     });
 
-    // Hanya superadmin dan Inspektur boleh melihat log aktivitas (audit trail).
-    Route::middleware('role:superadmin,inspektur,pengawas')->group(function () {
-        Route::get('/audit-log', [AuditLogController::class, 'index'])->name('audit-log.index');
-    });
+    // Log aktivitas (audit trail): hanya superadmin.
+    Route::get('/audit-log', [AuditLogController::class, 'index'])
+        ->middleware('menu-akses:audit-log')->name('audit-log.index');
 
     // Menu yang rumahnya sudah ada tetapi isinya belum - lihat
-    // SegeraHadirController::HALAMAN. Tiap kunci tetap melewati menu-akses,
-    // jadi hak aksesnya sudah benar sejak sekarang. Berdiri di grup sendiri
-    // (bukan menumpang grup monitoring NPD) supaya role yang punya kunci
-    // menunya tapi tidak berurusan dengan NPD - Kepegawaian - tetap bisa
-    // membukanya.
-    Route::middleware('role:superadmin,bendahara_pengeluaran,pptk,kepegawaian,pengawas')->group(function () {
-        foreach (array_keys(SegeraHadirController::HALAMAN) as $menuSegera) {
-            Route::get('/segera/'.$menuSegera, SegeraHadirController::class)
-                ->defaults('menu', $menuSegera)
-                ->middleware('menu-akses:'.$menuSegera)
-                ->name('segera.'.$menuSegera);
-        }
+    // SegeraHadirController::HALAMAN. Cukup dijaga menu-akses: kuncinya
+    // (sp-cetaksppd) dipegang semua role, termasuk Pengguna Layanan, dan
+    // daftar role tulisan tangan di sini dulu membuat sebagian pemegang
+    // kuncinya malah tertolak.
+    foreach (array_keys(SegeraHadirController::HALAMAN) as $menuSegera) {
+        Route::get('/segera/'.$menuSegera, SegeraHadirController::class)
+            ->defaults('menu', $menuSegera)
+            ->middleware('menu-akses:'.$menuSegera)
+            ->name('segera.'.$menuSegera);
+    }
+
+    // Pembuatan NPD (halaman pemilih jenis + daftar): superadmin dan PPTK.
+    Route::get('/npd', [NpdController::class, 'index'])
+        ->middleware('menu-akses:npd')->name('npd.index');
+
+    // Daftar Rekanan: daftar induk penyedia yang mengisi pilihan penerima di
+    // Pembuatan NPD. Dibuka kelima role keuangan (kunci npd-rekanan); menulis
+    // tetap lewat 'baca-saja'.
+    Route::get('/npd/rekanan', [RekananController::class, 'index'])
+        ->middleware('menu-akses:npd-rekanan')->name('rekanan.index');
+
+    Route::middleware(['menu-akses:npd-rekanan', 'baca-saja'])->group(function () {
+        Route::get('/npd/rekanan/tambah', [RekananController::class, 'create'])->name('rekanan.create');
+        Route::post('/npd/rekanan', [RekananController::class, 'store'])->name('rekanan.store');
+        Route::get('/npd/rekanan/{rekanan}/edit', [RekananController::class, 'edit'])->name('rekanan.edit');
+        Route::put('/npd/rekanan/{rekanan}', [RekananController::class, 'update'])->name('rekanan.update');
     });
 
-    // Monitoring seluruh NPD: superadmin, Bendahara Pengeluaran, dan PPTK.
-    Route::middleware('role:superadmin,bendahara_pengeluaran,pptk')->group(function () {
-        Route::get('/npd', [NpdController::class, 'index'])->name('npd.index');
-
-        // Daftar Rekanan: daftar induk penyedia yang mengisi pilihan penerima
-        // di Pembuatan NPD. Pembacanya disamakan dengan Pembuatan NPD karena
-        // merekalah yang memakai daftarnya; menulis tetap lewat 'baca-saja'.
-        Route::get('/npd/rekanan', [RekananController::class, 'index'])
-            ->middleware('menu-akses:npd-rekanan')->name('rekanan.index');
-
-        Route::middleware(['menu-akses:npd-rekanan', 'baca-saja'])->group(function () {
-            Route::get('/npd/rekanan/tambah', [RekananController::class, 'create'])->name('rekanan.create');
-            Route::post('/npd/rekanan', [RekananController::class, 'store'])->name('rekanan.store');
-            Route::get('/npd/rekanan/{rekanan}/edit', [RekananController::class, 'edit'])->name('rekanan.edit');
-            Route::put('/npd/rekanan/{rekanan}', [RekananController::class, 'update'])->name('rekanan.update');
-        });
-    });
-
-    // Data NPD berdiri sendiri di luar grup di atas karena BPP ikut membukanya
-    // (di sanalah aksi Kirim Notifikasi pencairan berada - BPP yang menandai
-    // NPD Selesai), sementara Pembuatan NPD tetap tertutup untuk BPP.
+    // Data NPD: seluruh NPD apa pun statusnya, baca-saja. Dibuka role
+    // keuangan, Pimpinan, dan Pengawas (kunci npd-data).
     Route::get('/npd/data', [NpdController::class, 'dataNpd'])
-        ->middleware(['role:superadmin,bendahara_pengeluaran,pptk,bpp,pengawas', 'menu-akses:npd-data'])
+        ->middleware('menu-akses:npd-data')
         ->name('npd.data');
 
     // Pembuatan NPD: hanya superadmin dan PPTK.
@@ -471,20 +483,23 @@ Route::middleware('auth.or.guest')->group(function () {
     Route::delete('/npd/{npd}/permanen', [NpdController::class, 'destroyPermanent'])
         ->middleware('role:superadmin')->name('npd.destroy-permanent');
 
-    // Antrean Persetujuan NPD: BPP. Port dari getNPDuntukBPP di gas-lama/CodeRevisi.gs.
-    Route::middleware('role:bpp,superadmin')->group(function () {
-        Route::get('/npd/persetujuan', [NpdController::class, 'persetujuan'])->name('npd.persetujuan');
-    });
+    // Antrean Persetujuan NPD: BPP, dan Bendahara Pengeluaran sebagai
+    // pemantau - ia membuka antreannya tetapi tidak mendapat aksi transisi
+    // (lihat grup npd.transisi di bawah). Port dari getNPDuntukBPP di
+    // gas-lama/CodeRevisi.gs.
+    Route::get('/npd/persetujuan', [NpdController::class, 'persetujuan'])
+        ->middleware('menu-akses:persetujuan')->name('npd.persetujuan');
 
     // Antrean Verifikasi NPD: Verifikator. Port dari getNPDuntukVerifikator di gas-lama/CodeRevisi.gs.
-    Route::middleware('role:verifikator,superadmin')->group(function () {
+    Route::middleware('menu-akses:verifikasi')->group(function () {
         Route::get('/npd/verifikasi', [NpdController::class, 'verifikasi'])->name('npd.verifikasi');
         Route::get('/npd/{npd}/coret', [NpdController::class, 'coret'])->name('npd.coret');
     });
 
-    // Detail dan cetak: semua pelaku workflow, Bendahara Pengeluaran sebagai
-    // pemantau OPD, dan Pengawas sebagai pemantau baca-saja.
-    Route::middleware('role:superadmin,bendahara_pengeluaran,pptk,bpp,verifikator,pengawas')->group(function () {
+    // Detail dan cetak: siapa pun yang boleh membuka Data NPD - semua pelaku
+    // workflow memegang kunci itu, begitu juga Pimpinan dan Pengawas sebagai
+    // pemantau baca-saja.
+    Route::middleware('menu-akses:npd-data')->group(function () {
         Route::get('/npd/{npd}', [NpdController::class, 'show'])->name('npd.show');
         Route::get('/npd/{npd}/cetak-npd', [NpdController::class, 'cetakNpd'])->name('npd.cetak-npd');
         Route::get('/npd/{npd}/cetak-lampiran', [NpdController::class, 'cetakLampiran'])->name('npd.cetak-lampiran');
@@ -496,16 +511,23 @@ Route::middleware('auth.or.guest')->group(function () {
         // yang sudah diunggah ikut di dalamnya.
         Route::get('/npd/{npd}/cetak-gabungan', [NpdController::class, 'cetakGabungan'])->name('npd.cetak-gabungan');
 
-        // MELIHAT berkas SPJ ikut kelompok ini (Pengawas termasuk): isinya
-        // lampiran dokumen yang sudah boleh mereka baca lewat tombol cetak.
-        Route::get('/npd/{npd}/spj-berkas/{berkas}', [SpjBerkasController::class, 'show'])->name('npd.spj-berkas.show');
     });
 
-    // Mengarsipkan SPJ mengubah data, jadi tetap di luar jangkauan Pengawas.
-    // Mengunggah & menghapus berkas SPJ sekelompok di sini dengan alasan yang
-    // sama - fitur pembantu, tapi tetap mengubah data.
+    // MELIHAT berkas SPJ: isinya lampiran dokumen yang sudah boleh dibaca
+    // lewat tombol cetak di detail NPD. Pemegang Inventarisasi SPJ ikut di
+    // sini - Pengelola SPJ membuka berkasnya dari sana tanpa memegang Data NPD.
+    Route::get('/npd/{npd}/spj-berkas/{berkas}', [SpjBerkasController::class, 'show'])
+        ->middleware('menu-akses:npd-data,invspj')->name('npd.spj-berkas.show');
+
+    // Mengarsipkan SPJ dari halaman detail NPD mengubah data, jadi tetap di
+    // luar jangkauan pemantau (Pimpinan, Pengawas).
     Route::middleware('role:superadmin,bendahara_pengeluaran,pptk,bpp,verifikator')->group(function () {
         Route::post('/npd/{npd}/arsip-spj', [InventarisasiSpjController::class, 'store'])->name('npd.arsip-spj.store');
+    });
+
+    // Mengunggah & menghapus berkas SPJ: pelaku workflow dari halaman detail
+    // NPD, dan Pengelola SPJ dari panel Edit Inventarisasi SPJ.
+    Route::middleware('role:superadmin,bendahara_pengeluaran,pptk,bpp,verifikator,pengelola_spj')->group(function () {
         Route::post('/npd/{npd}/spj-berkas', [SpjBerkasController::class, 'store'])->name('npd.spj-berkas.store');
         Route::delete('/npd/{npd}/spj-berkas/{berkas}', [SpjBerkasController::class, 'destroy'])->name('npd.spj-berkas.destroy');
     });
@@ -533,12 +555,13 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::post('/npd/{npd}/notifikasi', [NpdNotifikasiController::class, 'store'])->name('npd.notifikasi.store');
     });
 
-    // Daftar SPM boleh dibaca Pengawas: SPM LS adalah salah satu sumber angka
-    // realisasi, jadi tanpa ini pemantauan anggarannya tidak utuh.
-    Route::middleware('role:superadmin,bendahara_pengeluaran,pengawas')->group(function () {
+    // Daftar SPM boleh dibaca role keuangan, Pimpinan, dan Pengawas (kunci
+    // 'spm'): SPM LS adalah salah satu sumber angka realisasi, jadi tanpa ini
+    // pemantauan anggarannya tidak utuh.
+    Route::middleware('menu-akses:spm')->group(function () {
         Route::get('/spm/up-gu', [SpmController::class, 'indexUpGu'])->name('spm.up-gu.index');
         Route::get('/spm/ls', [SpmController::class, 'indexLs'])->name('spm.ls.index');
-        // Rincian SPM LS ikut boleh dibaca Pengawas, sama seperti daftarnya.
+        // Rincian SPM LS ikut boleh dibaca, sama seperti daftarnya.
         //
         // whereNumber WAJIB: rute ini terdaftar SEBELUM /spm/ls/create, dan
         // tanpa batasan itu "create" akan tertangkap sebagai id SPM sehingga
@@ -547,8 +570,9 @@ Route::middleware('auth.or.guest')->group(function () {
             ->whereNumber('spm')->name('spm.ls.show');
     });
 
-    // Membuat, mengubah, dan menghapus SPM: superadmin dan Bendahara Pengeluaran.
-    Route::middleware('role:superadmin,bendahara_pengeluaran')->group(function () {
+    // Membuat, mengubah, dan menghapus SPM: superadmin dan Bendahara
+    // Pengeluaran (config akses.kelola.spm).
+    Route::middleware(['menu-akses:spm', 'kelola:spm'])->group(function () {
         Route::get('/spm/up-gu/create', [SpmController::class, 'createUpGu'])->name('spm.up-gu.create');
         Route::post('/spm/up-gu', [SpmController::class, 'storeUpGu'])->name('spm.up-gu.store');
         Route::get('/spm/up-gu/{spm}/edit', [SpmController::class, 'editUpGu'])->name('spm.up-gu.edit');
@@ -568,12 +592,13 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::delete('/spm/{spm}/validasi', [SpmController::class, 'batalValidasi'])->name('spm.validasi.batal');
     });
 
-    // Pengembalian: Bendahara Pengeluaran dan BPP boleh input & lihat; HANYA
-    // Bendahara Pengeluaran yang boleh menyetujui (lihat middleware role di
-    // route setujui di bawah). Hapus draft: pembuatnya sendiri atau Bendahara
-    // Pengeluaran - dicek di controller (PengembalianController::destroy),
-    // bukan lewat middleware role, karena bukan restriksi per-role murni.
-    Route::middleware('role:superadmin,bendahara_pengeluaran,bpp,pengawas')->group(function () {
+    // Pengembalian: Bendahara Pengeluaran, BPP, dan Verifikator boleh input &
+    // lihat; HANYA Bendahara Pengeluaran yang boleh menyetujui (lihat
+    // middleware role di route setujui di bawah). Hapus draft: pembuatnya
+    // sendiri atau Bendahara Pengeluaran - dicek di controller
+    // (PengembalianController::destroy), bukan lewat middleware role, karena
+    // bukan restriksi per-role murni.
+    Route::middleware('role:superadmin,bendahara_pengeluaran,bpp,verifikator')->group(function () {
         Route::get('/pengembalian', [PengembalianController::class, 'index'])
             ->middleware('menu-akses:pengembalian')->name('pengembalian.index');
         Route::get('/pengembalian/create', [PengembalianController::class, 'create'])
@@ -590,9 +615,9 @@ Route::middleware('auth.or.guest')->group(function () {
             ->middleware('menu-akses:pengembalian')->name('pengembalian.show');
     });
 
-    // Hapus draft dijaga menu-akses:pengembalian yang juga dipegang Pengawas,
-    // jadi rutenya berdiri di grup role tersendiri - bukan di grup baca.
-    Route::middleware(['menu-akses:pengembalian', 'role:superadmin,bendahara_pengeluaran,bpp'])->group(function () {
+    // Hapus draft: kepemilikannya diperiksa di controller, jadi Verifikator
+    // pun hanya bisa menghapus draft yang ia buat sendiri.
+    Route::middleware(['menu-akses:pengembalian', 'role:superadmin,bendahara_pengeluaran,bpp,verifikator'])->group(function () {
         Route::delete('/pengembalian/{pengembalian}', [PengembalianController::class, 'destroy'])->name('pengembalian.destroy');
     });
 
@@ -600,8 +625,9 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::post('/pengembalian/{pengembalian}/setujui', [PengembalianController::class, 'setujui'])->name('pengembalian.setujui');
     });
 
-    // Manajemen Data (export + import): khusus superadmin dan Bendahara Pengeluaran.
-    Route::middleware('role:superadmin,bendahara_pengeluaran')->group(function () {
+    // Manajemen Data (export + import): khusus superadmin, sama seperti dua
+    // menu Setting lainnya. Bendahara Pengeluaran dulu ikut di sini.
+    Route::middleware('role:superadmin')->group(function () {
         Route::get('/manajemen-data', [ManajemenDataController::class, 'index'])->name('manajemen-data.index');
         Route::get('/manajemen-data/export/{jenis}', [ManajemenDataController::class, 'export'])
             ->whereIn('jenis', ['master-anggaran', 'rak-bulanan', 'npd', 'perjalanan-dinas', 'spj-perjalanan-dinas', 'spm-up-gu', 'spm-ls', 'pegawai', 'vendor', 'rekap-potensi', 'pkpt', 'kebutuhan-anggaran', 'tunjangan-keluarga'])
