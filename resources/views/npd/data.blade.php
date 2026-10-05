@@ -233,7 +233,8 @@ document.addEventListener('DOMContentLoaded', function () {
 
     tbody.innerHTML = potong.length ? potong.map(r =>
       '<tr>' +
-        '<td class="kol-npd">' + esc(r.nomor_npd) + '</td>' +
+        // Boleh dipotong setelah tiap "/" supaya tidak menabrak kolom sebelah.
+        '<td class="kol-npd">' + esc(r.nomor_npd).replace(/\//g, '/<wbr>') + '</td>' +
         '<td title="' + esc(r.sub_kegiatan) + '">' + esc(r.sub_kegiatan) + '</td>' +
         '<td title="' + esc(r.kode_rekening) + '">' + esc(r.kode_rekening) + '</td>' +
         '<td>' + esc(r.tagging) + '</td>' +

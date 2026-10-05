@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Models\ClusterUh;
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
+use App\Models\NpdTim;
 use App\Models\Pegawai;
 use App\Models\SuratPerintah;
 use App\Models\User;
@@ -176,6 +177,46 @@ class NpdPdTest extends TestCase
             '/<span class="asal">Draft NPD - PPTK<\/span>\s*<span class="kata">menjadi<\/span>\s*<span class="tuju">Draft NPD - BPP<\/span>/',
             $isi
         );
+    }
+
+    /**
+     * Jumlah Liter BBM tidak dibatasi dua desimal: liter diketik panjang
+     * supaya liter x tarif tepat membulat ke nominal BBM yang dituju.
+     */
+    public function test_jumlah_liter_bbm_disimpan_utuh_tanpa_dibatasi_dua_desimal(): void
+    {
+        $superadmin = $this->buatUser('superadmin', 'pd-liter');
+        $payload = $this->payload($this->buatMasterAnggaran());
+        $payload['tim'][0]['bbm_liter'] = 10.123456;
+        $payload['tim'][0]['bbm_tarif'] = 10_000;
+
+        $this->actingAs($superadmin)->post(route('npd.pd.store'), $payload)->assertSessionHasNoErrors();
+
+        $npd = Npd::query()->latest('id')->firstOrFail();
+        $anggota = $npd->tim()->where('nama', 'Anggota Pertama')->firstOrFail();
+
+        // Tidak terpotong menjadi 10,12 saat disimpan.
+        $this->assertEqualsWithDelta(10.123456, $anggota->bbm_liter, 1e-9);
+        // 10,123456 x 10.000 = 101.234,56 -> dibulatkan ke rupiah penuh.
+        $this->assertSame(101_235.0, (float) $anggota->hitung()['bbm']);
+
+        // Isian formulir menerima desimal berapa pun.
+        $this->actingAs($superadmin)->get(route('npd.pd.create'))
+            ->assertOk()
+            ->assertSee('step="any" min="0" data-bbm-liter', false)
+            ->assertDontSee('step="0.01" min="0" data-bbm-liter', false);
+
+        $this->actingAs($superadmin)->get(route('npd.cetak-lampiran', $npd))->assertOk();
+    }
+
+    public function test_liter_bbm_dicetak_dengan_seluruh_angka_di_belakang_koma(): void
+    {
+        $this->assertSame('10,123456', NpdTim::formatLiter(10.123456));
+        $this->assertSame('10,5', NpdTim::formatLiter(10.5));
+        $this->assertSame('12', NpdTim::formatLiter(12.0));
+        $this->assertSame('0', NpdTim::formatLiter(0.0));
+        // Jumlah beberapa anggota tidak memunculkan sisa pecahan float.
+        $this->assertSame('0,3', NpdTim::formatLiter(0.1 + 0.2));
     }
 
     public function test_hanya_pptk_dan_superadmin_dapat_mengakses_pembuatan_npd_perjalanan(): void

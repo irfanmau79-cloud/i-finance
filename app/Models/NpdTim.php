@@ -30,7 +30,11 @@ class NpdTim extends Model
     protected function casts(): array
     {
         return [
-            'bbm_liter' => 'decimal:2',
+            // Liter tidak dibatasi dua desimal: diketik panjang supaya
+            // liter x tarif tepat membulat ke nominal BBM. 'float', bukan
+            // 'decimal:N', supaya formulir sunting tidak menampilkan
+            // deretan nol di belakang koma.
+            'bbm_liter' => 'float',
             'bbm_tarif' => 'decimal:2',
             'tol' => 'decimal:2',
             'tiket' => 'decimal:2',
@@ -52,6 +56,18 @@ class NpdTim extends Model
     public function paket(): HasMany
     {
         return $this->hasMany(NpdTimPaket::class);
+    }
+
+    /**
+     * Liter untuk dicetak: koma desimal, seluruh angka di belakang koma
+     * dipertahankan (tanpa nol di ujung). 10,5 tetap "10,5"; 10,123456
+     * tetap "10,123456" - tidak dibulatkan ke dua desimal.
+     */
+    public static function formatLiter(float $liter): string
+    {
+        $teks = rtrim(rtrim(number_format(round($liter, 10), 10, ',', ''), '0'), ',');
+
+        return $teks === '' ? '0' : $teks;
     }
 
     /** Bentuk array datar dipakai App\Helpers\NpdPerjalananHitung — paket relation harus sudah di-load. */

@@ -605,7 +605,7 @@
             + '<button type="button" class="add" style="padding:7px;font-size:12px;margin-top:8px;" data-paket-add>+ Tambah Tujuan</button>'
             + '<div class="sub">Transport</div>'
             + '<div class="row">'
-            + '<div><label class="fl">Jumlah Liter BBM</label><input type="number" step="0.01" min="0" data-bbm-liter name="tim[' + idx + '][bbm_liter]" value=""></div>'
+            + '<div><label class="fl">Jumlah Liter BBM</label><input type="number" step="any" min="0" data-bbm-liter name="tim[' + idx + '][bbm_liter]" value=""></div>'
             + '<div><label class="fl">Tarif BBM/liter (Rp)</label><input type="number" step="0.01" min="0" data-bbm-tarif name="tim[' + idx + '][bbm_tarif]" value=""></div>'
             + '</div>'
             + '<div class="badge-tot" style="margin:6px 0 0;"><span>Total BBM</span><span class="v" data-bbm-total>Rp 0</span></div>'

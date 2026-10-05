@@ -1401,7 +1401,10 @@ class NpdController extends Controller
             $totLiter += (float) $anggota->bbm_liter;
         }
         $tTr = $totBbm + $totTol + $totTiket;
-        $literStr = str_replace('.', ',', (string) (round($totLiter * 100) / 100));
+        // Dulu dibulatkan dua desimal (mengikuti GAS). Sekarang seluruh angka
+        // di belakang koma dicetak, karena liter memang diketik panjang
+        // supaya liter x tarif tepat membulat ke nominal BBM.
+        $literStr = NpdTim::formatLiter($totLiter);
         $rowsTr =
             '<tr class="dat"><td class="center v bl0">1</td><td class="v">BBM</td><td class="v"></td>'
                 .'<td class="center">'.($totBbm > 0 ? $literStr.' liter' : '').'</td><td class="num"></td><td class="num br0">'.fmt_rupiah($totBbm).'</td></tr>'

@@ -177,7 +177,7 @@
             + '<h4>' + escapeHtml(anggota.nama) + ' <span style="font-weight:400;color:var(--mut);">' + escapeHtml(anggota.jabatan || '') + '</span></h4>'
             + '<div class="form-grid">'
             + '<div class="fg"><label class="fl">Penerima Dana</label><label style="display:flex;align-items:center;gap:6px;margin-top:8px;"><input type="radio" name="penerima_index" value="' + idx + '"' + (idx === 0 ? ' checked' : '') + '><span>Jadikan penerima transfer</span></label></div>'
-            + '<div class="fg"><label class="fl">BBM (liter)</label><input type="number" step="0.01" min="0" data-bbm-liter name="tim[' + idx + '][bbm_liter]" value=""></div>'
+            + '<div class="fg"><label class="fl">BBM (liter)</label><input type="number" step="any" min="0" data-bbm-liter name="tim[' + idx + '][bbm_liter]" value=""></div>'
             + '<div class="fg"><label class="fl">Tarif BBM (Rp/liter)</label><input type="number" step="0.01" min="0" data-bbm-tarif name="tim[' + idx + '][bbm_tarif]" value=""></div>'
             + '<div class="fg"><label class="fl">Tol (Rp)</label><input type="number" step="0.01" min="0" data-tol name="tim[' + idx + '][tol]" value=""></div>'
             + '<div class="fg"><label class="fl">Tiket (Rp)</label><input type="number" step="0.01" min="0" data-tiket name="tim[' + idx + '][tiket]" value=""></div>'

@@ -418,7 +418,11 @@
   .wf-btn:disabled{opacity:.5;cursor:not-allowed;}
   .catatan-box{background:var(--warn-bg);border:1px solid var(--garis-warn);border-radius:var(--r-sm);padding:8px 11px;font-size:12px;color:var(--warn-teks);margin-top:6px;}
   /* Nomor NPD - satu gaya untuk Data NPD maupun tabel alur kerja. */
-  td.kol-npd{font-weight:600;color:var(--tegas);}
+  /* Nomor NPD tidak berspasi ("917/NPD-Keu.2-IBC/08/2026"), padahal
+     tabelnya table-layout:fixed - tanpa titik potong ia menabrak kolom di
+     kanannya. Titik potong utamanya <wbr> setelah tiap "/" (lihat tampilan);
+     overflow-wrap jadi cadangan bila satu potongan masih lebih lebar. */
+  td.kol-npd{font-weight:600;color:var(--tegas);overflow-wrap:anywhere;line-height:1.35;}
   /* Uraian NPD bisa sepanjang satu kalimat penuh. Dibiarkan membungkus ke
      bawah dengan huruf sedikit lebih kecil - tabelnya table-layout:fixed,
      jadi tanpa ini kolomnya memaksa baris melebar. */

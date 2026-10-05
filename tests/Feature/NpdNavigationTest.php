@@ -127,6 +127,19 @@ class NpdNavigationTest extends TestCase
         ]);
     }
 
+    /**
+     * Nomor NPD tidak berspasi, sedangkan tabelnya berlebar kolom tetap -
+     * tanpa titik potong ia menabrak kolom Sub Kegiatan di kanannya.
+     */
+    public function test_nomor_npd_di_tabel_boleh_dipotong_setelah_garis_miring(): void
+    {
+        $this->npd($this->master(), 'bj', 'Selesai', '917/NPD-Keu.2-IBC/08/2026');
+
+        $this->actingAs($this->user('superadmin'))->get(route('npd.index'))
+            ->assertOk()
+            ->assertSee('917/<wbr>NPD-Keu.2-IBC/<wbr>08/<wbr>2026', false);
+    }
+
     private function npd(MasterAnggaran $master, string $jenis, string $status, string $nomor): Npd
     {
         return Npd::create([

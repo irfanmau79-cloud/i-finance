@@ -153,7 +153,8 @@
                                        aria-label="Pilih {{ $npd->nomorDokumen() }}">
                             </span>
                         @endif
-                        {{ $npd->nomorDokumen() }}
+                        {{-- Boleh dipotong setelah tiap "/" supaya tidak menabrak kolom sebelah. --}}
+                        {!! str_replace('/', '/<wbr>', e($npd->nomorDokumen())) !!}
                     </td>
                     <td>{{ $npd->masterAnggaran->sub_kegiatan_lengkap }}</td>
                     <td>{{ $npd->masterAnggaran->rekening_lengkap }}</td>
