@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Helpers\AuditLog as AuditHelper;
 use App\Http\Requests\StoreArsipSpjRequest;
 use App\Http\Requests\UpdateSpjDetailRequest;
 use App\Models\ArsipSpj;
@@ -30,9 +31,50 @@ class InventarisasiSpjController extends Controller
         ], [], ['nomor' => 'Nomor Penyimpanan', 'nama' => 'Nama Bantex/Box']);
 
         $bantex = BantexSpj::create($data + ['aktif' => true, 'dibuat_oleh' => $request->user()->id]);
-        AuditLog::catat('Tambah Bantex/Box SPJ', $bantex->label());
+        AuditHelper::catat('Tambah Bantex/Box SPJ', $bantex->label());
 
         return back()->with('success', "Bantex/Box {$bantex->label()} berhasil ditambahkan.");
+    }
+
+    /**
+     * Hapus satu Bantex/Box. Dokumen di dalamnya TIDAK ikut terhapus: semuanya
+     * kembali ke keadaan belum terinventarisasi (tanpa lokasi), seperti NPD
+     * yang belum pernah ditata.
+     *
+     * Dua tempat menyimpan lokasi sebuah dokumen, dan keduanya dilepas:
+     * arsip_spj yang aktif (isi rak) dinonaktifkan - barisnya dipertahankan
+     * sebagai histori "pernah di bantex ini" - dan spj_detail.lokasi (isi
+     * tabel rincian) dikosongkan. Status dan catatan SPJ tidak disentuh.
+     *
+     * Lokasi dicocokkan pada label bernomor MAUPUN nama polosnya: dokumen
+     * yang ditata sebelum bantex bernomor masih menyimpan nama polos.
+     */
+    public function destroyBantex(Request $request, BantexSpj $bantex): RedirectResponse
+    {
+        $label = $bantex->label();
+        $nama = array_values(array_unique([$label, (string) $bantex->nama]));
+
+        $jumlah = DB::transaction(function () use ($bantex, $nama) {
+            $terkunci = BantexSpj::query()->lockForUpdate()->findOrFail($bantex->id);
+
+            $npdId = ArsipSpj::query()->where('aktif', true)->whereIn('lokasi', $nama)->pluck('npd_id')
+                ->concat(SpjDetail::query()->whereIn('lokasi', $nama)->pluck('npd_id'))
+                ->unique();
+
+            ArsipSpj::query()->where('aktif', true)->whereIn('lokasi', $nama)->update(['aktif' => false]);
+            SpjDetail::query()->whereIn('lokasi', $nama)->update(['lokasi' => null]);
+            $terkunci->delete();
+
+            return $npdId->count();
+        });
+
+        AuditHelper::catat('Hapus Bantex/Box SPJ', "{$label} | {$jumlah} NPD kembali belum terinventarisasi");
+
+        return redirect()->route('inventarisasi-spj.index')->with(
+            'success',
+            "Bantex/Box {$label} dihapus."
+            .($jumlah > 0 ? " {$jumlah} NPD di dalamnya kembali belum terinventarisasi." : '')
+        );
     }
 
     public function index(Request $request, InventarisasiSpjService $service): View

@@ -27,7 +27,11 @@ class InventarisasiSpjTest extends TestCase
         $this->actingAs($user)->post(route('inventarisasi-spj.bantex.store'), [
             'nomor' => '7',
             'nama' => 'PDTT Irban II',
-        ])->assertSessionHasNoErrors();
+        ])->assertSessionHasNoErrors()
+            // Dulu bantexnya tersimpan tetapi halamannya berakhir galat 500
+            // (pencatatan audit memanggil method yang tidak ada).
+            ->assertRedirect()
+            ->assertSessionHas('success');
 
         // Nomor disimpan dua digit, dan label lokasinya "07 - PDTT Irban II".
         $this->assertSame('07', BantexSpj::where('nama', 'PDTT Irban II')->firstOrFail()->nomor);
@@ -36,6 +40,67 @@ class InventarisasiSpjTest extends TestCase
         $this->assertSame(1, $data['jumlah_lokasi']);
         $this->assertSame('07 - PDTT Irban II', $data['lokasi'][0]['lokasi']);
         $this->assertSame(0, $data['lokasi'][0]['jumlah_dokumen']);
+    }
+
+    /**
+     * Menghapus Bantex/Box hanya membuang wadahnya. NPD di dalamnya tetap
+     * ada dan kembali belum terinventarisasi; yang di bantex lain tidak
+     * tersentuh.
+     */
+    public function test_hapus_bantex_mengembalikan_isinya_ke_belum_terinventarisasi(): void
+    {
+        $admin = $this->user('superadmin');
+        $hapus = BantexSpj::create(['nomor' => '07', 'nama' => 'Box Dihapus', 'aktif' => true, 'dibuat_oleh' => $admin->id]);
+        $tetap = BantexSpj::create(['nomor' => '08', 'nama' => 'Box Tetap', 'aktif' => true, 'dibuat_oleh' => $admin->id]);
+
+        $npdBerlabel = $this->npd('6.01.01.2.01 Sub Hapus A', '5.1.02.01.01.0101', null, 1_000_000);
+        $npdNamaPolos = $this->npd('6.01.01.2.02 Sub Hapus B', '5.1.02.01.01.0102', null, 2_000_000);
+        $npdLain = $this->npd('6.01.01.2.03 Sub Hapus C', '5.1.02.01.01.0103', null, 3_000_000);
+
+        $arsip = fn (Npd $npd, string $lokasi) => ArsipSpj::create([
+            'npd_id' => $npd->id, 'jenis_dokumen' => 'NPD', 'lokasi' => $lokasi,
+            'ditetapkan_oleh' => $admin->id, 'ditetapkan_at' => now(), 'aktif' => true,
+        ]);
+        $arsip($npdBerlabel, '07 - Box Dihapus');
+        // Ditata sebelum bantex bernomor: lokasinya masih nama polos.
+        $arsip($npdNamaPolos, 'Box Dihapus');
+        $arsip($npdLain, '08 - Box Tetap');
+
+        SpjDetail::create(['npd_id' => $npdBerlabel->id, 'lokasi' => '07 - Box Dihapus', 'status' => SpjDetail::STATUS_LENGKAP, 'catatan' => 'Sudah diperiksa']);
+
+        // Tombolnya ada di halaman, dan hanya untuk yang boleh mengelola.
+        $this->actingAs($admin)->get(route('inventarisasi-spj.index'))->assertOk()->assertSee('id="inv-hapus-bantex"', false);
+        $this->actingAs($this->user('pptk'))->get(route('inventarisasi-spj.index'))->assertOk()->assertDontSee('id="inv-hapus-bantex"', false);
+        $this->actingAs($this->user('bpp'))->delete(route('inventarisasi-spj.bantex.destroy', $hapus))->assertForbidden();
+        $this->assertModelExists($hapus);
+
+        $this->actingAs($admin)->delete(route('inventarisasi-spj.bantex.destroy', $hapus))
+            ->assertRedirect(route('inventarisasi-spj.index'))
+            ->assertSessionHas('success', 'Bantex/Box 07 - Box Dihapus dihapus. 2 NPD di dalamnya kembali belum terinventarisasi.');
+
+        $this->assertModelMissing($hapus);
+        $this->assertModelExists($tetap);
+        $this->assertModelExists($npdBerlabel);
+        $this->assertModelExists($npdNamaPolos);
+
+        // Arsipnya jadi histori (tidak aktif), bukan dihapus.
+        $this->assertSame(0, ArsipSpj::whereIn('npd_id', [$npdBerlabel->id, $npdNamaPolos->id])->where('aktif', true)->count());
+        $this->assertSame(2, ArsipSpj::whereIn('npd_id', [$npdBerlabel->id, $npdNamaPolos->id])->count());
+        $this->assertSame(1, ArsipSpj::where('npd_id', $npdLain->id)->where('aktif', true)->count());
+
+        // Lokasi di rincian dikosongkan; status dan catatannya tetap.
+        $detail = SpjDetail::where('npd_id', $npdBerlabel->id)->sole();
+        $this->assertNull($detail->lokasi);
+        $this->assertSame(SpjDetail::STATUS_LENGKAP, $detail->status);
+        $this->assertSame('Sudah diperiksa', $detail->catatan);
+
+        $data = app(InventarisasiSpjService::class)->data([]);
+        $perLokasi = collect($data['lokasi'])->keyBy('lokasi');
+        $this->assertFalse($perLokasi->has('07 - Box Dihapus'));
+        $this->assertFalse($perLokasi->has('Box Dihapus'));
+        $this->assertSame(2, $perLokasi['(Tanpa Lokasi)']['jumlah_npd']);
+        $this->assertSame(1, $perLokasi['08 - Box Tetap']['jumlah_npd']);
+        $this->assertDatabaseHas('audit_log', ['user_id' => $admin->id, 'aktivitas' => 'Hapus Bantex/Box SPJ']);
     }
 
     /** "9" dan "09" adalah nomor yang sama - yang kedua harus ditolak. */

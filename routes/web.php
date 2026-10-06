@@ -219,6 +219,7 @@ Route::middleware('auth.or.guest')->group(function () {
     // (config akses.kelola.invspj). Pemegang kunci menu lainnya hanya membaca.
     Route::middleware(['menu-akses:invspj', 'kelola:invspj'])->group(function () {
         Route::post('/inventarisasi-spj/bantex', [InventarisasiSpjController::class, 'storeBantex'])->name('inventarisasi-spj.bantex.store');
+        Route::delete('/inventarisasi-spj/bantex/{bantex}', [InventarisasiSpjController::class, 'destroyBantex'])->name('inventarisasi-spj.bantex.destroy');
         Route::put('/inventarisasi-spj/{npd}', [InventarisasiSpjController::class, 'updateDetail'])->name('inventarisasi-spj.detail.update');
         Route::post('/inventarisasi-spj/{npd}/restore', [InventarisasiSpjController::class, 'restoreDetail'])->name('inventarisasi-spj.detail.restore');
     });

@@ -31,6 +31,9 @@
   .inv-saring-hasil b{color:var(--tegas);}
 
   /* ---------- Bantex ---------- */
+  .inv-hapus-bantex{margin-left:auto;}
+  .inv-hapus-bantex .btn{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;}
+  .inv-hapus-bantex svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
   .bantex-create{display:flex;align-items:flex-end;gap:12px;margin:18px 0;padding:16px 18px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(135deg,var(--surface),var(--surface-2));}
   .bantex-create .fg{flex:1;min-width:180px}.bantex-create label.fl{margin-top:0}
   .bantex-create .fg.nomor{flex:0 0 150px;min-width:130px}
@@ -234,6 +237,20 @@
   <div class="inv-crumb">
     <button type="button" class="btn" id="inv-back-1">&#8592; Kembali ke Rak</button>
     <span class="inv-stack-title" id="inv-stack-title"></span>
+    @if ($bolehEditDetail)
+      {{-- Hanya untuk Bantex/Box sungguhan. Kelompok tanpa bantex (mis.
+           "(Tanpa Lokasi)") tidak punya apa pun untuk dihapus, jadi tombol
+           ini disembunyikan skrip di bawah saat kelompok itu dibuka. --}}
+      <form method="POST" id="inv-hapus-bantex" class="inv-hapus-bantex" hidden
+            data-url="{{ route('inventarisasi-spj.bantex.destroy', '__ID__') }}">
+        @csrf
+        @method('DELETE')
+        <button type="submit" class="btn danger">
+          <svg viewBox="0 0 24 24" aria-hidden="true"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>
+          Hapus Bantex/Box
+        </button>
+      </form>
+    @endif
   </div>
   <div class="inv-stack" id="inv-stack"></div>
   <div class="inv-pager" id="inv-stack-pager"></div>
@@ -756,10 +773,36 @@ document.addEventListener('DOMContentLoaded', function () {
     }));
   }
 
+  /* Tombol "Hapus Bantex/Box" mengikuti bantex yang sedang dibuka. Yang
+     dihapus hanya wadahnya: dokumen di dalamnya kembali belum
+     terinventarisasi, dan itu disebut jelas di konfirmasinya. */
+  const formHapusBantex = document.getElementById('inv-hapus-bantex');
+  let bantexDibuka = null;
+
+  function aturHapusBantex(lok) {
+    if (!formHapusBantex) return;
+    bantexDibuka = lok && lok.id ? lok : null;
+    formHapusBantex.hidden = bantexDibuka === null;
+    if (bantexDibuka) formHapusBantex.action = formHapusBantex.dataset.url.replace('__ID__', bantexDibuka.id);
+  }
+
+  if (formHapusBantex) {
+    formHapusBantex.addEventListener('submit', function (e) {
+      if (!bantexDibuka) { e.preventDefault(); return; }
+      const isi = bantexDibuka.jumlah_npd > 0
+        ? bantexDibuka.jumlah_npd + ' NPD di dalamnya TIDAK ikut terhapus, tetapi kembali menjadi belum terinventarisasi.'
+        : 'Bantex/Box ini kosong.';
+      if (!window.confirm('Hapus Bantex/Box "' + bantexDibuka.lokasi + '"?\n\n' + isi + '\n\nTindakan ini tidak dapat dibatalkan.')) {
+        e.preventDefault();
+      }
+    });
+  }
+
   function bukaLokasi(idx, el) {
     const selesai = () => {
       const lok = lokasiData[idx];
       document.getElementById('inv-stack-title').textContent = lok.lokasi + ' — ' + lok.jumlah_npd + ' Dokumen NPD';
+      aturHapusBantex(lok);
       stackLokasiIdx = idx;
       stackPage = 1;
       stackPerPage = null;
