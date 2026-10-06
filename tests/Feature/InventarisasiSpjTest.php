@@ -101,6 +101,25 @@ class InventarisasiSpjTest extends TestCase
         $this->assertSame(2, $perLokasi['(Tanpa Lokasi)']['jumlah_npd']);
         $this->assertSame(1, $perLokasi['08 - Box Tetap']['jumlah_npd']);
         $this->assertDatabaseHas('audit_log', ['user_id' => $admin->id, 'aktivitas' => 'Hapus Bantex/Box SPJ']);
+
+        // NPD yang belum diinventarisasi bukan bantex: rak hanya menggambar Box Tetap.
+        $halaman = $this->actingAs($admin)->get(route('inventarisasi-spj.index'))->assertOk();
+        $this->assertSame(1, substr_count($halaman->getContent(), 'data-lokasi-index='));
+        $halaman->assertDontSee('<div class="inv-rak-kosong">', false);
+
+        // Bantex TERAKHIR pun boleh dihapus. Sesudah itu rak kosong berketerangan,
+        // seluruh NPD belum diinventarisasi, dan tabel rinciannya tetap ada.
+        $this->actingAs($admin)->delete(route('inventarisasi-spj.bantex.destroy', $tetap))
+            ->assertRedirect(route('inventarisasi-spj.index'));
+        $this->assertSame(0, BantexSpj::count());
+        $this->assertSame(0, ArsipSpj::where('aktif', true)->count());
+
+        $kosong = $this->actingAs($admin)->get(route('inventarisasi-spj.index'))->assertOk();
+        $kosong->assertSee('<div class="inv-rak-kosong">Belum ada storage, silakan buat.</div>', false)
+            ->assertSee('Tabel Rincian SPJ');
+        $this->assertSame(0, substr_count($kosong->getContent(), 'data-lokasi-index='));
+        $this->assertSame(3, collect(app(InventarisasiSpjService::class)->data([])['lokasi'])
+            ->keyBy('lokasi')[InventarisasiSpjService::TANPA_LOKASI]['jumlah_npd']);
     }
 
     /** "9" dan "09" adalah nomor yang sama - yang kedua harus ditolak. */

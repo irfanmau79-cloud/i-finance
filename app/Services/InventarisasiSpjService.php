@@ -11,6 +11,14 @@ use Illuminate\Support\Collection;
 
 class InventarisasiSpjService
 {
+    /**
+     * Lokasi semu bagi NPD yang BELUM diinventarisasi (belum ditaruh di
+     * Bantex/Box mana pun). Ia tetap satu kelompok di data supaya jumlahnya
+     * bisa dihitung, tetapi bukan tempat penyimpanan - rak tidak
+     * menggambarnya sebagai bantex.
+     */
+    public const TANPA_LOKASI = '(Tanpa Lokasi)';
+
     public const JENIS_DOKUMEN = ['NPD', 'Lampiran NPD', 'Daftar Bayar', 'SPD Rampung', 'Dokumen Pendukung'];
 
     public function data(array $filters): array
@@ -264,7 +272,7 @@ class InventarisasiSpjService
     {
         $arsip = $npd->arsipSpjAktif;
         if ($arsip->isEmpty()) {
-            return collect([$this->baris($npd, 'NPD', '(Tanpa Lokasi)', null)]);
+            return collect([$this->baris($npd, 'NPD', self::TANPA_LOKASI, null)]);
         }
 
         return $arsip->map(fn ($item) => $this->baris($npd, $item->jenis_dokumen, $item->lokasi, $item->catatan));

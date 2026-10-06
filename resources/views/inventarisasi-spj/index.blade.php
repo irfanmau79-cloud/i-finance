@@ -32,6 +32,7 @@
 
   /* ---------- Bantex ---------- */
   .inv-hapus-bantex{margin-left:auto;}
+  .inv-rak-kosong{padding:38px 20px;text-align:center;color:var(--mut);font-size:13.5px;border:1.5px dashed var(--line);border-radius:14px;background:var(--surface-2);}
   .inv-hapus-bantex .btn{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;}
   .inv-hapus-bantex svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
   .bantex-create{display:flex;align-items:flex-end;gap:12px;margin:18px 0;padding:16px 18px;border:1px solid var(--line);border-radius:14px;background:linear-gradient(135deg,var(--surface),var(--surface-2));}
@@ -209,14 +210,28 @@
 </form>
 @endif
 
-@if($inventaris['kosong'] && count($inventaris['lokasi']) === 0)
-  <div class="dash-card" style="text-align:center;padding:45px;color:var(--mut)">Belum ada Bantex/Box. Tambahkan Bantex/Box pertama untuk mulai menata arsip.</div>
+@php
+    // Tempat penyimpanan sungguhan. Kelompok "(Tanpa Lokasi)" berisi NPD yang
+    // belum diinventarisasi - bukan bantex - jadi tidak digambar di rak.
+    // Indeks aslinya dipertahankan: skrip di bawah membaca data lewat indeks itu.
+    $rakTampil = array_filter(
+        $inventaris['lokasi'],
+        fn (array $lok) => $lok['lokasi'] !== \App\Services\InventarisasiSpjService::TANPA_LOKASI
+    );
+@endphp
+@if($inventaris['kosong'] && $rakTampil === [])
+  <div class="dash-card" style="text-align:center;padding:45px;color:var(--mut)">Belum ada storage, silakan buat.</div>
 @else
 
 <div class="inv-rak-wrap" id="inv-level1">
   <div class="inv-rak-title">Visualisasi Penyimpanan Dokumen</div>
-  <div class="inv-rak" id="inv-rak">
-    @foreach ($inventaris['lokasi'] as $i => $lok)
+  @if ($rakTampil === [])
+    {{-- Semua Bantex/Box sudah dihapus (atau belum pernah dibuat): seluruh
+         NPD belum diinventarisasi. Tabel rincian di bawah tetap tampil. --}}
+    <div class="inv-rak-kosong">Belum ada storage, silakan buat.</div>
+  @endif
+  <div class="inv-rak" id="inv-rak" @if ($rakTampil === []) hidden @endif>
+    @foreach ($rakTampil as $i => $lok)
       <div class="bantex{{ $lok['jumlah_npd'] === 0 ? ' kosong' : '' }}" data-lokasi-index="{{ $i }}" title="{{ $lok['lokasi'] }} — {{ $lok['jumlah_npd'] }} NPD">
         <div class="bx-label">
           <div class="bx-brand">Penyimpanan</div>
