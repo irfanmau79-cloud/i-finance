@@ -176,11 +176,12 @@ class VerifikatorSubKegiatanTest extends TestCase
         $this->actingAs($budi)->get(route('npd.verifikasi'))->assertOk()
             ->assertViewHas('npds', fn ($npds) => $ids($npds) === [$npdBeta->id]);
 
-        // Superadmin memantau semuanya, beserta nama Verifikator tiap baris.
+        // Superadmin memantau semuanya. Kolom Status hanya berisi statusnya -
+        // nama Verifikator tidak lagi ditulis di bawahnya.
         $this->actingAs($admin)->get(route('npd.verifikasi'))->assertOk()
             ->assertViewHas('npds', fn ($npds) => $ids($npds) === [$npdAlpha->id, $npdBeta->id, $npdGamma->id])
-            ->assertSee('<span class="stat-verif" title="Verifikator Sub Kegiatan ini">Andi Verifikator</span>', false)
-            ->assertSee('Verifikator belum ditetapkan')
+            ->assertDontSee('stat-verif', false)
+            ->assertDontSee('Verifikator belum ditetapkan')
             ->assertSee(route('pelimpahan.index', ['status' => 'tanpa_verifikator']), false);
     }
 

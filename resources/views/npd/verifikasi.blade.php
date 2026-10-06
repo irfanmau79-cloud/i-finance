@@ -43,7 +43,7 @@
         @if (auth()->user()->role === \App\Models\User::ROLE_VERIFIKATOR)
             Nota Pencairan Dana dari Sub Kegiatan yang dilimpahkan kepada Anda dan menunggu tindakan Verifikator.
         @else
-            Nota Pencairan Dana yang menunggu tindakan Verifikator. Nama di bawah status adalah Verifikator Sub Kegiatannya.
+            Nota Pencairan Dana yang menunggu tindakan Verifikator.
         @endif
     </div>
 
@@ -55,7 +55,6 @@
         'npds' => $npds,
         'aksiMassalDaftar' => ['verifikasi'],
         'petaVerifikator' => $petaVerifikator,
-        'tampilkanVerifikator' => true,
     ])
 </div>
 @endsection

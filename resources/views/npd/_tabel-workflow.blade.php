@@ -53,7 +53,6 @@
     // Penugasan Verifikator per Sub Kegiatan dimuat SEKALI untuk seluruh
     // tabel - tanpa ini tiap baris menjalankan query-nya sendiri.
     $petaVerifikator = $petaVerifikator ?? \App\Models\PelimpahanVerifikator::peta();
-    $tampilkanVerifikator = $tampilkanVerifikator ?? false;
 @endphp
 
 
@@ -190,14 +189,6 @@
                             <span class="badge {{ \App\Models\Npd::STATUS_BADGE_CLASS[$npd->status] ?? 'st-diterima' }}">{{ $npd->status }}</span>
                             @if ($npd->catatan)
                                 <span class="stat-cat"><svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>Catatan</span>
-                            @endif
-                            @if ($tampilkanVerifikator)
-                                @php($verifikatorBaris = $npd->verifikatorDitugaskan($petaVerifikator))
-                                @if ($verifikatorBaris)
-                                    <span class="stat-verif" title="Verifikator Sub Kegiatan ini">{{ $verifikatorBaris->nama }}</span>
-                                @else
-                                    <span class="stat-verif kosong" title="Tetapkan di menu Pelimpahan">Verifikator belum ditetapkan</span>
-                                @endif
                             @endif
                         </div>
                     </td>
@@ -349,9 +340,6 @@
     .npd-hapus-pop summary::-webkit-details-marker{display:none;}
     .npd-hapus-pop .npd-hapus-form{position:absolute;right:0;top:calc(100% + 6px);z-index:20;background:var(--surface);border:1px solid var(--line);border-radius:10px;box-shadow:0 8px 24px rgba(15,23,42,.13);padding:12px;width:220px;text-align:left;}
     .npd-hapus-pop .npd-hapus-form input{width:100%;box-sizing:border-box;}
-    /* Nama Verifikator di bawah pil status (antrean Verifikasi). */
-    .stat-verif{display:block;font-size:10.5px;font-weight:600;color:var(--tegas);line-height:1.3;text-align:center;overflow-wrap:anywhere;}
-    .stat-verif.kosong{color:var(--err-teks);font-style:italic;}
 </style>
 
 <script>
