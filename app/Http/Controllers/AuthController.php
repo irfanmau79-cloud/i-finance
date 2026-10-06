@@ -56,7 +56,7 @@ class AuthController extends Controller
 
         AuditLog::catat('Login', 'User berhasil masuk sistem');
 
-        return redirect()->intended(route('surat-perintah.index'));
+        return redirect()->intended(route('dashboard.index'));
     }
 
     /**
