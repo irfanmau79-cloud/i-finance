@@ -4,9 +4,9 @@
     dan Verifikasi NPD. Aksi transisi workflow (Ajukan/Teruskan/Verifikasi/
     Setujui/dst) dihitung generik lewat $npd->aksiTersedia($role), jadi satu
     partial ini otomatis menampilkan tombol yang tepat di ketiga halaman tanpa
-    perlu tahu halaman mana yang memanggilnya. $tampilkanKelola (Edit + Hapus)
-    cuma relevan di Pembuatan NPD, sesuai gas-lama (Persetujuan/Verifikasi
-    tidak punya aksi itu).
+    perlu tahu halaman mana yang memanggilnya. $tampilkanKelola (Hapus) cuma
+    relevan di Pembuatan NPD. Edit tampil di ketiga halaman, untuk siapa pun
+    yang mejanya sedang memegang NPD itu (Npd::dapatDieditOleh).
 --}}
 @php
     $tampilkanKelola = $tampilkanKelola ?? false;
@@ -136,7 +136,10 @@
             @forelse ($npds as $npd)
                 @php
                     $aksiTersedia = $npd->aksiTersediaUntuk(auth()->user(), $petaVerifikator);
-                    $bisaEdit = $tampilkanKelola && $npd->dapatDieditOleh(auth()->user());
+                    // Edit mengikuti meja NPD-nya (PPTK, BPP, lalu Verifikator),
+                    // jadi tombolnya tampil di ketiga halaman - tidak terikat
+                    // $tampilkanKelola seperti Hapus.
+                    $bisaEdit = $npd->dapatDieditOleh(auth()->user(), $petaVerifikator);
                     $bisaHapus = $tampilkanKelola && $npd->dapatDihapusOleh(auth()->user());
                 @endphp
                 <tr>

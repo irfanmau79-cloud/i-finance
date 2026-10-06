@@ -1,6 +1,6 @@
 @extends('layouts.app')
 
-@section('activeNav', 'npd')
+@section('activeNav', ['bpp' => 'persetujuan', 'verifikator' => 'verifikasi'][auth()->user()->role] ?? 'npd')
 @php($npdEdit = $npd ?? null)
 @section('title', $npdEdit ? 'Edit Nota Pencairan Dana Kontribusi Diklat' : 'Buat Nota Pencairan Dana Kontribusi Diklat')
 
@@ -75,7 +75,7 @@
             </div>
 
             <div class="nav">
-                <a class="btn" href="{{ route('npd.index') }}">Batal</a>
+                <a class="btn" href="{{ $npdEdit ? route('npd.show', $npdEdit) : route('npd.index') }}">Batal</a>
                 <button type="button" class="btn prim" id="wiz-n1">Lanjut &rarr;</button>
             </div>
         </div>

@@ -140,7 +140,7 @@ class NpdLifecycleTest extends TestCase
         $this->assertSame([1, 2, 3, 4, 5, 6], $npd->historiStatus()->pluck('nomor_urut')->all());
     }
 
-    public function test_edit_barang_jasa_hanya_di_draft_pptk_dan_menghitung_ulang_nominal_terbilang(): void
+    public function test_edit_barang_jasa_oleh_pptk_hanya_di_draft_pptk_dan_menghitung_ulang_nominal_terbilang(): void
     {
         $pptk = $this->user('pptk');
         $bpp = $this->user('bpp');
@@ -158,8 +158,14 @@ class NpdLifecycleTest extends TestCase
         $this->assertSame(Terbilang::rupiah(1_750_000), $npd->terbilang);
         $this->assertSame(['buat', 'edit'], $npd->historiStatus()->pluck('aksi')->all());
 
+        // Begitu NPD pindah ke meja BPP, PPTK tidak lagi boleh menyuntingnya.
+        // Hak edit BPP dan Verifikator diuji di NpdEditBppVerifikatorTest.
         $npd->update(['status' => 'Draft NPD - BPP']);
         $this->actingAs($pptk)->get(route('npd.bj.edit', $npd))->assertForbidden();
+        $this->actingAs($pptk)->put(route('npd.bj.update', $npd), $this->payloadBj($anggaran, 500_000))->assertForbidden();
+
+        // BPP sendiri tidak boleh menyentuh NPD yang masih draft di meja PPTK.
+        $npd->update(['status' => 'Draft NPD - PPTK']);
         $this->actingAs($bpp)->put(route('npd.bj.update', $npd), $this->payloadBj($anggaran, 500_000))->assertForbidden();
     }
 

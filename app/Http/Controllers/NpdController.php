@@ -15,7 +15,9 @@ use App\Models\PelimpahanVerifikator;
 use App\Models\Pengembalian;
 use App\Models\User;
 use App\Services\NotifikasiNpdService;
+use App\Services\NpdRevisiService;
 use App\Services\SpjBerkasService;
+use App\Support\CoretanOtomatis;
 use App\Support\CoretanPdf;
 use App\Support\MpdfFont;
 use App\Services\KeteranganLampiranService;
@@ -226,7 +228,7 @@ class NpdController extends Controller
 
     public function show(Request $request, Npd $npd)
     {
-        $npd->load(['masterAnggaran.tagging', 'penerima.pphList', 'tim.paket', 'narasumber', 'peserta', 'referensi', 'turunanPerjalanan', 'induk', 'turunanTransport', 'dibuatOleh', 'historiStatus.user', 'arsipSpj.ditetapkanOleh', 'spjBerkas']);
+        $npd->load(['masterAnggaran.tagging', 'penerima.pphList', 'tim.paket', 'narasumber', 'peserta', 'referensi', 'turunanPerjalanan', 'induk', 'turunanTransport', 'dibuatOleh', 'historiStatus.user', 'arsipSpj.ditetapkanOleh', 'spjBerkas', 'revisi.user']);
 
         $role = $request->user()->role;
         $aksiTersedia = $npd->aksiTersediaUntuk($request->user());
@@ -250,8 +252,11 @@ class NpdController extends Controller
         $bolehKelolaArsip = in_array($role, ['superadmin', 'bendahara_pengeluaran', 'pptk', 'bpp', 'verifikator'], true);
         $bantexList = BantexSpj::query()->where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'keterangan']);
         $urutanGabungan = implode(' → ', array_column($this->dokumenCetak($npd), 'judul'));
+        // Diperiksa ulang di controller Edit masing-masing jenis - ini
+        // semata menentukan tampil-tidaknya tombol.
+        $bisaEdit = $npd->dapatDieditOleh($request->user());
 
-        return view('npd.show', compact('npd', 'aksiTersedia', 'ruteDaftar', 'activeNav', 'peringatanPelimpahan', 'bolehKelolaArsip', 'bantexList', 'urutanGabungan', 'verifikatorNpd', 'diverifikasiOleh'));
+        return view('npd.show', compact('npd', 'aksiTersedia', 'bisaEdit','ruteDaftar', 'activeNav', 'peringatanPelimpahan', 'bolehKelolaArsip', 'bantexList', 'urutanGabungan', 'verifikatorNpd', 'diverifikasiOleh'));
     }
 
     /**
@@ -750,7 +755,7 @@ class NpdController extends Controller
      */
     public function cetakNpd(Npd $npd)
     {
-        $isi = $this->pdfNpd($npd);
+        $isi = $this->pdfNpd($npd, $this->versiDraft());
 
         AuditLog::catat('Cetak NPD', 'Nomor NPD: '.($npd->nomor_lengkap ?? "#{$npd->id}"));
 
@@ -758,9 +763,25 @@ class NpdController extends Controller
     }
 
     /** Isi biner PDF NPD utama. Dipakai cetakNpd() dan cetakGabungan(). */
-    private function pdfNpd(Npd $npd): string
+    private function pdfNpd(Npd $npd, bool $draft = false): string
     {
-        $npd->load('masterAnggaran.tagging');
+        $html = $this->htmlVersi($npd, $draft, fn (Npd $n): string => $this->htmlNpd($n));
+        $html = $draft ? $this->sisipkanCoretan($html, $npd, 'npd') : $html;
+
+        $mpdf = new Mpdf(MpdfFont::konfigF4([15, 15, 15, 15]));
+        $mpdf->WriteHTML($html);
+
+        return $mpdf->Output('', Destination::STRING_RETURN);
+    }
+
+    /**
+     * HTML NPD utama sebelum coretan apa pun. Dipisah dari pdfNpd() supaya
+     * draft awal dan versi terkini bisa dirender lewat templat yang sama lalu
+     * dibandingkan - lihat htmlVersi().
+     */
+    private function htmlNpd(Npd $npd): string
+    {
+        $npd->loadMissing('masterAnggaran.tagging');
 
         $pejabat = PejabatResolver::untukNpd($npd);
 
@@ -776,12 +797,7 @@ class NpdController extends Controller
             'logoPath' => $this->logoKopPath(),
         ])->render();
 
-        $html = $this->sisipkanCoretan($html, $npd, 'npd');
-
-        $mpdf = new Mpdf(MpdfFont::konfigF4([15, 15, 15, 15]));
-        $mpdf->WriteHTML($html);
-
-        return $mpdf->Output('', Destination::STRING_RETURN);
+        return $html;
     }
 
     /**
@@ -792,7 +808,7 @@ class NpdController extends Controller
      */
     public function cetakLampiran(Npd $npd)
     {
-        $isi = $this->pdfLampiran($npd);
+        $isi = $this->pdfLampiran($npd, $this->versiDraft());
 
         AuditLog::catat('Cetak Lampiran NPD', 'Nomor NPD: '.($npd->nomor_lengkap ?? "#{$npd->id}"));
 
@@ -800,9 +816,25 @@ class NpdController extends Controller
     }
 
     /** Isi biner PDF Lampiran NPD. Dipakai cetakLampiran() dan cetakGabungan(). */
-    private function pdfLampiran(Npd $npd): string
+    private function pdfLampiran(Npd $npd, bool $draft = false): string
     {
-        $npd->load($npd->sumber_data === 'import_historis' ? ['masterAnggaran', 'penerima.pphList'] : match ($npd->jenis) {
+        $html = $this->htmlVersi($npd, $draft, fn (Npd $n): string => $this->htmlLampiran($n));
+        $html = $draft ? $this->sisipkanCoretan($html, $npd, 'lampiran') : $html;
+
+        $mpdf = new Mpdf(MpdfFont::konfigF4([12, 12, 12, 12]));
+        $mpdf->WriteHTML($html);
+
+        return $mpdf->Output('', Destination::STRING_RETURN);
+    }
+
+    /**
+     * HTML Lampiran NPD sebelum coretan apa pun. Dipisah dari pdfLampiran() supaya
+     * draft awal dan versi terkini bisa dirender lewat templat yang sama lalu
+     * dibandingkan - lihat htmlVersi().
+     */
+    private function htmlLampiran(Npd $npd): string
+    {
+        $npd->loadMissing($npd->sumber_data === 'import_historis' ? ['masterAnggaran', 'penerima.pphList'] : match ($npd->jenis) {
             'pd', 'tr' => ['masterAnggaran', 'tim.paket'],
             'ns' => ['masterAnggaran', 'narasumber'],
             'kd' => ['masterAnggaran', 'peserta'],
@@ -838,12 +870,7 @@ class NpdController extends Controller
             ], $this->bangunLampiranPph($npd->penerima)))->render();
         }
 
-        $html = $this->sisipkanCoretan($html, $npd, 'lampiran');
-
-        $mpdf = new Mpdf(MpdfFont::konfigF4([12, 12, 12, 12]));
-        $mpdf->WriteHTML($html);
-
-        return $mpdf->Output('', Destination::STRING_RETURN);
+        return $html;
     }
 
     /**
@@ -854,7 +881,7 @@ class NpdController extends Controller
     {
         abort_unless(in_array($npd->jenis, ['pd', 'tr'], true), 404);
 
-        $isi = $this->pdfDaftar($npd);
+        $isi = $this->pdfDaftar($npd, $this->versiDraft());
 
         AuditLog::catat('Cetak Daftar Pembayaran NPD', 'Nomor NPD: '.($npd->nomor_lengkap ?? "#{$npd->id}"));
 
@@ -862,9 +889,25 @@ class NpdController extends Controller
     }
 
     /** Isi biner PDF Daftar Pembayaran PD/TR. Dipakai cetakDaftar() dan cetakGabungan(). */
-    private function pdfDaftar(Npd $npd): string
+    private function pdfDaftar(Npd $npd, bool $draft = false): string
     {
-        $npd->load(['masterAnggaran', 'tim.paket']);
+        $html = $this->htmlVersi($npd, $draft, fn (Npd $n): string => $this->htmlDaftar($n));
+        $html = $draft ? $this->sisipkanCoretan($html, $npd, 'daftar') : $html;
+
+        $mpdf = new Mpdf(MpdfFont::konfigF4([7, 7, 7, 7]));
+        $mpdf->WriteHTML($html);
+
+        return $mpdf->Output('', Destination::STRING_RETURN);
+    }
+
+    /**
+     * HTML Daftar Pembayaran PD/TR sebelum coretan apa pun. Dipisah dari pdfDaftar() supaya
+     * draft awal dan versi terkini bisa dirender lewat templat yang sama lalu
+     * dibandingkan - lihat htmlVersi().
+     */
+    private function htmlDaftar(Npd $npd): string
+    {
+        $npd->loadMissing(['masterAnggaran', 'tim.paket']);
 
         $detail = $npd->detail_json ?? [];
         $komponen = $this->komponenBiayaPd($npd);
@@ -885,12 +928,7 @@ class NpdController extends Controller
             'bulanNpd' => $npd->tanggal_npd->translatedFormat('F'),
         ])->render();
 
-        $html = $this->sisipkanCoretan($html, $npd, 'daftar');
-
-        $mpdf = new Mpdf(MpdfFont::konfigF4([7, 7, 7, 7]));
-        $mpdf->WriteHTML($html);
-
-        return $mpdf->Output('', Destination::STRING_RETURN);
+        return $html;
     }
 
     /**
@@ -901,7 +939,7 @@ class NpdController extends Controller
     {
         abort_unless($npd->jenis === 'ns', 404);
 
-        $isi = $this->pdfDaftarNarasumber($npd);
+        $isi = $this->pdfDaftarNarasumber($npd, $this->versiDraft());
 
         AuditLog::catat('Cetak Daftar Pembayaran Narasumber', 'Nomor NPD: '.($npd->nomor_lengkap ?? "#{$npd->id}"));
 
@@ -909,9 +947,25 @@ class NpdController extends Controller
     }
 
     /** Isi biner PDF Daftar Pembayaran Narasumber. Dipakai cetakDaftarNarasumber() dan cetakGabungan(). */
-    private function pdfDaftarNarasumber(Npd $npd): string
+    private function pdfDaftarNarasumber(Npd $npd, bool $draft = false): string
     {
-        $npd->load(['masterAnggaran', 'narasumber']);
+        $html = $this->htmlVersi($npd, $draft, fn (Npd $n): string => $this->htmlDaftarNarasumber($n));
+        $html = $draft ? $this->sisipkanCoretan($html, $npd, 'daftar') : $html;
+
+        $mpdf = new Mpdf(MpdfFont::konfigF4([10, 10, 12, 12]));
+        $mpdf->WriteHTML($html);
+
+        return $mpdf->Output('', Destination::STRING_RETURN);
+    }
+
+    /**
+     * HTML Daftar Pembayaran Narasumber sebelum coretan apa pun. Dipisah dari pdfDaftarNarasumber() supaya
+     * draft awal dan versi terkini bisa dirender lewat templat yang sama lalu
+     * dibandingkan - lihat htmlVersi().
+     */
+    private function htmlDaftarNarasumber(Npd $npd): string
+    {
+        $npd->loadMissing(['masterAnggaran', 'narasumber']);
 
         $rows = $this->rowsDaftarNara($npd->narasumber);
         $pejabat = PejabatResolver::untukNpd($npd);
@@ -925,12 +979,7 @@ class NpdController extends Controller
             'bulanNpd' => $npd->tanggal_npd->translatedFormat('F'),
         ])->render();
 
-        $html = $this->sisipkanCoretan($html, $npd, 'daftar');
-
-        $mpdf = new Mpdf(MpdfFont::konfigF4([10, 10, 12, 12]));
-        $mpdf->WriteHTML($html);
-
-        return $mpdf->Output('', Destination::STRING_RETURN);
+        return $html;
     }
 
     /**
@@ -942,7 +991,7 @@ class NpdController extends Controller
     {
         abort_unless($npd->jenis === 'kd', 404);
 
-        $isi = $this->pdfDaftarKontribusiDiklat($npd);
+        $isi = $this->pdfDaftarKontribusiDiklat($npd, $this->versiDraft());
 
         AuditLog::catat('Cetak Daftar Bayar Kontribusi Diklat', 'Nomor NPD: '.($npd->nomor_lengkap ?? "#{$npd->id}"));
 
@@ -950,9 +999,25 @@ class NpdController extends Controller
     }
 
     /** Isi biner PDF Daftar Bayar Kontribusi Diklat. Dipakai cetakDaftarKontribusiDiklat() dan cetakGabungan(). */
-    private function pdfDaftarKontribusiDiklat(Npd $npd): string
+    private function pdfDaftarKontribusiDiklat(Npd $npd, bool $draft = false): string
     {
-        $npd->load(['masterAnggaran', 'peserta']);
+        $html = $this->htmlVersi($npd, $draft, fn (Npd $n): string => $this->htmlDaftarKontribusiDiklat($n));
+        $html = $draft ? $this->sisipkanCoretan($html, $npd, 'daftar') : $html;
+
+        $mpdf = new Mpdf(MpdfFont::konfigF4([7, 7, 7, 7]));
+        $mpdf->WriteHTML($html);
+
+        return $mpdf->Output('', Destination::STRING_RETURN);
+    }
+
+    /**
+     * HTML Daftar Bayar Kontribusi Diklat sebelum coretan apa pun. Dipisah dari pdfDaftarKontribusiDiklat() supaya
+     * draft awal dan versi terkini bisa dirender lewat templat yang sama lalu
+     * dibandingkan - lihat htmlVersi().
+     */
+    private function htmlDaftarKontribusiDiklat(Npd $npd): string
+    {
+        $npd->loadMissing(['masterAnggaran', 'peserta']);
 
         $detail = $npd->detail_json ?? [];
         $isPerjalanan = $npd->mode_kd === 'perjalanan';
@@ -974,12 +1039,7 @@ class NpdController extends Controller
             'bulanNpd' => $npd->tanggal_npd->translatedFormat('F'),
         ])->render();
 
-        $html = $this->sisipkanCoretan($html, $npd, 'daftar');
-
-        $mpdf = new Mpdf(MpdfFont::konfigF4([7, 7, 7, 7]));
-        $mpdf->WriteHTML($html);
-
-        return $mpdf->Output('', Destination::STRING_RETURN);
+        return $html;
     }
 
     /**
@@ -990,7 +1050,7 @@ class NpdController extends Controller
     {
         abort_unless(in_array($npd->jenis, ['pd', 'tr'], true), 404);
 
-        $isi = $this->pdfSpd($npd);
+        $isi = $this->pdfSpd($npd, $this->versiDraft());
 
         AuditLog::catat('Cetak SPD Rampung NPD', 'Nomor NPD: '.($npd->nomor_lengkap ?? "#{$npd->id}"));
 
@@ -998,9 +1058,25 @@ class NpdController extends Controller
     }
 
     /** Isi biner PDF SPD Rampung. Dipakai cetakSpd() dan cetakGabungan(). */
-    private function pdfSpd(Npd $npd): string
+    private function pdfSpd(Npd $npd, bool $draft = false): string
     {
-        $npd->load(['masterAnggaran', 'tim.paket']);
+        $html = $this->htmlVersi($npd, $draft, fn (Npd $n): string => $this->htmlSpd($n));
+        $html = $draft ? $this->sisipkanCoretan($html, $npd, 'spd') : $html;
+
+        $mpdf = new Mpdf(MpdfFont::konfigF4([12, 12, 13, 13]));
+        $mpdf->WriteHTML($html);
+
+        return $mpdf->Output('', Destination::STRING_RETURN);
+    }
+
+    /**
+     * HTML SPD Rampung sebelum coretan apa pun. Dipisah dari pdfSpd() supaya
+     * draft awal dan versi terkini bisa dirender lewat templat yang sama lalu
+     * dibandingkan - lihat htmlVersi().
+     */
+    private function htmlSpd(Npd $npd): string
+    {
+        $npd->loadMissing(['masterAnggaran', 'tim.paket']);
 
         $detail = $npd->detail_json ?? [];
         $komponen = $this->komponenBiayaPd($npd);
@@ -1032,12 +1108,7 @@ class NpdController extends Controller
             'logoPath' => $this->logoKopPath(),
         ])->render();
 
-        $html = $this->sisipkanCoretan($html, $npd, 'spd');
-
-        $mpdf = new Mpdf(MpdfFont::konfigF4([12, 12, 13, 13]));
-        $mpdf->WriteHTML($html);
-
-        return $mpdf->Output('', Destination::STRING_RETURN);
+        return $html;
     }
 
     /**
@@ -1052,7 +1123,7 @@ class NpdController extends Controller
      */
     public function cetakGabungan(Npd $npd)
     {
-        $dokumen = $this->dokumenCetak($npd);
+        $dokumen = $this->dokumenCetak($npd, $this->versiDraft());
         // Berkas SPJ bisa mengembalikan null kalau berkasnya sudah tidak ada
         // di disk. Itu tidak boleh menggagalkan pencetakan seluruh bendel -
         // dokumen NPD-nya sendiri tetap harus bisa dicetak.
@@ -1078,20 +1149,20 @@ class NpdController extends Controller
      *
      * @return array<int, array{judul: string, isi: callable(): string}>
      */
-    private function dokumenCetak(Npd $npd): array
+    private function dokumenCetak(Npd $npd, bool $draft = false): array
     {
         $dokumen = [
-            ['judul' => 'NPD', 'isi' => fn (): string => $this->pdfNpd($npd)],
-            ['judul' => 'Lampiran NPD', 'isi' => fn (): string => $this->pdfLampiran($npd)],
+            ['judul' => 'NPD', 'isi' => fn (): string => $this->pdfNpd($npd, $draft)],
+            ['judul' => 'Lampiran NPD', 'isi' => fn (): string => $this->pdfLampiran($npd, $draft)],
         ];
 
         if (in_array($npd->jenis, ['pd', 'tr'], true)) {
-            $dokumen[] = ['judul' => 'Daftar Pembayaran', 'isi' => fn (): string => $this->pdfDaftar($npd)];
-            $dokumen[] = ['judul' => 'SPD Rampung', 'isi' => fn (): string => $this->pdfSpd($npd)];
+            $dokumen[] = ['judul' => 'Daftar Pembayaran', 'isi' => fn (): string => $this->pdfDaftar($npd, $draft)];
+            $dokumen[] = ['judul' => 'SPD Rampung', 'isi' => fn (): string => $this->pdfSpd($npd, $draft)];
         } elseif ($npd->jenis === 'ns') {
-            $dokumen[] = ['judul' => 'Daftar Pembayaran', 'isi' => fn (): string => $this->pdfDaftarNarasumber($npd)];
+            $dokumen[] = ['judul' => 'Daftar Pembayaran', 'isi' => fn (): string => $this->pdfDaftarNarasumber($npd, $draft)];
         } elseif ($npd->jenis === 'kd') {
-            $dokumen[] = ['judul' => 'Daftar Bayar', 'isi' => fn (): string => $this->pdfDaftarKontribusiDiklat($npd)];
+            $dokumen[] = ['judul' => 'Daftar Bayar', 'isi' => fn (): string => $this->pdfDaftarKontribusiDiklat($npd, $draft)];
         }
 
         // Berkas SPJ yang sudah diunggah ikut di PALING BELAKANG, satu entri
@@ -1109,9 +1180,55 @@ class NpdController extends Controller
         return $dokumen;
     }
 
+    /**
+     * Versi dokumen yang diminta: "Cetak Draft NPD" mengirim ?versi=draft.
+     *
+     * Hanya berlaku pada rute cetak di halaman detail NPD. Cetak SPJ
+     * Perjalanan (tanpa login) meminjam cetakDaftar()/cetakSpd() dari
+     * controller ini, dan lewat pintu itu draft beserta coretannya tidak
+     * boleh ikut terbuka ke publik.
+     */
+    private function versiDraft(): bool
+    {
+        return request()->query('versi') === 'draft' && request()->routeIs('npd.cetak-*');
+    }
+
+    /** Draft awal buatan PPTK per NPD - dimuat sekali untuk seluruh dokumen dalam satu permintaan. */
+    private array $draftAwal = [];
+
+    /**
+     * HTML satu dokumen menurut versinya.
+     *
+     * Versi terverifikasi: dokumen bersih siap cetak - tanpa coretan apa
+     * pun, termasuk coretan tangan Verifikator (sisipkanCoretan() hanya
+     * dipanggil untuk versi draft). Versi draft: dokumen draft awal buatan PPTK, dengan bagian
+     * yang kemudian diubah BPP/Verifikator dicoret otomatis dan nilai
+     * penggantinya ditulis merah (App\Support\CoretanOtomatis). NPD yang belum
+     * pernah disunting BPP/Verifikator tidak punya draft terpisah - kedua
+     * versinya sama.
+     *
+     * @param  callable(Npd): string  $bangun
+     */
+    private function htmlVersi(Npd $npd, bool $draft, callable $bangun): string
+    {
+        if (! $draft) {
+            return $bangun($npd);
+        }
+
+        $awal = $this->draftAwal[$npd->id] ??= app(NpdRevisiService::class)->draftAwal($npd) ?? false;
+
+        return $awal === false
+            ? $bangun($npd)
+            : CoretanOtomatis::gabung($bangun($awal), $bangun($npd));
+    }
+
     /** Tanggapan PDF yang dibuka di tab peramban, bukan diunduh. */
     private function tanggapanPdf(string $isi, string $namaBerkas)
     {
+        if ($this->versiDraft()) {
+            $namaBerkas = str_replace('.pdf', '-draft.pdf', $namaBerkas);
+        }
+
         return response($isi, 200, [
             'Content-Type' => 'application/pdf',
             'Content-Disposition' => 'inline; filename="'.$namaBerkas.'"',

@@ -327,16 +327,21 @@ class PratinjauUraianLampiranTest extends TestCase
         $this->assertStringContainsString('077/SP/URAIAN/2026', $teks);
     }
 
-    public function test_hanya_pembuat_npd_yang_boleh_meminta_pratinjau(): void
+    /**
+     * BPP dan Verifikator ikut boleh sejak keduanya bisa membuka formulir
+     * Edit NPD - formulir itulah yang memanggil pratinjau ini. Pemantau
+     * (Bendahara Pengeluaran) tidak pernah membuka formulirnya.
+     */
+    public function test_hanya_pemegang_formulir_npd_yang_boleh_meminta_pratinjau(): void
     {
-        $bpp = User::create([
-            'username' => 'uraian-bpp',
-            'nama' => 'Uraian BPP',
-            'role' => 'bpp',
+        $pemantau = User::create([
+            'username' => 'uraian-bp',
+            'nama' => 'Uraian BP',
+            'role' => 'bendahara_pengeluaran',
             'password' => 'rahasia',
         ]);
 
-        $this->actingAs($bpp)
+        $this->actingAs($pemantau)
             ->postJson(route('npd.keterangan-lampiran.pratinjau'), ['jenis' => 'pd'])
             ->assertForbidden();
     }

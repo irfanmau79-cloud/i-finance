@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\NpdRevisiService;
 use App\Services\SpjBerkasService;
 use App\Helpers\AuditLog;
 use App\Helpers\Terbilang;
@@ -198,6 +199,7 @@ class NpdKontribusiDiklatController extends Controller
         DB::transaction(function () use ($request, $npd, $data, $mode, $referensiId, $peserta, $nominal, $detailJson) {
             $npd = Npd::query()->lockForUpdate()->findOrFail($npd->id);
             abort_unless($npd->dapatDieditOleh($request->user()), 403);
+            $sebelum = app(NpdRevisiService::class)->potret($npd);
 
             $anggaran = MasterAnggaran::query()->lockForUpdate()->findOrFail($data['master_anggaran_id']);
             $keu = $anggaran->tentukanKeu();
@@ -232,7 +234,7 @@ class NpdKontribusiDiklatController extends Controller
 
             $npd->peserta()->delete();
             $this->simpanPeserta($npd, $peserta);
-            $npd->catatHistoriStatus($request->user(), 'edit', $npd->status, $npd->status, 'Data Kontribusi Diklat diperbarui.');
+            app(NpdRevisiService::class)->catatEdit($npd, $request->user(), $sebelum, 'Data Kontribusi Diklat diperbarui.');
         });
 
         AuditLog::catat('Edit NPD', 'Jenis: Kontribusi Diklat, NPD #'.$npd->id);

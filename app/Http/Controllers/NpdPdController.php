@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\NpdRevisiService;
 use App\Services\SpjBerkasService;
 use App\Helpers\AuditLog;
 use App\Helpers\NpdPerjalananHitung;
@@ -247,6 +248,7 @@ class NpdPdController extends Controller
         DB::transaction(function () use ($request, $npd, $data, $tim, $penerimaIndex, $nominal, $detailJson) {
             $npd = Npd::query()->lockForUpdate()->findOrFail($npd->id);
             abort_unless($npd->dapatDieditOleh($request->user()), 403);
+            $sebelum = app(NpdRevisiService::class)->potret($npd);
             $anggaran = MasterAnggaran::query()->lockForUpdate()->findOrFail($data['master_anggaran_id']);
             $keu = $anggaran->tentukanKeu();
             if ($keu === null) {
@@ -281,7 +283,7 @@ class NpdPdController extends Controller
                 $npdLama->lepaskanSuratPerintah();
             }
             $npd->mirrorStatusKeSuratPerintah();
-            $npd->catatHistoriStatus($request->user(), 'edit', $npd->status, $npd->status, 'Data Perjalanan Dinas diperbarui.');
+            app(NpdRevisiService::class)->catatEdit($npd, $request->user(), $sebelum, 'Data Perjalanan Dinas diperbarui.');
         });
 
         AuditLog::catat('Edit NPD', 'Jenis: Perjalanan Dinas, NPD #'.$npd->id);

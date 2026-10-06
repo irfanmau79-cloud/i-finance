@@ -453,32 +453,39 @@ Route::middleware('auth.or.guest')->group(function () {
 
     // Pembuatan NPD: hanya superadmin dan PPTK.
     Route::middleware('role:superadmin,pptk')->group(function () {
+        Route::get('/npd/bj/create', [NpdBjController::class, 'create'])->name('npd.bj.create');
+        Route::post('/npd/bj', [NpdBjController::class, 'store'])->name('npd.bj.store');
+        Route::get('/npd/pd/create', [NpdPdController::class, 'create'])->name('npd.pd.create');
+        Route::post('/npd/pd', [NpdPdController::class, 'store'])->name('npd.pd.store');
+        Route::get('/npd/ns/create', [NpdNarasumberController::class, 'create'])->name('npd.ns.create');
+        Route::post('/npd/ns', [NpdNarasumberController::class, 'store'])->name('npd.ns.store');
+        Route::get('/npd/kd/create', [NpdKontribusiDiklatController::class, 'create'])->name('npd.kd.create');
+        Route::post('/npd/kd', [NpdKontribusiDiklatController::class, 'store'])->name('npd.kd.store');
+        Route::get('/npd/tr/create', [NpdTransportController::class, 'create'])->name('npd.tr.create');
+        Route::post('/npd/tr', [NpdTransportController::class, 'store'])->name('npd.tr.store');
+        Route::delete('/npd/{npd}', [NpdController::class, 'destroy'])->name('npd.destroy');
+    });
+
+    // Edit NPD: PPTK selama masih draft, lalu BPP dan Verifikator saat NPD
+    // berada di meja masing-masing. Middleware hanya menyaring role; meja
+    // dan ikatan Verifikator ke Sub Kegiatan diperiksa Npd::dapatDieditOleh()
+    // di tiap controller, sebelum dan di dalam transaksi penyimpanannya.
+    Route::middleware('role:superadmin,pptk,bpp,verifikator')->group(function () {
         // Pratinjau Uraian Lampiran untuk formulir yang belum disimpan.
         // Dibatasi laju karena dipanggil tiap kali isian berubah.
         Route::post('/npd/keterangan-lampiran/pratinjau', KeteranganLampiranPreviewController::class)
             ->middleware('throttle:120,1')->name('npd.keterangan-lampiran.pratinjau');
 
-        Route::get('/npd/bj/create', [NpdBjController::class, 'create'])->name('npd.bj.create');
-        Route::post('/npd/bj', [NpdBjController::class, 'store'])->name('npd.bj.store');
         Route::get('/npd/bj/{npd}/edit', [NpdBjController::class, 'edit'])->name('npd.bj.edit');
         Route::put('/npd/bj/{npd}', [NpdBjController::class, 'update'])->name('npd.bj.update');
-        Route::get('/npd/pd/create', [NpdPdController::class, 'create'])->name('npd.pd.create');
-        Route::post('/npd/pd', [NpdPdController::class, 'store'])->name('npd.pd.store');
         Route::get('/npd/pd/{npd}/edit', [NpdPdController::class, 'edit'])->name('npd.pd.edit');
         Route::put('/npd/pd/{npd}', [NpdPdController::class, 'update'])->name('npd.pd.update');
-        Route::get('/npd/ns/create', [NpdNarasumberController::class, 'create'])->name('npd.ns.create');
-        Route::post('/npd/ns', [NpdNarasumberController::class, 'store'])->name('npd.ns.store');
         Route::get('/npd/ns/{npd}/edit', [NpdNarasumberController::class, 'edit'])->name('npd.ns.edit');
         Route::put('/npd/ns/{npd}', [NpdNarasumberController::class, 'update'])->name('npd.ns.update');
-        Route::get('/npd/kd/create', [NpdKontribusiDiklatController::class, 'create'])->name('npd.kd.create');
-        Route::post('/npd/kd', [NpdKontribusiDiklatController::class, 'store'])->name('npd.kd.store');
         Route::get('/npd/kd/{npd}/edit', [NpdKontribusiDiklatController::class, 'edit'])->name('npd.kd.edit');
         Route::put('/npd/kd/{npd}', [NpdKontribusiDiklatController::class, 'update'])->name('npd.kd.update');
-        Route::get('/npd/tr/create', [NpdTransportController::class, 'create'])->name('npd.tr.create');
-        Route::post('/npd/tr', [NpdTransportController::class, 'store'])->name('npd.tr.store');
         Route::get('/npd/tr/{npd}/edit', [NpdTransportController::class, 'edit'])->name('npd.tr.edit');
         Route::put('/npd/tr/{npd}', [NpdTransportController::class, 'update'])->name('npd.tr.update');
-        Route::delete('/npd/{npd}', [NpdController::class, 'destroy'])->name('npd.destroy');
     });
     Route::delete('/npd/{npd}/permanen', [NpdController::class, 'destroyPermanent'])
         ->middleware('role:superadmin')->name('npd.destroy-permanent');

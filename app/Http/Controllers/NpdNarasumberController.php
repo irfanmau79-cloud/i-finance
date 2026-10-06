@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\NpdRevisiService;
 use App\Services\SpjBerkasService;
 use App\Helpers\AuditLog;
 use App\Helpers\Terbilang;
@@ -140,6 +141,7 @@ class NpdNarasumberController extends Controller
         DB::transaction(function () use ($request, $npd, $data, $narasumber, $nominal, $detailJson) {
             $npd = Npd::query()->lockForUpdate()->findOrFail($npd->id);
             abort_unless($npd->dapatDieditOleh($request->user()), 403);
+            $sebelum = app(NpdRevisiService::class)->potret($npd);
 
             $anggaran = MasterAnggaran::query()->lockForUpdate()->findOrFail($data['master_anggaran_id']);
             $keu = $anggaran->tentukanKeu();
@@ -172,7 +174,7 @@ class NpdNarasumberController extends Controller
 
             $npd->narasumber()->delete();
             $this->simpanNarasumber($npd, $narasumber);
-            $npd->catatHistoriStatus($request->user(), 'edit', $npd->status, $npd->status, 'Data Narasumber diperbarui.');
+            app(NpdRevisiService::class)->catatEdit($npd, $request->user(), $sebelum, 'Data Narasumber diperbarui.');
         });
 
         AuditLog::catat('Edit NPD', 'Jenis: Narasumber, NPD #'.$npd->id);

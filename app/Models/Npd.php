@@ -385,10 +385,49 @@ class Npd extends Model
         return $this->hasOne(SpjDetail::class);
     }
 
-    public function dapatDieditOleh(User $user): bool
+    /**
+     * Siapa boleh membuka formulir Edit NPD ditentukan MEJA tempat NPD itu
+     * sedang berada, bukan role semata:
+     *
+     *   Draft NPD - PPTK          -> PPTK (menyusun draft)
+     *   Draft NPD - BPP           -> BPP
+     *   Verifikasi - Verifikator  -> Verifikator Sub Kegiatan NPD ini saja,
+     *                                ikatan yang sama dengan aksi Verifikasi
+     *
+     * Superadmin boleh di ketiganya. Suntingan BPP dan Verifikator dicatat
+     * bagian demi bagian - lihat App\Services\NpdRevisiService.
+     *
+     * @param  Collection<string, User>|null  $petaVerifikator  hasil PelimpahanVerifikator::peta()
+     */
+    public function dapatDieditOleh(User $user, ?Collection $petaVerifikator = null): bool
     {
-        return $this->status === 'Draft NPD - PPTK'
-            && in_array($user->role, [User::ROLE_SUPERADMIN, User::ROLE_PPTK], true);
+        if ($this->status === 'Draft NPD - PPTK') {
+            return in_array($user->role, [User::ROLE_SUPERADMIN, User::ROLE_PPTK], true);
+        }
+
+        // NPD historis adalah arsip final, tidak mengikuti alur persetujuan.
+        if ($this->sumber_data === 'import_historis') {
+            return false;
+        }
+
+        return match ($this->status) {
+            'Draft NPD - BPP' => in_array($user->role, [User::ROLE_SUPERADMIN, User::ROLE_BPP], true),
+            'Verifikasi - Verifikator' => in_array($user->role, [User::ROLE_SUPERADMIN, User::ROLE_VERIFIKATOR], true)
+                && $this->alasanTolakAksi('verifikasi', $user, $petaVerifikator) === null,
+            default => false,
+        };
+    }
+
+    /** Nama rute formulir Edit untuk jenis NPD ini. */
+    public function ruteEdit(): string
+    {
+        return 'npd.'.(array_key_exists($this->jenis, self::JENIS_LABEL) ? $this->jenis : 'bj').'.edit';
+    }
+
+    /** Jejak suntingan BPP/Verifikator, dari yang paling awal. */
+    public function revisi(): HasMany
+    {
+        return $this->hasMany(NpdRevisi::class)->orderBy('id');
     }
 
     public function dapatDihapusOleh(User $user): bool

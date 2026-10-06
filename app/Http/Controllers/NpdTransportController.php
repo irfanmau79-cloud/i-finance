@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Services\NpdRevisiService;
 use App\Services\SpjBerkasService;
 use App\Helpers\AuditLog;
 use App\Helpers\NpdPerjalananHitung;
@@ -182,6 +183,7 @@ class NpdTransportController extends Controller
         DB::transaction(function () use ($request, $npd, $data, $tim, $nominal, $detailJson, $penerimaIndex) {
             $npd = Npd::query()->lockForUpdate()->findOrFail($npd->id);
             abort_unless($npd->dapatDieditOleh($request->user()), 403);
+            $sebelum = app(NpdRevisiService::class)->potret($npd);
 
             $masterAnggaran = MasterAnggaran::query()->lockForUpdate()->findOrFail($npd->master_anggaran_id);
             $tersedia = $masterAnggaran->sisaTersedia() + (float) $npd->nominal;
@@ -210,7 +212,7 @@ class NpdTransportController extends Controller
                 $npd->tim()->create($anggota);
             }
 
-            $npd->catatHistoriStatus($request->user(), 'edit', $npd->status, $npd->status, 'Data Transport diperbarui.');
+            app(NpdRevisiService::class)->catatEdit($npd, $request->user(), $sebelum, 'Data Transport diperbarui.');
         });
 
         AuditLog::catat('Edit NPD', 'Jenis: Transport, NPD #'.$npd->id);

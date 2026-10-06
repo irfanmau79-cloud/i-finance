@@ -224,7 +224,7 @@ class NpdCoretanTest extends TestCase
 
         $npd->refresh();
 
-        $response = $this->actingAs($verifikator)->get(route('npd.cetak-npd', $npd));
+        $response = $this->actingAs($verifikator)->get(route('npd.cetak-npd', ['npd' => $npd, 'versi' => 'draft']));
         $response->assertOk();
         $this->assertSame('application/pdf', $response->headers->get('Content-Type'));
 
@@ -232,6 +232,39 @@ class NpdCoretanTest extends TestCase
         // </html> penuh (diabaikan mPDF) - byte PDF harus berbeda begitu ada
         // coretan tersimpan, bukan identik dengan versi tanpa coretan.
         $this->assertNotSame($pdfTanpaCoretan, $response->getContent());
+    }
+
+    /**
+     * Coretan Verifikator hanya milik versi draft. Dokumen tanpa ?versi=draft
+     * adalah yang dicetak untuk ditandatangani, jadi harus tetap bersih walau
+     * NPD-nya pernah dikembalikan dengan coretan.
+     */
+    public function test_versi_final_tetap_bersih_walau_ada_coretan_tersimpan(): void
+    {
+        $verifikator = $this->buatUser('verifikator', 'coret-bersih-verif');
+        $npd = $this->buatNpd();
+
+        $this->tetapkanVerifikator($verifikator);
+        $sebelum = $this->actingAs($verifikator)->get(route('npd.cetak-npd', $npd))->getContent();
+
+        $this->actingAs($verifikator)
+            ->post(route('npd.transisi', $npd), [
+                'aksi' => 'kembali_bpp',
+                'catatan' => 'Ada revisi dengan coretan',
+                'coretan_json' => $this->contohCoretan(),
+            ])
+            ->assertSessionHasNoErrors();
+
+        $final = $this->actingAs($verifikator)->get(route('npd.cetak-npd', $npd))->getContent();
+        $draft = $this->actingAs($verifikator)->get(route('npd.cetak-npd', ['npd' => $npd, 'versi' => 'draft']))->getContent();
+
+        $this->assertSame($this->tanpaJejakWaktu($sebelum), $this->tanpaJejakWaktu($final));
+        $this->assertNotSame($this->tanpaJejakWaktu($final), $this->tanpaJejakWaktu($draft));
+
+        // Tombol versi draft muncul walau tidak ada suntingan data - tanpa
+        // itu coretannya tidak punya pintu untuk dicetak.
+        $this->actingAs($verifikator)->get(route('npd.show', $npd))
+            ->assertSee(route('npd.cetak-npd', ['npd' => $npd, 'versi' => 'draft']), false);
     }
 
     public function test_coretan_json_terbaru_mengambil_histori_paling_baru_bukan_paling_lama(): void
@@ -280,8 +313,8 @@ class NpdCoretanTest extends TestCase
             'aksi' => 'kembali_bpp', 'catatan' => 'Coretan lampiran saja', 'coretan_json' => $coretanLampiranSaja,
         ])->assertSessionHasNoErrors();
 
-        $npdSetelah = $this->actingAs($verifikator)->get(route('npd.cetak-npd', $npd))->getContent();
-        $lampiranSetelah = $this->actingAs($verifikator)->get(route('npd.cetak-lampiran', $npd))->getContent();
+        $npdSetelah = $this->actingAs($verifikator)->get(route('npd.cetak-npd', ['npd' => $npd, 'versi' => 'draft']))->getContent();
+        $lampiranSetelah = $this->actingAs($verifikator)->get(route('npd.cetak-lampiran', ['npd' => $npd, 'versi' => 'draft']))->getContent();
 
         // Cetak NPD tidak berubah - coretan itu bukan miliknya.
         $this->assertSame(
@@ -360,7 +393,7 @@ class NpdCoretanTest extends TestCase
             ])
             ->assertSessionHasNoErrors();
 
-        $sesudah = $this->actingAs($verifikator)->get(route('npd.cetak-npd', $npd))->getContent();
+        $sesudah = $this->actingAs($verifikator)->get(route('npd.cetak-npd', ['npd' => $npd, 'versi' => 'draft']))->getContent();
 
         // Aliran isi PDF dipadatkan mPDF, jadi harus dimekarkan dulu - pada
         // berkas mentah, operator gambar & teksnya tidak terlihat sama sekali.
@@ -420,7 +453,7 @@ class NpdCoretanTest extends TestCase
             ])
             ->assertSessionHasNoErrors();
 
-        $sesudah = $this->actingAs($verifikator)->get(route('npd.cetak-npd', $npd))->getContent();
+        $sesudah = $this->actingAs($verifikator)->get(route('npd.cetak-npd', ['npd' => $npd, 'versi' => 'draft']))->getContent();
         $this->assertNotSame($sebelum, $sesudah);
     }
 
@@ -481,7 +514,7 @@ class NpdCoretanTest extends TestCase
             ])
             ->assertSessionHasNoErrors();
 
-        $npdSesudah = $this->actingAs($verifikator)->get(route('npd.cetak-npd', $npd))->getContent();
+        $npdSesudah = $this->actingAs($verifikator)->get(route('npd.cetak-npd', ['npd' => $npd, 'versi' => 'draft']))->getContent();
         $this->assertSame(2, $this->jumlahHalaman($npdSesudah), 'Halaman Catatan Verifikasi tidak ditambahkan.');
         $this->assertGreaterThan(
             preg_match_all('#\sl\s#', $this->isiPdf($npdSebelum)),
@@ -489,7 +522,7 @@ class NpdCoretanTest extends TestCase
             'Garis coret tidak sampai ke PDF.',
         );
 
-        $lampiran = $this->actingAs($verifikator)->get(route('npd.cetak-lampiran', $npd))->getContent();
+        $lampiran = $this->actingAs($verifikator)->get(route('npd.cetak-lampiran', ['npd' => $npd, 'versi' => 'draft']))->getContent();
         $this->assertSame(1, $this->jumlahHalaman($lampiran), 'Lampiran tanpa coret teks tidak boleh bertambah halaman.');
     }
 

@@ -114,6 +114,18 @@ Verifikasi & Kembalikan ke BPP hanya oleh akun Verifikator Sub Kegiatan itu
 TANPA Verifikator tidak bisa diverifikasi SIAPA PUN, termasuk superadmin
 (keputusan Irfan, Oktober 2026).
 
+**Edit NPD mengikuti MEJA, bukan role semata** (`Npd::dapatDieditOleh()`,
+Oktober 2026): PPTK di `Draft NPD - PPTK`, BPP di `Draft NPD - BPP`,
+Verifikator Sub Kegiatan itu di `Verifikasi - Verifikator`; superadmin di
+ketiganya. Suntingan BPP/Verifikator dicatat per bagian di `npd_revisi`
+(`NpdRevisiService`) dan tampil sebagai "Histori Perubahan Data". Potret
+sebelum suntingan pertama = draft awal PPTK, sumber "Cetak Draft NPD"
+(`?versi=draft`): draft itu dirender lewat templat yang sama lalu dibandingkan
+dengan dokumen terkini oleh `CoretanOtomatis` (lama dicoret, baru merah).
+"Cetak NPD Terverifikasi" = dokumen BERSIH siap cetak; templat `npd.pdf.*`
+tidak boleh diberi penanda coretan. Coretan tangan Verifikator (`CoretanPdf`)
+juga HANYA tercetak di versi draft (keputusan Irfan, Oktober 2026).
+
 TTD NPD diambil lewat `PejabatResolver` dari pelimpahan sub kegiatan, fallback
 ke `data_tambahan` lama + peringatan bila belum diset.
 

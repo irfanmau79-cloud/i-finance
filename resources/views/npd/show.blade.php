@@ -63,7 +63,7 @@
         </div>
     @elseif ($adaCoretan)
         <div class="sumbar" style="background:var(--info-bg);color:var(--info);margin-bottom:14px;">
-            <span>Dokumen PDF NPD ini memuat coretan dari Verifikator &mdash; buka lewat tombol <b>Cetak NPD</b>, <b>Cetak Lampiran</b>, dsb di bawah (lihat Histori Status untuk catatan revisinya).</span>
+            <span>Dokumen PDF NPD ini memuat coretan dari Verifikator &mdash; buka lewat tombol di baris <b>Cetak Draft NPD</b> di bawah (lihat Histori Status untuk catatan revisinya). Versi final tetap bersih tanpa coretan.</span>
         </div>
     @endif
 
@@ -398,10 +398,20 @@
         </div>
     @endif
 
-    @if ($bisaKembaliBpp)
-        <div style="margin-top:10px;">
-            <a class="btn prim" href="{{ route('npd.coret', $npd) }}">Beri Coretan pada Dokumen &amp; Kembalikan ke BPP</a>
+    @if ($bisaKembaliBpp || $bisaEdit)
+        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
+            @if ($bisaEdit)
+                <a class="btn prim" href="{{ route($npd->ruteEdit(), $npd) }}">Edit NPD</a>
+            @endif
+            @if ($bisaKembaliBpp)
+                <a class="btn prim" href="{{ route('npd.coret', $npd) }}">Beri Coretan pada Dokumen &amp; Kembalikan ke BPP</a>
+            @endif
         </div>
+        @if ($bisaEdit && $npd->status !== 'Draft NPD - PPTK')
+            <div class="sub" style="margin-top:7px;">
+                Setiap bagian yang Anda ubah lewat <b>Edit NPD</b> dicatat di Histori Perubahan Data, dan tercoret otomatis pada <b>Cetak Draft NPD</b>.
+            </div>
+        @endif
     @endif
 
     @include('npd._spj-berkas', ['npd' => $npd, 'bolehKelola' => $bolehKelolaArsip])
@@ -457,31 +467,87 @@
         </div>
     @endif
 
-    <div class="npd-sek" style="margin-bottom:10px;"><h3>Dokumen &amp; Cetak</h3></div>
-    <div class="cetak-bar">
-        @if (in_array($npd->jenis, ['pd', 'tr'], true))
-            <a class="btn prim" href="{{ route('npd.cetak-daftar', $npd) }}" target="_blank">Cetak Daftar Pembayaran</a>
-            <a class="btn prim" href="{{ route('npd.cetak-spd', $npd) }}" target="_blank">Cetak SPD Rampung</a>
-        @elseif ($npd->jenis === 'ns')
-            <a class="btn prim" href="{{ route('npd.cetak-daftar-nara', $npd) }}" target="_blank">Cetak Daftar Pembayaran</a>
-        @elseif ($npd->jenis === 'kd')
-            <a class="btn prim" href="{{ route('npd.cetak-daftar-kd', $npd) }}" target="_blank">Cetak Daftar Bayar</a>
-        @endif
-        <a class="btn prim" href="{{ route('npd.cetak-npd', $npd) }}" target="_blank">Cetak NPD</a>
-        <a class="btn prim" href="{{ route('npd.cetak-lampiran', $npd) }}" target="_blank">Cetak Lampiran</a>
+    @if ($npd->revisi->isNotEmpty())
+        <div class="npd-sek"><h3>Histori Perubahan Data</h3><span class="jml">{{ $npd->revisi->sum(fn ($r) => count($r->perubahan ?? [])) }} perubahan</span></div>
+        <div class="sub" style="margin-top:7px;">Bagian yang diubah BPP/Verifikator lewat Edit NPD setelah draft diserahkan PPTK.</div>
+        <div class="tbl-npd-wrap">
+            <table class="tbl-npd">
+                <thead><tr><th>Waktu</th><th>Diubah oleh</th><th>Bagian</th><th>Semula</th><th>Menjadi</th></tr></thead>
+                <tbody>
+                    @foreach ($npd->revisi as $revisi)
+                        @foreach ($revisi->perubahan ?? [] as $ubah)
+                            <tr>
+                                @if ($loop->first)
+                                    <td class="hs-wkt" rowspan="{{ count($revisi->perubahan) }}" style="vertical-align:top;"><b>{{ $revisi->created_at->format('d-m-Y') }}</b><span>{{ $revisi->created_at->format('H:i') }}</span></td>
+                                    <td rowspan="{{ count($revisi->perubahan) }}" style="vertical-align:top;">
+                                        <span class="nm">{{ $revisi->user->nama ?? 'Pengguna dihapus' }}</span>
+                                        <span class="nm-sub">{{ config('akses.role_label')[$revisi->peran] ?? $revisi->peran }}</span>
+                                    </td>
+                                @endif
+                                <td>{{ $ubah['bagian'] }}</td>
+                                <td style="text-decoration:line-through;color:var(--mut);overflow-wrap:anywhere;">{{ $ubah['lama'] }}</td>
+                                <td style="overflow-wrap:anywhere;"><b>{{ $ubah['baru'] }}</b></td>
+                            </tr>
+                        @endforeach
+                    @endforeach
+                </tbody>
+            </table>
+        </div>
+    @endif
 
-        {{-- Cetak gabungan: sengaja dipisah garis dan berwarna lain karena
-             hasilnya bukan satu dokumen seperti tombol di kirinya, melainkan
-             semuanya sekaligus dalam satu berkas. --}}
-        <span class="cetak-pisah" aria-hidden="true"></span>
-        <a class="btn gabung" href="{{ route('npd.cetak-gabungan', $npd) }}" target="_blank"
-            title="{{ $urutanGabungan }}">
-            <svg viewBox="0 0 24 24" aria-hidden="true">
-                <path d="M12 2 3 7l9 5 9-5-9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>
-            </svg>
-            Cetak Semua (1 Berkas)
-        </a>
-    </div>
+    <div class="npd-sek" style="margin-bottom:10px;"><h3>Dokumen &amp; Cetak</h3></div>
+    @php
+        // Draft awal PPTK baru terpisah dari dokumen terkini setelah ada
+        // suntingan BPP/Verifikator. Sebelum itu keduanya dokumen yang sama,
+        // jadi cukup satu baris tombol.
+        $sudahVerifikasi = filled($npd->nomor_lengkap);
+        $labelTerkini = $sudahVerifikasi ? 'Cetak NPD Terverifikasi' : 'Cetak NPD Hasil Edit';
+        // Coretan tangan Verifikator juga hanya tercetak di versi draft,
+        // jadi versi itu ikut ditawarkan begitu ada coretan tersimpan.
+        $versiCetak = ($npd->revisi->isNotEmpty() || $adaCoretan)
+            ? [
+                ['judul' => 'Cetak Draft NPD', 'ket' => 'Draft awal buatan PPTK beserta coretan: bagian yang diubah BPP/Verifikator tercoret otomatis dengan penggantinya tertulis merah, ditambah coretan tangan Verifikator bila ada.', 'q' => ['versi' => 'draft']],
+                ['judul' => $labelTerkini, 'ket' => $sudahVerifikasi ? 'Dokumen bersih tanpa coretan, lengkap dengan nomor NPD - siap dicetak.' : 'Dokumen bersih tanpa coretan dengan isi terkini. NPD ini belum diverifikasi, jadi belum bernomor.', 'q' => []],
+            ]
+            : [
+                ['judul' => $sudahVerifikasi ? 'Cetak NPD Terverifikasi' : 'Cetak Draft NPD', 'ket' => null, 'q' => []],
+            ];
+    @endphp
+    @foreach ($versiCetak as $versi)
+        @php($q = ['npd' => $npd] + $versi['q'])
+        <div style="margin-top:{{ $loop->first ? '0' : '14px' }};">
+            <div style="font-weight:700;color:var(--tegas);">{{ $versi['judul'] }}</div>
+            @if ($versi['ket'])
+                <div class="sub" style="margin:2px 0 8px;">{{ $versi['ket'] }}</div>
+            @else
+                <div style="height:8px;"></div>
+            @endif
+            <div class="cetak-bar">
+                @if (in_array($npd->jenis, ['pd', 'tr'], true))
+                    <a class="btn prim" href="{{ route('npd.cetak-daftar', $q) }}" target="_blank">Cetak Daftar Pembayaran</a>
+                    <a class="btn prim" href="{{ route('npd.cetak-spd', $q) }}" target="_blank">Cetak SPD Rampung</a>
+                @elseif ($npd->jenis === 'ns')
+                    <a class="btn prim" href="{{ route('npd.cetak-daftar-nara', $q) }}" target="_blank">Cetak Daftar Pembayaran</a>
+                @elseif ($npd->jenis === 'kd')
+                    <a class="btn prim" href="{{ route('npd.cetak-daftar-kd', $q) }}" target="_blank">Cetak Daftar Bayar</a>
+                @endif
+                <a class="btn prim" href="{{ route('npd.cetak-npd', $q) }}" target="_blank">Cetak NPD</a>
+                <a class="btn prim" href="{{ route('npd.cetak-lampiran', $q) }}" target="_blank">Cetak Lampiran</a>
+
+                {{-- Cetak gabungan: sengaja dipisah garis dan berwarna lain karena
+                     hasilnya bukan satu dokumen seperti tombol di kirinya, melainkan
+                     semuanya sekaligus dalam satu berkas. --}}
+                <span class="cetak-pisah" aria-hidden="true"></span>
+                <a class="btn gabung" href="{{ route('npd.cetak-gabungan', $q) }}" target="_blank"
+                    title="{{ $urutanGabungan }}">
+                    <svg viewBox="0 0 24 24" aria-hidden="true">
+                        <path d="M12 2 3 7l9 5 9-5-9-5z"/><path d="m3 12 9 5 9-5"/><path d="m3 17 9 5 9-5"/>
+                    </svg>
+                    Cetak Semua (1 Berkas)
+                </a>
+            </div>
+        </div>
+    @endforeach
     <div class="sub" style="margin-top:7px;">Urutan berkas gabungan: {{ $urutanGabungan }}.</div>
 
     <div style="display:flex;justify-content:flex-end;margin-top:16px;">
