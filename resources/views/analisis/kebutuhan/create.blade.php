@@ -63,9 +63,12 @@
     <div class="ph-crumb">Beranda / <b>Estimasi Kebutuhan Kegiatan Pengawasan</b></div>
     <div class="ph-title">Estimasi Kebutuhan Kegiatan Pengawasan</div>
   </div>
+  {{-- Ikut hilang selama menu Data Kebutuhan disembunyikan - lihat config('akses.menu_disembunyikan'). --}}
+  @if (in_array(auth()->user()->role, config('akses.menu_disembunyikan.keb-data', [auth()->user()->role]), true))
   <div class="ph-actions">
     <a class="btn" href="{{ route('kebutuhan.index') }}" style="white-space:nowrap;">Lihat Data Kebutuhan</a>
   </div>
+  @endif
 </div>
 
 <div class="keb-unit-head">

@@ -202,4 +202,17 @@ return [
         'layanan' => 'Pengguna Layanan',
     ],
 
+    /**
+     * Menu yang SEMENTARA disembunyikan dari sidebar: kunci menu => role
+     * yang masih melihatnya.
+     *
+     * Hanya tautan menunya yang hilang. Hak aksesnya ('menu' di atas) tidak
+     * berubah, jadi halamannya tetap terbuka bagi role yang berhak bila
+     * alamatnya dibuka langsung - ini saklar tampilan, bukan pengaman. Untuk
+     * menampilkannya lagi, hapus barisnya.
+     */
+    'menu_disembunyikan' => [
+        'keb-data' => ['superadmin'],
+    ],
+
 ];

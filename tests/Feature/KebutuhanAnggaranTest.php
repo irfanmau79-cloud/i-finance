@@ -264,6 +264,38 @@ class KebutuhanAnggaranTest extends TestCase
 
     // ---------------- Rekap & hapus ----------------
 
+    /**
+     * SEMENTARA: sub menu Data Kebutuhan Anggaran Pengawasan disembunyikan
+     * dari sidebar untuk semua role kecuali superadmin
+     * (config('akses.menu_disembunyikan')). Yang hilang hanya tautannya -
+     * hak akses halamannya tidak berubah.
+     */
+    public function test_menu_data_kebutuhan_sementara_hanya_tampil_untuk_superadmin(): void
+    {
+        $tautan = 'href="'.route('kebutuhan.index').'">Data Kebutuhan Anggaran Pengawasan</a>';
+
+        $this->actingAs($this->buatUser(User::ROLE_SUPERADMIN))->get(route('pkpt.index'))->assertOk()
+            ->assertSee($tautan, false);
+
+        foreach (['perencanaan', 'pengawas', 'inspektur_pembantu', 'irban1'] as $role) {
+            $this->actingAs($this->buatUser($role))->get(route('pkpt.index'))->assertOk()
+                ->assertDontSee($tautan, false);
+        }
+
+        // Tombol "Lihat Data Kebutuhan" di formulir Irban ikut hilang,
+        // sedangkan sub menu formulirnya sendiri tetap ada.
+        $this->actingAs($this->buatUser('irban2'))->get(route('kebutuhan.create'))->assertOk()
+            ->assertDontSee('Lihat Data Kebutuhan')
+            ->assertSee('Estimasi Kebutuhan Kegiatan Pengawasan');
+
+        // Begitu barisnya dihapus dari konfigurasi, menunya kembali.
+        config(['akses.menu_disembunyikan' => []]);
+        $this->actingAs($this->buatUser('irban3'))->get(route('pkpt.index'))->assertOk()
+            ->assertSee($tautan, false);
+        $this->actingAs($this->buatUser('irban4'))->get(route('kebutuhan.create'))->assertOk()
+            ->assertSee('Lihat Data Kebutuhan');
+    }
+
     public function test_irban_hanya_melihat_datanya_sendiri_sedangkan_perencanaan_melihat_semua(): void
     {
         $this->buatKebutuhan('Inspektur Pembantu I', ['area' => 'Punya Irban I']);

@@ -129,7 +129,8 @@
            harus melihat Monitoring PKPT dan formulir kebutuhannya. --}}
       @php($analisisVisible = in_array('analisis', $akses, true))
       @php($pkptVisible = in_array('pkpt', $akses, true))
-      @php($kebDataVisible = in_array('keb-data', $akses, true))
+      {{-- 'keb-data' sedang disembunyikan sementara - lihat config('akses.menu_disembunyikan'). --}}
+      @php($kebDataVisible = in_array('keb-data', $akses, true) && in_array($currentRole, config('akses.menu_disembunyikan.keb-data', [$currentRole]), true))
       @php($kebInputVisible = in_array('keb-input', $akses, true))
       @php($analisisOpen = in_array($activeNav, ['tren-realisasi', 'simulasi-pergeseran', 'simulasi-realisasi', 'pkpt', 'keb-data', 'keb-input'], true))
       @if ($analisisVisible || $pkptVisible || $kebDataVisible || $kebInputVisible)
