@@ -36,7 +36,11 @@
     </div>
 
     <div class="sp-table-wrap wf-scroll" style="border:1px solid var(--line);border-radius:8px;">
-        <table class="realisasi">
+        <table class="realisasi tk-mon">
+            <colgroup>
+                <col style="width:9%;"><col style="width:17%;"><col style="width:34%;">
+                <col style="width:14%;"><col style="width:9%;"><col style="width:17%;">
+            </colgroup>
             <thead>
                 <tr>
                     <th>Waktu</th>
@@ -49,36 +53,73 @@
             </thead>
             <tbody id="tk-mon-body">
                 @forelse ($pengajuan as $p)
+                    @php
+                        // Anggota keluarga yang diisi pada pengajuan ini, dalam
+                        // satu daftar: pasangan lebih dulu, lalu anak berurutan.
+                        $pasangan = $p->payload['pasangan'] ?? [];
+                        $keluarga = [];
+
+                        if (filled($pasangan['nama'] ?? null)) {
+                            $keluarga[] = ['peran' => 'Pasangan'] + $pasangan;
+                        }
+
+                        foreach ($p->payload['anak'] ?? [] as $i => $anak) {
+                            if (filled($anak['nama'] ?? null)) {
+                                $keluarga[] = ['peran' => 'Anak ke-'.($i + 1)] + $anak;
+                            }
+                        }
+
+                        // Tanggal lahir disimpan apa adanya dari formulir;
+                        // yang tidak terbaca sebagai tanggal ditampilkan mentah.
+                        $tanggalLahir = function ($nilai) {
+                            if (blank($nilai)) {
+                                return null;
+                            }
+
+                            try {
+                                return \Illuminate\Support\Carbon::parse($nilai)->format('d-m-Y');
+                            } catch (\Throwable) {
+                                return (string) $nilai;
+                            }
+                        };
+                    @endphp
                     <tr>
-                        <td>{{ $p->diajukan_at->format('d-m-Y H:i') }}</td>
-                        <td><strong>{{ $p->nama_pegawai }}</strong><br><span class="sub">{{ $p->nip ?: '-' }}</span></td>
+                        <td class="tk-waktu"><b>{{ $p->diajukan_at->format('d-m-Y') }}</b><span>{{ $p->diajukan_at->format('H:i') }}</span></td>
                         <td>
-                            {{ $p->keterangan }}
-                            @php($pasangan = $p->payload['pasangan'] ?? [])
-                            @php($anakList = $p->payload['anak'] ?? [])
-                            @if (filled($pasangan['nama'] ?? null) || count(array_filter($anakList, fn ($a) => filled($a['nama'] ?? null))) > 0)
-                                <details style="margin-top:6px">
-                                    <summary style="cursor:pointer;color:var(--tegas);font-size:12px;font-weight:600;">Data keluarga</summary>
-                                    <div style="margin-top:6px;font-size:12px;color:var(--ink);">
-                                        @if (filled($pasangan['nama'] ?? null))
-                                            <div style="padding:4px 0;border-bottom:1px dashed var(--line)">
-                                                <strong>Pasangan:</strong> {{ $pasangan['nama'] }}
-                                                &middot; {{ $pasangan['tanggal_lahir'] ?? '-' }}
-                                                &middot; Tunjangan: <span class="badge {{ ! empty($pasangan['status_tunjangan']) ? 'st-aktif' : 'st-diterima' }}">{{ ! empty($pasangan['status_tunjangan']) ? 'Ya' : 'Tidak' }}</span>
-                                            </div>
-                                        @endif
-                                        @foreach ($anakList as $i => $anak)
-                                            @continue(blank($anak['nama'] ?? null))
-                                            <div style="padding:4px 0;border-bottom:1px dashed var(--line)">
-                                                <strong>Anak Ke-{{ $i + 1 }}:</strong> {{ $anak['nama'] }}
-                                                &middot; {{ $anak['tanggal_lahir'] ?? '-' }}
-                                                &middot; Tunjangan: <span class="badge {{ ! empty($anak['status_tunjangan']) ? 'st-aktif' : 'st-diterima' }}">{{ ! empty($anak['status_tunjangan']) ? 'Ya' : 'Tidak' }}</span>
-                                                @if (! empty($anak['perpanjangan_kuliah']))
-                                                    &middot; <span class="badge st-verifikasi">Perpanjangan Kuliah</span>
-                                                @endif
-                                                @if (filled($anak['keterangan'] ?? null))
-                                                    <br><span class="sub">{{ $anak['keterangan'] }}</span>
-                                                @endif
+                            <span class="tk-nama">{{ $p->nama_pegawai }}</span>
+                            <span class="tk-nip">{{ $p->nip ?: '-' }}</span>
+                        </td>
+                        <td>
+                            <div class="tk-ket">{{ $p->keterangan ?: '-' }}</div>
+                            @if ($keluarga !== [])
+                                <details class="tk-kel">
+                                    <summary>
+                                        <svg class="ik" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
+                                        Data Keluarga
+                                        <span class="jml">{{ count($keluarga) }}</span>
+                                        <svg class="panah" viewBox="0 0 24 24" aria-hidden="true"><polyline points="6 9 12 15 18 9"/></svg>
+                                    </summary>
+                                    <div class="tk-kel-isi">
+                                        @foreach ($keluarga as $anggota)
+                                            <div class="tk-kel-baris">
+                                                <div class="peran">{{ $anggota['peran'] }}</div>
+                                                <div class="orang">
+                                                    <span class="nm">{{ $anggota['nama'] }}</span>
+                                                    <span class="tgl">Lahir {{ $tanggalLahir($anggota['tanggal_lahir'] ?? null) ?? '-' }}</span>
+                                                    @if (filled($anggota['keterangan'] ?? null))
+                                                        <span class="cat">{{ $anggota['keterangan'] }}</span>
+                                                    @endif
+                                                </div>
+                                                <div class="tanda">
+                                                    @if (! empty($anggota['status_tunjangan']))
+                                                        <span class="badge st-aktif">Tunjangan</span>
+                                                    @else
+                                                        <span class="badge st-diterima">Tanpa Tunjangan</span>
+                                                    @endif
+                                                    @if (! empty($anggota['perpanjangan_kuliah']))
+                                                        <span class="badge st-verifikasi">Perpanjangan Kuliah</span>
+                                                    @endif
+                                                </div>
                                             </div>
                                         @endforeach
                                     </div>
@@ -86,42 +127,48 @@
                             @endif
                         </td>
                         <td>
-                            @foreach ($p->lampiran as $lampiran)
+                            @forelse ($p->lampiran as $lampiran)
                                 @if ($bolehProses)
-                                    <a href="{{ route('tunjangan.lampiran.download', $lampiran) }}">{{ $lampiran->nama_asli }}</a><br>
+                                    <a class="tk-berkas" href="{{ route('tunjangan.lampiran.download', $lampiran) }}" title="{{ $lampiran->nama_asli }}">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
+                                        <span>{{ $lampiran->nama_asli }}</span>
+                                    </a>
                                 @else
-                                    <span class="sub">Private</span><br>
+                                    <span class="tk-berkas kunci" title="Lampiran hanya bisa dibuka petugas pemroses">
+                                        <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="11" width="18" height="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
+                                        <span>Private</span>
+                                    </span>
                                 @endif
-                            @endforeach
+                            @empty
+                                <span class="tk-kosong">&mdash;</span>
+                            @endforelse
                         </td>
                         <td><span class="badge {{ $p->status === 'disetujui' ? 'st-aktif' : ($p->status === 'ditolak' ? 'st-danger' : 'st-verifikasi') }}">{{ strtoupper($p->status) }}</span></td>
                         <td>
                             @if ($p->status === 'diajukan' && $bolehProses)
-                                <form method="POST" action="{{ route('tunjangan.pengajuan.proses', $p) }}" style="min-width:200px">
+                                <form method="POST" action="{{ route('tunjangan.pengajuan.proses', $p) }}" class="tk-proses">
                                     @csrf
-                                    <div class="fg">
-                                        <label class="fl" style="margin-top:0">Pegawai master</label>
-                                        <select name="pegawai_id" required data-cari>
-                                            <option value="">-- Pilih Pegawai --</option>
-                                            @foreach ($pegawai as $pg)
-                                                <option value="{{ $pg->id }}" @selected($p->pegawai_id === $pg->id)>{{ $pg->nama }} &middot; {{ $pg->nip }}</option>
-                                            @endforeach
-                                        </select>
-                                    </div>
-                                    <div class="fg">
-                                        <label class="fl">Catatan proses</label>
-                                        <input name="catatan" placeholder="Opsional">
-                                    </div>
-                                    <div style="display:flex;gap:6px;margin-top:8px">
+                                    <label class="fl">Pegawai master</label>
+                                    <select name="pegawai_id" required data-cari>
+                                        <option value="">-- Pilih Pegawai --</option>
+                                        @foreach ($pegawai as $pg)
+                                            <option value="{{ $pg->id }}" @selected($p->pegawai_id === $pg->id)>{{ $pg->nama }} &middot; {{ $pg->nip }}</option>
+                                        @endforeach
+                                    </select>
+                                    <label class="fl">Catatan proses</label>
+                                    <input name="catatan" placeholder="Opsional">
+                                    <div class="tombol">
                                         <button class="btn prim" name="aksi" value="setujui">Setujui</button>
                                         <button class="btn" name="aksi" value="tolak" formnovalidate>Tolak</button>
                                     </div>
                                 </form>
-                            @else
-                                {{ $p->diprosesOleh?->nama ?? '-' }}
+                            @elseif ($p->diprosesOleh || $p->catatan_proses)
+                                <span class="tk-nama">{{ $p->diprosesOleh?->nama ?? '-' }}</span>
                                 @if ($p->catatan_proses)
-                                    <br><span class="sub">{{ $p->catatan_proses }}</span>
+                                    <span class="tk-nip">{{ $p->catatan_proses }}</span>
                                 @endif
+                            @else
+                                <span class="tk-kosong">&mdash;</span>
                             @endif
                         </td>
                     </tr>
@@ -134,6 +181,66 @@
 
     {{ $pengajuan->links() }}
 </div>
+
+<style>
+    /* Tabel Daftar Pengajuan. Lebar kolom dikunci supaya membuka "Data
+       Keluarga" di satu baris tidak menggeser kolom baris lain. */
+    table.tk-mon{width:100%;min-width:920px;table-layout:fixed;}
+    table.tk-mon td{vertical-align:top;overflow-wrap:anywhere;}
+    .tk-waktu b{display:block;color:var(--tegas);font-weight:700;white-space:nowrap;}
+    .tk-waktu span{display:block;margin-top:2px;font-size:11.5px;color:var(--mut);}
+    .tk-nama{display:block;font-weight:700;color:var(--tegas);line-height:1.35;}
+    .tk-nip{display:block;margin-top:2px;font-size:11.5px;color:var(--mut);line-height:1.4;}
+    .tk-ket{line-height:1.5;color:var(--ink);}
+    .tk-kosong{color:var(--mut);}
+
+    /* "Data Keluarga": tombol pil yang membuka daftar anggota keluarga. */
+    .tk-kel{margin-top:8px;}
+    .tk-kel > summary{display:inline-flex;align-items:center;gap:7px;padding:5px 9px 5px 10px;list-style:none;cursor:pointer;
+        user-select:none;font-size:12px;font-weight:600;color:var(--tegas);background:var(--surface-2);
+        border:1px solid var(--line);border-radius:50px;transition:background .15s,border-color .15s;}
+    .tk-kel > summary::-webkit-details-marker{display:none;}
+    .tk-kel > summary:hover{background:var(--surface-3);border-color:var(--aksen);}
+    .tk-kel > summary:focus-visible{outline:2px solid var(--aksen);outline-offset:2px;}
+    .tk-kel > summary svg{width:14px;height:14px;flex:0 0 14px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+    .tk-kel > summary .jml{min-width:18px;padding:1px 6px;border-radius:50px;background:var(--navy-l);color:var(--tegas);
+        font-size:10.5px;font-weight:700;text-align:center;}
+    .tk-kel > summary .panah{transition:transform .18s;}
+    .tk-kel[open] > summary{background:var(--navy-l);border-color:var(--aksen);}
+    .tk-kel[open] > summary .panah{transform:rotate(180deg);}
+
+    .tk-kel-isi{margin-top:8px;border:1px solid var(--line);border-radius:10px;background:var(--surface);overflow:hidden;}
+    .tk-kel-baris{display:grid;grid-template-columns:74px minmax(0,1fr);gap:4px 10px;align-items:start;padding:9px 11px;
+        border-bottom:1px solid var(--line);}
+    .tk-kel-baris:last-child{border-bottom:none;}
+    .tk-kel-baris .peran{padding-top:2px;font-size:10.5px;font-weight:700;letter-spacing:.3px;text-transform:uppercase;color:var(--mut);}
+    .tk-kel-baris .nm{display:block;font-size:12.5px;font-weight:700;color:var(--tegas);line-height:1.35;}
+    .tk-kel-baris .tgl{display:block;margin-top:1px;font-size:11.5px;color:var(--mut);}
+    .tk-kel-baris .cat{display:block;margin-top:4px;font-size:11.5px;color:var(--ink);line-height:1.4;}
+    /* Tanda tunjangan di bawah nama, bukan di kolom ketiga: di kolom sendiri
+       ia menjepit nama sampai terpotong per kata. */
+    .tk-kel-baris .tanda{grid-column:2;display:flex;flex-wrap:wrap;gap:5px;margin-top:2px;}
+
+    /* Lampiran sebagai keping berkas, satu per baris, nama panjang dipotong. */
+    .tk-berkas{display:flex;align-items:center;gap:6px;max-width:100%;margin-bottom:5px;padding:5px 9px;font-size:12px;font-weight:600;
+        color:var(--tegas);text-decoration:none;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;}
+    .tk-berkas:last-child{margin-bottom:0;}
+    a.tk-berkas:hover{background:var(--surface-3);border-color:var(--aksen);}
+    .tk-berkas svg{width:13px;height:13px;flex:0 0 13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+    .tk-berkas span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+    .tk-berkas.kunci{display:inline-flex;color:var(--mut);font-weight:500;}
+
+    .tk-proses .fl{margin:8px 0 4px;font-size:11.5px;}
+    .tk-proses .fl:first-of-type{margin-top:0;}
+    .tk-proses select,.tk-proses input{width:100%;box-sizing:border-box;}
+    .tk-proses .tombol{display:flex;gap:6px;margin-top:10px;}
+    .tk-proses .tombol .btn{flex:1;padding:7px 10px;font-size:12.5px;text-align:center;}
+
+    @media (max-width:720px){
+        .tk-kel-baris{grid-template-columns:1fr;gap:4px;}
+        .tk-kel-baris .tanda{grid-column:1;}
+    }
+</style>
 
 <script>
 document.getElementById('tk-mon-search').addEventListener('input', function (e) {
