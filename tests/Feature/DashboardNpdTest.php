@@ -201,14 +201,26 @@ class DashboardNpdTest extends TestCase
         $this->actingAs($bpp)->get(route('npd.cetak-gabungan', $npd))->assertOk();
     }
 
-    public function test_dashboard_hanya_untuk_pemantau_npd(): void
+    /**
+     * Role keuangan dan Pengawas, ditambah TIGA pimpinan saja: Inspektur
+     * Daerah, Sekretaris, dan Kasubbag TU. Para Inspektur Pembantu tidak.
+     */
+    public function test_dashboard_hanya_untuk_keuangan_pengawas_dan_tiga_pimpinan(): void
     {
-        foreach (['superadmin', 'bendahara_pengeluaran', 'bpp', 'pptk', 'verifikator', 'inspektur', 'irban1', 'pengawas'] as $role) {
+        $boleh = ['superadmin', 'bendahara_pengeluaran', 'bpp', 'pptk', 'verifikator', 'inspektur', 'sekretaris', 'kasubbag', 'pengawas'];
+
+        foreach ($boleh as $role) {
             $this->actingAs($this->user($role))->get(route('dashboard.npd.index'))->assertOk();
         }
 
-        foreach (['perencanaan', 'kepegawaian', 'pengelola_spj'] as $role) {
-            $this->actingAs($this->user($role))->get(route('dashboard.npd.index'))->assertForbidden();
+        foreach (['inspektur_pembantu', 'irban1', 'irban2', 'irban3', 'irban4', 'irban_inv', 'perencanaan', 'kepegawaian', 'pengelola_spj'] as $role) {
+            $akun = $this->user($role);
+            $this->actingAs($akun)->get(route('dashboard.npd.index'))->assertForbidden();
+            // Sub menunya pun tidak tampil di sidebar.
+            $this->actingAs($akun)->get(route('dashboard.index'))->assertOk()
+                ->assertDontSee('Dashboard Nota Pencairan Dana');
         }
+
+        $this->assertEqualsCanonicalizing($boleh, collect(config('akses.menu'))->filter(fn (array $menu) => in_array('dashnpd', $menu, true))->keys()->all());
     }
 }

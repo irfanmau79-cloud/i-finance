@@ -38,9 +38,12 @@ $matriks = [
     'dashpd' => [...$keuangan, ...$pimpinan, 'perencanaan', 'pengawas'],
     'dash-tk' => [...$keuangan, ...$pimpinan, 'kepegawaian', 'pengawas'],
     'dashspj' => $pemantau,
-    // Dashboard Nota Pencairan Dana: pemantau yang sama dengan Data NPD,
-    // karena tombol "Lihat NPD"-nya membuka dokumen cetak NPD (kunci npd-data).
-    'dashnpd' => $pemantau,
+    // Dashboard Nota Pencairan Dana: role keuangan dan Pengawas, tetapi dari
+    // Pimpinan HANYA Inspektur Daerah, Sekretaris, dan Kasubbag TU - para
+    // Inspektur Pembantu tidak memegangnya (keputusan Irfan, Oktober 2026).
+    // Semuanya juga memegang 'npd-data', kunci yang menjaga dokumen cetak
+    // di balik tombol "Lihat NPD".
+    'dashnpd' => [...$keuangan, 'inspektur', 'sekretaris', 'kasubbag', 'pengawas'],
 
     // Rincian Realisasi (Tahunan & Periodik berbagi satu kunci)
     'rincian' => [...$keuangan, ...$pimpinan, 'perencanaan', 'pengawas'],

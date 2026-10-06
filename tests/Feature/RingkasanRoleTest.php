@@ -53,7 +53,8 @@ class RingkasanRoleTest extends TestCase
             'dashboard.perjalanan.index' => $realisasi,
             'tunjangan.dashboard' => [...self::KEUANGAN, ...self::PIMPINAN, 'kepegawaian', 'pengawas'],
             'dashboard.spj.index' => $pemantau,
-            'dashboard.npd.index' => $pemantau,
+            // Dari Pimpinan hanya Inspektur Daerah, Sekretaris, dan Kasubbag TU.
+            'dashboard.npd.index' => [...self::KEUANGAN, 'inspektur', 'sekretaris', 'kasubbag', 'pengawas'],
 
             // Rincian Realisasi
             'rincian.index' => $realisasi,

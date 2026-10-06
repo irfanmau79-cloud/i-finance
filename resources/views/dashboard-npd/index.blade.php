@@ -55,10 +55,10 @@
   table.dnpd-tabel td{vertical-align:top;overflow-wrap:anywhere;}
   table.dnpd-tabel .nm{font-weight:700;color:var(--tegas);}
   table.dnpd-tabel .sub-nm{display:block;margin-top:2px;font-size:11px;color:var(--mut);}
-  .dnpd-lihat{display:inline-flex;align-items:center;gap:6px;padding:6px 11px;font-size:12px;font-weight:600;white-space:nowrap;
+  .dnpd-lihat{display:inline-flex;align-items:center;justify-content:center;width:32px;height:32px;
     color:var(--tegas);text-decoration:none;background:var(--surface-2);border:1px solid var(--line);border-radius:8px;}
   .dnpd-lihat:hover{background:var(--surface-3);border-color:var(--aksen);}
-  .dnpd-lihat svg{width:13px;height:13px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .dnpd-lihat svg{width:15px;height:15px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
   .dnpd-kosong{padding:26px;text-align:center;color:var(--mut);}
 </style>
 
@@ -153,12 +153,12 @@
           <table class="realisasi dnpd-tabel">
             <colgroup>
               <col style="width:10%;"><col style="width:17%;"><col style="width:13%;"><col style="width:13%;">
-              <col style="width:13%;"><col style="width:23%;"><col style="width:11%;">
+              <col style="width:13%;"><col style="width:28%;"><col style="width:6%;">
             </colgroup>
             <thead>
               <tr>
                 <th>Tanggal NPD</th><th>Penerima</th><th>Unit Kerja</th><th class="num">Nominal</th>
-                <th>Status</th><th>Uraian</th><th>Aksi</th>
+                <th>Status</th><th>Uraian</th><th style="text-align:center;">Aksi</th>
               </tr>
             </thead>
             <tbody data-dnpd-body>
@@ -170,13 +170,13 @@
                   <td class="num">{{ $rupiah($r['nominal']) }}</td>
                   <td><span class="badge {{ $r['badge'] }}">{{ $r['status'] }}</span></td>
                   <td>{{ $r['uraian'] }}</td>
-                  <td>
+                  <td style="text-align:center;">
                     {{-- Seluruh kelengkapan dokumen dalam satu berkas, versi
                          terkini tanpa coretan: NPD, Lampiran, Daftar Bayar dan
                          SPD Rampung bila ada, lalu berkas SPJ yang diunggah. --}}
-                    <a class="dnpd-lihat" href="{{ route('npd.cetak-gabungan', $r['id']) }}" target="_blank" rel="noopener">
+                    <a class="dnpd-lihat" href="{{ route('npd.cetak-gabungan', $r['id']) }}" target="_blank" rel="noopener"
+                       title="Lihat NPD" aria-label="Lihat NPD">
                       <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg>
-                      Lihat NPD
                     </a>
                   </td>
                 </tr>
