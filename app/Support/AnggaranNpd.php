@@ -66,6 +66,39 @@ class AnggaranNpd
     }
 
     /**
+     * Boleh memakai satu baris Master Anggaran tertentu?
+     *
+     * Untuk jenis NPD yang tidak memilih mata anggarannya sendiri: NPD
+     * Transport menumpang pada mata anggaran NPD Perjalanan Dinas induknya,
+     * jadi yang diperiksa adalah mata anggaran induk itu.
+     */
+    public static function boleh(?User $user, ?int $masterAnggaranId): bool
+    {
+        if (! self::dibatasi($user)) {
+            return true;
+        }
+
+        return $masterAnggaranId !== null
+            && MasterAnggaran::query()
+                ->whereKey($masterAnggaranId)
+                ->tap(fn ($query) => self::batasi($query, $user))
+                ->exists();
+    }
+
+    /**
+     * Saring query atas tabel NPD: hanya NPD yang mata anggarannya boleh
+     * dipakai pengguna ini. Dipakai menyusun daftar induk NPD Transport.
+     *
+     * @param  \Illuminate\Database\Eloquent\Builder<Npd>  $query
+     */
+    public static function batasiNpd($query, ?User $user): void
+    {
+        if (self::dibatasi($user)) {
+            $query->whereHas('masterAnggaran', fn ($anggaran) => self::batasi($anggaran, $user));
+        }
+    }
+
+    /**
      * Terapkan pembatasan ke query mana pun atas tabel master_anggaran — baik
      * Eloquent maupun query builder mentah di dalam Rule::exists().
      *

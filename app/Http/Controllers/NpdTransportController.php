@@ -10,6 +10,7 @@ use App\Helpers\Terbilang;
 use App\Http\Requests\StoreNpdTransportRequest;
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
+use App\Support\AnggaranNpd;
 use App\Support\KeteranganLampiranIsian;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -31,6 +32,17 @@ class NpdTransportController extends Controller
         if (! $induk || $induk->jenis !== 'pd' || $induk->status !== 'Selesai') {
             return back()->withInput()->withErrors([
                 'npd_induk_id' => 'Induk harus NPD Perjalanan Dinas berstatus Selesai.',
+            ]);
+        }
+
+        // PPTK hanya boleh menumpang pada Perjalanan Dinas yang Sub
+        // Kegiatannya dilimpahkan kepadanya. Daftar induk di formulir sudah
+        // disaring, tetapi id-nya dikirim dari peramban - jadi batasnya
+        // ditegakkan lagi di sini, sama seperti AnggaranNpd::aturan() pada
+        // jenis NPD lain.
+        if (! AnggaranNpd::boleh($request->user(), $induk->master_anggaran_id)) {
+            return back()->withInput()->withErrors([
+                'npd_induk_id' => 'NPD Perjalanan Dinas ini berada pada Sub Kegiatan yang tidak dilimpahkan kepada Anda.',
             ]);
         }
 
@@ -241,6 +253,8 @@ class NpdTransportController extends Controller
                 ->where('jenis', 'pd')
                 ->where('status', 'Selesai')
                 ->whereDoesntHave('turunanTransport', fn ($query) => $query->where('status', '!=', 'Dibatalkan'))
+                // PPTK: hanya Perjalanan Dinas pada Sub Kegiatan limpahannya.
+                ->tap(fn ($query) => AnggaranNpd::batasiNpd($query, auth()->user()))
                 ->orderBy('tanggal_npd', 'desc')
                 ->get();
         }

@@ -4,6 +4,7 @@ namespace Tests\Feature;
 
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
+use App\Models\Pegawai;
 use App\Models\SuratPerintah;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
@@ -20,6 +21,12 @@ class NpdTransportTest extends TestCase
             'nama' => ucfirst($username),
             'role' => $role,
             'password' => 'rahasia',
+            // Pelimpahan menunjuk pegawai, bukan akun: akun PPTK harus sudah
+            // tertaut sejak dibuat supaya objek yang dipegang test membawa
+            // tautannya (lihat buatIndukSelesai).
+            'pegawai_id' => $role === 'pptk'
+                ? Pegawai::create(['nama' => 'Pegawai '.$username, 'nip' => sprintf('1975010119950%05d', Pegawai::count() + 1), 'jabatan' => 'PPTK', 'bidang' => 'Sekretariat', 'pangkat' => 'Penata', 'aktif' => true])->id
+                : null,
         ]);
     }
 
@@ -38,6 +45,13 @@ class NpdTransportTest extends TestCase
 
     private function buatIndukSelesai(MasterAnggaran $masterAnggaran, int $jumlahAnggota = 2): Npd
     {
+        // PPTK hanya boleh membuat Transport di atas Perjalanan Dinas pada
+        // Sub Kegiatan limpahannya, jadi akun PPTK uji yang sudah dibuat
+        // dilimpahi Sub Kegiatan induk ini. Pembatasannya sendiri diuji di
+        // test_pptk_tidak_bisa_menumpang_pada_perjalanan_dinas_sub_kegiatan_orang_lain.
+        User::where('role', 'pptk')->get()
+            ->each(fn (User $pptk) => $this->limpahkanSubKegiatan($pptk, $masterAnggaran));
+
         $induk = Npd::create([
             'jenis' => 'pd',
             'master_anggaran_id' => $masterAnggaran->id,
@@ -221,6 +235,55 @@ class NpdTransportTest extends TestCase
         $transport = Npd::where('jenis', 'tr')->firstOrFail();
         $this->assertSame($reimburse->id, $transport->surat_perintah_id);
         $this->assertNotSame($sp->id, $transport->surat_perintah_id);
+    }
+
+    public function test_pptk_tidak_bisa_menumpang_pada_perjalanan_dinas_sub_kegiatan_orang_lain(): void
+    {
+        $pptk = $this->buatUser('pptk', 'tr-milik-saya');
+        $milikSaya = $this->buatMasterAnggaran();
+        $indukSaya = $this->buatIndukSelesai($milikSaya);
+
+        // Perjalanan Dinas pada Sub Kegiatan yang TIDAK dilimpahkan ke akun ini.
+        $milikOrangLain = MasterAnggaran::create([
+            'program' => 'Program Orang Lain',
+            'kegiatan' => 'Kegiatan Orang Lain',
+            'sub_kegiatan' => '6.01.01.2.09 Sub Kegiatan Orang Lain',
+            'kode_rekening' => '5.1.02.04.01.0009',
+            'tagging_id' => null,
+            'pagu' => 100_000_000,
+            'aktif' => true,
+        ]);
+        $indukOrangLain = Npd::create(array_merge(
+            $indukSaya->only(['jenis', 'keu', 'bulan', 'tahun', 'jenis_panjar', 'nominal', 'terbilang', 'status', 'detail_json']),
+            ['master_anggaran_id' => $milikOrangLain->id, 'tanggal_npd' => '2026-07-20'],
+        ));
+        foreach ($indukSaya->tim as $anggota) {
+            $indukOrangLain->tim()->create($anggota->only(['nama', 'jabatan', 'nip', 'rekening', 'is_penerima']));
+        }
+
+        // Di formulir hanya induk miliknya yang ditawarkan.
+        $formulir = $this->actingAs($pptk)->get(route('npd.tr.create'))->assertOk();
+        $this->assertSame([$indukSaya->id], $formulir->viewData('indukList')->pluck('id')->all());
+
+        // Mengirim id induk orang lain langsung pun ditolak.
+        $this->actingAs($pptk)
+            ->post(route('npd.tr.store'), $this->payload($indukOrangLain))
+            ->assertSessionHasErrors('npd_induk_id');
+        $this->assertSame(0, Npd::where('jenis', 'tr')->count());
+
+        // Induk miliknya sendiri tetap bisa.
+        $this->actingAs($pptk)
+            ->post(route('npd.tr.store'), $this->payload($indukSaya))
+            ->assertSessionHasNoErrors();
+        $this->assertSame(1, Npd::where('jenis', 'tr')->count());
+
+        // Superadmin tidak dibatasi pelimpahan.
+        $superadmin = $this->buatUser('superadmin', 'tr-superadmin-bebas');
+        $semua = $this->actingAs($superadmin)->get(route('npd.tr.create'))->viewData('indukList')->pluck('id')->all();
+        $this->assertContains($indukOrangLain->id, $semua);
+        $this->actingAs($superadmin)
+            ->post(route('npd.tr.store'), $this->payload($indukOrangLain))
+            ->assertSessionHasNoErrors();
     }
 
     public function test_induk_harus_jenis_pd_dan_status_selesai(): void

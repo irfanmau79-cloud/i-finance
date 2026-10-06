@@ -409,7 +409,10 @@ class NpdPdfRenderTest extends TestCase
         $induk = self::$indukTransport;
         $this->assertNotNull($induk);
 
-        $pptk = $this->user('pptk', 'audit-tr-pptk');
+        // Transport dibuat PPTK yang SAMA dengan pembuat induknya: sejak NPD
+        // Transport ikut dibatasi pelimpahan, PPTK lain tidak boleh menumpang
+        // pada Perjalanan Dinas Sub Kegiatan ini.
+        $pptk = User::where('username', 'audit-pd-pptk')->firstOrFail();
         $indukTim = $induk->tim()->orderBy('id')->get();
 
         $tim = [];
