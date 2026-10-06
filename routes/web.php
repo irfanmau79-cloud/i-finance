@@ -100,6 +100,11 @@ Route::middleware('gerbang-layanan')->group(function () {
     Route::get('/pengumuman', [PengumumanController::class, 'show'])->name('pengumuman.show');
     Route::get('/tunjangan-keluarga/perubahan', [TunjanganKeluargaController::class, 'form'])->name('tunjangan.form');
     Route::post('/tunjangan-keluarga/perubahan', [TunjanganKeluargaController::class, 'submit'])->middleware('throttle:5,1')->name('tunjangan.submit');
+    // Langkah pertama formulir: membuka data satu pegawai lewat NIP (+ 4
+    // digit rekening). Dibatasi laju supaya NIP/rekening tidak bisa ditebak
+    // beruntun, sama seperti gerbang Dashboard Tunjangan Keluarga.
+    Route::post('/tunjangan-keluarga/perubahan/buka', [TunjanganKeluargaController::class, 'bukaFormulir'])->middleware('throttle:10,1')->name('tunjangan.form.buka');
+    Route::post('/tunjangan-keluarga/perubahan/ganti-nip', [TunjanganKeluargaController::class, 'gantiNipFormulir'])->name('tunjangan.form.ganti-nip');
 });
 
 Route::middleware('auth.or.guest')->group(function () {
@@ -539,10 +544,18 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::delete('/npd/{npd}/spj-berkas/{berkas}', [SpjBerkasController::class, 'destroy'])->name('npd.spj-berkas.destroy');
     });
 
-    Route::middleware('role:superadmin,bendahara_pengeluaran,kepegawaian')->group(function () {
-        Route::post('/tunjangan-keluarga/pengajuan/{pengajuan}/proses', [TunjanganKeluargaController::class, 'proses'])->name('tunjangan.pengajuan.proses');
-        Route::get('/tunjangan-keluarga/lampiran/{lampiran}', [TunjanganKeluargaController::class, 'download'])->name('tunjangan.lampiran.download');
-    });
+    // Approve/Tolak pengajuan perubahan Tunjangan Keluarga: Kepegawaian dan
+    // superadmin saja. Daftarnya satu sumber dengan kolom Aksi di halaman
+    // Monitoring - lihat PengajuanPerubahanTunjangan::ROLE_PEMROSES.
+    Route::post('/tunjangan-keluarga/pengajuan/{pengajuan}/proses', [TunjanganKeluargaController::class, 'proses'])
+        ->middleware('role:'.implode(',', \App\Models\PengajuanPerubahanTunjangan::ROLE_PEMROSES))
+        ->name('tunjangan.pengajuan.proses');
+
+    // Membuka lampiran: pemroses di atas, ditambah Bendahara Pengeluaran
+    // yang sejak awal boleh membacanya.
+    Route::get('/tunjangan-keluarga/lampiran/{lampiran}', [TunjanganKeluargaController::class, 'download'])
+        ->middleware('role:'.implode(',', \App\Models\PengajuanPerubahanTunjangan::ROLE_LAMPIRAN))
+        ->name('tunjangan.lampiran.download');
 
     // Transisi workflow tidak diberikan kepada Bendahara Pengeluaran.
     Route::middleware('role:superadmin,pptk,bpp,verifikator')->group(function () {

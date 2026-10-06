@@ -12,6 +12,12 @@ class PengajuanPerubahanTunjangan extends Model
 {
     protected $table = 'pengajuan_perubahan_tunjangan';
 
+    /** Role yang boleh Approve/Tolak pengajuan. Dipakai rute DAN tampilan Monitoring. */
+    public const ROLE_PEMROSES = ['superadmin', 'kepegawaian'];
+
+    /** Role yang boleh membuka lampiran pengajuan. */
+    public const ROLE_LAMPIRAN = ['superadmin', 'kepegawaian', 'bendahara_pengeluaran'];
+
     protected function casts(): array
     {
         return ['payload' => 'array', 'diajukan_at' => 'datetime', 'diproses_at' => 'datetime'];

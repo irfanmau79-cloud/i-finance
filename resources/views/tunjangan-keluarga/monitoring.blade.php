@@ -8,7 +8,10 @@
     // Halaman ini juga dibuka Pengguna Layanan yang tidak punya akun, jadi
     // role-nya diambil dari GuestSession - auth()->user() bernilai null di sana.
     $roleTk = \App\Helpers\GuestSession::role();
-    $bolehProses = in_array($roleTk, ['superadmin', 'bendahara_pengeluaran'], true);
+    // Kolom Aksi (Approve/Tolak) hanya untuk Kepegawaian dan superadmin;
+    // role lain melihat tabelnya sampai kolom Status saja.
+    $bolehProses = in_array($roleTk, \App\Models\PengajuanPerubahanTunjangan::ROLE_PEMROSES, true);
+    $bolehLampiran = in_array($roleTk, \App\Models\PengajuanPerubahanTunjangan::ROLE_LAMPIRAN, true);
 @endphp
 <div class="page-head">
     <div>
@@ -38,8 +41,13 @@
     <div class="sp-table-wrap wf-scroll" style="border:1px solid var(--line);border-radius:8px;">
         <table class="realisasi tk-mon">
             <colgroup>
-                <col style="width:9%;"><col style="width:17%;"><col style="width:34%;">
-                <col style="width:14%;"><col style="width:9%;"><col style="width:17%;">
+                @if ($bolehProses)
+                    <col style="width:9%;"><col style="width:17%;"><col style="width:33%;">
+                    <col style="width:14%;"><col style="width:9%;"><col style="width:18%;">
+                @else
+                    <col style="width:11%;"><col style="width:21%;"><col style="width:40%;">
+                    <col style="width:17%;"><col style="width:11%;">
+                @endif
             </colgroup>
             <thead>
                 <tr>
@@ -48,7 +56,9 @@
                     <th>Perubahan</th>
                     <th>Lampiran</th>
                     <th>Status</th>
-                    <th>Proses</th>
+                    @if ($bolehProses)
+                        <th>Aksi</th>
+                    @endif
                 </tr>
             </thead>
             <tbody id="tk-mon-body">
@@ -128,7 +138,7 @@
                         </td>
                         <td>
                             @forelse ($p->lampiran as $lampiran)
-                                @if ($bolehProses)
+                                @if ($bolehLampiran)
                                     <a class="tk-berkas" href="{{ route('tunjangan.lampiran.download', $lampiran) }}" title="{{ $lampiran->nama_asli }}">
                                         <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M21.44 11.05l-9.19 9.19a6 6 0 0 1-8.49-8.49l9.19-9.19a4 4 0 0 1 5.66 5.66l-9.2 9.19a2 2 0 0 1-2.83-2.83l8.49-8.48"/></svg>
                                         <span>{{ $lampiran->nama_asli }}</span>
@@ -144,21 +154,31 @@
                             @endforelse
                         </td>
                         <td><span class="badge {{ $p->status === 'disetujui' ? 'st-aktif' : ($p->status === 'ditolak' ? 'st-danger' : 'st-verifikasi') }}">{{ strtoupper($p->status) }}</span></td>
+                        @if ($bolehProses)
                         <td>
-                            @if ($p->status === 'diajukan' && $bolehProses)
+                            @if ($p->status === 'diajukan')
                                 <form method="POST" action="{{ route('tunjangan.pengajuan.proses', $p) }}" class="tk-proses">
                                     @csrf
-                                    <label class="fl">Pegawai master</label>
-                                    <select name="pegawai_id" required data-cari>
-                                        <option value="">-- Pilih Pegawai --</option>
-                                        @foreach ($pegawai as $pg)
-                                            <option value="{{ $pg->id }}" @selected($p->pegawai_id === $pg->id)>{{ $pg->nama }} &middot; {{ $pg->nip }}</option>
-                                        @endforeach
-                                    </select>
-                                    <label class="fl">Catatan proses</label>
-                                    <input name="catatan" placeholder="Opsional">
+                                    {{-- Pegawainya sudah ditautkan lewat NIP saat diajukan.
+                                         Pilihan manual hanya muncul untuk pengajuan yang
+                                         NIP-nya kosong atau tidak cocok dengan Data Pegawai. --}}
+                                    @if ($p->pegawai)
+                                        <div class="tk-taut">
+                                            <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg>
+                                            <span>Tertaut ke <b>{{ $p->pegawai->nama }}</b></span>
+                                        </div>
+                                    @else
+                                        <label class="fl">Belum tertaut &mdash; pilih pegawai</label>
+                                        <select name="pegawai_id" required data-cari>
+                                            <option value="">-- Pilih Pegawai --</option>
+                                            @foreach ($pegawai as $pg)
+                                                <option value="{{ $pg->id }}">{{ $pg->nama }} &middot; {{ $pg->nip }}</option>
+                                            @endforeach
+                                        </select>
+                                    @endif
+                                    <input name="catatan" placeholder="Catatan (opsional)" aria-label="Catatan">
                                     <div class="tombol">
-                                        <button class="btn prim" name="aksi" value="setujui">Setujui</button>
+                                        <button class="btn prim" name="aksi" value="setujui">Approve</button>
                                         <button class="btn" name="aksi" value="tolak" formnovalidate>Tolak</button>
                                     </div>
                                 </form>
@@ -171,9 +191,10 @@
                                 <span class="tk-kosong">&mdash;</span>
                             @endif
                         </td>
+                        @endif
                     </tr>
                 @empty
-                    <tr><td colspan="6" style="text-align:center;padding:30px;color:var(--mut)">Belum ada pengajuan.</td></tr>
+                    <tr><td colspan="{{ $bolehProses ? 6 : 5 }}" style="text-align:center;padding:30px;color:var(--mut)">Belum ada pengajuan.</td></tr>
                 @endforelse
             </tbody>
         </table>
@@ -230,8 +251,11 @@
     .tk-berkas span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
     .tk-berkas.kunci{display:inline-flex;color:var(--mut);font-weight:500;}
 
-    .tk-proses .fl{margin:8px 0 4px;font-size:11.5px;}
-    .tk-proses .fl:first-of-type{margin-top:0;}
+    .tk-proses .fl{margin:0 0 4px;font-size:11.5px;}
+    .tk-proses input{margin-top:8px;}
+    .tk-taut{display:flex;align-items:flex-start;gap:6px;font-size:11.5px;line-height:1.4;color:var(--mut);}
+    .tk-taut b{color:var(--tegas);}
+    .tk-taut svg{width:13px;height:13px;flex:0 0 13px;margin-top:2px;stroke:currentColor;fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
     .tk-proses select,.tk-proses input{width:100%;box-sizing:border-box;}
     .tk-proses .tombol{display:flex;gap:6px;margin-top:10px;}
     .tk-proses .tombol .btn{flex:1;padding:7px 10px;font-size:12.5px;text-align:center;}

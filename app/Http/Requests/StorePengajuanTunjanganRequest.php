@@ -33,8 +33,9 @@ class StorePengajuanTunjanganRequest extends FormRequest
     {
         return [
             'website' => ['prohibited'],
-            'nama_pegawai' => ['required', 'string', 'max:150'],
-            'nip' => ['nullable', 'string', 'max:30'],
+            // Nama dan NIP TIDAK diterima dari formulir: pegawainya diambil
+            // dari NIP yang sudah dibuka di langkah pertama (lihat
+            // TunjanganKeluargaController::submit).
             'keterangan' => ['required', 'string', 'min:10', 'max:2000'],
             'pasangan.nama' => ['nullable', 'string', 'max:150'],
             'pasangan.tanggal_lahir' => ['nullable', 'date', 'before_or_equal:today'],
