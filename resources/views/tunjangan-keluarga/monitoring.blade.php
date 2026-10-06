@@ -12,6 +12,10 @@
     // role lain melihat tabelnya sampai kolom Status saja.
     $bolehProses = in_array($roleTk, \App\Models\PengajuanPerubahanTunjangan::ROLE_PEMROSES, true);
     $bolehLampiran = in_array($roleTk, \App\Models\PengajuanPerubahanTunjangan::ROLE_LAMPIRAN, true);
+    // Pengguna Layanan masuk tanpa akun dengan satu kata sandi bersama, jadi
+    // nama dan tanggal lahir keluarga pegawai tidak dikirim ke perambannya:
+    // kolom Perubahan hanya berisi keterangan teksnya.
+    $bolehKeluarga = $roleTk !== 'layanan';
 @endphp
 <div class="page-head">
     <div>
@@ -101,7 +105,7 @@
                         </td>
                         <td>
                             <div class="tk-ket">{{ $p->keterangan ?: '-' }}</div>
-                            @if ($keluarga !== [])
+                            @if ($bolehKeluarga && $keluarga !== [])
                                 <details class="tk-kel">
                                     <summary>
                                         <svg class="ik" viewBox="0 0 24 24" aria-hidden="true"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
@@ -153,7 +157,14 @@
                                 <span class="tk-kosong">&mdash;</span>
                             @endforelse
                         </td>
-                        <td><span class="badge {{ $p->status === 'disetujui' ? 'st-aktif' : ($p->status === 'ditolak' ? 'st-danger' : 'st-verifikasi') }}">{{ strtoupper($p->status) }}</span></td>
+                        <td>
+                            <span class="badge {{ $p->status === 'disetujui' ? 'st-aktif' : ($p->status === 'ditolak' ? 'st-danger' : 'st-verifikasi') }}">{{ strtoupper($p->status) }}</span>
+                            {{-- Kapan diputuskan. Tampil untuk semua role: yang
+                                 mengajukan perlu tahu sejak kapan datanya berlaku. --}}
+                            @if ($p->status !== 'diajukan' && $p->diproses_at)
+                                <span class="tk-kapan">{{ $p->status === 'disetujui' ? 'Disetujui' : 'Ditolak' }} pada tanggal {{ $p->diproses_at->format('d-m-Y') }} pukul {{ $p->diproses_at->format('H:i') }}</span>
+                            @endif
+                        </td>
                         @if ($bolehProses)
                         <td>
                             @if ($p->status === 'diajukan')
@@ -214,6 +225,7 @@
     .tk-nip{display:block;margin-top:2px;font-size:11.5px;color:var(--mut);line-height:1.4;}
     .tk-ket{line-height:1.5;color:var(--ink);}
     .tk-kosong{color:var(--mut);}
+    .tk-kapan{display:block;margin-top:6px;font-size:11.5px;line-height:1.4;color:var(--mut);}
 
     /* "Data Keluarga": tombol pil yang membuka daftar anggota keluarga. */
     .tk-kel{margin-top:8px;}

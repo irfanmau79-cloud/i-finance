@@ -270,6 +270,11 @@ class TunjanganKeluargaTest extends TestCase
         $this->assertDatabaseHas('anggota_keluarga', ['nama' => 'Anak', 'status_tunjangan' => true]);
         $this->assertSame($pegawai->id, TunjanganKeluarga::sole()->pegawai_id);
         $this->assertDatabaseHas('audit_log', ['user_id' => $kepegawaian->id, 'aktivitas' => 'Setujui Perubahan Tunjangan']);
+
+        // Kolom Status mencatat kapan disetujui, juga bagi role yang tidak memproses.
+        $kapan = $pengajuan->fresh()->diproses_at;
+        $this->actingAs($pptk)->get(route('tunjangan.monitoring'))->assertOk()
+            ->assertSee('Disetujui pada tanggal '.$kapan->format('d-m-Y').' pukul '.$kapan->format('H:i'));
         // Dashboard Tunjangan Keluarga tidak lagi dipegang Perencanaan.
         $this->actingAs($perencanaan)->get(route('tunjangan.dashboard'))->assertForbidden();
     }
@@ -299,6 +304,29 @@ class TunjanganKeluargaTest extends TestCase
                 ->assertDontSee('Approve')
                 ->assertDontSee('tk-proses"', false);
         }
+    }
+
+    public function test_pengguna_layanan_hanya_melihat_keterangan_tanpa_data_keluarga(): void
+    {
+        $pegawai = $this->pegawai('330');
+        PengajuanPerubahanTunjangan::create(['pegawai_id' => $pegawai->id, 'nama_pegawai' => $pegawai->nama, 'nip' => $pegawai->nip,
+            'payload' => ['pasangan' => ['nama' => 'Pasangan Rahasia', 'tanggal_lahir' => '1990-03-03'],
+                'anak' => [['nama' => 'Anak Rahasia', 'tanggal_lahir' => '2012-12-12', 'status_tunjangan' => true]]],
+            'keterangan' => 'Lahir anak pertama', 'status' => 'diajukan', 'diajukan_at' => now()]);
+
+        // Tamu (Pengguna Layanan): keterangannya ada, isi keluarganya tidak
+        // ikut terkirim sama sekali - bukan sekadar disembunyikan.
+        $this->get(route('tunjangan.monitoring'))->assertOk()
+            ->assertSee('Lahir anak pertama')
+            ->assertDontSee('<details class="tk-kel">', false)
+            ->assertDontSee('Pasangan Rahasia')
+            ->assertDontSee('Anak Rahasia')
+            ->assertDontSee('12-12-2012');
+
+        // Role berakun tetap bisa membukanya.
+        $this->actingAs($this->user('pptk'))->get(route('tunjangan.monitoring'))->assertOk()
+            ->assertSee('<details class="tk-kel">', false)
+            ->assertSee('Anak Rahasia');
     }
 
     public function test_pengajuan_yang_belum_tertaut_harus_dipilihkan_pegawai_sebelum_diapprove(): void
