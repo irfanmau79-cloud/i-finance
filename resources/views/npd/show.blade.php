@@ -489,7 +489,7 @@
                                     </td>
                                 @endif
                                 <td>{{ $ubah['bagian'] }}</td>
-                                <td style="text-decoration:line-through;color:var(--mut);overflow-wrap:anywhere;">{{ $ubah['lama'] }}</td>
+                                <td style="overflow-wrap:anywhere;">{{ $ubah['lama'] }}</td>
                                 <td style="overflow-wrap:anywhere;"><b>{{ $ubah['baru'] }}</b></td>
                             </tr>
                         @endforeach
