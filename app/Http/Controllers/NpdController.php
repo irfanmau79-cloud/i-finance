@@ -9,6 +9,7 @@ use App\Models\MasterAnggaran;
 use App\Models\Npd;
 use App\Models\NpdNarasumber;
 use App\Models\NpdPenerima;
+use App\Models\NpdRevisi;
 use App\Models\NpdPeserta;
 use App\Models\NpdTim;
 use App\Models\PelimpahanVerifikator;
@@ -256,7 +257,7 @@ class NpdController extends Controller
         // semata menentukan tampil-tidaknya tombol.
         $bisaEdit = $npd->dapatDieditOleh($request->user());
 
-        return view('npd.show', compact('npd', 'aksiTersedia', 'bisaEdit','ruteDaftar', 'activeNav', 'peringatanPelimpahan', 'bolehKelolaArsip', 'bantexList', 'urutanGabungan', 'verifikatorNpd', 'diverifikasiOleh'));
+        return view('npd.show', compact('npd', 'aksiTersedia', 'bisaEdit', 'ruteDaftar', 'activeNav', 'peringatanPelimpahan', 'bolehKelolaArsip', 'bantexList', 'urutanGabungan', 'verifikatorNpd', 'diverifikasiOleh'));
     }
 
     /**
@@ -271,7 +272,7 @@ class NpdController extends Controller
      */
     public function coret(Npd $npd)
     {
-        abort_unless(in_array('kembali_bpp', $npd->aksiTersediaUntuk(auth()->user()), true), 403);
+        abort_unless($npd->dapatDiverifikasiOleh(auth()->user()), 403);
 
         // Urutan dan syarat per jenis sama seperti blok "Dokumen & Cetak" di npd/show.blade.php.
         $dokumenList = [];
@@ -290,7 +291,9 @@ class NpdController extends Controller
 
         $strokesSebelumnya = json_decode($npd->coretanJsonTerbaru() ?? '', true)['strokes'] ?? [];
 
-        return view('npd.coret', compact('npd', 'dokumenList', 'strokesSebelumnya'));
+        $bisaEdit = $npd->dapatDieditOleh(auth()->user());
+
+        return view('npd.coret', compact('npd', 'dokumenList', 'strokesSebelumnya', 'bisaEdit'));
     }
 
     /**
@@ -442,7 +445,9 @@ class NpdController extends Controller
         // langsung 403 (npd->aksiTersedia() sudah tidak memuat kembali_bpp lagi
         // untuk status barunya) - back() akan memantulkan ke sana lagi, jadi
         // arahkan eksplisit ke halaman detail alih-alih back().
-        if ($aksi === 'kembali_bpp') {
+        // Hal yang sama berlaku untuk Verifikasi yang ditekan dari halaman itu
+        // (penanda ke_detail); Verifikasi dari tabel antrean tetap back().
+        if ($aksi === 'kembali_bpp' || $request->boolean('ke_detail')) {
             return redirect()->route('npd.show', $npd)->with('success', "Status NPD diperbarui: {$rule['label']}.");
         }
 
@@ -1193,19 +1198,21 @@ class NpdController extends Controller
         return request()->query('versi') === 'draft' && request()->routeIs('npd.cetak-*');
     }
 
-    /** Draft awal buatan PPTK per NPD - dimuat sekali untuk seluruh dokumen dalam satu permintaan. */
-    private array $draftAwal = [];
+    /** Jejak suntingan per NPD - dimuat sekali untuk seluruh dokumen dalam satu permintaan. */
+    private array $revisiCetak = [];
 
     /**
      * HTML satu dokumen menurut versinya.
      *
      * Versi terverifikasi: dokumen bersih siap cetak - tanpa coretan apa
      * pun, termasuk coretan tangan Verifikator (sisipkanCoretan() hanya
-     * dipanggil untuk versi draft). Versi draft: dokumen draft awal buatan PPTK, dengan bagian
-     * yang kemudian diubah BPP/Verifikator dicoret otomatis dan nilai
-     * penggantinya ditulis merah (App\Support\CoretanOtomatis). NPD yang belum
-     * pernah disunting BPP/Verifikator tidak punya draft terpisah - kedua
-     * versinya sama.
+     * dipanggil untuk versi draft).
+     *
+     * Versi draft: dokumen draft awal buatan PPTK, dengan bagian yang
+     * kemudian diubah BPP/Verifikator dicoret otomatis, nilai penggantinya
+     * ditulis merah, dan "Diubah oleh ..." di dekatnya
+     * (App\Support\CoretanOtomatis). NPD yang belum pernah disunting
+     * BPP/Verifikator tidak punya draft terpisah - kedua versinya sama.
      *
      * @param  callable(Npd): string  $bangun
      */
@@ -1215,11 +1222,66 @@ class NpdController extends Controller
             return $bangun($npd);
         }
 
-        $awal = $this->draftAwal[$npd->id] ??= app(NpdRevisiService::class)->draftAwal($npd) ?? false;
+        $revisi = $this->revisiCetak[$npd->id] ??= NpdRevisi::with('user')
+            ->where('npd_id', $npd->id)->orderBy('id')->get()->values();
 
-        return $awal === false
-            ? $bangun($npd)
-            : CoretanOtomatis::gabung($bangun($awal), $bangun($npd));
+        if ($revisi->isEmpty()) {
+            return $bangun($npd);
+        }
+
+        $layanan = app(NpdRevisiService::class);
+        $htmlAwal = $bangun($layanan->hidupkan($revisi->first()->potret_sebelum));
+        $htmlKini = $bangun($npd);
+
+        return CoretanOtomatis::gabung($htmlAwal, $htmlKini, $this->penentuPengubah($revisi, $htmlAwal, $htmlKini, $bangun));
+    }
+
+    /**
+     * Siapa yang dicetak sebagai "Diubah oleh ..." pada tiap coretan.
+     *
+     * Satu penyunting: semua coretan miliknya. Lebih dari satu (BPP lalu
+     * Verifikator): dokumen dirender ulang pada tiap tahap suntingan dan
+     * dibandingkan dengan tahap sebelumnya, sehingga tiap nilai pengganti
+     * dikaitkan ke orang yang TERAKHIR menuliskannya. Coretan yang tidak
+     * tertelusur jatuh ke penyunting terakhir.
+     *
+     * @param  \Illuminate\Support\Collection<int, NpdRevisi>  $revisi
+     * @param  callable(Npd): string  $bangun
+     * @return callable(string, string): string
+     */
+    private function penentuPengubah(Collection $revisi, string $htmlAwal, string $htmlKini, callable $bangun): callable
+    {
+        $nama = fn (NpdRevisi $r): string => $r->user?->nama
+            ?: (config('akses.role_label')[$r->peran] ?? $r->peran);
+        $terakhir = $nama($revisi->last());
+
+        if ($revisi->map($nama)->unique()->count() === 1) {
+            return fn (string $lama, string $baru): string => $terakhir;
+        }
+
+        $layanan = app(NpdRevisiService::class);
+        $penulis = [];
+        $penghapus = [];
+        $sebelum = $htmlAwal;
+
+        foreach ($revisi as $i => $satu) {
+            $sesudah = isset($revisi[$i + 1])
+                ? $bangun($layanan->hidupkan($revisi[$i + 1]->potret_sebelum))
+                : $htmlKini;
+
+            foreach (CoretanOtomatis::perubahan($sebelum, $sesudah) as [$lama, $baru]) {
+                if ($baru !== '') {
+                    $penulis[$baru] = $nama($satu);
+                } else {
+                    $penghapus[$lama] = $nama($satu);
+                }
+            }
+
+            $sebelum = $sesudah;
+        }
+
+        return fn (string $lama, string $baru): string => ($baru !== '' ? ($penulis[$baru] ?? null) : ($penghapus[$lama] ?? null))
+            ?? $terakhir;
     }
 
     /** Tanggapan PDF yang dibuka di tab peramban, bukan diunduh. */

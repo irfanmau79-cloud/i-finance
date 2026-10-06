@@ -119,7 +119,7 @@ class NpdCoretanTest extends TestCase
         $this->assertSame('Verifikasi - Verifikator', $npd->status, 'Status tidak boleh berubah saat coretan tidak valid.');
     }
 
-    public function test_verifikator_melihat_tombol_coret_pada_halaman_detail(): void
+    public function test_verifikator_melihat_tombol_verifikasi_npd_pada_halaman_detail(): void
     {
         $verifikator = $this->buatUser('verifikator', 'coret-lihat-tombol');
         $npd = $this->buatNpd();
@@ -127,7 +127,7 @@ class NpdCoretanTest extends TestCase
         $this->tetapkanVerifikator($verifikator);
         $this->actingAs($verifikator)->get(route('npd.show', $npd))
             ->assertOk()
-            ->assertSee('Beri Coretan pada Dokumen &amp; Kembalikan ke BPP', false);
+            ->assertSee('<a class="btn gabung" href="'.route('npd.coret', $npd).'">Verifikasi NPD</a>', false);
     }
 
     public function test_verifikator_bisa_membuka_halaman_coret_saat_npd_menunggu_verifikasi(): void

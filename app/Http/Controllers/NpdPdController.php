@@ -293,7 +293,7 @@ class NpdPdController extends Controller
         // transaksi penyimpanan NPD gagal.
         $spj->simpan($npd, $request->file('spj') ?? [], $request->user());
 
-        return redirect()->route('npd.show', $npd)->with('success', 'Draft NPD Perjalanan Dinas berhasil diperbarui.');
+        return redirect($npd->fresh()->urlSetelahEdit($request->user()))->with('success', 'NPD Perjalanan Dinas berhasil diperbarui.');
     }
 
     private function simpanTim(Npd $npd, array $tim, int $penerimaIndex): void

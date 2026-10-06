@@ -121,7 +121,10 @@ ketiganya. Suntingan BPP/Verifikator dicatat per bagian di `npd_revisi`
 (`NpdRevisiService`) dan tampil sebagai "Histori Perubahan Data". Potret
 sebelum suntingan pertama = draft awal PPTK, sumber "Cetak Draft NPD"
 (`?versi=draft`): draft itu dirender lewat templat yang sama lalu dibandingkan
-dengan dokumen terkini oleh `CoretanOtomatis` (lama dicoret, baru merah).
+dengan dokumen terkini oleh `CoretanOtomatis` (lama dicoret, baru merah,
+plus "Diubah oleh <nama>" di dekatnya).
+Meja Verifikator hanya punya SATU tombol, "Verifikasi NPD" (rute `npd.coret`);
+Verifikasi, Kembalikan ke BPP, dan Edit NPD ada di bawah halaman itu.
 "Cetak NPD Terverifikasi" = dokumen BERSIH siap cetak; templat `npd.pdf.*`
 tidak boleh diberi penanda coretan. Coretan tangan Verifikator (`CoretanPdf`)
 juga HANYA tercetak di versi draft (keputusan Irfan, Oktober 2026).

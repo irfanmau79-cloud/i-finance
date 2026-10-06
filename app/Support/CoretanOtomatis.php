@@ -39,11 +39,71 @@ class CoretanOtomatis
     /** Elemen yang isinya bukan tulisan dokumen. */
     private const LEWATI = ['style', 'script', 'head', 'title', 'meta', 'colgroup', 'col'];
 
-    public static function gabung(string $htmlLama, string $htmlBaru): string
+    private const GAYA_CATATAN = 'color:#c00000;font-size:6pt;font-style:italic;font-weight:normal;';
+
+    /**
+     * Penentu nama pengubah untuk satu coretan: (teks lama, teks baru) ->
+     * nama, atau NULL bila tidak perlu dicatat. Hanya hidup selama gabung().
+     *
+     * @var (callable(string, string): ?string)|null
+     */
+    private static $siapa = null;
+
+    /**
+     * Saat terisi, tiap coretan dicatat ke sini sebagai [teks lama, teks
+     * baru] - lihat perubahan().
+     *
+     * @var array<int, array{0: string, 1: string}>|null
+     */
+    private static ?array $rekam = null;
+
+    /**
+     * @param  (callable(string, string): ?string)|null  $siapa  nama pengubah tiap coretan;
+     *                                                           dicetak sebagai "Diubah oleh ..." di dekatnya
+     */
+    public static function gabung(string $htmlLama, string $htmlBaru, ?callable $siapa = null): string
     {
         if ($htmlLama === $htmlBaru) {
             return $htmlLama;
         }
+
+        self::$siapa = $siapa;
+
+        try {
+            return self::susun($htmlLama, $htmlBaru);
+        } finally {
+            self::$siapa = null;
+        }
+    }
+
+    /**
+     * Daftar teks yang berbeda di antara dua dokumen, sebagai pasangan
+     * [lama, baru]; salah satunya kosong untuk teks yang hanya dihapus atau
+     * hanya ditambahkan. Dipakai menelusuri SIAPA yang mengubah apa saat
+     * NPD disunting lebih dari satu orang: tiap suntingan dibandingkan
+     * dengan keadaan tepat sebelumnya.
+     *
+     * @return array<int, array{0: string, 1: string}>
+     */
+    public static function perubahan(string $htmlLama, string $htmlBaru): array
+    {
+        if ($htmlLama === $htmlBaru) {
+            return [];
+        }
+
+        self::$rekam = [];
+
+        try {
+            self::susun($htmlLama, $htmlBaru);
+
+            return self::$rekam;
+        } finally {
+            self::$rekam = null;
+        }
+    }
+
+    private static function susun(string $htmlLama, string $htmlBaru): string
+    {
 
         $lama = self::muat($htmlLama);
         $baru = self::muat($htmlBaru);
@@ -307,6 +367,8 @@ class CoretanOtomatis
         $induk->replaceChild($coret, $teks);
 
         if ($baru === '') {
+            self::catat($coret, $lama, '');
+
             return;
         }
 
@@ -321,6 +383,36 @@ class CoretanOtomatis
 
         $induk->insertBefore($pengganti, $coret->nextSibling);
         $induk->insertBefore($pemisah, $pengganti);
+        self::catat($pengganti, $lama, $baru);
+    }
+
+    /**
+     * Rekam satu coretan dan, bila pengubahnya diketahui, tulis "Diubah oleh
+     * ..." tepat di belakang $sesudah: baris baru di dalam sel tabel, dalam
+     * kurung bila di tengah kalimat.
+     */
+    private static function catat(DOMNode $sesudah, string $lama, string $baru): void
+    {
+        if (self::$rekam !== null) {
+            self::$rekam[] = [$lama, $baru];
+        }
+
+        $nama = self::$siapa ? (self::$siapa)($lama, $baru) : null;
+
+        if ($nama === null || $nama === '') {
+            return;
+        }
+
+        $dok = $sesudah->ownerDocument;
+        $induk = $sesudah->parentNode;
+        $dalamSel = self::dalamSel($induk);
+
+        $catatan = $dok->createElement('span');
+        $catatan->setAttribute('style', self::GAYA_CATATAN);
+        $catatan->appendChild($dok->createTextNode($dalamSel ? 'Diubah oleh '.$nama : '(Diubah oleh '.$nama.')'));
+
+        $induk->insertBefore($catatan, $sesudah->nextSibling);
+        $induk->insertBefore($dalamSel ? $dok->createElement('br') : $dok->createTextNode(' '), $catatan);
     }
 
     private static function dalamSel(?DOMNode $simpul): bool
@@ -337,27 +429,42 @@ class CoretanOtomatis
     /** Coret seluruh tulisan di bawah satu elemen. */
     private static function coretSemua(DOMElement $elemen): void
     {
-        self::bungkusTeks($elemen, self::GAYA_CORET);
+        self::bungkusTeks($elemen, self::GAYA_CORET, true);
     }
 
     /** Warnai merah seluruh tulisan di bawah satu elemen. */
     private static function warnai(DOMNode $simpul): void
     {
         if ($simpul instanceof DOMElement) {
-            self::bungkusTeks($simpul, self::GAYA_BARU);
+            self::bungkusTeks($simpul, self::GAYA_BARU, false);
         }
     }
 
-    private static function bungkusTeks(DOMElement $elemen, string $gaya): void
+    /**
+     * Satu blok (baris yang dihapus, baris yang disisipkan) cukup diberi
+     * SATU catatan pengubah, di belakang tulisan terpanjangnya - biasanya
+     * nama atau uraian, sel yang paling lapang.
+     */
+    private static function bungkusTeks(DOMElement $elemen, string $gaya, bool $dihapus): void
     {
         $teksSemua = [];
         self::kumpulkanTeks($elemen, $teksSemua);
+        $terpanjang = null;
 
         foreach ($teksSemua as $teks) {
+            $isi = self::rapikan($teks->nodeValue);
             $bungkus = $elemen->ownerDocument->createElement('span');
             $bungkus->setAttribute('style', $gaya);
             $teks->parentNode->replaceChild($bungkus, $teks);
             $bungkus->appendChild($teks);
+
+            if ($terpanjang === null || mb_strlen($isi) > mb_strlen($terpanjang[1])) {
+                $terpanjang = [$bungkus, $isi];
+            }
+        }
+
+        if ($terpanjang !== null) {
+            self::catat($terpanjang[0], $dihapus ? $terpanjang[1] : '', $dihapus ? '' : $terpanjang[1]);
         }
     }
 
@@ -396,15 +503,18 @@ class CoretanOtomatis
                     continue;
                 }
 
+                $isi = self::rapikan($salinan->nodeValue);
                 $bungkus = $dok->createElement('span');
                 $bungkus->setAttribute('style', self::GAYA_BARU);
                 $bungkus->appendChild($salinan);
-                $salinan = $bungkus;
-            } else {
-                self::warnai($salinan);
+                $lama->appendChild($bungkus);
+                self::catat($bungkus, '', $isi);
+
+                continue;
             }
 
             $lama->appendChild($salinan);
+            self::warnai($salinan);
         }
     }
 }

@@ -1,17 +1,21 @@
 @extends('layouts.app')
 
 @section('activeNav', 'verifikasi')
-@section('title', 'Coret Dokumen Nota Pencairan Dana')
+@section('title', 'Verifikasi Nota Pencairan Dana')
 
 @section('content')
 <div class="page-head">
     <div>
-        <div class="ph-crumb">Beranda / Verifikasi NPD / <b>Coret Dokumen NPD</b></div>
-        <div class="ph-title">Coret Dokumen Nota Pencairan Dana &mdash; {{ $npd->nomor_lengkap ?? 'Belum bernomor (masih Draft)' }}</div>
+        <div class="ph-crumb">Beranda / Verifikasi NPD / <b>Verifikasi NPD</b></div>
+        <div class="ph-title">Verifikasi Nota Pencairan Dana &mdash; {{ $npd->nomor_lengkap ?? 'Belum bernomor (masih Draft)' }}</div>
     </div>
 </div>
 
 <div class="dash-card">
+    @if (session('success'))
+        <div class="sumbar ok"><span>{{ session('success') }}</span></div>
+    @endif
+
     @if ($errors->any())
         <div class="err-box" style="display:block;">
             <strong>Gagal memproses aksi:</strong>
@@ -110,17 +114,38 @@
 
     <div id="ct-daftar"></div>
 
-    <form method="POST" action="{{ route('npd.transisi', $npd) }}" id="coret-form" style="margin-top:16px;max-width:560px;">
+    {{-- Satu formulir, tiga jalan keluar. Verifikasi dan Kembalikan ke BPP
+         sama-sama aksi transisi; yang membedakan hanya isian wajibnya, dan
+         itu disetel saat tombolnya ditekan (lihat skrip di bawah). Server
+         tetap memeriksa keduanya sendiri di NpdController::transisi(). --}}
+    <form method="POST" action="{{ route('npd.transisi', $npd) }}" id="coret-form" style="margin-top:16px;max-width:640px;">
         @csrf
-        <input type="hidden" name="aksi" value="kembali_bpp">
+        <input type="hidden" name="aksi" id="coret-aksi" value="{{ old('aksi', 'kembali_bpp') }}">
+        <input type="hidden" name="ke_detail" value="1">
         <input type="hidden" name="coretan_json" id="coret-json-field" value="">
 
-        <label class="fl">Catatan Revisi (wajib)</label>
-        <textarea name="catatan" id="coret-catatan" rows="3" required style="width:100%;box-sizing:border-box;">{{ old('catatan') }}</textarea>
+        <label class="fl" for="coret-nomor">Nomor NPD <span class="sub">(wajib untuk Verifikasi)</span></label>
+        <input type="text" name="nomor_lengkap" id="coret-nomor" maxlength="100" autocomplete="off"
+               value="{{ old('nomor_lengkap') }}" placeholder="Contoh: {{ \App\Models\Npd::CONTOH_NOMOR }}"
+               style="width:100%;box-sizing:border-box;">
+        <div class="sub" style="margin-top:5px;">
+            Ditulis lengkap apa adanya - inilah yang tercetak di dokumen. Nomor yang sudah dipakai NPD lain akan ditolak.
+        </div>
 
-        <div style="display:flex;justify-content:flex-end;gap:8px;margin-top:10px;">
+        <label class="fl" for="coret-catatan" style="margin-top:12px;">Catatan <span class="sub">(wajib untuk Kembalikan ke BPP)</span></label>
+        <textarea name="catatan" id="coret-catatan" rows="3" style="width:100%;box-sizing:border-box;">{{ old('catatan') }}</textarea>
+
+        <div style="display:flex;flex-wrap:wrap;justify-content:flex-end;gap:8px;margin-top:12px;">
             <a class="btn" href="{{ route('npd.show', $npd) }}">Batal</a>
-            <button type="submit" class="btn prim">Kembalikan ke BPP</button>
+            <button type="submit" class="btn gabung" data-coret-aksi="verifikasi">Verifikasi</button>
+            <button type="submit" class="btn prim" data-coret-aksi="kembali_bpp">Kembalikan ke BPP</button>
+            @if ($bisaEdit)
+                <a class="btn" href="{{ route($npd->ruteEdit(), $npd) }}" id="coret-edit"
+                   title="Ubah isi NPD ini. Perubahannya tercatat dan tercoret otomatis di Cetak Draft NPD.">Edit NPD</a>
+            @endif
+        </div>
+        <div class="sub" style="margin-top:8px;text-align:right;">
+            Coretan pada dokumen hanya tersimpan bersama <b>Kembalikan ke BPP</b>.
         </div>
     </form>
 </div>
@@ -1378,6 +1403,30 @@ async function init() {
         statusEl.textContent = 'Gagal memuat dokumen: ' + err.message;
         console.error(err);
     }
+}
+
+/* Tombol yang ditekan menentukan aksinya dan isian mana yang wajib:
+   Verifikasi butuh Nomor NPD, Kembalikan ke BPP butuh Catatan. Disetel saat
+   'click' - sebelum peramban memeriksa isian wajib dan mengirim formulir. */
+const aksiEl = document.getElementById('coret-aksi');
+const nomorEl = document.getElementById('coret-nomor');
+
+document.querySelectorAll('[data-coret-aksi]').forEach(function (tombol) {
+    tombol.addEventListener('click', function () {
+        const verifikasi = tombol.dataset.coretAksi === 'verifikasi';
+        aksiEl.value = tombol.dataset.coretAksi;
+        nomorEl.required = verifikasi;
+        catatanEl.required = !verifikasi;
+    });
+});
+
+const tautanEdit = document.getElementById('coret-edit');
+if (tautanEdit) {
+    tautanEdit.addEventListener('click', function (e) {
+        if (butirBaru.length && !window.confirm('Coretan yang baru Anda buat belum tersimpan dan akan hilang. Lanjut ke Edit NPD?')) {
+            e.preventDefault();
+        }
+    });
 }
 
 document.getElementById('coret-form').addEventListener('submit', function () {

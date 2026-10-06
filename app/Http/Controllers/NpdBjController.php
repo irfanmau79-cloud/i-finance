@@ -197,7 +197,7 @@ class NpdBjController extends Controller
         // transaksi penyimpanan NPD gagal.
         $spj->simpan($npd, $request->file('spj') ?? [], $request->user());
 
-        return redirect()->route('npd.show', $npd)->with('success', 'Draft NPD Barang/Jasa berhasil diperbarui.');
+        return redirect($npd->fresh()->urlSetelahEdit($request->user()))->with('success', 'NPD Barang/Jasa berhasil diperbarui.');
     }
 
     private function form(?Npd $npd = null, ?array $penerimaAwal = null)

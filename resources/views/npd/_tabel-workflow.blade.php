@@ -140,6 +140,16 @@
                     // jadi tombolnya tampil di ketiga halaman - tidak terikat
                     // $tampilkanKelola seperti Hapus.
                     $bisaEdit = $npd->dapatDieditOleh(auth()->user(), $petaVerifikator);
+
+                    // Meja Verifikator hanya punya SATU tombol: "Verifikasi
+                    // NPD". Verifikasi, Kembalikan ke BPP, dan Edit NPD
+                    // semuanya ada di halaman yang dibukanya, sesudah
+                    // dokumennya diperiksa - bukan tiga tombol di baris ini.
+                    $mejaVerifikator = in_array('kembali_bpp', $aksiTersedia, true);
+                    if ($mejaVerifikator) {
+                        $aksiTersedia = array_values(array_diff($aksiTersedia, \App\Models\Npd::AKSI_VERIFIKATOR));
+                        $bisaEdit = false;
+                    }
                     $bisaHapus = $tampilkanKelola && $npd->dapatDihapusOleh(auth()->user());
                 @endphp
                 <tr>
@@ -188,11 +198,12 @@
                     <td class="kol-uraian">{{ $npd->uraianRingkas() }}</td>
                     <td style="text-align:center;">
                         <div class="aksi-wrap">
+                            @if ($mejaVerifikator)
+                                <a class="ic-btn" title="Verifikasi NPD" href="{{ route('npd.coret', $npd) }}">{!! $wfIkon['verifikasi'] !!}</a>
+                            @endif
                             @foreach ($aksiTersedia as $aksi)
                                 @php($rule = \App\Models\Npd::TRANSISI[$aksi])
-                                @if ($aksi === 'kembali_bpp')
-                                    <a class="ic-btn danger" title="{{ $rule['label'] }} (bisa beri coretan pada dokumen PDF)" href="{{ route('npd.coret', $npd) }}">{!! $wfIkon[$aksi] !!}</a>
-                                @elseif (in_array($aksi, $aksiButuhForm, true))
+                                @if (in_array($aksi, $aksiButuhForm, true))
                                     <button type="button" class="ic-btn {{ in_array($aksi, $wfDanger, true) ? 'danger' : '' }}" title="{{ $rule['label'] }}"
                                         data-wf-open="{{ $aksi }}" data-wf-url="{{ route('npd.transisi', $npd) }}">{!! $wfIkon[$aksi] !!}</button>
                                 @else

@@ -424,6 +424,28 @@ class Npd extends Model
         return 'npd.'.(array_key_exists($this->jenis, self::JENIS_LABEL) ? $this->jenis : 'bj').'.edit';
     }
 
+    /**
+     * Boleh membuka halaman Verifikasi NPD (periksa dokumen, lalu Verifikasi
+     * / Kembalikan ke BPP / Edit NPD)? Sama dengan boleh menjalankan aksi
+     * meja Verifikator pada NPD ini.
+     *
+     * @param  Collection<string, User>|null  $petaVerifikator  hasil PelimpahanVerifikator::peta()
+     */
+    public function dapatDiverifikasiOleh(User $user, ?Collection $petaVerifikator = null): bool
+    {
+        return in_array('kembali_bpp', $this->aksiTersediaUntuk($user, $petaVerifikator), true);
+    }
+
+    /**
+     * Ke mana pengguna dibawa setelah menyimpan Edit NPD. Verifikator
+     * kembali ke halaman Verifikasi NPD - di sanalah ia melanjutkan
+     * memverifikasi atau mengembalikan; yang lain ke halaman detail.
+     */
+    public function urlSetelahEdit(User $user): string
+    {
+        return route($this->dapatDiverifikasiOleh($user) ? 'npd.coret' : 'npd.show', $this);
+    }
+
     /** Jejak suntingan BPP/Verifikator, dari yang paling awal. */
     public function revisi(): HasMany
     {

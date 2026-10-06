@@ -244,7 +244,7 @@ class NpdKontribusiDiklatController extends Controller
         // transaksi penyimpanan NPD gagal.
         $spj->simpan($npd, $request->file('spj') ?? [], $request->user());
 
-        return redirect()->route('npd.show', $npd)->with('success', 'Draft NPD Kontribusi Diklat berhasil diperbarui.');
+        return redirect($npd->fresh()->urlSetelahEdit($request->user()))->with('success', 'NPD Kontribusi Diklat berhasil diperbarui.');
     }
 
     private function form(?Npd $npd = null, ?array $pesertaAwal = null, array $detailAwal = [])

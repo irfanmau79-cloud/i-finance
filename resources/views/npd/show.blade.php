@@ -59,7 +59,7 @@
 
     @if ($bisaKembaliBpp)
         <div class="sumbar" style="background:var(--warn-bg);color:var(--warn);margin-bottom:14px;">
-            <span>NPD ini menunggu verifikasi Anda. Anda dapat memberi coretan langsung pada dokumen PDF (NPD, Lampiran, Daftar Bayar/SPD) sebelum mengembalikan ke BPP.</span>
+            <span>NPD ini menunggu verifikasi Anda. Buka <b>Verifikasi NPD</b> untuk memeriksa dokumennya, lalu memverifikasi, mengembalikan ke BPP (bisa dengan coretan pada dokumen), atau mengedit NPD-nya langsung.</span>
         </div>
     @elseif ($adaCoretan)
         <div class="sumbar" style="background:var(--info-bg);color:var(--info);margin-bottom:14px;">
@@ -401,16 +401,17 @@
         </div>
     @endif
 
-    @if ($bisaKembaliBpp || $bisaEdit)
-        <div style="margin-top:10px;display:flex;flex-wrap:wrap;gap:8px;align-items:center;">
-            @if ($bisaEdit)
-                <a class="btn prim" href="{{ route($npd->ruteEdit(), $npd) }}">Edit NPD</a>
-            @endif
-            @if ($bisaKembaliBpp)
-                <a class="btn prim" href="{{ route('npd.coret', $npd) }}">Beri Coretan pada Dokumen &amp; Kembalikan ke BPP</a>
-            @endif
+    {{-- Meja Verifikator: satu pintu saja. Verifikasi, Kembalikan ke BPP,
+         dan Edit NPD ada di halaman Verifikasi NPD. --}}
+    @if ($bisaKembaliBpp)
+        <div style="margin-top:10px;">
+            <a class="btn gabung" href="{{ route('npd.coret', $npd) }}">Verifikasi NPD</a>
         </div>
-        @if ($bisaEdit && $npd->status !== 'Draft NPD - PPTK')
+    @elseif ($bisaEdit)
+        <div style="margin-top:10px;">
+            <a class="btn prim" href="{{ route($npd->ruteEdit(), $npd) }}">Edit NPD</a>
+        </div>
+        @if ($npd->status !== 'Draft NPD - PPTK')
             <div class="sub" style="margin-top:7px;">
                 Setiap bagian yang Anda ubah lewat <b>Edit NPD</b> dicatat di Histori Perubahan Data, dan tercoret otomatis pada <b>Cetak Draft NPD</b>.
             </div>

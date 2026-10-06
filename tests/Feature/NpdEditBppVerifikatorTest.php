@@ -216,11 +216,10 @@ class NpdEditBppVerifikatorTest extends TestCase
             $this->actingAs($bukanVerifikatornya)->put(route('npd.bj.update', $npd), $payload)->assertForbidden();
         }
 
-        $this->actingAs($verifikatorLain)->get(route('npd.verifikasi'))->assertOk()->assertDontSee(route('npd.bj.edit', $npd), false);
-        $this->actingAs($verifikator)->get(route('npd.verifikasi'))->assertOk()->assertSee(route('npd.bj.edit', $npd), false);
         $this->actingAs($verifikator)->get(route('npd.bj.edit', $npd))->assertOk();
         $this->actingAs($superadmin)->get(route('npd.bj.edit', $npd))->assertOk();
-        $this->actingAs($verifikator)->put(route('npd.bj.update', $npd), $payload)->assertRedirect(route('npd.show', $npd));
+        // Sesudah menyimpan, Verifikator kembali ke halaman Verifikasi NPD.
+        $this->actingAs($verifikator)->put(route('npd.bj.update', $npd), $payload)->assertRedirect(route('npd.coret', $npd));
         $this->assertSame(900_000.0, (float) $npd->fresh()->nominal);
         $this->assertSame('verifikator', NpdRevisi::sole()->peran);
 
@@ -233,6 +232,64 @@ class NpdEditBppVerifikatorTest extends TestCase
         foreach ([$bpp, $verifikator, $pptk, $superadmin] as $siapaPun) {
             $this->actingAs($siapaPun)->get(route('npd.bj.edit', $npd))->assertForbidden();
         }
+    }
+
+    /**
+     * Meja Verifikator hanya punya satu tombol. Verifikasi, Kembalikan ke
+     * BPP, dan Edit NPD ada di halaman yang dibukanya.
+     */
+    public function test_antrean_verifikator_hanya_menampilkan_satu_tombol_verifikasi_npd(): void
+    {
+        [$npd, , $pptk, $bpp] = $this->npdDiMejaBpp();
+        $verifikator = $this->user('verifikator');
+        $verifikatorLain = $this->user('verifikator');
+        $this->tetapkanVerifikator($verifikator);
+
+        // "Terima NPD" milik BPP (dan superadmin), bukan PPTK.
+        $this->actingAs($bpp)->post(route('npd.transisi', $npd), ['aksi' => 'kembali_pptk', 'catatan' => 'Uji tombol']);
+        $this->actingAs($pptk)->get(route('npd.index'))->assertOk()->assertDontSee('data-wf-confirm="terima_npd"', false);
+        $this->actingAs($bpp)->get(route('npd.persetujuan'))->assertOk()->assertSee('data-wf-confirm="terima_npd"', false);
+        $this->actingAs($pptk)->post(route('npd.transisi', $npd), ['aksi' => 'terima_npd']);
+        $this->assertSame('Draft NPD - PPTK', $npd->fresh()->status);
+
+        $this->actingAs($bpp)->post(route('npd.transisi', $npd), ['aksi' => 'terima_npd']);
+        $this->actingAs($bpp)->post(route('npd.transisi', $npd), ['aksi' => 'teruskan']);
+
+        $antrean = $this->actingAs($verifikator)->get(route('npd.verifikasi'))->assertOk();
+        $antrean->assertSee('title="Verifikasi NPD" href="'.route('npd.coret', $npd).'"', false);
+        $antrean->assertDontSee(route('npd.bj.edit', $npd), false);
+        $antrean->assertDontSee('data-wf-open="verifikasi"', false);
+        $antrean->assertDontSee('Kembalikan ke BPP (bisa beri coretan', false);
+
+        // Verifikator Sub Kegiatan lain tidak mendapat pintunya.
+        $this->actingAs($verifikatorLain)->get(route('npd.coret', $npd))->assertForbidden();
+
+        $halaman = $this->actingAs($verifikator)->get(route('npd.coret', $npd))->assertOk();
+        $halaman->assertSee('data-coret-aksi="verifikasi">Verifikasi</button>', false);
+        $halaman->assertSee('data-coret-aksi="kembali_bpp">Kembalikan ke BPP</button>', false);
+        $halaman->assertSee('href="'.route('npd.bj.edit', $npd).'" id="coret-edit"', false);
+    }
+
+    public function test_verifikasi_dari_halaman_verifikasi_npd_memberi_nomor_dan_kembali_ke_detail(): void
+    {
+        [$npd, , , $bpp] = $this->npdDiMejaBpp();
+        $verifikator = $this->user('verifikator');
+        $this->tetapkanVerifikator($verifikator);
+        $this->actingAs($bpp)->post(route('npd.transisi', $npd), ['aksi' => 'teruskan']);
+
+        // Tanpa nomor: ditolak, dan tetap di halaman yang sama.
+        $this->actingAs($verifikator)->from(route('npd.coret', $npd))
+            ->post(route('npd.transisi', $npd), ['aksi' => 'verifikasi', 'ke_detail' => 1, 'nomor_lengkap' => ''])
+            ->assertRedirect(route('npd.coret', $npd))
+            ->assertSessionHasErrors(['nomor_lengkap']);
+
+        $this->actingAs($verifikator)->from(route('npd.coret', $npd))
+            ->post(route('npd.transisi', $npd), ['aksi' => 'verifikasi', 'ke_detail' => 1, 'nomor_lengkap' => '21/NPD-Keu.1.IBC/7/2026'])
+            ->assertRedirect(route('npd.show', $npd));
+
+        $npd->refresh();
+        $this->assertSame('Draft NPD - BPP', $npd->status);
+        $this->assertSame('21/NPD-Keu.1.IBC/7/2026', $npd->nomor_lengkap);
     }
 
     public function test_sub_kegiatan_tanpa_verifikator_tidak_bisa_disunting_di_meja_verifikator_termasuk_oleh_superadmin(): void
@@ -330,7 +387,7 @@ class NpdEditBppVerifikatorTest extends TestCase
         $payload = $this->payloadPd($anggaran, $sp, 400_000, ['Anggota Satu']);
         $payload['tujuan'] = 'Kota Bogor';
         $this->actingAs($verifikator)->get(route('npd.pd.edit', $npd))->assertOk();
-        $this->actingAs($verifikator)->put(route('npd.pd.update', $npd), $payload)->assertRedirect(route('npd.show', $npd));
+        $this->actingAs($verifikator)->put(route('npd.pd.update', $npd), $payload)->assertRedirect(route('npd.coret', $npd));
 
         $npd->refresh();
         $this->assertSame(800_000.0, (float) $npd->nominal);
@@ -379,6 +436,77 @@ class NpdEditBppVerifikatorTest extends TestCase
         // Dokumen yang sama persis dikembalikan apa adanya, tanpa diurai ulang.
         $sama = $bungkus('<p>Tidak berubah &amp; aman</p>');
         $this->assertSame($sama, CoretanOtomatis::gabung($sama, $sama));
+    }
+
+    public function test_coretan_otomatis_mencatat_siapa_pengubahnya_di_dekat_coretan(): void
+    {
+        $hasil = CoretanOtomatis::gabung(
+            '<html><body><p>Nominal : <b>Rp100</b></p><table><tr><td>100</td></tr></table></body></html>',
+            '<html><body><p>Nominal : <b>Rp250</b></p><table><tr><td>250</td></tr></table></body></html>',
+            fn (string $lama, string $baru) => $baru === '250' ? 'Vera Verifikator' : 'Bima BPP',
+        );
+
+        $catatan = '<span style="color:#c00000;font-size:6pt;font-style:italic;font-weight:normal;">';
+
+        // Di tengah kalimat: dalam kurung, sebaris. Di sel tabel: baris sendiri.
+        $this->assertStringContainsString('Rp250</span> '.$catatan.'(Diubah oleh Bima BPP)</span>', $hasil);
+        $this->assertStringContainsString('250</span><br>'.$catatan.'Diubah oleh Vera Verifikator</span>', $hasil);
+
+        $this->assertSame(
+            [['Rp100', 'Rp250'], ['100', '250']],
+            CoretanOtomatis::perubahan(
+                '<html><body><p>Nominal : <b>Rp100</b></p><table><tr><td>100</td></tr></table></body></html>',
+                '<html><body><p>Nominal : <b>Rp250</b></p><table><tr><td>250</td></tr></table></body></html>',
+            )
+        );
+    }
+
+    /**
+     * BPP mengubah Sisa Anggaran, lalu Verifikator mengubah bruto. Di draft,
+     * tiap coretan harus menyebut orang yang benar - bukan semuanya atas
+     * nama penyunting terakhir.
+     */
+    public function test_cetak_draft_menyebut_pengubah_yang_benar_saat_penyuntingnya_lebih_dari_satu(): void
+    {
+        [$npd, $anggaran, , $bpp] = $this->npdDiMejaBpp();
+        $verifikator = $this->user('verifikator');
+        $this->tetapkanVerifikator($verifikator);
+
+        $payload = $this->payloadBj($anggaran, [['Toko Asal', 1_000_000]]);
+        $payload['sisa_anggaran_manual'] = 40_000_000;
+        $this->actingAs($bpp)->put(route('npd.bj.update', $npd), $payload);
+        $this->actingAs($bpp)->post(route('npd.transisi', $npd), ['aksi' => 'teruskan']);
+
+        $payload = $this->payloadBj($anggaran, [['Toko Asal', 1_300_000]]);
+        $payload['sisa_anggaran_manual'] = 40_000_000;
+        $this->actingAs($verifikator)->put(route('npd.bj.update', $npd), $payload);
+
+        $layanan = app(NpdRevisiService::class);
+        $revisi = NpdRevisi::with('user')->orderBy('id')->get();
+        $bangun = fn (Npd $n): string => view('npd.pdf.npd', [
+            'npd' => $n->loadMissing('masterAnggaran.tagging'),
+            'kpa' => (object) ['nama' => 'KPA', 'pangkat' => '', 'nip' => ''],
+            'pptk' => (object) ['nama' => 'PPTK', 'pangkat' => '', 'nip' => ''],
+            'noDpa' => '',
+            'sisaAnggaran' => $n->sisaAnggaranCetak(50_000_000),
+            'logoPath' => null,
+        ])->render();
+
+        $penentu = (new \ReflectionMethod(\App\Http\Controllers\NpdController::class, 'penentuPengubah'))->invoke(
+            app(\App\Http\Controllers\NpdController::class),
+            $revisi,
+            $awal = $bangun($layanan->hidupkan($revisi->first()->potret_sebelum)),
+            $kini = $bangun($npd->fresh()),
+            $bangun,
+        );
+        $hasil = CoretanOtomatis::gabung($awal, $kini, $penentu);
+
+        $catatan = '<span style="color:#c00000;font-size:6pt;font-style:italic;font-weight:normal;">Diubah oleh ';
+        $this->assertStringContainsString('40.000.000,00</span><br>'.$catatan.$bpp->nama.'</span>', $hasil);
+        $this->assertStringContainsString('1.300.000,00</span><br>'.$catatan.$verifikator->nama.'</span>', $hasil);
+        $this->assertStringNotContainsString('40.000.000,00</span><br>'.$catatan.$verifikator->nama, $hasil);
+
+        $this->actingAs($verifikator)->get(route('npd.cetak-npd', ['npd' => $npd, 'versi' => 'draft']))->assertOk();
     }
 
     public function test_coretan_otomatis_menyelaraskan_baris_yang_dihapus_dan_ditambah(): void
