@@ -53,6 +53,7 @@ class RingkasanRoleTest extends TestCase
             'dashboard.perjalanan.index' => $realisasi,
             'tunjangan.dashboard' => [...self::KEUANGAN, ...self::PIMPINAN, 'kepegawaian', 'pengawas'],
             'dashboard.spj.index' => $pemantau,
+            'dashboard.npd.index' => $pemantau,
 
             // Rincian Realisasi
             'rincian.index' => $realisasi,

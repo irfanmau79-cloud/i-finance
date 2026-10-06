@@ -190,7 +190,8 @@ Folder terpisah dari project Laravel — JANGAN di-track git project ini.
 
 **Sudah dibangun:** 5 jenis NPD, Surat Perintah, SPM CRUD, Manajemen Data
 (export + import preview/dry-run), Rincian Realisasi, Analisis & Tren,
-Dashboard Realisasi Anggaran, Dashboard Perjalanan Dinas, Dashboard SPJ
+Dashboard Realisasi Anggaran, Dashboard Perjalanan Dinas, Dashboard Nota
+Pencairan Dana, Lonceng notifikasi + broadcast superadmin, Dashboard SPJ
 Pengawasan, Inventarisasi SPJ, Tunjangan Keluarga, Manajemen Users, Profil
 Saya, Pelimpahan, Monitoring PKPT, Estimasi Kebutuhan Kegiatan Pengawasan.
 

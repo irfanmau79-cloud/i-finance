@@ -959,6 +959,40 @@
   .tb-menu-tema button.aktif{background:var(--aksen-l);font-weight:600;}
   .tb-menu-tema button.aktif .tb-tema-cek{opacity:1;}
 
+  /* Lonceng notifikasi: memakai .tb-ikon dan .tb-menu yang sama dengan
+     tombol di sebelahnya, ditambah lencana angka dan daftar pesannya. */
+  .tb-lonceng-wrap{position:relative;flex:0 0 auto;}
+  .tb-lonceng{position:relative;}
+  /* Lencana angka: putih di atas merah di semua mode, jadi warnanya
+     memang dipatok - bukan bagian dari rangka yang ikut berganti tema. */
+  .lc-angka{position:absolute;top:-4px;right:-4px;min-width:17px;height:17px;padding:0 4px;box-sizing:border-box;
+    border-radius:50px;background:var(--err);color:#fff;font-size:10px;font-weight:800;line-height:17px;text-align:center;
+    box-shadow:0 0 0 2px var(--tb-kanan);}
+  .lc-angka[hidden]{display:none;}
+  .tb-menu-lonceng{width:340px;max-width:calc(100vw - 24px);padding:6px;}
+  .tb-menu-lonceng .lc-daftar{max-height:min(52vh,380px);overflow-y:auto;}
+  .tb-menu-lonceng .lc-item{display:flex;align-items:flex-start;gap:9px;width:100%;box-sizing:border-box;padding:10px 11px;
+    border-radius:var(--r-sm);color:var(--ink);font-size:13px;text-decoration:none;cursor:default;}
+  .tb-menu-lonceng a.lc-item,.tb-menu-lonceng .lc-item[data-siaran-baca]{cursor:pointer;}
+  .tb-menu-lonceng .lc-item:hover{background:var(--surface-3);}
+  .tb-menu-lonceng .lc-item.belum{background:var(--aksen-l);}
+  .tb-menu-lonceng .lc-titik{flex:0 0 8px;width:8px;height:8px;margin-top:5px;border-radius:50%;background:transparent;}
+  .tb-menu-lonceng .lc-item.belum .lc-titik{background:var(--aksen);}
+  .tb-menu-lonceng .lc-isi{flex:1 1 auto;min-width:0;}
+  .tb-menu-lonceng .lc-pesan{display:block;line-height:1.45;white-space:pre-line;overflow-wrap:anywhere;}
+  .tb-menu-lonceng .lc-item.belum .lc-pesan{font-weight:600;color:var(--tegas);}
+  .tb-menu-lonceng .lc-ket{display:block;margin-top:3px;font-size:11px;color:var(--mut);}
+  .tb-menu-lonceng .lc-kosong{padding:22px 12px;text-align:center;color:var(--mut);font-size:12.5px;}
+  .tb-menu-lonceng .lc-hapus{flex:0 0 auto;margin:0;}
+  .tb-menu-lonceng .lc-hapus button{width:24px;height:24px;padding:0;justify-content:center;color:var(--mut);}
+  .tb-menu-lonceng .lc-hapus button:hover{color:var(--err);}
+  .tb-menu-lonceng .lc-hapus svg{width:13px;height:13px;}
+  .tb-menu-lonceng .lc-kirim{margin-top:6px;padding:10px 11px 8px;border-top:1px solid var(--line);}
+  .tb-menu-lonceng .lc-kirim label{display:block;margin-bottom:6px;font-size:11.5px;font-weight:700;color:var(--tegas);}
+  .tb-menu-lonceng .lc-kirim textarea{width:100%;box-sizing:border-box;resize:vertical;min-height:54px;font:inherit;font-size:13px;}
+  .tb-menu-lonceng .lc-kirim .btn{width:100%;margin-top:8px;padding:8px 12px;justify-content:center;text-align:center;}
+  @media(max-width:480px){.tb-menu-lonceng{position:fixed;top:64px;right:12px;left:12px;width:auto;max-width:none;}}
+
   .tb-profil{position:relative;flex:0 0 auto;}
   .tb-avatar{width:36px;height:36px;border-radius:50%;border:1.5px solid var(--tb-avatar-garis);background:var(--gold);
     color:#1b1408;font-weight:800;font-size:13px;display:flex;align-items:center;justify-content:center;

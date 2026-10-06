@@ -56,6 +56,7 @@
             'rincian' => route('rincian.index'),
             'dashpd' => route('dashboard.perjalanan.index'),
             'dashspj' => route('dashboard.spj.index'),
+            'dashnpd' => route('dashboard.npd.index'),
             'dash-tk' => route('tunjangan.dashboard'),
             'tk-pegawai' => route('tunjangan.pegawai.index'),
             'tk-data' => route('tunjangan.data.index'),
@@ -84,7 +85,7 @@
         };
       @endphp
 
-      @php($g = $group(['dashboard', 'dashpd', 'dash-tk', 'dashspj']))
+      @php($g = $group(['dashboard', 'dashpd', 'dash-tk', 'dashspj', 'dashnpd']))
       @if ($g['visible'])
       <div class="sb-group{{ $g['open'] ? ' open' : '' }}">
         <div class="sb-item sb-parent" id="nav-dashboard-parent">
@@ -97,6 +98,7 @@
           @if (in_array('dashpd', $akses)) <a class="sb-item sub{{ $activeNav === 'dashpd' ? ' active' : '' }}" href="{{ $href('dashpd') }}">Dashboard Perjalanan Dinas</a> @endif
           @if (in_array('dash-tk', $akses)) <a class="sb-item sub{{ $activeNav === 'dash-tk' ? ' active' : '' }}" href="{{ $href('dash-tk') }}">Dashboard Tunjangan Keluarga</a> @endif
           @if (in_array('dashspj', $akses)) <a class="sb-item sub{{ $activeNav === 'dashspj' ? ' active' : '' }}" href="{{ $href('dashspj') }}">Dashboard SPJ Perjalanan Dinas</a> @endif
+          @if (in_array('dashnpd', $akses)) <a class="sb-item sub{{ $activeNav === 'dashnpd' ? ' active' : '' }}" href="{{ $href('dashnpd') }}">Dashboard Nota Pencairan Dana</a> @endif
         </div>
       </div>
       @endif
@@ -357,6 +359,72 @@
       <div class="tb-kanan">
         <span class="tb-tahun">Tahun Anggaran {{ config('anggaran.tahun_aktif') }}</span>
 
+        {{-- Lonceng notifikasi, untuk semua role. Isinya dihitung
+             App\Services\LoncengService tiap halaman dibuka: pekerjaan yang
+             menunggu di meja role ini (BPP, PPTK, Verifikator) dan siaran
+             dari superadmin. --}}
+        @php($lonceng = app(\App\Services\LoncengService::class)->untuk(auth()->user()))
+        <div class="tb-lonceng-wrap">
+          <button type="button" class="tb-ikon tb-lonceng" id="tb-lonceng" title="Notifikasi"
+                  aria-label="Notifikasi{{ $lonceng['belum'] > 0 ? ', '.$lonceng['belum'].' belum dibaca' : '' }}"
+                  aria-haspopup="true" aria-expanded="false">
+            <svg viewBox="0 0 24 24"><path d="M18 8a6 6 0 0 0-12 0c0 7-3 9-3 9h18s-3-2-3-9"/><path d="M13.73 21a2 2 0 0 1-3.46 0"/></svg>
+            <span class="lc-angka" id="tb-lonceng-angka"{!! $lonceng['belum'] === 0 ? ' hidden' : '' !!}>{{ $lonceng['belum'] > 99 ? '99+' : $lonceng['belum'] }}</span>
+          </button>
+
+          <div class="tb-menu tb-menu-lonceng" id="tb-menu-lonceng" role="menu" aria-label="Notifikasi">
+            <div class="nm"><b>Notifikasi</b><span>Pekerjaan menunggu dan siaran dari Superadmin</span></div>
+
+            <div class="lc-daftar">
+              @if ($lonceng['pekerjaan'])
+                <a class="lc-item belum" href="{{ $lonceng['pekerjaan']['url'] }}" role="menuitem">
+                  <span class="lc-titik" aria-hidden="true"></span>
+                  <span class="lc-isi">
+                    <span class="lc-pesan">{{ $lonceng['pekerjaan']['teks'] }}</span>
+                    <span class="lc-ket">Buka antreannya</span>
+                  </span>
+                </a>
+              @endif
+
+              @foreach ($lonceng['siaran'] as $siaran)
+                {{-- Siaran belum dibaca sampai diklik. Kliknya menandai
+                     dibaca di server (SiaranController::baca). --}}
+                <div class="lc-item{{ $siaran['dibaca'] ? '' : ' belum' }}" role="menuitem" tabindex="0"
+                     @if (! $siaran['dibaca'] && $lonceng['bisa_tandai']) data-siaran-baca="{{ route('siaran.baca', $siaran['id']) }}" @endif>
+                  <span class="lc-titik" aria-hidden="true"></span>
+                  <span class="lc-isi">
+                    <span class="lc-pesan">{{ $siaran['pesan'] }}</span>
+                    <span class="lc-ket">{{ $siaran['pengirim'] }} &middot; {{ $siaran['waktu'] }}</span>
+                  </span>
+                  @if ($currentRole === 'superadmin')
+                    <form method="POST" action="{{ route('siaran.destroy', $siaran['id']) }}" class="lc-hapus"
+                          onsubmit="return confirm('Hapus broadcast ini untuk semua role?');">
+                      @csrf
+                      @method('DELETE')
+                      <button type="submit" title="Hapus broadcast" aria-label="Hapus broadcast">
+                        <svg viewBox="0 0 24 24"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg>
+                      </button>
+                    </form>
+                  @endif
+                </div>
+              @endforeach
+
+              @if (! $lonceng['pekerjaan'] && $lonceng['siaran'] === [])
+                <div class="lc-kosong">Belum ada notifikasi.</div>
+              @endif
+            </div>
+
+            @if ($currentRole === 'superadmin')
+              <form method="POST" action="{{ route('siaran.store') }}" class="lc-kirim">
+                @csrf
+                <label for="lc-pesan">Kirim broadcast ke semua role</label>
+                <textarea id="lc-pesan" name="pesan" rows="2" maxlength="1000" required placeholder="Tulis pesan&hellip;"></textarea>
+                <button type="submit" class="btn prim">Kirim Broadcast</button>
+              </form>
+            @endif
+          </div>
+        </div>
+
         {{-- Ganti Mode: tiga pilihan tampilan. "Default" berarti tanpa
              atribut data-tema, yaitu rangka navy seperti sedia kala. --}}
         <div class="tb-tema-wrap">
@@ -530,6 +598,62 @@
       });
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') tutupMenuTema();
+      });
+    }
+
+    /* Lonceng notifikasi. Siaran yang belum dibaca ditandai dibaca saat
+       diklik: penandanya dilepas di layar seketika, dan angka di lonceng
+       ikut berkurang, tanpa memuat ulang halaman. */
+    var tombolLonceng = document.getElementById('tb-lonceng');
+    var menuLonceng = document.getElementById('tb-menu-lonceng');
+    if (tombolLonceng && menuLonceng) {
+      var angkaLonceng = document.getElementById('tb-lonceng-angka');
+      var tokenCsrf = (document.querySelector('meta[name="csrf-token"]') || {}).content || '';
+
+      var tutupLonceng = function () {
+        menuLonceng.classList.remove('buka');
+        tombolLonceng.setAttribute('aria-expanded', 'false');
+      };
+
+      tombolLonceng.addEventListener('click', function (e) {
+        e.stopPropagation();
+        var buka = menuLonceng.classList.toggle('buka');
+        tombolLonceng.setAttribute('aria-expanded', String(buka));
+      });
+      document.addEventListener('click', function (e) {
+        if (! menuLonceng.contains(e.target) && ! tombolLonceng.contains(e.target)) tutupLonceng();
+      });
+      document.addEventListener('keydown', function (e) {
+        if (e.key === 'Escape') tutupLonceng();
+      });
+
+      var tandaiDibaca = function (item) {
+        var url = item.getAttribute('data-siaran-baca');
+        if (! url) return;
+        item.removeAttribute('data-siaran-baca');
+        item.classList.remove('belum');
+
+        var sisa = menuLonceng.querySelectorAll('.lc-item.belum').length;
+        if (angkaLonceng) {
+          angkaLonceng.textContent = sisa > 99 ? '99+' : String(sisa);
+          angkaLonceng.hidden = sisa === 0;
+        }
+
+        fetch(url, {
+          method: 'POST',
+          headers: { 'X-CSRF-TOKEN': tokenCsrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          credentials: 'same-origin',
+        }).catch(function () {});
+      };
+
+      menuLonceng.querySelectorAll('[data-siaran-baca]').forEach(function (item) {
+        item.addEventListener('click', function (e) {
+          if (e.target.closest('.lc-hapus')) return;
+          tandaiDibaca(item);
+        });
+        item.addEventListener('keydown', function (e) {
+          if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); tandaiDibaca(item); }
+        });
       });
     }
 

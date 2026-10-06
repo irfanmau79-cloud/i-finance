@@ -38,6 +38,9 @@ $matriks = [
     'dashpd' => [...$keuangan, ...$pimpinan, 'perencanaan', 'pengawas'],
     'dash-tk' => [...$keuangan, ...$pimpinan, 'kepegawaian', 'pengawas'],
     'dashspj' => $pemantau,
+    // Dashboard Nota Pencairan Dana: pemantau yang sama dengan Data NPD,
+    // karena tombol "Lihat NPD"-nya membuka dokumen cetak NPD (kunci npd-data).
+    'dashnpd' => $pemantau,
 
     // Rincian Realisasi (Tahunan & Periodik berbagi satu kunci)
     'rincian' => [...$keuangan, ...$pimpinan, 'perencanaan', 'pengawas'],

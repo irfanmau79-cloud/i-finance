@@ -4,6 +4,7 @@ use App\Http\Controllers\AnalisisTrenController;
 use App\Http\Controllers\AuditLogController;
 use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CetakSpjPerjalananController;
+use App\Http\Controllers\DashboardNpdController;
 use App\Http\Controllers\DashboardRealisasiController;
 use App\Http\Controllers\DataPerjalananDinasController;
 use App\Http\Controllers\DataSpjPerjalananDinasController;
@@ -43,6 +44,7 @@ use App\Http\Controllers\RincianRealisasiController;
 use App\Http\Controllers\SegeraHadirController;
 use App\Http\Controllers\SimulasiAnggaranController;
 use App\Http\Controllers\SimulasiRealisasiController;
+use App\Http\Controllers\SiaranController;
 use App\Http\Controllers\SpjBerkasController;
 use App\Http\Controllers\SpjDashboardController;
 use App\Http\Controllers\SpmController;
@@ -211,6 +213,19 @@ Route::middleware('auth.or.guest')->group(function () {
     Route::post('/dashboard/spj-pengawasan/{npd}/verifikasi', [SpjDashboardController::class, 'verify'])
         ->middleware(['menu-akses:dashspj', 'role:superadmin,verifikator'])
         ->name('dashboard.spj.verify');
+    Route::get('/dashboard/nota-pencairan-dana', DashboardNpdController::class)
+        ->middleware('menu-akses:dashnpd')
+        ->name('dashboard.npd.index');
+
+    // Siaran (broadcast) di lonceng notifikasi. Mengirim dan menghapus hanya
+    // superadmin; menandai dibaca boleh semua akun yang login - Pengguna
+    // Layanan tidak punya akun, jadi tidak ada bacaan yang bisa dicatat.
+    Route::post('/siaran', [SiaranController::class, 'store'])
+        ->middleware(['role:superadmin', 'throttle:20,1'])->name('siaran.store');
+    Route::delete('/siaran/{siaran}', [SiaranController::class, 'destroy'])
+        ->middleware('role:superadmin')->name('siaran.destroy');
+    Route::post('/siaran/{siaran}/baca', [SiaranController::class, 'baca'])
+        ->middleware('auth')->name('siaran.baca');
     Route::get('/inventarisasi-spj', [InventarisasiSpjController::class, 'index'])
         ->middleware('menu-akses:invspj')->name('inventarisasi-spj.index');
     Route::get('/inventarisasi-spj/{npd}/rincian', [InventarisasiSpjController::class, 'rincian'])
