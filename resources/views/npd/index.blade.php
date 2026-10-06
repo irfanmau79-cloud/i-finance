@@ -58,7 +58,9 @@
 
         {{-- Penyaring jenis & status ada di baris penyaring dalam tabel. --}}
 
-        @include('npd._tabel-workflow', ['npds' => $npds, 'tampilkanKelola' => true])
+        {{-- "Terima NPD" adalah pekerjaan meja BPP: tombolnya hanya ada di
+             Persetujuan NPD, juga untuk superadmin. --}}
+        @include('npd._tabel-workflow', ['npds' => $npds, 'tampilkanKelola' => true, 'aksiDisembunyikan' => ['terima_npd']])
     </div>
 </div>
 

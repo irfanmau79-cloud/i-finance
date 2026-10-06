@@ -249,6 +249,10 @@ class NpdEditBppVerifikatorTest extends TestCase
         $this->actingAs($bpp)->post(route('npd.transisi', $npd), ['aksi' => 'kembali_pptk', 'catatan' => 'Uji tombol']);
         $this->actingAs($pptk)->get(route('npd.index'))->assertOk()->assertDontSee('data-wf-confirm="terima_npd"', false);
         $this->actingAs($bpp)->get(route('npd.persetujuan'))->assertOk()->assertSee('data-wf-confirm="terima_npd"', false);
+        // Superadmin pun hanya menemukannya di Persetujuan NPD, bukan di Pembuatan NPD.
+        $superadmin = $this->user('superadmin');
+        $this->actingAs($superadmin)->get(route('npd.index'))->assertOk()->assertDontSee('data-wf-confirm="terima_npd"', false);
+        $this->actingAs($superadmin)->get(route('npd.persetujuan'))->assertOk()->assertSee('data-wf-confirm="terima_npd"', false);
         $this->actingAs($pptk)->post(route('npd.transisi', $npd), ['aksi' => 'terima_npd']);
         $this->assertSame('Draft NPD - PPTK', $npd->fresh()->status);
 

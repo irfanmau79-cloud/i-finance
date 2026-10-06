@@ -135,7 +135,13 @@
         <tbody id="npd-tabel-body">
             @forelse ($npds as $npd)
                 @php
-                    $aksiTersedia = $npd->aksiTersediaUntuk(auth()->user(), $petaVerifikator);
+                    // $aksiDisembunyikan: aksi yang sah bagi pengguna ini tetapi
+                    // bukan urusan halaman pemanggil (mis. Terima NPD di
+                    // Pembuatan NPD). Hanya tombolnya yang hilang.
+                    $aksiTersedia = array_values(array_diff(
+                        $npd->aksiTersediaUntuk(auth()->user(), $petaVerifikator),
+                        $aksiDisembunyikan ?? []
+                    ));
                     // Edit mengikuti meja NPD-nya (PPTK, BPP, lalu Verifikator),
                     // jadi tombolnya tampil di ketiga halaman - tidak terikat
                     // $tampilkanKelola seperti Hapus.
