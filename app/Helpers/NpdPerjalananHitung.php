@@ -24,7 +24,57 @@ class NpdPerjalananHitung
     }
 
     /**
-     * @param  array{paket?: array[], bbm_liter?: mixed, bbm_tarif?: mixed, tol?: mixed, tiket?: mixed, representatif?: mixed}  $anggota
+     * Nominal BBM satu anggota, dalam rupiah.
+     *
+     * Dua cara pengisian hidup berdampingan:
+     *
+     *  - CARA SEKARANG: yang diketik adalah Total Nominal BBM (bbm_nominal),
+     *    dan itulah nominalnya. Liter diturunkan darinya - lihat literBbm().
+     *  - CARA LAMA: yang diketik liter dan tarif; nominalnya liter x tarif.
+     *    NPD yang dibuat sebelum perubahan ini tidak punya bbm_nominal, jadi
+     *    tetap dihitung dengan cara ini dan cetakannya tidak berubah.
+     *
+     * @param  array{bbm_nominal?: mixed, bbm_liter?: mixed, bbm_tarif?: mixed}  $anggota
+     */
+    public static function bbm(array $anggota): float
+    {
+        if (self::memakaiNominalBbm($anggota)) {
+            return round((float) $anggota['bbm_nominal']);
+        }
+
+        $liter = (float) ($anggota['bbm_liter'] ?? 0);
+        $tarif = (float) ($anggota['bbm_tarif'] ?? 0);
+
+        return ($liter > 0 && $tarif > 0) ? round($liter * $tarif) : 0.0;
+    }
+
+    /**
+     * Jumlah liter BBM satu anggota. Pada cara sekarang liter TIDAK diketik:
+     * ia Total Nominal BBM dibagi Tarif BBM per liter.
+     *
+     * @param  array{bbm_nominal?: mixed, bbm_liter?: mixed, bbm_tarif?: mixed}  $anggota
+     */
+    public static function literBbm(array $anggota): float
+    {
+        if (! self::memakaiNominalBbm($anggota)) {
+            return (float) ($anggota['bbm_liter'] ?? 0);
+        }
+
+        $tarif = (float) ($anggota['bbm_tarif'] ?? 0);
+
+        return $tarif > 0 ? (float) $anggota['bbm_nominal'] / $tarif : 0.0;
+    }
+
+    /** @param  array{bbm_nominal?: mixed}  $anggota */
+    public static function memakaiNominalBbm(array $anggota): bool
+    {
+        $nominal = $anggota['bbm_nominal'] ?? null;
+
+        return $nominal !== null && $nominal !== '';
+    }
+
+    /**
+     * @param  array{paket?: array[], bbm_nominal?: mixed, bbm_liter?: mixed, bbm_tarif?: mixed, tol?: mixed, tiket?: mixed, representatif?: mixed}  $anggota
      * @return array{paket: array[], jml_harian: float, jml_akom: float, bbm: float, tol: float, tiket: float, jml_transport: float, representatif: float, jumlah: float}
      */
     public static function hitungAnggota(array $anggota): array
@@ -41,9 +91,7 @@ class NpdPerjalananHitung
             $detailPaket[] = $p + ['sub_uh' => $subUh, 'sub_akom' => $subAkom];
         }
 
-        $bbmLiter = (float) ($anggota['bbm_liter'] ?? 0);
-        $bbmTarif = (float) ($anggota['bbm_tarif'] ?? 0);
-        $bbm = ($bbmLiter > 0 && $bbmTarif > 0) ? round($bbmLiter * $bbmTarif) : 0.0;
+        $bbm = self::bbm($anggota);
 
         $tol = (float) ($anggota['tol'] ?? 0);
         $tiket = (float) ($anggota['tiket'] ?? 0);

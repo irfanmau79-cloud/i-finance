@@ -90,7 +90,7 @@ class NpdRevisiService
             'jabatan' => ['Jabatan', 'teks'],
             'nip' => ['NIP', 'teks'],
             'rekening' => ['Rekening', 'teks'],
-            'bbm_liter' => ['BBM (liter)', 'angka'],
+            'bbm_liter' => ['BBM (liter)', 'liter'],
             'bbm_tarif' => ['Tarif BBM', 'uang'],
             'tol' => ['e-Toll', 'uang'],
             'tiket' => ['Tiket', 'uang'],
@@ -373,6 +373,11 @@ class NpdRevisiService
         }
 
         if ($kunci === 'tim') {
+            // Nominal BBM yang BERLAKU, apa pun cara pengisiannya - supaya NPD
+            // lama (liter x tarif) yang dibuka lalu disimpan lewat formulir
+            // baru tidak terbaca "berubah" padahal nominalnya sama.
+            $rata['Nominal BBM'] = $this->tampil(\App\Helpers\NpdPerjalananHitung::bbm($baris), 'uang');
+
             foreach (array_values($baris['paket'] ?? []) as $i => $paket) {
                 $rata['Paket '.($i + 1)] = sprintf(
                     '%s %s, %s hari x %s, %s malam x %s',
@@ -436,6 +441,9 @@ class NpdRevisiService
             'uang' => 'Rp '.number_format((float) $nilai, 2, ',', '.'),
             'sisa' => $kosong ? 'Angka sistem' : 'Rp '.number_format((float) $nilai, 2, ',', '.'),
             'angka' => rtrim(rtrim(number_format((float) $nilai, 10, ',', ''), '0'), ',') ?: '0',
+            // Liter kini diturunkan dari nominal : tarif; dua desimal cukup
+            // untuk dibaca dan menghindari selisih semu di digit ke-sekian.
+            'liter' => rtrim(rtrim(number_format((float) $nilai, 2, ',', ''), '0'), ',') ?: '0',
             'ya' => filter_var($nilai, FILTER_VALIDATE_BOOLEAN) ? 'Ya' : 'Tidak',
             'urutan' => $kosong ? '-' : (string) ((int) $nilai + 1),
             'tanggal' => $kosong ? '-' : $this->tanggal((string) $nilai),

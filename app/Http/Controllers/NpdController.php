@@ -3,6 +3,7 @@
 namespace App\Http\Controllers;
 
 use App\Helpers\AuditLog;
+use App\Helpers\NpdPerjalananHitung;
 use App\Helpers\PejabatResolver;
 use App\Models\BantexSpj;
 use App\Models\MasterAnggaran;
@@ -1572,18 +1573,23 @@ class NpdController extends Controller
 
         // ---- III. Transport: 3 baris agregat (BBM liter, e-Toll, Tiket) ----
         $totBbm = $totTol = $totTiket = $totLiter = 0.0;
+        // true bila ada anggota yang BBM-nya diisi sebagai nominal (cara sekarang).
+        $literDihitung = false;
         foreach ($tim as $anggota) {
             $h = $anggota->hitung();
             $totBbm += $h['bbm'];
             $totTol += $h['tol'];
             $totTiket += $h['tiket'];
-            $totLiter += (float) $anggota->bbm_liter;
+            $totLiter += NpdPerjalananHitung::literBbm($anggota->toHitungArray());
+            $literDihitung = $literDihitung || $anggota->bbm_nominal !== null;
         }
         $tTr = $totBbm + $totTol + $totTiket;
-        // Dulu dibulatkan dua desimal (mengikuti GAS). Sekarang seluruh angka
-        // di belakang koma dicetak, karena liter memang diketik panjang
-        // supaya liter x tarif tepat membulat ke nominal BBM.
-        $literStr = NpdTim::formatLiter($totLiter);
+        // Liter yang DIKETIK (NPD lama) dicetak apa adanya, seluruh angka di
+        // belakang koma, karena memang diketik panjang supaya liter x tarif
+        // tepat membulat ke nominal BBM. Liter yang DIHITUNG dari Total
+        // Nominal BBM : Tarif hampir selalu pecahan tak berujung, jadi
+        // dibulatkan dua desimal.
+        $literStr = NpdTim::formatLiter($literDihitung ? round($totLiter, 2) : $totLiter);
         $rowsTr =
             '<tr class="dat"><td class="center v bl0">1</td><td class="v">BBM</td><td class="v"></td>'
                 .'<td class="center">'.($totBbm > 0 ? $literStr.' liter' : '').'</td><td class="num"></td><td class="num br0">'.fmt_rupiah($totBbm).'</td></tr>'

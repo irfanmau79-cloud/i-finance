@@ -183,6 +183,10 @@ class NpdPdTest extends TestCase
      * Jumlah Liter BBM tidak dibatasi dua desimal: liter diketik panjang
      * supaya liter x tarif tepat membulat ke nominal BBM yang dituju.
      */
+    /**
+     * CARA LAMA (liter x tarif) masih diterima server untuk permintaan tanpa
+     * bbm_nominal, dan NPD lama tetap dihitung begitu - liternya utuh.
+     */
     public function test_jumlah_liter_bbm_disimpan_utuh_tanpa_dibatasi_dua_desimal(): void
     {
         $superadmin = $this->buatUser('superadmin', 'pd-liter');
@@ -200,13 +204,69 @@ class NpdPdTest extends TestCase
         // 10,123456 x 10.000 = 101.234,56 -> dibulatkan ke rupiah penuh.
         $this->assertSame(101_235.0, (float) $anggota->hitung()['bbm']);
 
-        // Isian formulir menerima desimal berapa pun.
-        $this->actingAs($superadmin)->get(route('npd.pd.create'))
-            ->assertOk()
-            ->assertSee('step="any" min="0" data-bbm-liter', false)
-            ->assertDontSee('step="0.01" min="0" data-bbm-liter', false);
+        $this->assertNull($anggota->bbm_nominal);
 
         $this->actingAs($superadmin)->get(route('npd.cetak-lampiran', $npd))->assertOk();
+    }
+
+    /**
+     * CARA SEKARANG: yang diketik Total Nominal BBM. Liter tidak diketik -
+     * ia nominal dibagi tarif, di formulir maupun di SPD Rampung.
+     */
+    public function test_bbm_diisi_sebagai_total_nominal_dan_liternya_dihitung_dari_tarif(): void
+    {
+        $superadmin = $this->buatUser('superadmin', 'pd-bbm-nominal');
+        $anggaran = $this->buatMasterAnggaran();
+        $payload = $this->payload($anggaran);
+        // Payload bawaan memakai cara lama: 10,5 liter x 10.000 = 105.000.
+        $lama = $this->payload($anggaran, $this->buatSuratPerintah('002/SP/TEST/2026'));
+
+        unset($payload['tim'][0]['bbm_liter']);
+        $payload['tim'][0]['bbm_nominal'] = 250_000;
+        $payload['tim'][0]['bbm_tarif'] = 12_950;
+
+        // Tanpa tarif, liternya tidak bisa dihitung.
+        $tanpaTarif = $payload;
+        $tanpaTarif['tim'][0]['bbm_tarif'] = '';
+        $this->actingAs($superadmin)->post(route('npd.pd.store'), $tanpaTarif)
+            ->assertSessionHasErrors('tim.0.bbm_nominal');
+        $this->assertSame(0, Npd::count());
+
+        $this->actingAs($superadmin)->post(route('npd.pd.store'), $payload)->assertSessionHasNoErrors();
+        $npd = Npd::with('tim.paket')->latest('id')->firstOrFail();
+        $anggota = $npd->tim->firstWhere('nama', 'Anggota Pertama');
+
+        $this->assertSame(250_000.0, (float) $anggota->bbm_nominal);
+        $this->assertSame(250_000.0, (float) $anggota->hitung()['bbm']);
+        $this->assertEqualsWithDelta(250_000 / 12_950, $anggota->bbm_liter, 1e-6);
+
+        // Nominal NPD naik sebesar selisih BBM dibanding cara lama.
+        $this->actingAs($superadmin)->post(route('npd.pd.store'), $lama)->assertSessionHasNoErrors();
+        $npdLama = Npd::with('tim.paket')->latest('id')->firstOrFail();
+        $this->assertSame(145_000.0, (float) $npd->nominal - (float) $npdLama->nominal);
+
+        // SPD Rampung: liter hasil bagi, dua desimal (250.000 : 12.950 = 19,305...).
+        $baris = new \ReflectionMethod(\App\Http\Controllers\NpdController::class, 'rowsSpdRampung');
+        $spd = $baris->invoke(app(\App\Http\Controllers\NpdController::class), $npd->tim);
+        $this->assertStringContainsString('19,31 liter', $spd['rows_tr']);
+        $this->assertStringContainsString(fmt_rupiah(250_000), $spd['rows_tr']);
+        // NPD lama tetap mencetak liter yang diketik, apa adanya.
+        $this->assertStringContainsString('10,5 liter', $baris->invoke(app(\App\Http\Controllers\NpdController::class), $npdLama->tim)['rows_tr']);
+        $this->actingAs($superadmin)->get(route('npd.cetak-spd', $npd))->assertOk();
+
+        // Formulir: kolom liter diganti Total Nominal BBM; tarif terisi tarif standar.
+        config(['anggaran.tarif_bbm_standar' => 13_500.0]);
+        $this->actingAs($superadmin)->get(route('npd.pd.create'))->assertOk()
+            ->assertSee('Total Nominal BBM (Rp)')
+            ->assertSee('data-bbm-nominal name="tim[', false)
+            ->assertSee('Jumlah Liter (otomatis)')
+            ->assertSee('const TARIF_BBM_STANDAR = 13500', false)
+            ->assertDontSee('data-bbm-liter name=', false);
+
+        // NPD lama dibuka di formulir sudah berisi nominal hasil kali liter x tarif.
+        $npdLama->update(['status' => 'Draft NPD - PPTK']);
+        $this->actingAs($superadmin)->get(route('npd.pd.edit', $npdLama))->assertOk()
+            ->assertSee('"bbm_nominal":105000', false);
     }
 
     public function test_liter_bbm_dicetak_dengan_seluruh_angka_di_belakang_koma(): void

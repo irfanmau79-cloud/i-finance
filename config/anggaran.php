@@ -33,6 +33,21 @@ return [
 
     /*
     |--------------------------------------------------------------------------
+    | Tarif BBM Standar (Rp per liter)
+    |--------------------------------------------------------------------------
+    |
+    | Mengisi otomatis kolom "Tarif BBM/liter" pada formulir NPD Perjalanan
+    | Dinas dan NPD Transport. Hanya NILAI AWAL: pembuat NPD boleh
+    | menggantinya bila harga di struk berbeda, dan tarif yang tersimpan di
+    | tiap NPD tidak ikut berubah bila angka ini diganti kemudian.
+    |
+    | null = belum ditetapkan; kolomnya kosong dan diisi sendiri.
+    |
+    */
+    'tarif_bbm_standar' => env('TARIF_BBM_STANDAR') !== null ? (float) env('TARIF_BBM_STANDAR') : null,
+
+    /*
+    |--------------------------------------------------------------------------
     | Masa Berlaku Staging Import (menit)
     |--------------------------------------------------------------------------
     |

@@ -16,6 +16,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
     'bidang_snapshot',
     'nip',
     'rekening',
+    'bbm_nominal',
     'bbm_liter',
     'bbm_tarif',
     'tol',
@@ -34,6 +35,7 @@ class NpdTim extends Model
             // liter x tarif tepat membulat ke nominal BBM. 'float', bukan
             // 'decimal:N', supaya formulir sunting tidak menampilkan
             // deretan nol di belakang koma.
+            'bbm_nominal' => 'decimal:2',
             'bbm_liter' => 'float',
             'bbm_tarif' => 'decimal:2',
             'tol' => 'decimal:2',
@@ -75,6 +77,8 @@ class NpdTim extends Model
     {
         return [
             'paket' => $this->paket->map(fn (NpdTimPaket $p) => $p->toHitungArray())->all(),
+            // null = NPD lama yang BBM-nya masih liter x tarif.
+            'bbm_nominal' => $this->bbm_nominal === null ? null : (float) $this->bbm_nominal,
             'bbm_liter' => (float) $this->bbm_liter,
             'bbm_tarif' => (float) $this->bbm_tarif,
             'tol' => (float) $this->tol,

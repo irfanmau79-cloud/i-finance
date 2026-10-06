@@ -148,7 +148,9 @@ class NpdTransportController extends Controller
         $npd->load(['tim', 'induk.tim']);
 
         $timAwal = $npd->tim->map(fn ($t) => [
-            'bbm_liter' => $t->bbm_liter,
+            // NPD lama (liter x tarif) dibuka dengan nominal hasil kalinya,
+            // supaya formulirnya langsung terisi Total Nominal BBM.
+            'bbm_nominal' => NpdPerjalananHitung::bbm($t->toHitungArray()) ?: null,
             'bbm_tarif' => $t->bbm_tarif,
             'tol' => $t->tol,
             'tiket' => $t->tiket,
@@ -294,7 +296,8 @@ class NpdTransportController extends Controller
                 'bidang_snapshot' => $sumber?->bidang_snapshot ?: $sumber?->pegawai?->bidang,
                 'nip' => $sumber?->nip,
                 'rekening' => $sumber?->rekening,
-                'bbm_liter' => (float) ($t['bbm_liter'] ?? 0),
+                'bbm_nominal' => NpdPerjalananHitung::memakaiNominalBbm($t) ? (float) $t['bbm_nominal'] : null,
+                'bbm_liter' => NpdPerjalananHitung::literBbm($t),
                 'bbm_tarif' => (float) ($t['bbm_tarif'] ?? 0),
                 'tol' => (float) ($t['tol'] ?? 0),
                 'tiket' => (float) ($t['tiket'] ?? 0),

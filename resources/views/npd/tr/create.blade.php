@@ -150,6 +150,8 @@
 (function () {
     const indukData = @json($indukJs);
     const isEdit = {{ $npdEdit ? 'true' : 'false' }};
+    // Nilai awal kolom Tarif BBM; boleh diganti per anggota. Kosong bila belum ditetapkan.
+    const TARIF_BBM_STANDAR = @json(config('anggaran.tarif_bbm_standar') ?? '');
 
     function formatRupiah(n) {
         n = Number(n) || 0;
@@ -177,8 +179,9 @@
             + '<h4>' + escapeHtml(anggota.nama) + ' <span style="font-weight:400;color:var(--mut);">' + escapeHtml(anggota.jabatan || '') + '</span></h4>'
             + '<div class="form-grid">'
             + '<div class="fg"><label class="fl">Penerima Dana</label><label style="display:flex;align-items:center;gap:6px;margin-top:8px;"><input type="radio" name="penerima_index" value="' + idx + '"' + (idx === 0 ? ' checked' : '') + '><span>Jadikan penerima transfer</span></label></div>'
-            + '<div class="fg"><label class="fl">BBM (liter)</label><input type="number" step="any" min="0" data-bbm-liter name="tim[' + idx + '][bbm_liter]" value=""></div>'
-            + '<div class="fg"><label class="fl">Tarif BBM (Rp/liter)</label><input type="number" step="0.01" min="0" data-bbm-tarif name="tim[' + idx + '][bbm_tarif]" value=""></div>'
+            + '<div class="fg"><label class="fl">Total Nominal BBM (Rp)</label><input type="number" step="1" min="0" data-bbm-nominal name="tim[' + idx + '][bbm_nominal]" value=""></div>'
+            + '<div class="fg"><label class="fl">Tarif BBM (Rp/liter)</label><input type="number" step="0.01" min="0" data-bbm-tarif name="tim[' + idx + '][bbm_tarif]" value="' + TARIF_BBM_STANDAR + '"></div>'
+            + '<div class="fg"><label class="fl">Jumlah Liter (otomatis)</label><input type="text" data-bbm-liter-teks readonly value="0 liter" style="background:var(--surface-2);"></div>'
             + '<div class="fg"><label class="fl">Tol (Rp)</label><input type="number" step="0.01" min="0" data-tol name="tim[' + idx + '][tol]" value=""></div>'
             + '<div class="fg"><label class="fl">Tiket (Rp)</label><input type="number" step="0.01" min="0" data-tiket name="tim[' + idx + '][tiket]" value=""></div>'
             + '<div class="fg"><label class="fl">Representatif (Rp)</label><input type="number" step="0.01" min="0" data-representatif name="tim[' + idx + '][representatif]" value=""></div>'
@@ -187,13 +190,24 @@
             + '</div>';
     }
 
+    /* BBM: yang diketik Total Nominal-nya. Liter tidak diketik - ia nominal
+       dibagi tarif per liter, sama dengan yang nanti tercetak di SPD Rampung. */
+    function bbmRow(row) {
+        return Math.round(parseFloat(row.querySelector('[data-bbm-nominal]').value) || 0);
+    }
+
+    function tampilLiter(row) {
+        const tarif = parseFloat(row.querySelector('[data-bbm-tarif]').value) || 0;
+        const liter = tarif > 0 ? bbmRow(row) / tarif : 0;
+        row.querySelector('[data-bbm-liter-teks]').value = liter.toLocaleString('id-ID', { maximumFractionDigits: 2 }) + ' liter';
+    }
+
     function recalcRow(row) {
-        const bbmLiter = parseFloat(row.querySelector('[data-bbm-liter]').value) || 0;
-        const bbmTarif = parseFloat(row.querySelector('[data-bbm-tarif]').value) || 0;
         const tol = parseFloat(row.querySelector('[data-tol]').value) || 0;
         const tiket = parseFloat(row.querySelector('[data-tiket]').value) || 0;
         const representatif = parseFloat(row.querySelector('[data-representatif]').value) || 0;
-        const bbm = (bbmLiter > 0 && bbmTarif > 0) ? Math.round(bbmLiter * bbmTarif) : 0;
+        const bbm = bbmRow(row);
+        tampilLiter(row);
         const subtotal = bbm + tol + tiket + representatif;
         row.querySelector('[data-subtotal]').value = formatRupiah(subtotal);
         recalcTotal();
@@ -202,19 +216,17 @@
     function recalcTotal() {
         let total = 0;
         timList.querySelectorAll('[data-tim-row]').forEach(row => {
-            const bbmLiter = parseFloat(row.querySelector('[data-bbm-liter]').value) || 0;
-            const bbmTarif = parseFloat(row.querySelector('[data-bbm-tarif]').value) || 0;
             const tol = parseFloat(row.querySelector('[data-tol]').value) || 0;
             const tiket = parseFloat(row.querySelector('[data-tiket]').value) || 0;
             const representatif = parseFloat(row.querySelector('[data-representatif]').value) || 0;
-            const bbm = (bbmLiter > 0 && bbmTarif > 0) ? Math.round(bbmLiter * bbmTarif) : 0;
+            const bbm = bbmRow(row);
             total += bbm + tol + tiket + representatif;
         });
         document.getElementById('total-nominal').textContent = formatRupiah(total);
     }
 
     function attachRowEvents(row) {
-        ['[data-bbm-liter]', '[data-bbm-tarif]', '[data-tol]', '[data-tiket]', '[data-representatif]'].forEach(sel => {
+        ['[data-bbm-nominal]', '[data-bbm-tarif]', '[data-tol]', '[data-tiket]', '[data-representatif]'].forEach(sel => {
             row.querySelector(sel).addEventListener('input', () => recalcRow(row));
         });
         recalcRow(row);

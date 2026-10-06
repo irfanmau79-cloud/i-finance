@@ -282,7 +282,8 @@
         'jabatan' => $tim->jabatan,
         'nip' => $tim->nip,
         'rekening' => $tim->rekening,
-        'bbm_liter' => $tim->bbm_liter,
+        // NPD lama (liter x tarif) dibuka dengan nominal hasil kalinya.
+        'bbm_nominal' => \App\Helpers\NpdPerjalananHitung::bbm($tim->toHitungArray()) ?: null,
         'bbm_tarif' => $tim->bbm_tarif,
         'tol' => $tim->tol,
         'tiket' => $tim->tiket,
@@ -307,6 +308,8 @@
     const spData = @json($spJs);
     const initialTim = @json($timAwal);
     const initialPenerima = @json($penerimaAwal);
+    // Nilai awal kolom Tarif BBM; boleh diganti per anggota. Kosong bila belum ditetapkan.
+    const TARIF_BBM_STANDAR = @json(config('anggaran.tarif_bbm_standar') ?? '');
 
     function formatRupiah(n) {
         n = Number(n) || 0;
@@ -605,10 +608,10 @@
             + '<button type="button" class="add" style="padding:7px;font-size:12px;margin-top:8px;" data-paket-add>+ Tambah Tujuan</button>'
             + '<div class="sub">Transport</div>'
             + '<div class="row">'
-            + '<div><label class="fl">Jumlah Liter BBM</label><input type="number" step="any" min="0" data-bbm-liter name="tim[' + idx + '][bbm_liter]" value=""></div>'
-            + '<div><label class="fl">Tarif BBM/liter (Rp)</label><input type="number" step="0.01" min="0" data-bbm-tarif name="tim[' + idx + '][bbm_tarif]" value=""></div>'
+            + '<div><label class="fl">Total Nominal BBM (Rp)</label><input type="number" step="1" min="0" data-bbm-nominal name="tim[' + idx + '][bbm_nominal]" value=""></div>'
+            + '<div><label class="fl">Tarif BBM/liter (Rp)</label><input type="number" step="0.01" min="0" data-bbm-tarif name="tim[' + idx + '][bbm_tarif]" value="' + TARIF_BBM_STANDAR + '"></div>'
             + '</div>'
-            + '<div class="badge-tot" style="margin:6px 0 0;"><span>Total BBM</span><span class="v" data-bbm-total>Rp 0</span></div>'
+            + '<div class="badge-tot" style="margin:6px 0 0;"><span>Jumlah Liter (otomatis)</span><span class="v" data-bbm-liter-teks>0 liter</span></div>'
             + '<div class="row" style="margin-top:8px;">'
             + '<div><label class="fl">Tol (Rp)</label><input type="number" step="0.01" min="0" data-tol name="tim[' + idx + '][tol]" value=""></div>'
             + '<div><label class="fl">Tiket (Rp)</label><input type="number" step="0.01" min="0" data-tiket name="tim[' + idx + '][tiket]" value=""></div>'
@@ -664,7 +667,7 @@
                 malam: paketRow.querySelector('[data-p-malam]').value,
                 tarif_akom: paketRow.querySelector('[data-p-tarifak]').value,
             })),
-            bbm_liter: timRow.querySelector('[data-bbm-liter]').value,
+            bbm_nominal: timRow.querySelector('[data-bbm-nominal]').value,
             bbm_tarif: timRow.querySelector('[data-bbm-tarif]').value,
             tol: timRow.querySelector('[data-tol]').value,
             tiket: timRow.querySelector('[data-tiket]').value,
@@ -681,7 +684,7 @@
             isiPaket(targetRow.querySelector('[data-paket-row]:last-child'), item, targetRow);
         });
 
-        targetRow.querySelector('[data-bbm-liter]').value = data.bbm_liter;
+        targetRow.querySelector('[data-bbm-nominal]').value = data.bbm_nominal;
         targetRow.querySelector('[data-bbm-tarif]').value = data.bbm_tarif;
         targetRow.querySelector('[data-tol]').value = data.tol;
         targetRow.querySelector('[data-tiket]').value = data.tiket;
@@ -703,10 +706,13 @@
         let jmlHarianAkom = 0;
         timRow.querySelectorAll('[data-paket-row]').forEach(pk => { jmlHarianAkom += recalcPaket(pk); });
 
-        const liter = parseFloat(timRow.querySelector('[data-bbm-liter]').value) || 0;
+        // BBM: yang diketik Total Nominal-nya. Liter tidak diketik - ia
+        // nominal dibagi tarif per liter, sama dengan yang nanti tercetak
+        // di SPD Rampung.
+        const bbm = Math.round(parseFloat(timRow.querySelector('[data-bbm-nominal]').value) || 0);
         const tarifLiter = parseFloat(timRow.querySelector('[data-bbm-tarif]').value) || 0;
-        const bbm = (liter > 0 && tarifLiter > 0) ? Math.round(liter * tarifLiter) : 0;
-        timRow.querySelector('[data-bbm-total]').textContent = formatRupiah(bbm);
+        const liter = tarifLiter > 0 ? bbm / tarifLiter : 0;
+        timRow.querySelector('[data-bbm-liter-teks]').textContent = liter.toLocaleString('id-ID', { maximumFractionDigits: 2 }) + ' liter';
 
         const tol = parseFloat(timRow.querySelector('[data-tol]').value) || 0;
         const tiket = parseFloat(timRow.querySelector('[data-tiket]').value) || 0;
@@ -839,7 +845,7 @@
                 + (sourceName || 'Anggota #' + sourceNumber) + '.';
         });
 
-        timRow.querySelectorAll('[data-bbm-liter],[data-bbm-tarif],[data-tol],[data-tiket],[data-representatif]').forEach(el => {
+        timRow.querySelectorAll('[data-bbm-nominal],[data-bbm-tarif],[data-tol],[data-tiket],[data-representatif]').forEach(el => {
             el.addEventListener('input', () => recalcTim(timRow));
         });
 
@@ -881,8 +887,10 @@
             row.querySelector('[data-jabatan]').value = data.jabatan || '';
             row.querySelector('[data-nip]').value = data.nip || '';
             row.querySelector('[data-rekening]').value = data.rekening || '';
-            row.querySelector('[data-bbm-liter]').value = data.bbm_liter ?? 0;
-            row.querySelector('[data-bbm-tarif]').value = data.bbm_tarif ?? 0;
+            row.querySelector('[data-bbm-nominal]').value = data.bbm_nominal ?? '';
+            // Tarif kosong (anggota baru dari SP) memakai tarif standar.
+            row.querySelector('[data-bbm-tarif]').value = (data.bbm_tarif === '' || data.bbm_tarif === null || data.bbm_tarif === undefined)
+                ? TARIF_BBM_STANDAR : data.bbm_tarif;
             row.querySelector('[data-tol]').value = data.tol ?? 0;
             row.querySelector('[data-tiket]').value = data.tiket ?? 0;
             row.querySelector('[data-representatif]').value = data.representatif ?? 0;
@@ -913,7 +921,7 @@
             jabatan: item.jabatan,
             nip: item.nip,
             rekening: item.rekening,
-            bbm_liter: '',
+            bbm_nominal: '',
             bbm_tarif: '',
             tol: '',
             tiket: '',

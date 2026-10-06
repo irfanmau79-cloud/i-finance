@@ -286,6 +286,34 @@ class NpdTransportTest extends TestCase
             ->assertSessionHasNoErrors();
     }
 
+    public function test_transport_bbm_diisi_total_nominal_dan_liter_dihitung(): void
+    {
+        $pptk = $this->buatUser('pptk', 'tr-bbm-nominal');
+        $induk = $this->buatIndukSelesai($this->buatMasterAnggaran());
+
+        $payload = $this->payload($induk);
+        $payload['tim'] = [
+            ['bbm_nominal' => 300_000, 'bbm_tarif' => 12_000, 'tol' => 50_000],
+            ['bbm_nominal' => '', 'bbm_tarif' => 12_000, 'tiket' => 100_000],
+        ];
+
+        $this->actingAs($pptk)->post(route('npd.tr.store'), $payload)->assertSessionHasNoErrors();
+
+        $npd = Npd::with('tim')->where('jenis', 'tr')->firstOrFail();
+        $this->assertSame(450_000.0, (float) $npd->nominal);
+        $this->assertSame(300_000.0, (float) $npd->tim[0]->bbm_nominal);
+        $this->assertSame(25.0, (float) $npd->tim[0]->bbm_liter);
+        // Anggota tanpa BBM: tarif standar yang ikut terkirim tidak membuat BBM.
+        $this->assertNull($npd->tim[1]->bbm_nominal);
+        $this->assertSame(0.0, (float) $npd->tim[1]->hitung()['bbm']);
+
+        $this->actingAs($pptk)->get(route('npd.tr.edit', $npd))->assertOk()
+            ->assertSee('data-bbm-nominal name="tim[0][bbm_nominal]" value="300000"', false)
+            ->assertSee('Jumlah Liter (otomatis)')
+            ->assertDontSee('data-bbm-liter name=', false);
+        $this->actingAs($pptk)->get(route('npd.cetak-spd', $npd))->assertOk();
+    }
+
     public function test_induk_harus_jenis_pd_dan_status_selesai(): void
     {
         $pptk = $this->buatUser('pptk', 'tr-induk-salah');
