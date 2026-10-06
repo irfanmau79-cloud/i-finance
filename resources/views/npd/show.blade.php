@@ -359,15 +359,18 @@
         <div class="tbl-npd-wrap">
             <table class="tbl-npd">
                 <thead>
+                    {{-- Kolom angka selebar isinya; sisa lebarnya dibagi tiga
+                         kolom teks 20 : 10 : 70. Dulu Keterangan memakan
+                         seluruh sisa itu sehingga Nama dan Rekening terjepit. --}}
                     <tr>
-                        <th>Nama</th>
-                        <th>Rekening</th>
+                        <th style="width:20%;">Nama</th>
+                        <th style="width:10%;">Rekening</th>
                         <th class="num">Bruto</th>
                         <th class="num">PPN</th>
                         <th>PPh</th>
                         <th class="num">Biaya KU/RTGS</th>
                         <th class="num">Netto</th>
-                        <th>Keterangan</th>
+                        <th style="width:70%;">Keterangan</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -377,7 +380,7 @@
                             <td>{{ $p->rekening ?? '—' }}</td>
                             <td class="num">Rp {{ number_format((float) $p->bruto, 2, ',', '.') }}</td>
                             <td class="num">Rp {{ number_format((float) $p->ppn, 2, ',', '.') }}</td>
-                            <td>
+                            <td style="white-space:nowrap;">
                                 @forelse ($p->pphList as $pph)
                                     {{ $pph->jenis }}: Rp {{ number_format((float) $pph->nilai, 2, ',', '.') }}<br>
                                 @empty
