@@ -483,7 +483,6 @@
 
       <footer class="app-foot">
         <span>&copy; {{ config('anggaran.tahun_aktif') }} Inspektorat Daerah Provinsi Jawa Barat.</span>
-        <span class="kanan">Sistem Penatausahaan Keuangan Daerah Terpadu</span>
       </footer>
     </div>
   </div>

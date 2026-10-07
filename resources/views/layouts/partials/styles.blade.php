@@ -1159,10 +1159,15 @@
   .app-foot{display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:var(--sp-2);
     margin-top:var(--sp-7);padding-top:var(--sp-5);border-top:1px solid var(--line);
     font-size:11.5px;color:var(--mut);}
-  .app-foot .kanan{font-weight:600;}
   /* Halaman yang mengunci tinggi kartunya setinggi layar tidak menyisakan
      ruang untuk kaki halaman - di sana ia disembunyikan. */
   #page-sp-monitor .app-foot,#page-sp-data .app-foot,#page-npd .app-foot{display:none;}
+  /* Import Data Gaji & Tunjangan: kontennya pendek, jadi kaki halaman
+     ditempel ke dasar layar alih-alih mengambang dengan sisa layar kosong
+     di bawahnya saat layar tinggi (fullscreen). */
+  #page-gt-gaji{display:flex;flex-direction:column;}
+  #page-gt-gaji > .page{display:flex;flex-direction:column;flex:1;min-height:0;}
+  #page-gt-gaji .app-foot{margin-top:auto;}
 
   /* Ringkasan identitas (Profil Saya). Ditaruh di gaya bersama karena
      kelasnya pernah dipakai halaman lain yang tidak membawa gayanya sendiri. */
