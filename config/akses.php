@@ -82,9 +82,9 @@ $matriks = [
     // Surat Perintah
     'sp-input' => $semuaPengisi,
     'sp-data' => $pemantau,
+    'sp-monitor' => $semua,
     // Rekapitulasi Pembayaran SP: pembacanya sama dengan Data SP.
     'sp-rekap' => $pemantau,
-    'sp-monitor' => $semua,
     'sp-cetakspj' => $semua,
     'sp-cetaksppd' => $semua,
 

@@ -220,7 +220,7 @@
       </div>
       @endif
 
-      @php($g = $group(['sp-input', 'sp-data', 'sp-rekap', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd']))
+      @php($g = $group(['sp-input', 'sp-data', 'sp-monitor', 'sp-rekap', 'sp-cetakspj', 'sp-cetaksppd']))
       @if ($g['visible'])
       <div class="sb-group{{ $g['open'] ? ' open' : '' }}">
         <div class="sb-item sb-parent" id="nav-sp-parent">
@@ -231,8 +231,8 @@
         <div class="sb-sub">
           @if (in_array('sp-input', $akses)) <a class="sb-item sub{{ $activeNav === 'sp-input' ? ' active' : '' }}" href="{{ $href('sp-input') }}">Input SP</a> @endif
           @if (in_array('sp-data', $akses)) <a class="sb-item sub{{ $activeNav === 'sp-data' ? ' active' : '' }}" href="{{ $href('sp-data') }}">Data SP</a> @endif
-          @if (in_array('sp-rekap', $akses)) <a class="sb-item sub{{ $activeNav === 'sp-rekap' ? ' active' : '' }}" href="{{ $href('sp-rekap') }}">Rekapitulasi Pembayaran SP</a> @endif
           @if (in_array('sp-monitor', $akses)) <a class="sb-item sub{{ $activeNav === 'sp-monitor' ? ' active' : '' }}" href="{{ $href('sp-monitor') }}">Monitoring SP</a> @endif
+          @if (in_array('sp-rekap', $akses)) <a class="sb-item sub{{ $activeNav === 'sp-rekap' ? ' active' : '' }}" href="{{ $href('sp-rekap') }}">Rekapitulasi Pembayaran SP</a> @endif
           @if (in_array('sp-cetakspj', $akses)) <a class="sb-item sub{{ $activeNav === 'sp-cetakspj' ? ' active' : '' }}" href="{{ $href('sp-cetakspj') }}">Cetak SPJ Perjalanan Dinas</a> @endif
           @if (in_array('sp-cetaksppd', $akses)) <a class="sb-item sub{{ $activeNav === 'sp-cetaksppd' ? ' active' : '' }}" href="{{ $href('sp-cetaksppd') }}">Cetak SPPD</a> @endif
         </div>

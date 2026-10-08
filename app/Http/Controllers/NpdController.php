@@ -1926,7 +1926,9 @@ class NpdController extends Controller
             $body .= '<tr class="drow1">'
                 .'<td class="center">'.$no.'</td>'
                 .'<td>'.e($p->nama).'</td>'
-                .'<td class="center">'.e($p->pangkat).'</td>'
+                // Kolom GOL: golongan saja ("III/a"), tanpa nama pangkatnya -
+                // lihat NpdPeserta::golongan().
+                .'<td class="center">'.e($p->golongan()).'</td>'
                 .'<td class="center">'.($p->hari_uh ?: '').'</td>'
                 .$this->selRp((float) $p->tarif_uh)
                 .$this->selRp($jmlHarian)
@@ -2036,13 +2038,14 @@ class NpdController extends Controller
             fn ($p) => trim((string) ($p['nama'] ?? '')) !== ''
         ));
 
-        $ketDefault = KeteranganLampiranService::kd(
-            $detail,
-            $npd->mode_kd,
-            KeteranganLampiranService::atasNamaKd($daftarPenerima, (string) ($penerima->nama ?? '')),
-        );
+        // Uraian tiap baris HANYA menyebut penerima baris itu sendiri: baris
+        // Fajar berbunyi "an. FAJAR", bukan seluruh penerima digabung. Uraian
+        // yang diketik manual tetap dipakai apa adanya di semua baris.
+        $keteranganManual = filled($detail['keterangan_lampiran'] ?? null) ? $detail['keterangan_lampiran'] : null;
+        $keteranganUntuk = fn (string $nama): string => $keteranganManual
+            ?? KeteranganLampiranService::kd($detail, $npd->mode_kd, $nama);
 
-        $keterangan = filled($detail['keterangan_lampiran'] ?? null) ? $detail['keterangan_lampiran'] : $ketDefault;
+        $keterangan = $keteranganUntuk((string) ($penerima->nama ?? ''));
 
         if ($daftarPenerima === []) {
             $rows = [[
@@ -2071,7 +2074,7 @@ class NpdController extends Controller
                     'pph' => [$pphJenis => $pphBaris],
                     'biaya' => $biayaBaris,
                     'transfer' => $brutoBaris - $ppnBaris - $pphBaris - $biayaBaris,
-                    'keterangan' => $keterangan,
+                    'keterangan' => $keteranganUntuk(trim((string) $p['nama'])),
                 ];
             }
         }

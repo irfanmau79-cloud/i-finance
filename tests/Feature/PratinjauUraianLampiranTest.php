@@ -271,8 +271,10 @@ class PratinjauUraianLampiranTest extends TestCase
             ->json('teks');
 
         $this->assertStringStartsWith('Transfer Pembayaran Belanja Perjalanan Dinas', $perjalanan);
-        // Nama kosong dilewati supaya tidak meninggalkan koma menggantung.
-        $this->assertStringContainsString('an. Peserta Satu, Peserta Dua', $perjalanan);
+        // Tiap penerima mendapat baris Lampiran sendiri yang hanya menyebut
+        // namanya; pratinjau menampilkan baris pertama.
+        $this->assertStringEndsWith(' an. Peserta Satu', $perjalanan);
+        $this->assertStringNotContainsString('Peserta Dua', $perjalanan);
     }
 
     public function test_pratinjau_transport_mewarisi_uraian_manual_induknya(): void

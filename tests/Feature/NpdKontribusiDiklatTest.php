@@ -547,8 +547,85 @@ class NpdKontribusiDiklatTest extends TestCase
         $this->assertSame(5_250_000.0, $lampiran['totals']['bruto']);
         $this->assertSame(5_090_000.0, $lampiran['totals']['transfer']);
 
-        // Keterangan otomatis menyebut seluruh penerimanya.
-        $this->assertStringContainsString('an. Andi Saputra, Bendahara Tim', $lampiran['rows'][0]['keterangan']);
+        // Uraian tiap baris hanya menyebut penerima baris itu sendiri -
+        // bukan seluruh penerima digabung.
+        $this->assertStringEndsWith(' an. Andi Saputra', $lampiran['rows'][0]['keterangan']);
+        $this->assertStringEndsWith(' an. Bendahara Tim', $lampiran['rows'][1]['keterangan']);
+        $this->assertStringNotContainsString('Bendahara Tim', $lampiran['rows'][0]['keterangan']);
+        $this->assertStringNotContainsString('Andi Saputra', $lampiran['rows'][1]['keterangan']);
+        // Selain nama penerimanya, kalimatnya sama.
+        $this->assertSame(
+            str_replace('Andi Saputra', 'Bendahara Tim', $lampiran['rows'][0]['keterangan']),
+            $lampiran['rows'][1]['keterangan']
+        );
+    }
+
+    public function test_transfer_ke_setiap_peserta_uraian_tiap_baris_menyebut_namanya_sendiri(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-trf-setiap-peserta');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        // Tiga peserta, masing-masing ditransfer sendiri - hasil tombol
+        // "Transfer ke Setiap Peserta".
+        $satu = $this->payloadPerjalanan($masterAnggaran)['peserta'][0];
+        $payload = $this->payloadPerjalanan($masterAnggaran);
+        $payload['peserta'] = [
+            array_replace($satu, ['nama' => 'AGUS SURYANA']),
+            array_replace($satu, ['nama' => 'FAJAR LAZUARDI']),
+            array_replace($satu, ['nama' => 'SITI AMINAH']),
+        ];
+        $payload['penerima_transfer'] = [
+            ['nama' => 'AGUS SURYANA', 'nominal' => 5_250_000],
+            ['nama' => 'FAJAR LAZUARDI', 'nominal' => 5_250_000],
+            ['nama' => 'SITI AMINAH', 'nominal' => 5_250_000],
+        ];
+        $payload['keterangan_mode'] = 'otomatis';
+
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $payload)->assertSessionHasNoErrors();
+        $npd = Npd::with('peserta')->sole();
+
+        $metode = new ReflectionMethod(NpdController::class, 'bangunLampiranKontribusiDiklat');
+        $metode->setAccessible(true);
+        $rows = $metode->invoke(app(NpdController::class), $npd)['rows'];
+
+        $this->assertSame(['AGUS SURYANA', 'FAJAR LAZUARDI', 'SITI AMINAH'], array_column($rows, 'nama'));
+
+        foreach ($rows as $baris) {
+            $this->assertStringEndsWith(' an. '.$baris['nama'], $baris['keterangan']);
+
+            foreach (array_diff(['AGUS SURYANA', 'FAJAR LAZUARDI', 'SITI AMINAH'], [$baris['nama']]) as $lain) {
+                $this->assertStringNotContainsString($lain, $baris['keterangan'], "Uraian baris {$baris['nama']} ikut menyebut {$lain}.");
+            }
+        }
+
+        $this->actingAs($pptk)->get(route('npd.cetak-lampiran', $npd))->assertOk();
+    }
+
+    public function test_uraian_lampiran_yang_diketik_manual_dipakai_sama_di_semua_baris(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-trf-manual');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payloadPerjalanan($masterAnggaran);
+        $payload['penerima_transfer'] = [
+            ['nama' => 'Andi Saputra', 'nominal' => 3_000_000],
+            ['nama' => 'Bendahara Tim', 'nominal' => 2_250_000],
+        ];
+        $payload['keterangan_mode'] = 'manual';
+        $payload['keterangan_lampiran'] = 'Uraian khusus yang diketik petugas';
+
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $payload)->assertSessionHasNoErrors();
+
+        $metode = new ReflectionMethod(NpdController::class, 'bangunLampiranKontribusiDiklat');
+        $metode->setAccessible(true);
+        $rows = $metode->invoke(app(NpdController::class), Npd::with('peserta')->sole())['rows'];
+
+        $this->assertSame(
+            ['Uraian khusus yang diketik petugas', 'Uraian khusus yang diketik petugas'],
+            array_column($rows, 'keterangan')
+        );
     }
 
     // ---------------- Penerima Dana vs penomoran baris peserta ----------------
@@ -631,5 +708,71 @@ class NpdKontribusiDiklatTest extends TestCase
         // dipilih bila belum ada yang terpilih.
         $this->assertStringContainsString('radio.value = i;', $isi);
         $this->assertStringContainsString("rows[0].querySelector('[data-penerima-radio]').checked = true;", $isi);
+    }
+
+    // ---------------- Kolom GOL pada Daftar Pembayaran Perjalanan Dinas ----------------
+
+    public function test_golongan_dipungut_dari_isian_pangkat_golongan(): void
+    {
+        $harapan = [
+            'Penata Muda (III/a)' => 'III/a',
+            'Penata Muda Tk. I (III/b)' => 'III/b',
+            'Pembina Utama Muda, IV/c' => 'IV/c',
+            'Pengatur II/c' => 'II/c',
+            'III/a' => 'III/a',
+            'iv / A' => 'IV/a',
+            // PPPK: angka Romawi tanpa huruf, berdiri sendiri atau dalam kurung.
+            'VII' => 'VII',
+            'ix' => 'IX',
+            'Ahli Pertama (IX)' => 'IX',
+            // "Tk. I" adalah tingkat pangkat, BUKAN golongan I.
+            'Penata Muda Tk. I' => null,
+            'Penata Muda' => null,
+            '' => null,
+        ];
+
+        foreach ($harapan as $teks => $golongan) {
+            $this->assertSame($golongan, \App\Models\NpdPeserta::golonganDariTeks((string) $teks), "Golongan dari \"{$teks}\" keliru.");
+        }
+    }
+
+    public function test_kolom_gol_daftar_pembayaran_perjalanan_dinas_hanya_memuat_golongan(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-kolom-gol');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        // Pegawai master dipakai bila isian pangkat tidak memuat golongan.
+        $pegawai = \App\Models\Pegawai::create([
+            'nama' => 'Citra Lestari', 'nip' => '199001012015012001', 'jabatan' => 'Auditor', 'bidang' => 'Sekretariat',
+            'golongan' => 'III/d', 'pangkat' => 'Penata Tk. I', 'aktif' => true,
+        ]);
+
+        $baris = fn (array $ubah) => array_replace($this->payloadPerjalanan($masterAnggaran)['peserta'][0], $ubah);
+        $payload = $this->payloadPerjalanan($masterAnggaran);
+        $payload['peserta'] = [
+            $baris(['nama' => 'Andi Saputra', 'pangkat' => 'Penata Muda (III/a)']),
+            $baris(['nama' => 'Bayu Pratama', 'pangkat' => 'VII']),
+            $baris(['nama' => 'Citra Lestari', 'pegawai_id' => $pegawai->id, 'pangkat' => 'Penata Tk. I']),
+            $baris(['nama' => 'Dedi Kurnia', 'pangkat' => 'Tenaga Ahli']),
+        ];
+        $payload['penerima_transfer'] = [['nama' => 'Andi Saputra', 'rekening' => '1112223334', 'nominal' => 21_000_000]];
+
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $payload)->assertSessionHasNoErrors();
+        $npd = Npd::sole();
+
+        $html = (new ReflectionMethod(NpdController::class, 'htmlDaftarKontribusiDiklat'))
+            ->invoke(app(NpdController::class), $npd);
+
+        $this->assertStringContainsString('<td>Andi Saputra</td><td class="center">III/a</td>', $html);
+        $this->assertStringContainsString('<td>Bayu Pratama</td><td class="center">VII</td>', $html);
+        // Tidak ada golongan di isiannya -> dari master Pegawai.
+        $this->assertStringContainsString('<td>Citra Lestari</td><td class="center">III/d</td>', $html);
+        // Tidak ketemu di mana pun -> teks aslinya dipertahankan, tidak dikosongkan.
+        $this->assertStringContainsString('<td>Dedi Kurnia</td><td class="center">Tenaga Ahli</td>', $html);
+        $this->assertStringNotContainsString('Penata Muda', $html);
+        $this->assertStringNotContainsString('Penata Tk. I', $html);
+
+        $this->actingAs($pptk)->get(route('npd.cetak-daftar-kd', $npd))->assertOk();
     }
 }

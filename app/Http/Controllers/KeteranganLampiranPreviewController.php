@@ -138,7 +138,9 @@ class KeteranganLampiranPreviewController extends Controller
                 'tanggal_selesai' => $data['tanggal_selesai'] ?? null,
             ],
             $data['mode'] ?? null,
-            KeteranganLampiranService::atasNamaKd($penerimaTransfer, trim((string) ($tunggal['nama'] ?? ''))),
+            // Tiap penerima transfer mendapat baris Lampiran sendiri yang
+            // hanya menyebut namanya; pratinjau menampilkan baris PERTAMA.
+            KeteranganLampiranService::atasNamaKd($penerimaTransfer, trim((string) ($tunggal['nama'] ?? '')))[0],
         );
     }
 }

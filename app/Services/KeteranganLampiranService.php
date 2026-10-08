@@ -140,20 +140,25 @@ class KeteranganLampiranService
     }
 
     /**
-     * Nama-nama yang disebut di belakang "an." pada NPD Kontribusi Diklat:
-     * seluruh penerima transfer bila ada, kalau tidak jatuh ke penerima
-     * tunggalnya. Nama kosong dilewati supaya baris yang belum diisi tidak
-     * meninggalkan koma menggantung.
+     * Nama yang disebut di belakang "an." pada NPD Kontribusi Diklat, SATU
+     * per baris Lampiran: tiap penerima transfer mendapat barisnya sendiri,
+     * dan Uraian baris itu hanya menyebut nama penerimanya - bukan seluruh
+     * penerima digabung (keputusan Irfan, Oktober 2026: baris Fajar Lazuardi
+     * berbunyi "an. FAJAR LAZUARDI", bukan "an. AGUS SURYANA, FAJAR LAZUARDI").
+     *
+     * Tanpa daftar penerima transfer (mode Kontribusi, atau NPD lama) hasilnya
+     * satu nama: penerima tunggalnya. Nama kosong dilewati.
      *
      * @param  array<int, array<string, mixed>>  $penerimaTransfer
+     * @return array<int, string>
      */
-    public static function atasNamaKd(array $penerimaTransfer, string $penerimaTunggal): string
+    public static function atasNamaKd(array $penerimaTransfer, string $penerimaTunggal): array
     {
         $nama = array_values(array_filter(array_map(
             fn ($p) => trim((string) ($p['nama'] ?? '')),
             $penerimaTransfer
         ), fn ($n) => $n !== ''));
 
-        return $nama !== [] ? implode(', ', $nama) : $penerimaTunggal;
+        return $nama !== [] ? $nama : [$penerimaTunggal];
     }
 }

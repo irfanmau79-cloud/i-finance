@@ -245,6 +245,8 @@ class RekapPembayaranSpTest extends TestCase
         $this->actingAs($this->user('bpp'))->get(route('dashboard.index'))
             ->assertOk()
             ->assertSee('>Rekapitulasi Pembayaran SP</a>', false)
+            // Urutan sub menu: Input SP, Data SP, Monitoring SP, lalu Rekapitulasi.
+            ->assertSeeInOrder(['>Input SP</a>', '>Data SP</a>', '>Monitoring SP</a>', '>Rekapitulasi Pembayaran SP</a>', '>Cetak SPJ Perjalanan Dinas</a>'], false)
             ->assertSee(route('surat-perintah.rekap-pembayaran'), false);
 
         // Pembacanya sama dengan Data SP: Perencanaan dan Kepegawaian tidak ikut.

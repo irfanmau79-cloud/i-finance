@@ -57,6 +57,46 @@ class NpdPeserta extends Model
         return $this->belongsTo(Pegawai::class);
     }
 
+    /**
+     * Golongan SAJA untuk kolom GOL pada Daftar Pembayaran Perjalanan Dinas
+     * Diklat - "III/a", "IV/b", "VII" - tanpa nama pangkatnya.
+     *
+     * Isian peserta hanya punya satu kolom "Pangkat/Golongan", jadi isinya
+     * bisa "Penata Muda (III/a)", "Penata Muda Tk. I, III/b", "III/a", atau
+     * "VII" (PPPK). Golongannya dipungut dari teks itu:
+     *
+     *   1. golongan PNS di mana pun letaknya: I-IV diikuti "/" dan huruf a-e;
+     *   2. golongan PPPK (angka Romawi tanpa huruf) bila berdiri sendiri atau
+     *      di dalam kurung. Sengaja TIDAK dicari di tengah kalimat: "Tk. I"
+     *      pada "Penata Muda Tk. I" adalah tingkat pangkat, bukan golongan;
+     *   3. bila tidak ada di teksnya, golongan pada master Pegawai;
+     *   4. bila tetap tidak ketemu, teks aslinya dipertahankan - lebih baik
+     *      kolomnya memuat apa yang diketik daripada kosong tanpa penjelasan.
+     */
+    public function golongan(): string
+    {
+        $teks = trim((string) $this->pangkat);
+
+        return self::golonganDariTeks($teks)
+            ?? self::golonganDariTeks(trim((string) $this->pegawai?->golongan))
+            ?? $teks;
+    }
+
+    public static function golonganDariTeks(string $teks): ?string
+    {
+        if (preg_match('/\b(IV|III|II|I)\s*\/\s*([a-e])\b/i', $teks, $cocok)) {
+            return strtoupper($cocok[1]).'/'.strtolower($cocok[2]);
+        }
+
+        $romawi = '(?:XVII|XVI|XV|XIV|XIII|XII|XI|X|IX|VIII|VII|VI|V|IV|III|II|I)';
+
+        if (preg_match('/^'.$romawi.'$/i', $teks, $cocok) || preg_match('/\(\s*('.$romawi.')\s*\)/i', $teks, $cocok)) {
+            return strtoupper($cocok[1] ?? $cocok[0]);
+        }
+
+        return null;
+    }
+
     /** jumlah_kontribusi = volume_kontribusi * tarif_kontribusi. Port dari _hitungPesertaKD() gas-lama/CodeKontribusiDiklat.gs. */
     protected function jumlahKontribusi(): Attribute
     {

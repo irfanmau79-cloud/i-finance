@@ -248,7 +248,7 @@
             @include('npd._keterangan-lampiran', [
                 'jenis' => 'kd',
                 'nilai' => $detail['keterangan_lampiran'] ?? null,
-                'catatan' => 'Inilah kalimat yang tercetak pada Lampiran NPD.',
+                'catatan' => 'Inilah kalimat yang tercetak pada Lampiran NPD. Bila Tujuan Transfer lebih dari satu, tiap baris Lampiran otomatis menyebut nama penerimanya sendiri (an. nama penerima baris itu) - yang tampil di sini baris pertama. Kalimat yang diketik sendiri dipakai sama persis di semua baris.',
             ])
 
             <div class="sumbar" style="margin-top:16px;">
