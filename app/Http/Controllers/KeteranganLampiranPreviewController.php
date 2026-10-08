@@ -6,6 +6,7 @@ use App\Models\Npd;
 use App\Models\MasterAnggaran;
 use App\Models\SuratPerintah;
 use App\Services\KeteranganLampiranService;
+use App\Support\PptkPenerima;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 use Illuminate\Validation\Rule;
@@ -50,6 +51,8 @@ class KeteranganLampiranPreviewController extends Controller
             'tanggal_selesai' => ['nullable', 'date'],
             'peserta' => ['nullable', 'array', 'max:200'],
             'penerima_transfer' => ['nullable', 'array', 'max:200'],
+            'pptk_penerima' => ['nullable', 'boolean'],
+            'tahun' => ['nullable', 'integer'],
         ]);
 
         return response()->json([
@@ -125,11 +128,17 @@ class KeteranganLampiranPreviewController extends Controller
         $index = (int) ($data['penerima_index'] ?? 0);
         $tunggal = $peserta[$index] ?? ($peserta[0] ?? []);
 
-        // Daftar Tujuan Transfer hanya berlaku pada mode Perjalanan Dinas -
-        // sama seperti aturan validasinya di StoreNpdKontribusiDiklatRequest.
-        $penerimaTransfer = ($data['mode'] ?? '') === 'perjalanan'
-            ? array_values($data['penerima_transfer'] ?? [])
-            : [];
+        // Daftar Tujuan Transfer berlaku pada kedua mode - sama seperti
+        // aturan validasinya di StoreNpdKontribusiDiklatRequest.
+        $penerimaTransfer = array_values($data['penerima_transfer'] ?? []);
+
+        // "PPTK Sebagai Penerima Transfer": namanya dari pelimpahan sub
+        // kegiatan, persis seperti saat dicetak (App\Support\PptkPenerima).
+        if ($data['pptk_penerima'] ?? false) {
+            $anggaran = isset($data['master_anggaran_id']) ? MasterAnggaran::find($data['master_anggaran_id']) : null;
+            $penerimaTransfer = [];
+            $tunggal = ['nama' => $anggaran ? PptkPenerima::nama($anggaran, isset($data['tahun']) ? (int) $data['tahun'] : null) : ''];
+        }
 
         return KeteranganLampiranService::kd(
             [

@@ -581,6 +581,16 @@ class NpdPdfRenderTest extends TestCase
             'tanggal_selesai' => '2026-08-05',
             'penerima_index' => 0,
             'peserta' => $peserta,
+            // Mode Kontribusi kini memakai Tujuan Transfer seperti mode
+            // Perjalanan Dinas. Satu penerima senilai seluruh nominal -
+            // peserta pertama - menghasilkan Lampiran yang SAMA dengan skema
+            // lama (radio "Penerima Dana" pada peserta pertama):
+            // 12 x 2.500.000 + 4 x 500.000 = 32.000.000.
+            'penerima_transfer' => [[
+                'nama' => $peserta[0]['nama'],
+                'rekening' => $peserta[0]['rekening'],
+                'nominal' => 32_000_000,
+            ]],
         ];
 
         $response = $this->actingAs($pptk)->post(route('npd.kd.store'), $payload);

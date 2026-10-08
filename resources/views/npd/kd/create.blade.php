@@ -198,28 +198,43 @@
             </div>
             <button type="button" class="add" id="peserta-add">+ Tambah Peserta</button>
 
-            {{-- Tujuan Transfer hanya untuk mode Perjalanan Dinas. Pembayaran
-                 perjalanan boleh dikumpulkan ke satu koordinator atau dibagi ke
-                 beberapa orang, sehingga penerimanya tidak selalu satu peserta.
-                 Mode Kontribusi tetap memakai radio "Penerima Dana" di kartu
-                 peserta. --}}
-            <div class="kd-sec kd-sec-perjalanan" style="display:none;">
+            {{-- Tujuan Transfer berlaku untuk KEDUA mode. Pembayarannya boleh
+                 dikumpulkan ke satu koordinator, dibagi ke beberapa orang, atau
+                 seluruhnya dialihkan ke PPTK. Dulu mode Kontribusi memakai radio
+                 "Penerima Dana" di kartu peserta; radio itu sudah dihapus. --}}
+            <div>
                 <h3 style="margin-top:22px;">Tujuan Transfer</h3>
                 <div class="sub" style="margin-bottom:10px;">
                     Ke rekening siapa uangnya dikirim. Jumlah seluruh nominal di sini wajib sama dengan Total Bruto.
                 </div>
 
-                <div class="trf-ringkas">
-                    <span class="trf-badge">Total Bruto: <b id="trf-bruto">Rp 0</b></span>
-                    <span class="trf-badge">Total Penerima: <b id="trf-total">Rp 0</b></span>
-                    <span id="trf-selisih" class="trf-selisih"></span>
-                </div>
+                @include('npd._pptk-penerima', [
+                    'aktif' => (bool) old('pptk_penerima', $detail['pptk_penerima'] ?? false),
+                    'rekening' => $detail['pptk_rekening'] ?? '',
+                    'label' => 'PPTK Sebagai Penerima Transfer',
+                    'catatan' => 'Bila dicentang, SELURUH pencairan ditransfer ke PPTK sebagai penerima tunggal dan daftar penerima di bawah tidak dipakai. Daftar peserta tetap dipakai menghitung nominalnya.',
+                ])
+                @error('pptk_penerima')
+                    <div class="err-box" style="display:block;margin-top:10px;">{{ $message }}</div>
+                @enderror
+                @error('pptk_rekening')
+                    <div class="err-box" style="display:block;margin-top:10px;">{{ $message }}</div>
+                @enderror
 
-                <div id="trf-list"></div>
+                {{-- Disembunyikan selama "PPTK Sebagai Penerima Transfer" dicentang. --}}
+                <div id="trf-isi" style="margin-top:14px;">
+                    <div class="trf-ringkas">
+                        <span class="trf-badge">Total Bruto: <b id="trf-bruto">Rp 0</b></span>
+                        <span class="trf-badge">Total Penerima: <b id="trf-total">Rp 0</b></span>
+                        <span id="trf-selisih" class="trf-selisih"></span>
+                    </div>
 
-                <div class="trf-aksi">
-                    <button type="button" class="add" id="trf-add">+ Tambah Penerima</button>
-                    <button type="button" class="btn" id="trf-semua">Transfer ke Setiap Peserta</button>
+                    <div id="trf-list"></div>
+
+                    <div class="trf-aksi">
+                        <button type="button" class="add" id="trf-add">+ Tambah Penerima</button>
+                        <button type="button" class="btn" id="trf-semua">Transfer ke Setiap Peserta</button>
+                    </div>
                 </div>
                 @error('penerima_transfer')
                     <div class="err-box" style="display:block;margin-top:10px;">{{ $message }}</div>
@@ -294,6 +309,24 @@
     ]);
 
     $golonganPegawai = $pegawai->pluck('golongan', 'id')->all();
+
+    // Isi awal daftar Tujuan Transfer. NPD yang dibuat dengan skema lama
+    // (mode Kontribusi: satu peserta terpilih lewat radio "Penerima Dana")
+    // belum punya daftarnya - saat disunting, penerima lamanya dijadikan satu
+    // baris senilai nominal NPD supaya formulirnya tidak terbuka kosong.
+    $trfAwal = old('penerima_transfer', $detail['penerima_transfer'] ?? []) ?: [];
+
+    if ($trfAwal === [] && $npdEdit && ! ($detail['pptk_penerima'] ?? false) && ! session()->hasOldInput()) {
+        $penerimaLama = $npdEdit->peserta->values()->get((int) ($detail['penerima_index'] ?? 0)) ?? $npdEdit->peserta->first();
+
+        if ($penerimaLama) {
+            $trfAwal = [[
+                'nama' => (string) $penerimaLama->nama,
+                'rekening' => (string) $penerimaLama->rekening,
+                'nominal' => (float) $npdEdit->nominal,
+            ]];
+        }
+    }
 
     $namaJs = $pegawai->map(fn ($p) => [
         'id' => $p->id,
@@ -558,7 +591,6 @@
             + '<div class="fg"><label class="fl">Golongan</label><input type="text" data-pangkat name="peserta[' + idx + '][pangkat]" value=""></div>'
             + '<div class="fg"><label class="fl">NIP</label><input type="text" data-nip name="peserta[' + idx + '][nip]" value=""></div>'
             + '<div class="fg"><label class="fl">No. Rekening</label><input type="text" data-rekening name="peserta[' + idx + '][rekening]" value=""></div>'
-            + '<div class="fg kd-sec kd-sec-kontribusi"><label class="fl">Penerima Dana</label><label style="display:flex;align-items:center;gap:6px;margin-top:8px;"><input type="radio" name="penerima_index" value="' + idx + '" data-penerima-radio' + (idx === 0 ? ' checked' : '') + '><span>Jadikan penerima transfer</span></label></div>'
             + '<div class="fg span2 kd-sec kd-sec-kontribusi">'
             + '<div class="form-grid" style="margin-top:0;">'
             + '<div class="fg"><label class="fl">Volume Kontribusi</label><input type="number" step="1" min="0" data-vol-kontribusi name="peserta[' + idx + '][volume_kontribusi]" value=""></div>'
@@ -600,34 +632,16 @@
         applyMode();
     }
 
-    /*
-     * Selain nomor tampilannya, pilihan "Penerima Dana" ikut dirapikan:
-     *
-     * - nilainya selalu URUTAN baris (0, 1, 2, ...), karena begitulah server
-     *   membacanya. Nomor internal baris (peserta[idx]) terus bertambah dan
-     *   tidak dipakai ulang, jadi tidak bisa diandalkan sebagai urutan;
-     * - selalu ada tepat satu yang terpilih. Dulu hanya baris bernomor
-     *   internal 0 yang otomatis tercentang - begitu daftar peserta dibuat
-     *   ulang (memilih Referensi SP, atau menghapus baris pertama) tidak ada
-     *   lagi yang terpilih, dan penyimpanan ditolak "Penerima Dana wajib
-     *   diisi" walaupun di mode Perjalanan Dinas pilihannya tersembunyi.
-     */
+    // Pilihan "Penerima Dana" per peserta sudah tidak ada - penerima dananya
+    // ditentukan bagian Tujuan Transfer - jadi yang dirapikan tinggal nomor
+    // tampilan dan tombol hapusnya.
     function renumber() {
         const rows = pesertaList.querySelectorAll('[data-peserta-row]');
-        let adaTerpilih = false;
 
         rows.forEach((row, i) => {
             row.querySelector('[data-peserta-number]').textContent = '#' + (i + 1);
             row.querySelector('[data-peserta-remove]').disabled = rows.length <= 1;
-
-            const radio = row.querySelector('[data-penerima-radio]');
-            radio.value = i;
-            adaTerpilih = adaTerpilih || radio.checked;
         });
-
-        if (! adaTerpilih && rows.length) {
-            rows[0].querySelector('[data-penerima-radio]').checked = true;
-        }
     }
 
     function recalcRow(row) {
@@ -818,6 +832,18 @@
         });
         html += '</div>';
 
+        html += '<div class="grp"><div class="gt">Tujuan Transfer</div>';
+        if (trfKePptk()) {
+            html += liRow('Penerima', 'PPTK sub kegiatan (seluruh nominal)');
+        } else if (TRF.length) {
+            TRF.forEach(p => {
+                html += liRow(escapeHtml(p.nama || '(belum diisi)'), formatRupiah(parseFloat(p.nominal) || 0));
+            });
+        } else {
+            html += liRow('Penerima', 'Belum diisi');
+        }
+        html += '</div>';
+
         document.getElementById('rev-box').innerHTML = html;
     }
 
@@ -829,7 +855,7 @@
         goStep(3);
     });
     document.getElementById('wiz-b3').addEventListener('click', () => goStep(2));
-    // ================= Tujuan Transfer (mode Perjalanan Dinas) =================
+    // ================= Tujuan Transfer (kedua mode) =================
     //
     // Nominal per penerima diketik sendiri, TIDAK diturunkan dari subtotal
     // peserta: pembayaran boleh dikumpulkan ke satu koordinator atau dibagi
@@ -837,38 +863,59 @@
     // Yang dijaga cuma satu hal - jumlahnya harus menghabiskan Total Bruto.
     const trfList = document.getElementById('trf-list');
     const trfSelisih = document.getElementById('trf-selisih');
-    let TRF = @json(old('penerima_transfer', $detail['penerima_transfer'] ?? [])) || [];
+    const trfIsi = document.getElementById('trf-isi');
+    const pptkCentang = document.querySelector('[data-pptk-centang]');
+    let TRF = @json($trfAwal) || [];
     TRF = (Array.isArray(TRF) ? TRF : Object.values(TRF)).map(p => ({
         nama: p.nama || '', rekening: p.rekening || '', nominal: p.nominal ?? '',
     }));
 
-    /** Total bruto = subtotal perjalanan seluruh peserta (angka yang sama dengan Nominal Total NPD). */
+    /**
+     * Subtotal satu peserta menurut mode yang sedang dipilih: kontribusi +
+     * MOOC pada mode Kontribusi; uang harian + akomodasi + uang saku +
+     * transport pada mode Perjalanan Dinas. Rumusnya sama dengan recalcRow().
+     */
+    function trfSubPeserta(row) {
+        const n = (sel) => parseFloat(row.querySelector(sel).value) || 0;
+
+        if (currentMode() === 'kontribusi') {
+            return (n('[data-vol-kontribusi]') * n('[data-tarif-kontribusi]'))
+                + (n('[data-vol-mooc]') * n('[data-tarif-mooc]'));
+        }
+
+        return (n('[data-hari-uh]') * n('[data-tarif-uh]'))
+            + (n('[data-vol-akomodasi]') * n('[data-tarif-akomodasi]'))
+            + (n('[data-hari-saku]') * n('[data-tarif-saku]'))
+            + n('[data-transport]');
+    }
+
+    /** Total bruto = subtotal seluruh peserta (angka yang sama dengan Nominal Total NPD). */
     function trfBruto() {
         let total = 0;
-        pesertaList.querySelectorAll('[data-peserta-row]').forEach(row => {
-            const n = (sel) => parseFloat(row.querySelector(sel).value) || 0;
-            total += (n('[data-hari-uh]') * n('[data-tarif-uh]'))
-                + (n('[data-vol-akomodasi]') * n('[data-tarif-akomodasi]'))
-                + (n('[data-hari-saku]') * n('[data-tarif-saku]'))
-                + n('[data-transport]');
-        });
+        pesertaList.querySelectorAll('[data-peserta-row]').forEach(row => { total += trfSubPeserta(row); });
         return total;
     }
 
     /** Peserta yang sudah diinput, jadi sumber pilihan nama penerima. */
     function trfPeserta() {
-        return Array.from(pesertaList.querySelectorAll('[data-peserta-row]')).map(row => {
-            const n = (sel) => parseFloat(row.querySelector(sel).value) || 0;
-            return {
-                nama: (row.querySelector('[data-name-input]').value || '').trim(),
-                rekening: (row.querySelector('[data-rekening]').value || '').trim(),
-                sub: (n('[data-hari-uh]') * n('[data-tarif-uh]'))
-                    + (n('[data-vol-akomodasi]') * n('[data-tarif-akomodasi]'))
-                    + (n('[data-hari-saku]') * n('[data-tarif-saku]'))
-                    + n('[data-transport]'),
-            };
-        }).filter(p => p.nama !== '');
+        return Array.from(pesertaList.querySelectorAll('[data-peserta-row]')).map(row => ({
+            nama: (row.querySelector('[data-name-input]').value || '').trim(),
+            rekening: (row.querySelector('[data-rekening]').value || '').trim(),
+            sub: trfSubPeserta(row),
+        })).filter(p => p.nama !== '');
     }
+
+    /** "PPTK Sebagai Penerima Transfer" menyala? Daftar penerima lalu tidak dipakai. */
+    function trfKePptk() {
+        return !! (pptkCentang && pptkCentang.checked);
+    }
+
+    function trfTerapkanPptk() {
+        trfIsi.hidden = trfKePptk();
+    }
+
+    if (pptkCentang) pptkCentang.addEventListener('change', trfTerapkanPptk);
+    trfTerapkanPptk();
 
     function trfBarisHtml(p, i) {
         return '<div class="trf-baris" data-trf-baris="' + i + '">'
@@ -914,7 +961,7 @@
         trfRender();
     });
 
-    // Satu baris per peserta, nominalnya diisi subtotal perjalanan peserta itu.
+    // Satu baris per peserta, nominalnya diisi subtotal peserta itu pada mode yang dipilih.
     // Menimpa daftar yang ada supaya tidak menghasilkan penerima ganda.
     document.getElementById('trf-semua').addEventListener('click', () => {
         TRF = trfPeserta().map(p => ({ nama: p.nama, rekening: p.rekening, nominal: p.sub || '' }));

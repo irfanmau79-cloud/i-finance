@@ -15,7 +15,6 @@
     $hariSakuVal = old("peserta.$i.hari_saku", $p['hari_saku'] ?? '');
     $tarifSakuVal = old("peserta.$i.tarif_saku", $p['tarif_saku'] ?? '');
     $transportVal = old("peserta.$i.transport", $p['transport'] ?? '');
-    $penerimaIndexVal = (string) old('penerima_index', $detailAwal['penerima_index'] ?? 0);
 @endphp
 <div class="pen" data-peserta-row>
     <button type="button" class="del" data-peserta-remove title="Hapus peserta">&times;</button>
@@ -46,16 +45,9 @@
             <label class="fl">No. Rekening</label>
             <input type="text" data-rekening name="peserta[{{ $i }}][rekening]" value="{{ $rekeningVal }}">
         </div>
-        {{-- Penerima tunggal hanya berlaku pada mode Kontribusi. Mode
-             Perjalanan Dinas memakai bagian "Tujuan Transfer" tersendiri yang
-             boleh berisi beberapa penerima dengan nominal masing-masing. --}}
-        <div class="fg kd-sec kd-sec-kontribusi">
-            <label class="fl">Penerima Dana</label>
-            <label style="display:flex;align-items:center;gap:6px;margin-top:8px;">
-                <input type="radio" name="penerima_index" value="{{ $i }}" data-penerima-radio @checked($penerimaIndexVal === (string) $i)>
-                <span>Jadikan penerima transfer</span>
-            </label>
-        </div>
+        {{-- Pilihan "Penerima Dana" per peserta sudah dihapus: penerima
+             dananya kini ditentukan bagian "Tujuan Transfer" di bawah daftar
+             peserta, sama untuk mode Kontribusi dan Perjalanan Dinas. --}}
 
         <div class="fg span2 kd-sec kd-sec-kontribusi">
             <div class="form-grid" style="margin-top:0;">

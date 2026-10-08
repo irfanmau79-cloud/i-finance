@@ -2007,14 +2007,15 @@ class NpdController extends Controller
     /**
      * Data Lampiran NPD Kontribusi Diklat.
      *
-     * Mode Kontribusi: SATU baris transfer ke penerima dana terpilih (bukan
-     * per peserta) senilai nominal NPD.
+     * Kedua mode memakai skema yang sama: satu baris per Tujuan Transfer
+     * yang diisi - pembayarannya bisa dibagi ke beberapa orang, atau
+     * dikumpulkan ke satu koordinator. PPN/PPh/biaya lain adalah potongan
+     * TINGKAT DOKUMEN, jadi seluruhnya dibebankan ke baris pertama saja;
+     * kalau disebar ke tiap baris, jumlahnya berlipat sebanyak penerimanya.
      *
-     * Mode Perjalanan Dinas: satu baris per Tujuan Transfer yang diisi -
-     * pembayaran perjalanan bisa dibagi ke beberapa orang, atau dikumpulkan
-     * ke satu koordinator. PPN/PPh/biaya lain adalah potongan TINGKAT
-     * DOKUMEN, jadi seluruhnya dibebankan ke baris pertama saja; kalau
-     * disebar ke tiap baris, jumlahnya berlipat sebanyak penerimanya.
+     * Dua keadaan yang menghasilkan SATU baris senilai nominal NPD:
+     * "PPTK Sebagai Penerima Transfer" (ke PPTK sub kegiatan), dan NPD lama
+     * tanpa daftar Tujuan Transfer (ke peserta pada penerima_index).
      *
      * Port dari blok "3. Lampiran" di buatNPDKontribusiDiklat()
      * gas-lama/CodeKontribusiDiklat.gs.
@@ -2046,6 +2047,13 @@ class NpdController extends Controller
         $keteranganManual = filled($detail['keterangan_lampiran'] ?? null) ? $detail['keterangan_lampiran'] : null;
         $keteranganUntuk = fn (string $nama): string => $keteranganManual
             ?? KeteranganLampiranService::kd($detail, $npd->mode_kd, $nama);
+
+        // "PPTK Sebagai Penerima Transfer": seluruh dana satu baris ke PPTK
+        // sub kegiatan, apa pun yang tersimpan di daftar Tujuan Transfer.
+        if (PptkPenerima::aktif($npd)) {
+            $penerima = PptkPenerima::untukNpd($npd);
+            $daftarPenerima = [];
+        }
 
         $keterangan = $keteranganUntuk((string) ($penerima->nama ?? ''));
 

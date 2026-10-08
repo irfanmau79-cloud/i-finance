@@ -18,6 +18,10 @@ class StoreNpdKontribusiDiklatRequest extends FormRequest
 
     public function rules(): array
     {
+        // Daftar Tujuan Transfer tidak diperiksa (dan tidak ikut tersimpan)
+        // saat seluruh dananya dialihkan ke PPTK.
+        $tanpaDaftar = Rule::excludeIf($this->boolean('pptk_penerima'));
+
         return [
             'mode' => ['required', Rule::in(Npd::MODE_KD_LIST)],
             // Referensi SP - hanya mode Perjalanan Dinas, dan OPSIONAL (boleh
@@ -55,19 +59,24 @@ class StoreNpdKontribusiDiklatRequest extends FormRequest
             'penerima_index' => ['required', 'integer', 'min:0'],
 
             /*
-             * Tujuan Transfer mode Perjalanan Dinas: BOLEH lebih dari satu
+             * Tujuan Transfer - untuk KEDUA mode: BOLEH lebih dari satu
              * penerima, masing-masing dengan nominalnya sendiri - satu
              * koordinator menerima semuanya, atau dibagi ke beberapa orang.
-             * Mode Kontribusi tidak berubah: tetap satu penerima lewat
-             * penerima_index.
+             * Dulu mode Kontribusi memilih satu peserta lewat radio "Penerima
+             * Dana"; radio itu sudah dihapus dan skemanya disamakan.
              *
              * Jumlah seluruh nominalnya wajib sama persis dengan Total Bruto;
              * itu diperiksa di controller karena butuh subtotal peserta.
+             *
+             * Bila "PPTK Sebagai Penerima Transfer" dicentang, seluruh dana
+             * ke PPTK dan daftar ini diabaikan sepenuhnya.
              */
-            'penerima_transfer' => ['exclude_unless:mode,perjalanan', 'required', 'array', 'min:1', 'max:100'],
-            'penerima_transfer.*.nama' => ['exclude_unless:mode,perjalanan', 'required', 'string', 'max:255'],
-            'penerima_transfer.*.rekening' => ['exclude_unless:mode,perjalanan', 'nullable', 'string', 'max:100'],
-            'penerima_transfer.*.nominal' => ['exclude_unless:mode,perjalanan', 'required', 'numeric', 'min:0'],
+            'pptk_penerima' => ['nullable', 'boolean'],
+            'pptk_rekening' => ['nullable', 'string', 'max:100'],
+            'penerima_transfer' => [$tanpaDaftar, 'required', 'array', 'min:1', 'max:100'],
+            'penerima_transfer.*.nama' => [$tanpaDaftar, 'required', 'string', 'max:255'],
+            'penerima_transfer.*.rekening' => [$tanpaDaftar, 'nullable', 'string', 'max:100'],
+            'penerima_transfer.*.nominal' => [$tanpaDaftar, 'required', 'numeric', 'min:0'],
 
             'keterangan_lampiran' => ['nullable', 'string'],
             // Penanda dari formulir: 'otomatis' berarti isian di atas hanya
@@ -114,11 +123,11 @@ class StoreNpdKontribusiDiklatRequest extends FormRequest
      *   tidak dipakai ulang), sedangkan penerima_index dibaca sebagai
      *   URUTAN peserta - lihat pemakaiannya di controller dan dokumen cetak.
      *
-     * - Pada mode Perjalanan Dinas, penerima_index yang kosong dianggap 0.
-     *   Di mode itu penerima dananya ditentukan Tujuan Transfer
-     *   (penerima_transfer); pilihan "Penerima Dana" per peserta tersembunyi,
-     *   jadi tidak boleh menggagalkan penyimpanan. Mode Kontribusi tetap
-     *   wajib memilihnya.
+     * - penerima_index yang kosong dianggap 0, di kedua mode. Radio
+     *   "Penerima Dana" per peserta sudah tidak ada di formulir: penerima
+     *   dananya kini ditentukan Tujuan Transfer (penerima_transfer) atau
+     *   "PPTK Sebagai Penerima Transfer". Nilainya masih diterima supaya
+     *   kiriman lama tidak gagal, tetapi tidak lagi wajib.
      */
     protected function prepareForValidation(): void
     {
@@ -126,7 +135,7 @@ class StoreNpdKontribusiDiklatRequest extends FormRequest
             $this->merge(['peserta' => array_values($this->input('peserta'))]);
         }
 
-        if ($this->input('mode') === 'perjalanan' && blank($this->input('penerima_index'))) {
+        if (blank($this->input('penerima_index'))) {
             $this->merge(['penerima_index' => 0]);
         }
     }
@@ -147,6 +156,8 @@ class StoreNpdKontribusiDiklatRequest extends FormRequest
             'tanggal_selesai' => 'Tanggal Selesai',
             'penerima_index' => 'Penerima Dana',
             'penerima_transfer' => 'Tujuan Transfer',
+            'pptk_penerima' => 'PPTK Sebagai Penerima Transfer',
+            'pptk_rekening' => 'No. Rekening PPTK',
             'penerima_transfer.*.nama' => 'Nama Penerima Transfer',
             'penerima_transfer.*.nominal' => 'Nominal Penerima Transfer',
             'peserta.*.nama' => 'Nama Peserta',

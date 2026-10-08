@@ -73,6 +73,11 @@ class NpdKontribusiDiklatTest extends TestCase
                     'tarif_mooc' => 0,
                 ],
             ],
+            // Kedua mode kini wajib menyebut Tujuan Transfer, dan jumlahnya
+            // harus menghabiskan Total Bruto (3.000.000 + 2.500.000).
+            'penerima_transfer' => [
+                ['nama' => 'Andi Saputra', 'rekening' => '1112223334', 'nominal' => 5_500_000],
+            ],
         ];
     }
 
@@ -493,20 +498,133 @@ class NpdKontribusiDiklatTest extends TestCase
             ->assertSessionHasErrors('penerima_transfer.0.nama');
     }
 
-    public function test_mode_kontribusi_tidak_terpengaruh_tujuan_transfer(): void
+    public function test_mode_kontribusi_memakai_tujuan_transfer_seperti_mode_perjalanan(): void
     {
         $pptk = $this->buatUser('pptk', 'kd-trf-kontribusi');
         $masterAnggaran = $this->buatMasterAnggaran();
         $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
-        // Baris sisa dari mode Perjalanan Dinas ikut terkirim saat pengguna
-        // berpindah mode; mode Kontribusi harus mengabaikannya, bukan gagal.
+        // Dana kontribusi dibagi ke dua rekening; baris kosong sisa formulir dibuang.
         $payload = $this->payloadKontribusi($masterAnggaran);
-        $payload['penerima_transfer'] = [['nama' => '', 'nominal' => 0]];
+        unset($payload['penerima_index']);
+        $payload['penerima_transfer'] = [
+            ['nama' => 'Andi Saputra', 'rekening' => '1112223334', 'nominal' => 3_000_000],
+            ['nama' => 'Lembaga Diklat', 'rekening' => '9998887776', 'nominal' => 2_500_000],
+        ];
 
         $this->actingAs($pptk)->post(route('npd.kd.store'), $payload)->assertSessionHasNoErrors();
 
-        $this->assertNull(Npd::sole()->detail_json['penerima_transfer']);
+        $npd = Npd::with('peserta')->sole();
+        $this->assertSame('kontribusi', $npd->mode_kd);
+        $this->assertSame(['Andi Saputra', 'Lembaga Diklat'], array_column($npd->detail_json['penerima_transfer'], 'nama'));
+        $this->assertFalse($npd->detail_json['pptk_penerima']);
+
+        $metode = new ReflectionMethod(NpdController::class, 'bangunLampiranKontribusiDiklat');
+        $metode->setAccessible(true);
+        $rows = $metode->invoke(app(NpdController::class), $npd)['rows'];
+
+        $this->assertSame(['Andi Saputra', 'Lembaga Diklat'], array_column($rows, 'nama'));
+        $this->assertSame([3_000_000.0, 2_500_000.0], array_column($rows, 'bruto'));
+        $this->assertStringStartsWith('Transfer Pembayaran Belanja Kontribusi Diklat', $rows[1]['keterangan']);
+        $this->assertStringEndsWith(' an. Lembaga Diklat', $rows[1]['keterangan']);
+
+        foreach (['npd.cetak-npd', 'npd.cetak-lampiran', 'npd.cetak-daftar-kd'] as $route) {
+            $this->actingAs($pptk)->get(route($route, $npd))->assertOk();
+        }
+    }
+
+    public function test_mode_kontribusi_wajib_tujuan_transfer_yang_menghabiskan_total_bruto(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-trf-kontribusi-wajib');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payloadKontribusi($masterAnggaran);
+
+        $tanpa = $payload;
+        unset($tanpa['penerima_transfer']);
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $tanpa)->assertSessionHasErrors('penerima_transfer');
+
+        $kurang = $payload;
+        $kurang['penerima_transfer'] = [['nama' => 'Andi Saputra', 'nominal' => 5_000_000]];
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $kurang)->assertSessionHasErrors('penerima_transfer');
+
+        $this->assertSame(0, Npd::count());
+    }
+
+    public function test_pptk_sebagai_penerima_transfer_mengalihkan_seluruh_dana_ke_pptk(): void
+    {
+        $pegawaiPptk = \App\Models\Pegawai::create([
+            'nama' => 'Dra. PPTK Diklat', 'nip' => '197501011995031001', 'jabatan' => 'Kepala Subbagian',
+            'bidang' => 'Sekretariat', 'golongan' => 'IV/a', 'pangkat' => 'Pembina', 'rekening' => '7770001112', 'aktif' => true,
+        ]);
+        $pptk = User::create([
+            'username' => 'kd-pptk-penerima', 'nama' => 'Dra. PPTK Diklat', 'role' => 'pptk',
+            'password' => 'rahasia', 'pegawai_id' => $pegawaiPptk->id,
+        ]);
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $namaPptk = \App\Support\PptkPenerima::nama($masterAnggaran, 2026);
+        $this->assertNotSame('', $namaPptk, 'Pelimpahan uji seharusnya menetapkan PPTK sub kegiatan ini.');
+
+        foreach (['kontribusi' => 5_500_000.0, 'perjalanan' => 5_250_000.0] as $mode => $nominal) {
+            $payload = $mode === 'kontribusi' ? $this->payloadKontribusi($masterAnggaran) : $this->payloadPerjalanan($masterAnggaran);
+            // Daftar penerima yang tersisa di formulir harus diabaikan, walau totalnya tidak cocok.
+            $payload['penerima_transfer'] = [['nama' => 'Andi Saputra', 'nominal' => 1]];
+            $payload['pptk_penerima'] = '1';
+            unset($payload['penerima_index']);
+
+            $this->actingAs($pptk)->post(route('npd.kd.store'), $payload)->assertSessionHasNoErrors();
+
+            $npd = Npd::with('peserta')->where('mode_kd', $mode)->sole();
+            $this->assertTrue($npd->detail_json['pptk_penerima']);
+            $this->assertNull($npd->detail_json['penerima_transfer']);
+
+            $metode = new ReflectionMethod(NpdController::class, 'bangunLampiranKontribusiDiklat');
+            $metode->setAccessible(true);
+            $rows = $metode->invoke(app(NpdController::class), $npd)['rows'];
+
+            $this->assertCount(1, $rows, "Mode {$mode}: PPTK sebagai penerima harus satu baris.");
+            $this->assertSame($namaPptk, $rows[0]['nama']);
+            $this->assertSame($nominal, $rows[0]['bruto']);
+            $this->assertStringEndsWith(' an. '.$namaPptk, $rows[0]['keterangan']);
+            $this->assertStringNotContainsString('Andi Saputra', $rows[0]['keterangan']);
+
+            $this->actingAs($pptk)->get(route('npd.cetak-lampiran', $npd))->assertOk();
+        }
+    }
+
+    public function test_pptk_sebagai_penerima_ditolak_bila_pptk_belum_punya_rekening(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-pptk-tanpa-rekening');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payloadKontribusi($masterAnggaran);
+        $payload['pptk_penerima'] = '1';
+
+        $namaPptk = \App\Support\PptkPenerima::nama($masterAnggaran, 2026);
+        $punyaRekening = \App\Support\PptkPenerima::rekening($namaPptk) !== '';
+
+        if (! $punyaRekening) {
+            $this->actingAs($pptk)->post(route('npd.kd.store'), $payload)->assertSessionHasErrors('pptk_rekening');
+            $this->assertSame(0, Npd::count());
+        }
+
+        // Rekening diisi manual di formulir -> diterima dan dipakai di Lampiran.
+        $payload['pptk_rekening'] = '5550009998';
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $payload)->assertSessionHasNoErrors();
+
+        $npd = Npd::with('peserta')->sole();
+        $metode = new ReflectionMethod(NpdController::class, 'bangunLampiranKontribusiDiklat');
+        $metode->setAccessible(true);
+        $baris = $metode->invoke(app(NpdController::class), $npd)['rows'][0];
+
+        $this->assertSame($namaPptk, $baris['nama']);
+        if (! $punyaRekening) {
+            $this->assertSame('5550009998', $baris['rekening']);
+        }
     }
 
     public function test_lampiran_multi_penerima_membebankan_pajak_di_baris_pertama(): void
@@ -683,31 +801,62 @@ class NpdKontribusiDiklatTest extends TestCase
         $this->assertSame('Rina Marlina', $npd->peserta->values()->get($npd->detail_json['penerima_index'])->nama);
     }
 
-    public function test_mode_kontribusi_tetap_wajib_memilih_penerima_dana(): void
+    public function test_penerima_dana_per_peserta_sudah_dihapus_dari_formulir(): void
     {
-        $pptk = $this->buatUser('pptk', 'kd-kontribusi-wajib');
+        $pptk = $this->buatUser('pptk', 'kd-form-penerima');
         $masterAnggaran = $this->buatMasterAnggaran();
         $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
-        $payload = $this->payloadKontribusi($masterAnggaran);
-        unset($payload['penerima_index']);
-
-        $this->actingAs($pptk)->post(route('npd.kd.store'), $payload)
-            ->assertSessionHasErrors(['penerima_index']);
-        $this->assertSame(0, Npd::count());
-    }
-
-    public function test_formulir_menjaga_pilihan_penerima_dana_saat_daftar_peserta_dibuat_ulang(): void
-    {
-        $pptk = $this->buatUser('pptk', 'kd-form-penerima');
-        $this->limpahkanSubKegiatan($pptk, $this->buatMasterAnggaran());
-
         $isi = $this->actingAs($pptk)->get(route('npd.kd.create'))->assertOk()->getContent();
 
-        // Skrip formulir: nilai pilihan = urutan baris, dan baris pertama
-        // dipilih bila belum ada yang terpilih.
-        $this->assertStringContainsString('radio.value = i;', $isi);
-        $this->assertStringContainsString("rows[0].querySelector('[data-penerima-radio]').checked = true;", $isi);
+        // Radio "Penerima Dana / Jadikan penerima transfer" tidak ada lagi,
+        // di baris peserta bawaan maupun di skrip pembuat baris baru.
+        $this->assertStringNotContainsString('name="penerima_index"', $isi);
+        $this->assertStringNotContainsString('data-penerima-radio', $isi);
+        $this->assertStringNotContainsString('Jadikan penerima transfer', $isi);
+
+        // Gantinya: bagian Tujuan Transfer untuk kedua mode, dengan pilihan PPTK.
+        $this->assertStringContainsString('<h3 style="margin-top:22px;">Tujuan Transfer</h3>', $isi);
+        $this->assertStringContainsString('id="trf-semua">Transfer ke Setiap Peserta</button>', $isi);
+        $this->assertStringContainsString('name="pptk_penerima"', $isi);
+        $this->assertStringContainsString('PPTK Sebagai Penerima Transfer', $isi);
+        // Subtotal peserta untuk Tujuan Transfer mengikuti mode yang dipilih.
+        $this->assertStringContainsString("if (currentMode() === 'kontribusi') {", $isi);
+
+        // Tanpa penerima_index sama sekali, mode Kontribusi tetap tersimpan.
+        $payload = $this->payloadKontribusi($masterAnggaran);
+        unset($payload['penerima_index']);
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $payload)->assertSessionHasNoErrors();
+        $this->assertSame(0, Npd::sole()->detail_json['penerima_index']);
+    }
+
+    public function test_npd_kontribusi_lama_tanpa_tujuan_transfer_tetap_tercetak_dan_terbuka_saat_disunting(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-kontribusi-lama');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $this->payloadKontribusi($masterAnggaran));
+        $npd = Npd::with('peserta')->sole();
+
+        // Bentuk yang tersimpan skema lama: tanpa daftar, penerimanya peserta kedua.
+        $detail = $npd->detail_json;
+        unset($detail['pptk_penerima'], $detail['pptk_rekening']);
+        $detail['penerima_transfer'] = null;
+        $detail['penerima_index'] = 1;
+        $npd->forceFill(['detail_json' => $detail])->save();
+
+        $metode = new ReflectionMethod(NpdController::class, 'bangunLampiranKontribusiDiklat');
+        $metode->setAccessible(true);
+        $rows = $metode->invoke(app(NpdController::class), $npd->fresh('peserta'))['rows'];
+
+        $this->assertCount(1, $rows);
+        $this->assertSame('Rina Marlina', $rows[0]['nama']);
+        $this->assertSame(5_500_000.0, $rows[0]['bruto']);
+
+        // Saat disunting, penerima lamanya sudah menjadi satu baris Tujuan Transfer.
+        $isi = $this->actingAs($pptk)->get(route('npd.kd.edit', $npd))->assertOk()->getContent();
+        $this->assertStringContainsString('let TRF = [{"nama":"Rina Marlina","rekening":"5556667778","nominal":5500000}]', $isi);
     }
 
     // ---------------- Kolom GOL pada Daftar Pembayaran Perjalanan Dinas ----------------

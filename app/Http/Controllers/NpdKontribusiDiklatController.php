@@ -13,6 +13,7 @@ use App\Models\SuratPerintah;
 use App\Support\KeteranganLampiranIsian;
 use App\Models\Pegawai;
 use App\Support\AnggaranNpd;
+use App\Support\PptkPenerima;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -58,11 +59,11 @@ class NpdKontribusiDiklatController extends Controller
             return back()->withInput()->withErrors(['peserta' => "{$label} harus lebih dari 0."]);
         }
 
-        if ($galat = $this->periksaPenerimaTransfer($data, $mode, $nominal)) {
+        if ($galat = $this->periksaPenerimaTransfer($data, $nominal)) {
             return back()->withInput()->withErrors($galat);
         }
 
-        $detailJson = $this->buatDetailJson($data, $mode);
+        $detailJson = $this->buatDetailJson($data);
 
         $npd = DB::transaction(function () use ($data, $masterAnggaran, $keu, $mode, $suratPerintahId, $nominal, $peserta, $detailJson, $request) {
             $masterAnggaran = MasterAnggaran::query()->lockForUpdate()->findOrFail($masterAnggaran->id);
@@ -167,11 +168,11 @@ class NpdKontribusiDiklatController extends Controller
             return back()->withInput()->withErrors(['peserta' => "{$label} harus lebih dari 0."]);
         }
 
-        if ($galat = $this->periksaPenerimaTransfer($data, $mode, $nominal)) {
+        if ($galat = $this->periksaPenerimaTransfer($data, $nominal)) {
             return back()->withInput()->withErrors($galat);
         }
 
-        $detailJson = $this->buatDetailJson($data, $mode);
+        $detailJson = $this->buatDetailJson($data);
 
         DB::transaction(function () use ($request, $npd, $data, $mode, $suratPerintahId, $peserta, $nominal, $detailJson) {
             $npd = Npd::query()->lockForUpdate()->findOrFail($npd->id);
@@ -261,26 +262,44 @@ class NpdKontribusiDiklatController extends Controller
     }
 
     /**
-     * Tujuan Transfer mode Perjalanan Dinas harus menghabiskan Total Bruto.
+     * Ke mana dananya ditransfer - berlaku untuk KEDUA mode.
      *
-     * Ini pertahanan yang sama dengan formulir, diulang di server. Selain
-     * mencegah dana bocor, aturan ini otomatis menutup baris penerima
-     * bernominal 0 - baris seperti itu membuat totalnya tidak lagi cocok, dan
-     * dulu ikut tercetak di Lampiran sebagai penerima yang tidak menerima apa
-     * pun. Toleransi Rp1 untuk pembulatan.
+     * Dulu hanya mode Perjalanan Dinas yang punya daftar Tujuan Transfer;
+     * mode Kontribusi memilih satu peserta lewat radio "Penerima Dana" di
+     * kartu peserta. Kini keduanya memakai skema yang sama, dengan dua
+     * pilihan:
+     *
+     * - "PPTK Sebagai Penerima Transfer": seluruh dana ke PPTK sub kegiatan.
+     *   Namanya diresolusi di server (App\Support\PptkPenerima), jadi yang
+     *   diperiksa hanya PPTK-nya memang sudah diset dan punya rekening.
+     * - Daftar Tujuan Transfer: jumlahnya harus menghabiskan Total Bruto.
+     *   Selain mencegah dana bocor, aturan ini otomatis menutup baris
+     *   penerima bernominal 0, yang dulu ikut tercetak di Lampiran sebagai
+     *   penerima yang tidak menerima apa pun. Toleransi Rp1 untuk pembulatan.
      *
      * @return array<string, string>|null galat siap dikirim ke withErrors()
      */
-    private function periksaPenerimaTransfer(array $data, string $mode, float $nominal): ?array
+    private function periksaPenerimaTransfer(array $data, float $nominal): ?array
     {
-        if ($mode !== 'perjalanan') {
+        if ($data['pptk_penerima'] ?? false) {
+            $masterAnggaran = MasterAnggaran::find($data['master_anggaran_id']);
+            $nama = $masterAnggaran ? PptkPenerima::nama($masterAnggaran, (int) $data['tahun']) : '';
+
+            if ($nama === '') {
+                return ['pptk_penerima' => 'PPTK untuk sub kegiatan ini belum diset di Pelimpahan maupun Data Tambahan, jadi tidak bisa dijadikan penerima.'];
+            }
+
+            if (PptkPenerima::rekening($nama, $data['pptk_rekening'] ?? null) === '') {
+                return ['pptk_rekening' => 'No. rekening PPTK belum diisi.'];
+            }
+
             return null;
         }
 
         $penerima = $this->siapkanPenerimaTransfer($data);
 
         if ($penerima === []) {
-            return ['penerima_transfer' => 'Isi minimal satu Tujuan Transfer untuk mode Perjalanan Dinas.'];
+            return ['penerima_transfer' => 'Isi minimal satu Tujuan Transfer, atau centang PPTK Sebagai Penerima Transfer.'];
         }
 
         $jumlah = round(array_sum(array_column($penerima, 'nominal')), 2);
@@ -312,16 +331,23 @@ class NpdKontribusiDiklatController extends Controller
         ));
     }
 
-    private function buatDetailJson(array $data, string $mode): array
+    private function buatDetailJson(array $data): array
     {
+        $pptk = (bool) ($data['pptk_penerima'] ?? false);
+
         return [
             'nama_pelatihan' => $data['nama_pelatihan'],
             'tanggal_mulai' => $data['tanggal_mulai'],
             'tanggal_selesai' => $data['tanggal_selesai'],
+            // Warisan skema lama (radio "Penerima Dana" per peserta). Tetap
+            // disimpan - selalu 0 dari formulir sekarang - karena NPD lama
+            // dan beberapa ringkasan masih membacanya.
             'penerima_index' => (int) $data['penerima_index'],
-            // Hanya mode Perjalanan Dinas yang punya daftar penerima; mode
-            // Kontribusi tetap memakai penerima_index seperti semula.
-            'penerima_transfer' => $mode === 'perjalanan' ? $this->siapkanPenerimaTransfer($data) : null,
+            // Daftar Tujuan Transfer berlaku untuk kedua mode; kosong (null)
+            // bila seluruh dananya dialihkan ke PPTK.
+            'penerima_transfer' => $pptk ? null : $this->siapkanPenerimaTransfer($data),
+            'pptk_penerima' => $pptk,
+            'pptk_rekening' => $pptk ? ($data['pptk_rekening'] ?? null) : null,
             'keterangan_lampiran' => KeteranganLampiranIsian::dari($data),
             'ppn' => (float) ($data['ppn'] ?? 0),
             'pph_jenis' => $data['pph_jenis'] ?? null,

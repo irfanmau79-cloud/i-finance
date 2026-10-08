@@ -6,13 +6,15 @@
      * $rekening : rekening manual tersimpan (dipakai bila PPTK belum punya
      *             rekening di Data Pegawai)
      * $catatan  : penjelasan khas modulnya
+     * $label    : tulisan di samping kotaknya (opsional)
      */
+    $label = $label ?? 'PPTK Sebagai Penerima';
 @endphp
 <div class="fg span2" data-pptk-wrap style="margin-top:12px;">
     <label class="komp-chip" style="display:inline-flex;">
         <input type="checkbox" name="pptk_penerima" value="1" data-pptk-centang @checked($aktif)>
         <span class="komp-box"><svg viewBox="0 0 16 16" aria-hidden="true"><polyline points="3,8.5 6.5,12 13,4.5"/></svg></span>
-        <span class="komp-txt">PPTK Sebagai Penerima</span>
+        <span class="komp-txt">{{ $label }}</span>
     </label>
     <div class="sub" style="margin-top:4px;">{{ $catatan }}</div>
 
