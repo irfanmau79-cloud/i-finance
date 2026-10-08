@@ -1871,7 +1871,9 @@ class NpdController extends Controller
             $body .= '<tr class="drow1">'
                 .'<td class="center">'.$no.'</td>'
                 .'<td>'.e($p->nama).'</td>'
-                .'<td class="center">'.e($p->pangkat).'</td>'
+                // Kolom Gol.: golongan saja, sama dengan Daftar Pembayaran
+                // Perjalanan Dinas - lihat NpdPeserta::golongan().
+                .'<td class="center">'.e($p->golongan()).'</td>'
                 .'<td class="center">'.($p->volume_kontribusi ?: '').'</td>'
                 .$this->selRp((float) $p->tarif_kontribusi)
                 .$this->selRp($jmlKontribusi)

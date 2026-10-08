@@ -283,12 +283,26 @@
         return [gol, pangkat].map(v => String(v || '').trim()).filter(Boolean).join(' / ');
     }
 
+    /*
+     * Kebalikan gabungGolPangkat(). Golongan PNS sendiri memuat garis miring
+     * ("III/a"), jadi isian TIDAK boleh dipecah pada "/" pertama - dulu
+     * begitu, dan "III/a / Penata Muda" tersimpan sebagai golongan "III"
+     * dengan pangkat "a / Penata Muda". Urutannya:
+     *   1. golongan di depan dikenali polanya: "III/a" (PNS) atau angka
+     *      Romawi saja seperti "VII" (PPPK); sisanya pangkat;
+     *   2. selain itu dipecah pada pemisah " / " buatan gabungGolPangkat();
+     *   3. tanpa pemisah, seluruhnya dianggap golongan.
+     */
     function pecahGolPangkat(nilai) {
         const s = String(nilai || '').trim();
         if (!s) return { golongan: '', pangkat: '' };
-        const pos = s.indexOf('/');
+
+        const cocok = s.match(/^((?:IV|III|II|I)\s*\/\s*[a-e]|(?:XVII|XVI|XV|XIV|XIII|XII|XI|X|IX|VIII|VII|VI|V|IV|III|II|I))(?=$|[\s\/,\-])\s*[\/,\-]?\s*(.*)$/i);
+        if (cocok) return { golongan: cocok[1].replace(/\s+/g, ''), pangkat: cocok[2].trim() };
+
+        const pos = s.indexOf(' / ');
         if (pos < 0) return { golongan: s, pangkat: '' };
-        return { golongan: s.slice(0, pos).trim(), pangkat: s.slice(pos + 1).trim() };
+        return { golongan: s.slice(0, pos).trim(), pangkat: s.slice(pos + 3).trim() };
     }
 
     function setManual(row, manual) {

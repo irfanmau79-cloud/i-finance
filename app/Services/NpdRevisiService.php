@@ -109,7 +109,8 @@ class NpdRevisiService
         ]],
         'peserta' => ['Peserta', [
             'nama' => ['Nama', 'teks'],
-            'pangkat' => ['Pangkat', 'teks'],
+            // Isian "Golongan" di formulir; nama kolomnya warisan lama.
+            'pangkat' => ['Golongan', 'teks'],
             'nip' => ['NIP', 'teks'],
             'rekening' => ['Rekening', 'teks'],
             'volume_kontribusi' => ['Volume Kontribusi', 'angka'],

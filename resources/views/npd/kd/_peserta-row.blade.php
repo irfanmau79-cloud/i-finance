@@ -33,7 +33,9 @@
             <input type="hidden" data-pegawai-id name="peserta[{{ $i }}][pegawai_id]" value="{{ $pegawaiIdVal }}">
         </div>
         <div class="fg">
-            <label class="fl">Pangkat/Golongan</label>
+            {{-- Golongan saja ("III/a"), ditarik dari Data Pegawai. Nama
+                 isiannya tetap `pangkat` - nama kolom warisan lama. --}}
+            <label class="fl">Golongan</label>
             <input type="text" data-pangkat name="peserta[{{ $i }}][pangkat]" value="{{ $pangkatVal }}">
         </div>
         <div class="fg">

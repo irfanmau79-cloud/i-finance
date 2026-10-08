@@ -58,12 +58,13 @@ class NpdPeserta extends Model
     }
 
     /**
-     * Golongan SAJA untuk kolom GOL pada Daftar Pembayaran Perjalanan Dinas
+     * Golongan SAJA untuk kolom Gol. pada kedua Daftar Pembayaran Kontribusi
      * Diklat - "III/a", "IV/b", "VII" - tanpa nama pangkatnya.
      *
-     * Isian peserta hanya punya satu kolom "Pangkat/Golongan", jadi isinya
-     * bisa "Penata Muda (III/a)", "Penata Muda Tk. I, III/b", "III/a", atau
-     * "VII" (PPPK). Golongannya dipungut dari teks itu:
+     * Formulir kini mengisi kolom `pangkat` dengan golongan dari Data Pegawai,
+     * tetapi NPD lama masih memuat isian "Pangkat/Golongan" bebas: bisa
+     * "Penata Muda (III/a)", "Penata Muda Tk. I, III/b", "VII" (PPPK), bahkan
+     * nama jabatan. Golongannya dipungut dari teks itu:
      *
      *   1. golongan PNS di mana pun letaknya: I-IV diikuti "/" dan huruf a-e;
      *   2. golongan PPPK (angka Romawi tanpa huruf) bila berdiri sendiri atau
@@ -84,6 +85,13 @@ class NpdPeserta extends Model
 
     public static function golonganDariTeks(string $teks): ?string
     {
+        // Bentuk rusak dari Input SP lama: isian "III/a / Penata Muda" dulu
+        // dipecah pada garis miring pertama, lalu tertarik ke sini sebagai
+        // "a / Penata Muda (III)". Golongannya masih bisa dirangkai kembali.
+        if (preg_match('/^([a-e])\s*\/.*\(\s*(IV|III|II|I)\s*\)$/i', $teks, $cocok)) {
+            return strtoupper($cocok[2]).'/'.strtolower($cocok[1]);
+        }
+
         if (preg_match('/\b(IV|III|II|I)\s*\/\s*([a-e])\b/i', $teks, $cocok)) {
             return strtoupper($cocok[1]).'/'.strtolower($cocok[2]);
         }

@@ -262,7 +262,7 @@ class NpdKontribusiDiklatTest extends TestCase
         $this->assertStringNotContainsString($reimburse->nomor_sp, $isi);
 
         // Anggota SP disediakan untuk disalin menjadi peserta.
-        $this->assertStringContainsString('"nama":"Rina Marlina","pangkat":"Penata (III\/c)","nip":"198602022011012002","rekening":"5556667778"', $isi);
+        $this->assertStringContainsString('"nama":"Rina Marlina","pangkat":"III\/c","nip":"198602022011012002","rekening":"5556667778"', $isi);
     }
 
     public function test_referensi_sp_yang_tidak_layak_jadi_sumber_npd_ditolak(): void
@@ -725,6 +725,9 @@ class NpdKontribusiDiklatTest extends TestCase
             'VII' => 'VII',
             'ix' => 'IX',
             'Ahli Pertama (IX)' => 'IX',
+            // Bentuk rusak dari Input SP lama (dipecah di garis miring pertama).
+            'a / Penata Muda (III)' => 'III/a',
+            'c / Pembina Utama Muda (IV)' => 'IV/c',
             // "Tk. I" adalah tingkat pangkat, BUKAN golongan I.
             'Penata Muda Tk. I' => null,
             'Penata Muda' => null,
@@ -774,5 +777,104 @@ class NpdKontribusiDiklatTest extends TestCase
         $this->assertStringNotContainsString('Penata Tk. I', $html);
 
         $this->actingAs($pptk)->get(route('npd.cetak-daftar-kd', $npd))->assertOk();
+    }
+
+    // ---------------- Isian "Golongan" di Daftar Peserta ----------------
+
+    /**
+     * Isian peserta dulu berjudul "Pangkat/Golongan" dan diisi JABATAN saat
+     * nama pegawai dipilih. Kini berjudul "Golongan" dan diisi golongan dari
+     * Data Pegawai - untuk kedua mode.
+     */
+    public function test_isian_peserta_berjudul_golongan_dan_ditarik_dari_data_pegawai(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-isian-golongan');
+        $this->limpahkanSubKegiatan($pptk, $this->buatMasterAnggaran());
+
+        \App\Models\Pegawai::create([
+            'nama' => 'AGUS SURYANA', 'nip' => '199001012015011001', 'jabatan' => 'Auditor Ahli Pertama',
+            'bidang' => 'Sekretariat', 'golongan' => 'III/a', 'pangkat' => 'Penata Muda', 'rekening' => '123', 'aktif' => true,
+        ]);
+
+        $isi = $this->actingAs($pptk)->get(route('npd.kd.create'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('<label class="fl">Golongan</label>', $isi);
+        $this->assertStringNotContainsString('Pangkat/Golongan', $isi);
+
+        // Yang disediakan untuk ditarik adalah golongannya - bukan jabatan, bukan pangkat.
+        $this->assertStringContainsString('"nama":"AGUS SURYANA"', $isi);
+        $this->assertStringContainsString('"golongan":"III\/a"', $isi);
+        $this->assertStringNotContainsString('"pangkat":"Auditor Ahli Pertama"', $isi);
+        $this->assertStringNotContainsString('Penata Muda', $isi);
+        $this->assertStringContainsString("pangkatInput.value = n.golongan || '';", $isi);
+    }
+
+    public function test_referensi_sp_menarik_golongan_dari_data_pegawai_bukan_snapshot_yang_rusak(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-sp-golongan');
+        $this->limpahkanSubKegiatan($pptk, $this->buatMasterAnggaran());
+
+        $pegawai = \App\Models\Pegawai::create([
+            'nama' => 'AGUS SURYANA', 'nip' => '199001012015011001', 'jabatan' => 'Auditor',
+            'bidang' => 'Sekretariat', 'golongan' => 'III/a', 'pangkat' => 'Penata Muda', 'aktif' => true,
+        ]);
+
+        // Snapshot anggota SP yang tersimpan rusak oleh formulir lama.
+        $sp = $this->buatSp();
+        $sp->anggota()->delete();
+        $sp->anggota()->create([
+            'pegawai_id' => $pegawai->id, 'nama' => 'AGUS SURYANA', 'nip' => '199001012015011001',
+            'golongan' => 'III', 'pangkat' => 'a / Penata Muda', 'jabatan' => 'Auditor', 'rekening' => '123', 'manual' => false, 'urutan' => 1,
+        ]);
+
+        $isi = $this->actingAs($pptk)->get(route('npd.kd.create'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('"nama":"AGUS SURYANA","pangkat":"III\/a","nip":"199001012015011001"', $isi);
+        $this->assertStringNotContainsString('a \/ Penata Muda', $isi);
+    }
+
+    public function test_golongan_kosong_dilengkapi_dari_data_pegawai_dan_tercetak_di_kedua_daftar_pembayaran(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-golongan-cetak');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $pegawai = \App\Models\Pegawai::create([
+            'nama' => 'Andi Saputra', 'nip' => '198501012010011001', 'jabatan' => 'Auditor Ahli Muda',
+            'bidang' => 'Sekretariat', 'golongan' => 'III/c', 'pangkat' => 'Penata', 'rekening' => '1112223334', 'aktif' => true,
+        ]);
+
+        $html = fn (Npd $npd) => (new ReflectionMethod(NpdController::class, 'htmlDaftarKontribusiDiklat'))
+            ->invoke(app(NpdController::class), $npd);
+
+        // Mode Kontribusi: isian Golongan dikosongkan, pegawainya dipilih dari master.
+        $kontribusi = $this->payloadKontribusi($masterAnggaran);
+        $kontribusi['peserta'][0] = array_replace($kontribusi['peserta'][0], ['pegawai_id' => $pegawai->id, 'pangkat' => '']);
+        // Peserta kedua: NPD lama yang isiannya masih jabatan/pangkat campur.
+        $kontribusi['peserta'][1]['pangkat'] = 'Penata (III/c)';
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $kontribusi)->assertSessionHasNoErrors();
+
+        $npd = Npd::with('peserta')->where('mode_kd', 'kontribusi')->sole();
+        $this->assertSame('III/c', $npd->peserta[0]->pangkat, 'Golongan kosong seharusnya dilengkapi dari Data Pegawai, bukan pangkatnya.');
+
+        $daftar = $html($npd);
+        $this->assertStringContainsString('<td>Andi Saputra</td><td class="center">III/c</td>', $daftar);
+        $this->assertStringContainsString('<td>Rina Marlina</td><td class="center">III/c</td>', $daftar);
+        $this->assertStringNotContainsString('Penata', $daftar);
+
+        // Mode Perjalanan Dinas: sama.
+        $perjalanan = $this->payloadPerjalanan($masterAnggaran);
+        $perjalanan['peserta'][0] = array_replace($perjalanan['peserta'][0], ['pegawai_id' => $pegawai->id, 'pangkat' => '']);
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $perjalanan)->assertSessionHasNoErrors();
+
+        $npdPd = Npd::with('peserta')->where('mode_kd', 'perjalanan')->sole();
+        $this->assertSame('III/c', $npdPd->peserta[0]->pangkat);
+        $this->assertStringContainsString('<td>Andi Saputra</td><td class="center">III/c</td>', $html($npdPd));
+
+        // Halaman detail menyebut kolomnya "Golongan".
+        $this->actingAs($pptk)->get(route('npd.show', $npdPd))
+            ->assertOk()
+            ->assertSee('<th>Golongan</th>', false)
+            ->assertDontSee('<th>Pangkat</th>', false);
     }
 }

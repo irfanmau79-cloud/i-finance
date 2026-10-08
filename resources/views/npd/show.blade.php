@@ -304,7 +304,7 @@
                     <thead>
                         <tr>
                             <th>Nama</th>
-                            <th>Pangkat</th>
+                            <th>Golongan</th>
                             <th>Hari UH</th>
                             <th class="num">Jumlah Harian</th>
                             <th class="num">Akomodasi</th>
@@ -333,7 +333,7 @@
                     <thead>
                         <tr>
                             <th>Nama</th>
-                            <th>Pangkat</th>
+                            <th>Golongan</th>
                             <th>Volume Kontribusi</th>
                             <th class="num">Jumlah Kontribusi</th>
                             <th>Volume MOOC</th>

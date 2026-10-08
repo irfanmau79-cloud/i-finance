@@ -246,4 +246,53 @@ class SuratPerintahEditTest extends TestCase
         $this->assertNotNull($reimburse->fresh());
         $this->assertNull($reimburse->fresh()->sp_induk_id);
     }
+
+    // ---------------- Golongan / Pangkat anggota ----------------
+
+    /**
+     * Isian gabungan "III/a / Penata Muda" dulu dipecah pada garis miring
+     * PERTAMA, sehingga tersimpan golongan "III" dan pangkat "a / Penata
+     * Muda". Skripnya kini mengenali golongan di depan lebih dulu.
+     */
+    public function test_formulir_tidak_lagi_memecah_golongan_pada_garis_miring_pertama(): void
+    {
+        $pptk = $this->user('pptk');
+
+        $isi = $this->actingAs($pptk)->get(route('surat-perintah.create'))->assertOk()->getContent();
+
+        $this->assertStringNotContainsString("const pos = s.indexOf('/');", $isi);
+        $this->assertStringContainsString("const pos = s.indexOf(' / ');", $isi);
+        $this->assertStringContainsString('(?:IV|III|II|I)\s*\/\s*[a-e]', $isi);
+    }
+
+    public function test_migrasi_merapikan_golongan_pangkat_anggota_yang_tersimpan_terpecah(): void
+    {
+        Storage::fake('local');
+        $pptk = $this->user('pptk');
+        $sp = $this->buatSp($pptk);
+        $sp->anggota()->delete();
+
+        $buat = fn (int $urutan, ?string $golongan, ?string $pangkat) => $sp->anggota()->create([
+            'nama' => 'Anggota '.$urutan, 'golongan' => $golongan, 'pangkat' => $pangkat, 'manual' => true, 'urutan' => $urutan,
+        ]);
+
+        $rusak = $buat(1, 'III', 'a / Penata Muda');
+        $rusakDua = $buat(2, 'IV', 'c / Pembina Utama Muda');
+        $benar = $buat(3, 'III/b', 'Penata Muda Tk. I');
+        $pppk = $buat(4, 'IX', 'Ahli Pertama');
+        $tanpaPangkat = $buat(5, 'III', null);
+        $lain = $buat(6, 'III', 'Penata Muda');
+
+        (require database_path('migrations/2026_10_08_120000_betulkan_golongan_pangkat_anggota_surat_perintah.php'))->up();
+
+        $ambil = fn ($baris) => $baris->fresh()->only(['golongan', 'pangkat']);
+
+        $this->assertSame(['golongan' => 'III/a', 'pangkat' => 'Penata Muda'], $ambil($rusak));
+        $this->assertSame(['golongan' => 'IV/c', 'pangkat' => 'Pembina Utama Muda'], $ambil($rusakDua));
+        // Yang tidak berpola rusak dibiarkan.
+        $this->assertSame(['golongan' => 'III/b', 'pangkat' => 'Penata Muda Tk. I'], $ambil($benar));
+        $this->assertSame(['golongan' => 'IX', 'pangkat' => 'Ahli Pertama'], $ambil($pppk));
+        $this->assertSame(['golongan' => 'III', 'pangkat' => null], $ambil($tanpaPangkat));
+        $this->assertSame(['golongan' => 'III', 'pangkat' => 'Penata Muda'], $ambil($lain));
+    }
 }

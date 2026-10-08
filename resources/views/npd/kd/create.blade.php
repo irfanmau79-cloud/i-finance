@@ -77,7 +77,7 @@
                 @error('surat_perintah_id')<div class="err-box" style="display:block;margin-top:6px;">{{ $message }}</div>@enderror
                 <div class="sub" style="margin-top:4px;">
                     Pilihannya Surat Perintah dari menu Input SP yang belum dipakai NPD lain. Memilih referensi akan menyalin
-                    nama/pangkat/NIP/rekening anggota SP ke daftar peserta di bawah — bisa diedit.
+                    nama/golongan/NIP/rekening anggota SP ke daftar peserta di bawah — bisa diedit.
                 </div>
             </div>
 
@@ -293,11 +293,15 @@
         'keu' => $m->tentukanKeu(),
     ]);
 
+    $golonganPegawai = $pegawai->pluck('golongan', 'id')->all();
+
     $namaJs = $pegawai->map(fn ($p) => [
         'id' => $p->id,
         'nama' => $p->nama,
         'sub' => trim($p->jabatan.' — '.$p->bidang, ' —'),
-        'pangkat' => $p->jabatan,
+        // Isian "Golongan" peserta: golongan dari Data Pegawai ("III/a").
+        // Dulu yang ditarik ke sini justru JABATAN.
+        'golongan' => (string) $p->golongan,
         'nip' => $p->nip,
         'rekening' => $p->rekening,
     ]);
@@ -310,10 +314,10 @@
         'peserta' => $sp->anggota->map(fn ($a) => [
             'pegawai_id' => $a->pegawai_id,
             'nama' => (string) $a->nama,
-            // Isian peserta "Pangkat/Golongan" satu kolom, mis. "Penata (III/c)".
-            'pangkat' => filled($a->pangkat) && filled($a->golongan)
-                ? $a->pangkat.' ('.$a->golongan.')'
-                : (string) ($a->pangkat ?: $a->golongan),
+            // Isian "Golongan" peserta: golongan SAJA. Diambil dari Data
+            // Pegawai bila anggotanya tertaut ke master; selain itu dari
+            // snapshot anggota SP.
+            'pangkat' => (string) (($golonganPegawai[$a->pegawai_id] ?? null) ?: $a->golongan),
             'nip' => (string) $a->nip,
             'rekening' => (string) $a->rekening,
         ])->all(),
@@ -551,7 +555,7 @@
             + '</div>'
             + '<input type="hidden" data-pegawai-id name="peserta[' + idx + '][pegawai_id]" value="">'
             + '</div>'
-            + '<div class="fg"><label class="fl">Pangkat/Golongan</label><input type="text" data-pangkat name="peserta[' + idx + '][pangkat]" value=""></div>'
+            + '<div class="fg"><label class="fl">Golongan</label><input type="text" data-pangkat name="peserta[' + idx + '][pangkat]" value=""></div>'
             + '<div class="fg"><label class="fl">NIP</label><input type="text" data-nip name="peserta[' + idx + '][nip]" value=""></div>'
             + '<div class="fg"><label class="fl">No. Rekening</label><input type="text" data-rekening name="peserta[' + idx + '][rekening]" value=""></div>'
             + '<div class="fg kd-sec kd-sec-kontribusi"><label class="fl">Penerima Dana</label><label style="display:flex;align-items:center;gap:6px;margin-top:8px;"><input type="radio" name="penerima_index" value="' + idx + '" data-penerima-radio' + (idx === 0 ? ' checked' : '') + '><span>Jadikan penerima transfer</span></label></div>'
@@ -708,7 +712,8 @@
                     el.addEventListener('click', () => {
                         nameInput.value = n.nama;
                         pegawaiIdField.value = n.id;
-                        pangkatInput.value = n.pangkat || pangkatInput.value;
+                        // Golongan mengikuti pegawai yang dipilih; isi lama tidak dipertahankan.
+                        pangkatInput.value = n.golongan || '';
                         nipInput.value = n.nip || '';
                         rekeningInput.value = n.rekening || '';
                         nameDrop.classList.remove('show');

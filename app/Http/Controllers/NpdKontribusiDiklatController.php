@@ -240,7 +240,7 @@ class NpdKontribusiDiklatController extends Controller
     private function form(?Npd $npd = null, ?array $pesertaAwal = null, array $detailAwal = [])
     {
         $masterAnggaran = AnggaranNpd::daftar(auth()->user(), $npd);
-        $pegawai = Pegawai::where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'jabatan', 'bidang', 'nip', 'rekening']);
+        $pegawai = Pegawai::where('aktif', true)->orderBy('nama')->get(['id', 'nama', 'jabatan', 'bidang', 'golongan', 'nip', 'rekening']);
         $bulanList = [
             1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni',
             7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
@@ -356,7 +356,10 @@ class NpdKontribusiDiklatController extends Controller
 
             if ($pegawaiId && ($pegawai = Pegawai::find($pegawaiId))) {
                 $nama = $pegawai->nama;
-                $pangkat = $pangkat ?: $pegawai->pangkat;
+                // Kolom `pangkat` peserta berisi GOLONGAN ("III/a") - isian
+                // "Golongan" di formulir, dan yang tercetak di kolom Gol.
+                // Daftar Pembayaran. Nama kolomnya warisan lama.
+                $pangkat = $pangkat ?: $pegawai->golongan;
                 $nip = $nip ?: $pegawai->nip;
                 $rekening = $rekening ?: $pegawai->rekening;
             }
