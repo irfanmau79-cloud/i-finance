@@ -59,7 +59,7 @@
                                         </a>
                                         <form method="POST" action="{{ route('gaji-tunjangan.rincian.destroy', $d) }}"
                                               style="display:contents;"
-                                              onsubmit="return confirm('Nomor {{ $d->nomor }} akan dihapus permanen beserta berkas PDF-nya.\nNomor surat sesudahnya akan mundur satu urutan.\n\nTindakan ini tidak dapat dibatalkan.')">
+                                              data-konfirmasi="Nomor {{ $d->nomor }} akan dihapus permanen beserta berkas PDF-nya.&#10;Nomor surat sesudahnya akan mundur satu urutan.&#10;&#10;Tindakan ini tidak dapat dibatalkan.">
                                             @csrf @method('DELETE')
                                             <button class="ic-btn danger" title="Hapus" type="submit">
                                                 <svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg>

@@ -29,12 +29,12 @@
     @elseif (! $import->kedaluwarsa())
         <div style="display:flex;gap:10px;margin-top:14px;">
             <form method="POST" action="{{ route('manajemen-data.import.rincian.batalkan', [$jenis, $import]) }}"
-                  onsubmit="return confirm('Batalkan pemeriksaan berkas ini?');">
+                  data-konfirmasi="Batalkan pemeriksaan berkas ini?">
                 @csrf @method('DELETE')
                 <button type="submit" class="btn">Batalkan</button>
             </form>
             <form method="POST" action="{{ route('manajemen-data.import.rincian.konfirmasi', [$jenis, $import]) }}"
-                  onsubmit="return confirm('Simpan {{ $import->jumlah_baru + $import->jumlah_update }} baris (baru + diperbarui)? Baris yang ditolak tidak disimpan.');">
+                  data-konfirmasi="Simpan {{ $import->jumlah_baru + $import->jumlah_update }} baris (baru + diperbarui)? Baris yang ditolak tidak disimpan.">
                 @csrf
                 <button type="submit" class="btn prim">Konfirmasi Simpan</button>
             </form>

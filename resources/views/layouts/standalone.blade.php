@@ -5,6 +5,7 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>@yield('title', 'i-Finance') &mdash; Inspektorat Jabar</title>
 @include('layouts.partials.styles')
+@include('layouts.partials.dialog')
 </head>
 <body>
 <div class="wrap">

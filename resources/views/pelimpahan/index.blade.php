@@ -433,7 +433,7 @@
         });
         if (idx === 0) {
             e.preventDefault();
-            alert('Belum ada perubahan. Pilih KPA dan PPTK, atau Verifikator, pada minimal satu baris Sub Kegiatan.');
+            iFinance.beritahu('Belum ada perubahan. Pilih KPA dan PPTK, atau Verifikator, pada minimal satu baris Sub Kegiatan.');
         }
     });
 })();

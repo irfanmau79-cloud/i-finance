@@ -85,17 +85,17 @@
                                     @if ($suratPerintah->fileTersedia())
                                         <a class="ic-btn" title="Lihat SP" href="{{ route('surat-perintah.file', $suratPerintah) }}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></a>
                                     @else
-                                        <button type="button" class="ic-btn" title="File tidak tersedia" style="opacity:.5;cursor:not-allowed;" onclick="alert('File tidak tersedia.');"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
+                                        <button type="button" class="ic-btn" title="File tidak tersedia" style="opacity:.5;cursor:not-allowed;" data-beritahu="File tidak tersedia."><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></button>
                                     @endif
                                     @if ($bolehKelola)
                                         <a class="ic-btn" title="Edit" href="{{ route('surat-perintah.edit', $suratPerintah) }}"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></a>
                                         @if ($suratPerintah->dapatDiduplikat())
-                                            <form method="POST" action="{{ route('surat-perintah.duplikat', $suratPerintah) }}" onsubmit="return confirm('Duplikat SP {{ $suratPerintah->nomorBerlabel() }}?\nDuplikat menjadi baris SP baru yang bisa dijadikan acuan NPD Perjalanan Dinas lain.');">
+                                            <form method="POST" action="{{ route('surat-perintah.duplikat', $suratPerintah) }}" data-konfirmasi="Duplikat SP {{ $suratPerintah->nomorBerlabel() }}?&#10;Duplikat menjadi baris SP baru yang bisa dijadikan acuan NPD Perjalanan Dinas lain.">
                                                 @csrf
                                                 <button type="submit" class="ic-btn" title="Duplikat" aria-label="Duplikat SP"><svg viewBox="0 0 24 24"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg></button>
                                             </form>
                                         @endif
-                                        <form method="POST" action="{{ route('surat-perintah.destroy', $suratPerintah) }}" onsubmit="return confirm('Hapus data SP {{ $suratPerintah->nomorBerlabel() }} secara permanen?\nData akan hilang dari Data SP dan Monitoring SP. Tindakan ini tidak bisa dibatalkan.');">
+                                        <form method="POST" action="{{ route('surat-perintah.destroy', $suratPerintah) }}" data-konfirmasi="Hapus data SP {{ $suratPerintah->nomorBerlabel() }} secara permanen?&#10;Data akan hilang dari Data SP dan Monitoring SP. Tindakan ini tidak bisa dibatalkan.">
                                             @csrf
                                             @method('DELETE')
                                             <button type="submit" class="ic-btn danger" title="Hapus SP (permanen)"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>
@@ -182,7 +182,7 @@
                 })
                 .catch(function () {
                     checkbox.checked = sebelum;
-                    alert('Gagal memperbarui. Silakan coba lagi.');
+                    iFinance.beritahu('Gagal memperbarui. Silakan coba lagi.');
                 })
                 .finally(function () {
                     checkbox.disabled = false;

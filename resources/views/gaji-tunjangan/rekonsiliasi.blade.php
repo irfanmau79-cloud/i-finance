@@ -101,7 +101,7 @@
             </span>
             @if ($bolehKelola)
                 <form method="POST" action="{{ route('gaji-tunjangan.rekonsiliasi.kunci') }}" style="margin:0;"
-                      onsubmit="return confirm('Kunci periode {{ $periode }}?\n\nStatus Tunjangan Keluarga seluruh pegawai aktif akan dipotret per {{ $tanggalPenggajian->format('d-m-Y') }} dan tidak berubah lagi walau datanya disunting nanti.')">
+                      data-konfirmasi="Kunci periode {{ $periode }}?&#10;&#10;Status Tunjangan Keluarga seluruh pegawai aktif akan dipotret per {{ $tanggalPenggajian->format('d-m-Y') }} dan tidak berubah lagi walau datanya disunting nanti.">
                     @csrf
                     <input type="hidden" name="bulan" value="{{ $bulan }}">
                     <input type="hidden" name="tahun" value="{{ $tahun }}">
@@ -125,7 +125,7 @@
             @if ($bolehKelola)
                 <form method="POST" action="{{ route('gaji-tunjangan.rekonsiliasi.hapus', $kunci) }}"
                       style="margin:0 0 0 auto;"
-                      onsubmit="return confirm('Hapus kunci periode {{ $periode }} beserta seluruh log statusnya?\n\nSetelah dihapus, potret hanya bisa dibuat ulang memakai data Tunjangan Keluarga HARI INI - bukan kondisi awal bulan itu.\n\nTindakan ini tidak dapat dibatalkan.')">
+                      data-konfirmasi="Hapus kunci periode {{ $periode }} beserta seluruh log statusnya?&#10;&#10;Setelah dihapus, potret hanya bisa dibuat ulang memakai data Tunjangan Keluarga HARI INI - bukan kondisi awal bulan itu.&#10;&#10;Tindakan ini tidak dapat dibatalkan.">
                     @csrf @method('DELETE')
                     <button class="gtd-del" type="submit">Hapus Kunci</button>
                 </form>

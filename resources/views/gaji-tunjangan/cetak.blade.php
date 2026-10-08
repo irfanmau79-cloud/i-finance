@@ -140,7 +140,7 @@
                                     <td class="gt-ctr">
                                         <form method="POST" action="{{ route('gaji-tunjangan.rincian.ttd.destroy', $ttd) }}"
                                               style="margin:0;"
-                                              onsubmit="return confirm('Hapus {{ $ttd->nama }} dari daftar penandatangan?\n\nDokumen yang sudah dicetak tidak terpengaruh.')">
+                                              data-konfirmasi="Hapus {{ $ttd->nama }} dari daftar penandatangan?&#10;&#10;Dokumen yang sudah dicetak tidak terpengaruh.">
                                             @csrf @method('DELETE')
                                             <button class="gtd-del" type="submit">Hapus</button>
                                         </form>

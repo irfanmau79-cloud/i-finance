@@ -69,7 +69,7 @@
     @if ($siap)
         <div style="display:flex;gap:10px;flex-wrap:wrap;margin-top:16px;">
             <form method="POST" action="{{ route('gaji-tunjangan.import.konfirmasi', $import) }}"
-                  onsubmit="return confirm('Simpan {{ $import->baris_valid }} baris {{ $import->labelJenis() }} untuk {{ $import->labelPeriode() }}? Data periode ini akan ditimpa.')">
+                  data-konfirmasi="Simpan {{ $import->baris_valid }} baris {{ $import->labelJenis() }} untuk {{ $import->labelPeriode() }}? Data periode ini akan ditimpa.">
                 @csrf
                 <button class="btn prim">Konfirmasi Simpan</button>
             </form>

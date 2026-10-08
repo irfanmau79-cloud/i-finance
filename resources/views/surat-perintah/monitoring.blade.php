@@ -217,7 +217,7 @@
         })
         .catch(function () {
           checkbox.checked = checkedBefore;
-          alert('Gagal menyimpan Pengajuan. Silakan coba lagi.');
+          iFinance.beritahu('Gagal menyimpan Pengajuan. Silakan coba lagi.');
         })
         .finally(function () {
           checkboxesInCell.forEach(function (cb) { cb.disabled = false; });
@@ -296,7 +296,7 @@
       })
       .catch(function () {
         if (btn) { btn.disabled = false; btn.textContent = 'Simpan'; }
-        alert('Gagal menyimpan pemberitahuan. Silakan coba lagi.');
+        iFinance.beritahu('Gagal menyimpan pemberitahuan. Silakan coba lagi.');
       });
   }
 

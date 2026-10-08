@@ -802,14 +802,20 @@ document.addEventListener('DOMContentLoaded', function () {
   }
 
   if (formHapusBantex) {
+    // Pengirimannya SELALU ditahan dulu: dialog i-Finance tidak menghentikan
+    // skrip seperti confirm() peramban, jadi formulirnya baru dikirim dari
+    // jawaban dialognya.
     formHapusBantex.addEventListener('submit', function (e) {
-      if (!bantexDibuka) { e.preventDefault(); return; }
+      e.preventDefault();
+      if (!bantexDibuka) return;
       const isi = bantexDibuka.jumlah_npd > 0
         ? bantexDibuka.jumlah_npd + ' NPD di dalamnya TIDAK ikut terhapus, tetapi kembali menjadi belum terinventarisasi.'
         : 'Bantex/Box ini kosong.';
-      if (!window.confirm('Hapus Bantex/Box "' + bantexDibuka.lokasi + '"?\n\n' + isi + '\n\nTindakan ini tidak dapat dibatalkan.')) {
-        e.preventDefault();
-      }
+      iFinance.konfirmasi('Hapus Bantex/Box "' + bantexDibuka.lokasi + '"?\n\n' + isi + '\n\nTindakan ini tidak dapat dibatalkan.', { ya: 'Ya, Hapus' })
+        .then(function (setuju) {
+          // submit() langsung tidak memicu peristiwa submit lagi.
+          if (setuju) HTMLFormElement.prototype.submit.call(formHapusBantex);
+        });
     });
   }
 
@@ -1079,15 +1085,18 @@ document.addEventListener('DOMContentLoaded', function () {
     spjDaftar.addEventListener('click', function (e) {
       const btn = e.target.closest('[data-spj-hapus]');
       if (! btn) return;
-      if (! window.confirm('Hapus berkas SPJ ini? Berkasnya hilang permanen.')) return;
 
-      fetch(btn.dataset.spjHapus, {
-        method: 'POST',
-        headers: {'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
-        body: new URLSearchParams({_method: 'DELETE'}),
-      })
-        .then(r => { if (! r.ok) throw new Error('Hapus gagal.'); return segarkanBerkas(); })
-        .catch(e => pesanGalat(e.message || 'Berkas gagal dihapus.'));
+      iFinance.konfirmasi('Hapus berkas SPJ ini? Berkasnya hilang permanen.', { ya: 'Ya, Hapus' }).then(function (setuju) {
+        if (! setuju) return;
+
+        fetch(btn.dataset.spjHapus, {
+          method: 'POST',
+          headers: {'X-CSRF-TOKEN': csrf, 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest'},
+          body: new URLSearchParams({_method: 'DELETE'}),
+        })
+          .then(r => { if (! r.ok) throw new Error('Hapus gagal.'); return segarkanBerkas(); })
+          .catch(e => pesanGalat(e.message || 'Berkas gagal dihapus.'));
+      });
     });
 
     document.getElementById('inv-table-tbody').addEventListener('click', function (e) {

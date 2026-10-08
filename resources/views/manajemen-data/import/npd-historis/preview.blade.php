@@ -115,7 +115,7 @@
         @if ($masihStaging && ! $import->kedaluwarsa())
             <form method="POST"
                   action="{{ route('manajemen-data.import.npd-historis.confirm', $import) }}"
-                  onsubmit="return confirm('Impor {{ $siapDiimpor }} dokumen dengan total Rp {{ fmt_rupiah($import->total_nominal) }}? Tindakan ini tidak dapat dibatalkan.');">
+                  data-konfirmasi="Impor {{ $siapDiimpor }} dokumen dengan total Rp {{ fmt_rupiah($import->total_nominal) }}? Tindakan ini tidak dapat dibatalkan.">
                 @csrf
                 <button type="submit" class="btn prim">Konfirmasi Import {{ $siapDiimpor }} Dokumen</button>
             </form>

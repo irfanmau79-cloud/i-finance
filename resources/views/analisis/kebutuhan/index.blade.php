@@ -74,7 +74,7 @@
             <td style="text-align:center;">
               @if ($unitRole && $k->unit_kerja === $unitRole)
                 <form method="POST" action="{{ route('kebutuhan.destroy', $k) }}" class="keb-hapus"
-                      onsubmit="return confirm('Hapus data kebutuhan anggaran ini secara permanen? Tindakan ini tidak dapat dibatalkan.');">
+                      data-konfirmasi="Hapus data kebutuhan anggaran ini secara permanen? Tindakan ini tidak dapat dibatalkan.">
                   @csrf
                   @method('DELETE')
                   <button type="submit" class="btn" style="padding:3px 9px;font-size:11px;color:var(--err-teks);">Hapus</button>

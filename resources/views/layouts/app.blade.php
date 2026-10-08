@@ -6,6 +6,7 @@
 <meta name="csrf-token" content="{{ csrf_token() }}">
 <title>@yield('title', 'i-Finance') &mdash; Inspektorat Jabar</title>
 @include('layouts.partials.styles')
+@include('layouts.partials.dialog')
 </head>
 <body>
 {{-- Dijalankan sebelum badan halaman digambar supaya tidak ada kedipan
@@ -400,7 +401,7 @@
                   </span>
                   @if ($currentRole === 'superadmin')
                     <form method="POST" action="{{ route('siaran.destroy', $siaran['id']) }}" class="lc-hapus"
-                          onsubmit="return confirm('Hapus broadcast ini untuk semua role?');">
+                          data-konfirmasi="Hapus broadcast ini untuk semua role?">
                       @csrf
                       @method('DELETE')
                       <button type="submit" title="Hapus broadcast" aria-label="Hapus broadcast">

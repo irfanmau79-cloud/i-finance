@@ -99,7 +99,7 @@
 
                                 @if ($v->status !== \App\Models\VersiPagu::STATUS_AKTIF)
                                     <form method="POST" action="{{ route('versi-pagu.aktifkan', $v) }}"
-                                          onsubmit="return confirm('Berlakukan tahapan &quot;{{ $v->nama }}&quot; sebagai pagu resmi? Seluruh pagu, sisa tersedia, dashboard, dan Nomor DPA pada cetakan NPD akan langsung memakai tahapan ini.');">
+                                          data-konfirmasi="Berlakukan tahapan &quot;{{ $v->nama }}&quot; sebagai pagu resmi? Seluruh pagu, sisa tersedia, dashboard, dan Nomor DPA pada cetakan NPD akan langsung memakai tahapan ini.">
                                         @csrf
                                         <button type="submit" class="btn prim">Aktifkan</button>
                                     </form>
@@ -107,7 +107,7 @@
 
                                 @if ($v->status === \App\Models\VersiPagu::STATUS_DRAFT)
                                     <form method="POST" action="{{ route('versi-pagu.destroy', $v) }}"
-                                          onsubmit="return confirm('Hapus tahapan draf &quot;{{ $v->nama }}&quot;? Tindakan ini permanen.');">
+                                          data-konfirmasi="Hapus tahapan draf &quot;{{ $v->nama }}&quot;? Tindakan ini permanen.">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="btn">Hapus</button>

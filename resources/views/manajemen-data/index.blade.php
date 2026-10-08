@@ -162,10 +162,16 @@ document.querySelectorAll('.reset-data-form').forEach(function (form) {
     input.addEventListener('input', function () {
         button.disabled = input.value.trim() !== expected;
     });
+    // Pengirimannya selalu ditahan dulu dan baru dilanjutkan dari jawaban
+    // dialog i-Finance (dialognya tidak menghentikan skrip seperti confirm()).
     form.addEventListener('submit', function (e) {
-        if (input.value.trim() !== expected || ! confirm('Yakin? Data yang dihapus TIDAK BISA dikembalikan.')) {
-            e.preventDefault();
-        }
+        e.preventDefault();
+        if (input.value.trim() !== expected) return;
+
+        iFinance.konfirmasi('Yakin? Data yang dihapus TIDAK BISA dikembalikan.', { ya: 'Ya, Hapus Data' }).then(function (setuju) {
+            // submit() langsung tidak memicu peristiwa submit lagi.
+            if (setuju) HTMLFormElement.prototype.submit.call(form);
+        });
     });
 });
 </script>

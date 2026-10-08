@@ -83,7 +83,7 @@
 
                                 @if ($adaData)
                                     <form method="POST" action="{{ route('tunjangan.data.hapus', $pegawai) }}"
-                                          onsubmit="return confirm('Kosongkan data tunjangan keluarga {{ $pegawai->nama }}?\nData pasangan dan anak akan dihapus, statusnya kembali TK/0. Baris pegawainya tetap ada.');">
+                                          data-konfirmasi="Kosongkan data tunjangan keluarga {{ $pegawai->nama }}?&#10;Data pasangan dan anak akan dihapus, statusnya kembali TK/0. Baris pegawainya tetap ada.">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="ic-btn danger" title="Kosongkan data tunjangan keluarga"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>

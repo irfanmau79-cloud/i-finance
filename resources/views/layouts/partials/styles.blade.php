@@ -1873,6 +1873,36 @@
   .sp-toggle.sumber.aktif .sp-toggle-lbl{color:var(--gold-d);}
   .sp-toggle.menunggu{opacity:.6;pointer-events:none;}
 
+  /* ===== Dialog i-Finance (pengganti confirm()/alert() peramban) =====
+     Dipakai layouts/partials/dialog.blade.php. Wajahnya mengikuti modal
+     konfirmasi alur kerja NPD: ikon bulat, judul, pesan di tengah. Yang
+     menandainya sebagai milik aplikasi: pita navy-emas di tepi atas dan
+     baris merek kecil di bawah tombol.
+
+     Lapisannya di atas modal lain (.mdl-ov = 200), karena pertanyaannya
+     bisa muncul dari dalam modal yang sedang terbuka. */
+  .ifd-ov{z-index:1000;backdrop-filter:blur(2px);}
+  .mdl.ifd{max-width:420px;overflow:hidden;border-radius:var(--r-lg);border:1px solid var(--line);
+    animation:ifd-masuk .16s ease-out;}
+  @keyframes ifd-masuk{from{opacity:0;transform:translateY(8px) scale(.98);}to{opacity:1;transform:none;}}
+  @media (prefers-reduced-motion:reduce){.mdl.ifd{animation:none;}}
+  .ifd-pita{height:5px;background:linear-gradient(90deg,var(--navy) 0%,var(--navy) 68%,var(--gold) 68%,var(--gold) 100%);}
+  .ifd-isi{padding:24px 24px 6px;text-align:center;}
+  .ifd-ikon{width:54px;height:54px;border-radius:50%;margin:0 auto 14px;display:flex;align-items:center;justify-content:center;
+    background:var(--navy-l);color:var(--tegas);}
+  .ifd-ikon svg{width:27px;height:27px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round;}
+  .ifd[data-jenis="bahaya"] .ifd-ikon{background:var(--err-bg);color:var(--err);}
+  .ifd[data-jenis="info"] .ifd-ikon{background:var(--aksen-l);color:var(--aksen-d);}
+  .ifd-judul{font-size:16.5px;font-weight:700;color:var(--tegas);margin-bottom:8px;}
+  /* pre-line: baris baru pada pesan (\n) tampil sebagai baris baru. */
+  .ifd-pesan{color:var(--ink);font-size:14px;line-height:1.55;white-space:pre-line;overflow-wrap:anywhere;
+    max-height:46vh;overflow-y:auto;}
+  .ifd-aksi{display:flex;gap:10px;justify-content:center;flex-wrap:wrap;padding:18px 24px 16px;}
+  .ifd-aksi .btn{min-width:118px;text-align:center;}
+  .ifd-aksi .btn:focus-visible{outline:2px solid var(--aksen);outline-offset:2px;}
+  .ifd-merek{padding:9px 16px 11px;border-top:1px solid var(--line);background:var(--surface-2);
+    font-size:10.5px;letter-spacing:.3px;color:var(--mut);text-align:center;}
+
   /* ===== Rekapitulasi Pembayaran SP =====
      Tiga keadaan kotak centang per komponen pembayaran. Bedanya sengaja
      bertingkat supaya yang SUDAH SELESAI paling menarik mata:

@@ -384,9 +384,13 @@ document.getElementById('ct-undo').addEventListener('click', function () {
 });
 
 document.getElementById('ct-bersih').addEventListener('click', function () {
-    if (butirBaru.length && ! window.confirm('Hapus semua coretan baru pada kunjungan ini?')) return;
-    butirBaru = [];
-    gambarUlang();
+    if (! butirBaru.length) return;
+
+    iFinance.konfirmasi('Hapus semua coretan baru pada kunjungan ini?', { ya: 'Ya, Hapus' }).then(function (setuju) {
+        if (! setuju) return;
+        butirBaru = [];
+        gambarUlang();
+    });
 });
 
 document.getElementById('ct-zoom-masuk').addEventListener('click', function () { ubahZoom(1); });
@@ -1423,9 +1427,14 @@ document.querySelectorAll('[data-coret-aksi]').forEach(function (tombol) {
 const tautanEdit = document.getElementById('coret-edit');
 if (tautanEdit) {
     tautanEdit.addEventListener('click', function (e) {
-        if (butirBaru.length && !window.confirm('Coretan yang baru Anda buat belum tersimpan dan akan hilang. Lanjut ke Edit NPD?')) {
-            e.preventDefault();
-        }
+        if (! butirBaru.length) return;
+
+        // Perpindahan halamannya ditahan sampai dialog dijawab.
+        e.preventDefault();
+        iFinance.konfirmasi('Coretan yang baru Anda buat belum tersimpan dan akan hilang. Lanjut ke Edit NPD?', { ya: 'Ya, ke Edit NPD', jenis: 'bahaya' })
+            .then(function (setuju) {
+                if (setuju) window.location.href = tautanEdit.href;
+            });
     });
 }
 

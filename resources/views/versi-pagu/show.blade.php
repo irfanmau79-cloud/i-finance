@@ -39,7 +39,7 @@
         <a href="{{ route('versi-pagu.index') }}" class="btn">Kembali ke Daftar Tahapan</a>
         @if ($versi->status !== \App\Models\VersiPagu::STATUS_AKTIF)
             <form method="POST" action="{{ route('versi-pagu.aktifkan', $versi) }}"
-                  onsubmit="return confirm('Berlakukan tahapan &quot;{{ $versi->nama }}&quot; sebagai pagu resmi?');">
+                  data-konfirmasi="Berlakukan tahapan &quot;{{ $versi->nama }}&quot; sebagai pagu resmi?">
                 @csrf
                 <button type="submit" class="btn prim">Aktifkan Tahapan Ini</button>
             </form>

@@ -230,7 +230,7 @@
                                 <details class="npd-hapus-pop">
                                     <summary class="ic-btn danger" title="Hapus Permanen NPD"><svg viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 15H6L5 6"/><path d="M10 11v5M14 11v5"/></svg></summary>
                                     <form method="POST" action="{{ route('npd.destroy-permanent', $npd) }}" class="npd-hapus-form"
-                                        onsubmit="return confirm('Hapus permanen NPD ini beserta seluruh data turunannya? Tindakan ini TIDAK DAPAT dibatalkan.');">
+                                        data-konfirmasi="Hapus permanen NPD ini beserta seluruh data turunannya? Tindakan ini TIDAK DAPAT dibatalkan.">
                                         @csrf
                                         @method('DELETE')
                                         <label class="fl" style="margin-top:0;color:var(--err);">Alasan hapus permanen</label>
@@ -628,10 +628,12 @@
             return;
         }
 
-        if (! window.confirm('Jalankan "' + chip.textContent.trim() + '" untuk ' + dipilih.length + ' NPD?')) return;
+        iFinance.konfirmasi('Jalankan "' + chip.textContent.trim() + '" untuk ' + dipilih.length + ' NPD?').then(function (setuju) {
+            if (! setuju) return;
 
-        sisipkanPilihan();
-        form.submit();
+            sisipkanPilihan();
+            form.submit();
+        });
     });
 
     /* ---- Modal verifikasi massal ---- */
@@ -666,26 +668,37 @@
             const terisi = isian.filter(el => el.value.trim() !== '');
 
             if (terisi.length === 0) {
-                window.alert('Isi minimal satu Nomor NPD.');
+                iFinance.beritahu('Isi minimal satu Nomor NPD.');
 
                 return;
             }
 
+            const kirim = function () {
+                sisipkanPilihan();
+
+                terisi.forEach(function (el) {
+                    const hidden = document.createElement('input');
+                    hidden.type = 'hidden';
+                    hidden.setAttribute('data-mv-nomor-hidden', '');
+                    hidden.name = 'nomor[' + el.dataset.mvUntuk + ']';
+                    hidden.value = el.value.trim();
+                    form.appendChild(hidden);
+                });
+
+                form.submit();
+            };
+
             const kosong = isian.length - terisi.length;
-            if (kosong > 0 && ! window.confirm(kosong + ' NPD belum diberi nomor dan akan dilewati. Lanjutkan?')) return;
 
-            sisipkanPilihan();
+            if (kosong === 0) {
+                kirim();
 
-            terisi.forEach(function (el) {
-                const hidden = document.createElement('input');
-                hidden.type = 'hidden';
-                hidden.setAttribute('data-mv-nomor-hidden', '');
-                hidden.name = 'nomor[' + el.dataset.mvUntuk + ']';
-                hidden.value = el.value.trim();
-                form.appendChild(hidden);
+                return;
+            }
+
+            iFinance.konfirmasi(kosong + ' NPD belum diberi nomor dan akan dilewati. Lanjutkan?').then(function (setuju) {
+                if (setuju) kirim();
             });
-
-            form.submit();
         });
     }
 

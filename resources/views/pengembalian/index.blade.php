@@ -66,7 +66,7 @@
                         <td style="text-align:center;">
                             <div style="display:inline-flex;gap:6px;">
                                 @if ($p->status === 'draft' && $bolehSetujui)
-                                    <form method="POST" action="{{ route('pengembalian.setujui', $p) }}" onsubmit="return confirm('Setujui pengembalian ini? Realisasi akan berubah setelah disetujui.');">
+                                    <form method="POST" action="{{ route('pengembalian.setujui', $p) }}" data-konfirmasi="Setujui pengembalian ini? Realisasi akan berubah setelah disetujui.">
                                         @csrf
                                         <button type="submit" class="ic-btn" title="Setujui"><svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg></button>
                                     </form>
@@ -76,7 +76,7 @@
                                 @endif
                                 <a class="ic-btn" title="Lihat" href="{{ route('pengembalian.show', $p) }}"><svg viewBox="0 0 24 24"><path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/><circle cx="12" cy="12" r="3"/></svg></a>
                                 @if ($p->status === 'draft' && $bolehKelola)
-                                    <form method="POST" action="{{ route('pengembalian.destroy', $p) }}" onsubmit="return confirm('Hapus draft pengembalian ini?');">
+                                    <form method="POST" action="{{ route('pengembalian.destroy', $p) }}" data-konfirmasi="Hapus draft pengembalian ini?">
                                         @csrf
                                         @method('DELETE')
                                         <button type="submit" class="ic-btn danger" title="Hapus"><svg viewBox="0 0 24 24"><polyline points="3 6 5 6 21 6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg></button>

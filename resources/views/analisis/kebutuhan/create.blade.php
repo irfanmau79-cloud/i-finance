@@ -577,7 +577,7 @@
         }
       });
     });
-    if (salah.length) { alert(salah[0]); return; }
+    if (salah.length) { iFinance.beritahu(salah[0], { judul: 'Isian belum lengkap' }); return; }
 
     const body = document.getElementById('keb-ringkasan-body');
     let total = 0;

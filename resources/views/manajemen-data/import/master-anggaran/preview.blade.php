@@ -49,12 +49,12 @@
 
     @if ($import->status === \App\Models\MasterAnggaranImport::STATUS_STAGED && ! $import->kedaluwarsa())
         <div class="nav" style="margin-top:8px;">
-            <form method="POST" action="{{ route('manajemen-data.import.master-anggaran.batalkan', $import) }}" onsubmit="return confirm('Batalkan pemeriksaan berkas ini? Berkas perlu diunggah ulang bila ingin dilanjutkan.');">
+            <form method="POST" action="{{ route('manajemen-data.import.master-anggaran.batalkan', $import) }}" data-konfirmasi="Batalkan pemeriksaan berkas ini? Berkas perlu diunggah ulang bila ingin dilanjutkan.">
                 @csrf
                 @method('DELETE')
                 <button type="submit" class="btn">Batalkan</button>
             </form>
-            <form method="POST" action="{{ route('manajemen-data.import.master-anggaran.konfirmasi', $import) }}" onsubmit="return confirm('Simpan sebagai tahapan pagu draf &quot;{{ $import->versi_nama }}&quot;? Pagu yang berlaku BELUM berubah sampai tahapan ini diaktifkan.');">
+            <form method="POST" action="{{ route('manajemen-data.import.master-anggaran.konfirmasi', $import) }}" data-konfirmasi="Simpan sebagai tahapan pagu draf &quot;{{ $import->versi_nama }}&quot;? Pagu yang berlaku BELUM berubah sampai tahapan ini diaktifkan.">
                 @csrf
                 <button type="submit" class="btn prim">Konfirmasi Simpan sebagai Draft</button>
             </form>

@@ -47,12 +47,12 @@
 
     @if ($import->status === \App\Models\RakBulananImport::STATUS_STAGED && ! $import->kedaluwarsa())
         <div class="nav" style="margin-top:8px;">
-            <form method="POST" action="{{ route('manajemen-data.import.rak-bulanan.batalkan', $import) }}" onsubmit="return confirm('Batalkan pemeriksaan berkas ini? Berkas perlu diunggah ulang bila ingin dilanjutkan.');">
+            <form method="POST" action="{{ route('manajemen-data.import.rak-bulanan.batalkan', $import) }}" data-konfirmasi="Batalkan pemeriksaan berkas ini? Berkas perlu diunggah ulang bila ingin dilanjutkan.">
                 @csrf
                 @method('DELETE')
                 <button type="submit" class="btn">Batalkan</button>
             </form>
-            <form method="POST" action="{{ route('manajemen-data.import.rak-bulanan.konfirmasi', $import) }}" onsubmit="return confirm('Simpan {{ $import->jumlah_baru + $import->jumlah_update }} baris (baru + update) ke RAK Bulanan {{ $import->tahun }}? Baris yang ditolak tidak akan disimpan.');">
+            <form method="POST" action="{{ route('manajemen-data.import.rak-bulanan.konfirmasi', $import) }}" data-konfirmasi="Simpan {{ $import->jumlah_baru + $import->jumlah_update }} baris (baru + update) ke RAK Bulanan {{ $import->tahun }}? Baris yang ditolak tidak akan disimpan.">
                 @csrf
                 <button type="submit" class="btn prim">Konfirmasi Simpan</button>
             </form>
