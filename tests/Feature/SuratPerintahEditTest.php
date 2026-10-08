@@ -67,6 +67,26 @@ class SuratPerintahEditTest extends TestCase
         return SuratPerintah::latest('id')->firstOrFail();
     }
 
+    /**
+     * Entri "Reimburse Transportasi" LAMA. Jenis ini tidak lagi bisa diinput
+     * (lihat SuratPerintahInputTest), jadi entrinya disusun langsung lewat
+     * model seperti yang dulu dihasilkan formulirnya: identitas disalin dari
+     * SP induk, nomornya bersuffix, komponennya Transport.
+     */
+    private function buatReimburseLama(SuratPerintah $induk): SuratPerintah
+    {
+        $reimburse = $induk->replicate(['file_url']);
+        $reimburse->fill([
+            'nomor_sp' => $induk->nomor_sp.SuratPerintah::SUFFIX_REIMBURSE,
+            'jenis_permintaan' => SuratPerintah::JENIS_REIMBURSE,
+            'sp_induk_id' => $induk->id,
+            'pengajuan' => 'Transport',
+            'file_url' => null,
+        ])->save();
+
+        return $reimburse;
+    }
+
     /** @param array<string, mixed> $override */
     private function payloadEdit(SuratPerintah $sp, array $override = []): array
     {
@@ -180,13 +200,8 @@ class SuratPerintahEditTest extends TestCase
         $pptk = $this->user('pptk');
         $induk = $this->buatSp($pptk);
 
-        $this->actingAs($pptk)->post(route('surat-perintah.store'), [
-            'jenis_permintaan' => SuratPerintah::JENIS_REIMBURSE,
-            'sp_induk_id' => $induk->id,
-            'status_sp' => 'Baru',
-        ])->assertRedirect(route('surat-perintah.index'));
+        $reimburse = $this->buatReimburseLama($induk);
 
-        $reimburse = SuratPerintah::where('jenis_permintaan', SuratPerintah::JENIS_REIMBURSE)->sole();
 
         // Dropdown NPD Perjadin hanya memuat SP Uang Harian/Akomodasi.
         $this->actingAs($pptk)->get(route('npd.pd.create'))
@@ -203,13 +218,8 @@ class SuratPerintahEditTest extends TestCase
         $pptk = $this->user('pptk');
         $induk = $this->buatSp($pptk);
 
-        $this->actingAs($pptk)->post(route('surat-perintah.store'), [
-            'jenis_permintaan' => SuratPerintah::JENIS_REIMBURSE,
-            'sp_induk_id' => $induk->id,
-            'status_sp' => 'Baru',
-        ]);
+        $reimburse = $this->buatReimburseLama($induk);
 
-        $reimburse = SuratPerintah::where('jenis_permintaan', SuratPerintah::JENIS_REIMBURSE)->sole();
 
         $this->actingAs($pptk)->delete(route('surat-perintah.destroy', $reimburse))
             ->assertRedirect(route('surat-perintah.index'));
@@ -217,8 +227,6 @@ class SuratPerintahEditTest extends TestCase
         $this->assertNull(SuratPerintah::find($reimburse->id));
         $this->assertNotNull(SuratPerintah::find($induk->id));
 
-        // Induknya kini bisa dibuatkan entri Reimburse lagi.
-        $this->assertCount(1, SuratPerintah::calonIndukReimburse());
     }
 
     public function test_hapus_sp_induk_melepas_tautan_reimburse_tanpa_ikut_menghapusnya(): void
@@ -227,13 +235,8 @@ class SuratPerintahEditTest extends TestCase
         $pptk = $this->user('pptk');
         $induk = $this->buatSp($pptk);
 
-        $this->actingAs($pptk)->post(route('surat-perintah.store'), [
-            'jenis_permintaan' => SuratPerintah::JENIS_REIMBURSE,
-            'sp_induk_id' => $induk->id,
-            'status_sp' => 'Baru',
-        ]);
+        $reimburse = $this->buatReimburseLama($induk);
 
-        $reimburse = SuratPerintah::where('jenis_permintaan', SuratPerintah::JENIS_REIMBURSE)->sole();
 
         $this->actingAs($pptk)->delete(route('surat-perintah.destroy', $induk));
 

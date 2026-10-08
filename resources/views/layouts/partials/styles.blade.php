@@ -1873,6 +1873,29 @@
   .sp-toggle.sumber.aktif .sp-toggle-lbl{color:var(--gold-d);}
   .sp-toggle.menunggu{opacity:.6;pointer-events:none;}
 
+  /* ===== Rekapitulasi Pembayaran SP =====
+     Tiga keadaan kotak centang per komponen pembayaran. Bedanya sengaja
+     bertingkat supaya yang SUDAH SELESAI paling menarik mata:
+       kosong  - belum ada NPD: kotak bergaris tipis, redup;
+       proses  - NPD sudah dibuat tapi belum Selesai: centang bergaris, warna
+                 peringatan, latar pucat;
+       selesai - NPD Selesai: kotak hijau PENUH, centang putih, sedikit lebih
+                 besar dan bercincin. */
+  .rk-cek{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;box-sizing:border-box;
+    border:1.5px solid var(--mut);border-radius:6px;background:var(--surface);opacity:.45;vertical-align:middle;}
+  .rk-cek svg{width:14px;height:14px;fill:none;stroke:currentColor;stroke-width:2.6;stroke-linecap:round;stroke-linejoin:round;}
+  .rk-cek.proses{opacity:1;border-color:var(--warn);background:var(--warn-bg);color:var(--warn);}
+  .rk-cek.selesai{opacity:1;width:26px;height:26px;border-color:var(--ok);background:var(--ok);color:#fff;
+    box-shadow:0 0 0 3px var(--ok-bg);}
+  .rk-cek.selesai svg{width:17px;height:17px;stroke-width:3.2;}
+  .rk-legenda{display:flex;flex-wrap:wrap;align-items:center;gap:8px 18px;font-size:12px;color:var(--mut);}
+  .rk-legenda > span{display:inline-flex;align-items:center;gap:7px;white-space:nowrap;}
+  /* Judul dua tingkat: judul lekat bawaan table.realisasi akan menumpuk
+     baris kedua di atas baris pertama, jadi di tabel ini judulnya diam. */
+  table.realisasi.rk-tabel th{position:static;}
+  table.realisasi.rk-tabel thead tr:first-child th{border-bottom:1px solid var(--line);}
+  table.realisasi.rk-tabel td.mid{vertical-align:middle;}
+
   /* Timeline progres SP (Monitoring SP). */
   .sp-tl-row > td{background:var(--surface-2);padding:12px 14px;}
   .sp-tl-head{font-weight:700;color:var(--tegas);font-size:13px;margin-bottom:10px;}

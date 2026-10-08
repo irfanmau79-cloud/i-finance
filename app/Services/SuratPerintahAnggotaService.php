@@ -92,29 +92,6 @@ class SuratPerintahAnggotaService
     }
 
     /**
-     * Salin anggota SP induk untuk entri Reimburse Transportasi. Semua
-     * diperlakukan sebagai snapshot manual supaya identitasnya persis sama
-     * dengan induk, tidak ikut berubah bila master berubah.
-     *
-     * @param  iterable<int, SuratPerintahAnggota>  $anggotaInduk
-     * @return array<int, array<string, mixed>>
-     */
-    public function salinDariInduk(iterable $anggotaInduk): array
-    {
-        $input = [];
-
-        foreach ($anggotaInduk as $anggota) {
-            $input[] = $anggota->sebagaiInput() + ['manual' => true];
-        }
-
-        if ($input === []) {
-            $this->tolak('SP induk belum memiliki anggota; lengkapi anggota SP induk lebih dulu.');
-        }
-
-        return $this->normalisasi($input, false, true);
-    }
-
-    /**
      * @param  array<string, mixed>  $baris
      * @return array<string, mixed>
      */

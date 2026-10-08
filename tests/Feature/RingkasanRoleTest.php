@@ -89,6 +89,7 @@ class RingkasanRoleTest extends TestCase
             // memakai formulir publiknya sendiri (diuji terpisah di bawah).
             'surat-perintah.create' => array_values(array_diff(self::LOGIN, ['pengawas'])),
             'surat-perintah.index' => $pemantau,
+            'surat-perintah.rekap-pembayaran' => $pemantau,
             'surat-perintah.monitoring' => self::SEMUA,
             'cetak-spj.index' => self::SEMUA,
             'segera.sp-cetaksppd' => self::SEMUA,

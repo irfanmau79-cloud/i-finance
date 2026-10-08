@@ -248,111 +248,73 @@ class SuratPerintahInputTest extends TestCase
         $this->assertSame(1, SuratPerintah::count());
     }
 
-    // ---------------- Reimburse Transportasi ----------------
+    // ---------------- Reimburse Transportasi (sudah dihapus) ----------------
 
-    private function buatIndukUangHarian(User $pptk): SuratPerintah
+    /**
+     * Jenis "Reimburse Transportasi" dulu khusus melayani NPD Transport.
+     * Pembuatan NPD Transport sudah dihapus - transport dibayar lewat NPD
+     * Perjalanan Dinas dengan mencentang komponen Transport - jadi jenis ini
+     * tidak boleh lagi bisa diinput, lewat formulir maupun langsung.
+     */
+    public function test_jenis_reimburse_transportasi_tidak_lagi_bisa_diinput(): void
     {
+        Storage::fake('local');
+        $pptk = $this->user('pptk');
         $orang = $this->pegawai('Ketua Induk');
 
         $this->actingAs($pptk)->post(route('surat-perintah.store'), $this->payload([
             'anggota' => [['pegawai_id' => $orang->id, 'nama' => $orang->nama, 'jabatan_sp' => 'Ketua Tim']],
         ]))->assertRedirect(route('surat-perintah.index'));
+        $induk = SuratPerintah::sole();
 
-        return SuratPerintah::where('jenis_permintaan', SuratPerintah::JENIS_UANG_HARIAN)->sole();
+        // Kiriman lama (menunjuk SP induk) ditolak...
+        $this->actingAs($pptk)->post(route('surat-perintah.store'), [
+            'jenis_permintaan' => SuratPerintah::JENIS_REIMBURSE,
+            'sp_induk_id' => $induk->id,
+            'status_sp' => 'Baru',
+        ])->assertSessionHasErrors('jenis_permintaan');
+
+        // ...begitu juga lewat formulir publik.
+        $this->post(route('sp.input.store'), [
+            'jenis_permintaan' => SuratPerintah::JENIS_REIMBURSE,
+            'sp_induk_id' => $induk->id,
+            'status_sp' => 'Baru',
+        ])->assertSessionHasErrors('jenis_permintaan');
+
+        $this->assertSame(1, SuratPerintah::count());
+        $this->assertSame(0, SuratPerintah::where('jenis_permintaan', SuratPerintah::JENIS_REIMBURSE)->count());
+
+        // Formulirnya tidak lagi menawarkan pilihan jenis maupun SP induk.
+        foreach ([route('surat-perintah.create'), route('sp.input.create')] as $alamat) {
+            $this->actingAs($pptk)->get($alamat)
+                ->assertOk()
+                ->assertDontSee('name="jenis_permintaan"', false)
+                ->assertDontSee('name="sp_induk_id"', false)
+                ->assertDontSee('Jenis Permintaan Pembayaran')
+                // Komponen Transport tetap ada: itulah jalur pembayaran transport sekarang.
+                ->assertSee('Transport');
+        }
     }
 
-    public function test_reimburse_menyalin_data_dan_anggota_dari_induk_serta_memakai_suffix_nomor(): void
+    public function test_sp_baru_tanpa_jenis_selalu_tersimpan_sebagai_uang_harian_akomodasi(): void
     {
         Storage::fake('local');
         $pptk = $this->user('pptk');
-        $induk = $this->buatIndukUangHarian($pptk);
+        $orang = $this->pegawai('Budi Santoso');
 
-        // PDF sengaja tidak diunggah: untuk Reimburse memang tidak wajib.
-        $this->actingAs($pptk)->post(route('surat-perintah.store'), [
-            'jenis_permintaan' => SuratPerintah::JENIS_REIMBURSE,
-            'sp_induk_id' => $induk->id,
-            'status_sp' => 'Baru',
-        ])->assertRedirect(route('surat-perintah.index'));
-
-        $reimburse = SuratPerintah::where('jenis_permintaan', SuratPerintah::JENIS_REIMBURSE)->sole();
-
-        $this->assertSame($induk->nomor_sp.' (Reimburse)', $reimburse->nomor_sp);
-        $this->assertSame($induk->id, $reimburse->sp_induk_id);
-        $this->assertSame($induk->lokasi, $reimburse->lokasi);
-        $this->assertSame($induk->keterangan, $reimburse->keterangan);
-        $this->assertSame($induk->unit_kerja, $reimburse->unit_kerja);
-        $this->assertSame('Transport', $reimburse->pengajuan, 'Komponen Reimburse dipaksa Transport.');
-        $this->assertNull($reimburse->file_url);
-        $this->assertSame(SuratPerintah::STATUS_DITERIMA_PPTK, $reimburse->status);
-
-        // Anggota disalin apa adanya dari induk.
-        $this->assertCount(1, $reimburse->anggota);
-        $this->assertSame('Ketua Induk', $reimburse->anggota->sole()->nama);
-        $this->assertSame('Ketua Tim', $reimburse->anggota->sole()->jabatan_sp);
-    }
-
-    public function test_reimburse_wajib_menunjuk_induk_dan_hanya_boleh_satu_per_induk(): void
-    {
-        Storage::fake('local');
-        $pptk = $this->user('pptk');
-        $induk = $this->buatIndukUangHarian($pptk);
-
-        $this->actingAs($pptk)->post(route('surat-perintah.store'), [
-            'jenis_permintaan' => SuratPerintah::JENIS_REIMBURSE,
-            'status_sp' => 'Baru',
-        ])->assertSessionHasErrors('sp_induk_id');
-
-        $this->actingAs($pptk)->post(route('surat-perintah.store'), [
-            'jenis_permintaan' => SuratPerintah::JENIS_REIMBURSE,
-            'sp_induk_id' => $induk->id,
-            'status_sp' => 'Baru',
-        ])->assertRedirect(route('surat-perintah.index'));
-
-        // Percobaan kedua pada induk yang sama ditolak.
-        $this->actingAs($pptk)->post(route('surat-perintah.store'), [
-            'jenis_permintaan' => SuratPerintah::JENIS_REIMBURSE,
-            'sp_induk_id' => $induk->id,
-            'status_sp' => 'Baru',
-        ])->assertSessionHasErrors('sp_induk_id');
-
-        $this->assertSame(1, SuratPerintah::where('jenis_permintaan', SuratPerintah::JENIS_REIMBURSE)->count());
-    }
-
-    public function test_sp_reimburse_tidak_bisa_dijadikan_induk_reimburse_lain(): void
-    {
-        Storage::fake('local');
-        $pptk = $this->user('pptk');
-        $induk = $this->buatIndukUangHarian($pptk);
-
-        $this->actingAs($pptk)->post(route('surat-perintah.store'), [
-            'jenis_permintaan' => SuratPerintah::JENIS_REIMBURSE,
-            'sp_induk_id' => $induk->id,
-            'status_sp' => 'Baru',
+        $payload = $this->payload([
+            'komponen' => ['Uang Harian', 'Transport'],
+            'anggota' => [['pegawai_id' => $orang->id, 'nama' => $orang->nama]],
         ]);
+        unset($payload['jenis_permintaan']);
 
-        $reimburse = SuratPerintah::where('jenis_permintaan', SuratPerintah::JENIS_REIMBURSE)->sole();
+        $this->actingAs($pptk)->post(route('surat-perintah.store'), $payload)
+            ->assertRedirect(route('surat-perintah.index'));
 
-        $this->actingAs($pptk)->post(route('surat-perintah.store'), [
-            'jenis_permintaan' => SuratPerintah::JENIS_REIMBURSE,
-            'sp_induk_id' => $reimburse->id,
-            'status_sp' => 'Baru',
-        ])->assertSessionHasErrors('sp_induk_id');
-
-        $this->assertSame(1, SuratPerintah::where('jenis_permintaan', SuratPerintah::JENIS_REIMBURSE)->count());
-    }
-
-    public function test_induk_tanpa_anggota_tidak_muncul_sebagai_pilihan_reimburse(): void
-    {
-        Storage::fake('local');
-        $pptk = $this->user('pptk');
-        $induk = $this->buatIndukUangHarian($pptk);
-
-        $this->actingAs($pptk)->get(route('surat-perintah.create'))->assertOk()->assertSee($induk->nomor_sp);
-
-        $induk->anggota()->delete();
-
-        $this->actingAs($pptk)->get(route('surat-perintah.create'))->assertOk();
-        $this->assertCount(0, SuratPerintah::calonIndukReimburse());
+        $sp = SuratPerintah::sole();
+        $this->assertSame(SuratPerintah::JENIS_UANG_HARIAN, $sp->jenis_permintaan);
+        $this->assertSame('Uang Harian, Transport', $sp->pengajuan);
+        $this->assertNull($sp->sp_induk_id);
     }
 
     // ---------------- Form publik ----------------

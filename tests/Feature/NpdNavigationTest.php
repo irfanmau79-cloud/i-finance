@@ -13,7 +13,7 @@ class NpdNavigationTest extends TestCase
 {
     use RefreshDatabase;
 
-    public function test_halaman_pembuatan_npd_memuat_pemilih_lima_jenis_untuk_yang_boleh_membuat(): void
+    public function test_halaman_pembuatan_npd_memuat_pemilih_empat_jenis_untuk_yang_boleh_membuat(): void
     {
         $pptk = $this->user('pptk');
         $response = $this->actingAs($pptk)->get(route('npd.index'));
@@ -21,11 +21,13 @@ class NpdNavigationTest extends TestCase
         $response->assertOk()
             ->assertSee('Barang/Jasa')
             ->assertSee('Perjalanan Dinas')
-            ->assertSee('Transport')
             ->assertSee('Narasumber')
-            ->assertSee('Kontribusi Diklat');
+            ->assertSee('Kontribusi Diklat')
+            // NPD Transport tidak lagi bisa dibuat: transport dibayar lewat
+            // NPD Perjalanan Dinas.
+            ->assertDontSee('NPD Transport');
 
-        foreach (['npd.bj.create', 'npd.pd.create', 'npd.tr.create', 'npd.ns.create', 'npd.kd.create'] as $route) {
+        foreach (['npd.bj.create', 'npd.pd.create', 'npd.ns.create', 'npd.kd.create'] as $route) {
             $response->assertSee(route($route), false);
         }
 

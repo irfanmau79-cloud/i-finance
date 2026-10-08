@@ -41,10 +41,8 @@
                     <div class="ic"><svg viewBox="0 0 24 24"><path d="M12 2a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V5a3 3 0 0 0-3-3z"/><path d="M19 10v1a7 7 0 0 1-14 0v-1"/><line x1="12" y1="19" x2="12" y2="22"/></svg></div>
                     <div class="t">NPD Narasumber</div>
                 </a>
-                <a class="opt" href="{{ route('npd.tr.create') }}">
-                    <div class="ic"><svg viewBox="0 0 24 24"><path d="M3 17h13v-5l-2-4H3z"/><circle cx="7" cy="18" r="1.6"/><circle cx="17.5" cy="18" r="1.6"/><path d="M16 12h3l2 3v2h-3"/></svg></div>
-                    <div class="t">NPD Transport</div>
-                </a>
+                {{-- NPD Transport tidak lagi ditawarkan: transport dibayar
+                     lewat NPD Perjalanan Dinas (BBM, tol, tiket per anggota). --}}
                 <a class="opt" href="{{ route('npd.kd.create') }}">
                     <div class="ic"><svg viewBox="0 0 24 24"><path d="M22 10 12 5 2 10l10 5 10-5z"/><path d="M6 12v5c0 1 2.5 2.5 6 2.5s6-1.5 6-2.5v-5"/><line x1="22" y1="10" x2="22" y2="15"/></svg></div>
                     <div class="t">NPD Kontribusi Diklat</div>

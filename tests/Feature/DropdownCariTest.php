@@ -76,7 +76,8 @@ class DropdownCariTest extends TestCase
         $response->assertSee('<select data-cari data-nama-select>', false);
         // Jabatan/bidang jadi baris kedua pada tiap pilihan, bukan disambung ke nama.
         $response->assertSee('data-sub=', false);
-        $response->assertSee('<select id="sp_induk_id" name="sp_induk_id" data-cari>', false);
+        // Pilihan SP induk ikut hilang bersama jenis Reimburse Transportasi.
+        $response->assertDontSee('name="sp_induk_id"', false);
     }
 
     public function test_dropdown_mata_anggaran_npd_bisa_dicari(): void

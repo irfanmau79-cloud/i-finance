@@ -335,6 +335,10 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::get('/surat-perintah', [SuratPerintahController::class, 'index'])
             ->middleware('menu-akses:sp-data')->name('surat-perintah.index');
 
+        // Rekapitulasi Pembayaran SP: baca-saja, untuk pemegang kunci menunya.
+        Route::get('/surat-perintah/rekap-pembayaran', [SuratPerintahController::class, 'rekapPembayaran'])
+            ->middleware('menu-akses:sp-rekap')->name('surat-perintah.rekap-pembayaran');
+
         // Membuat SP mengubah data, jadi tertutup untuk role baca-saja.
         Route::middleware(['menu-akses:sp-input', 'baca-saja'])->group(function () {
             Route::get('/surat-perintah/create', [SuratPerintahController::class, 'create'])->name('surat-perintah.create');
@@ -483,8 +487,9 @@ Route::middleware('auth.or.guest')->group(function () {
         Route::post('/npd/ns', [NpdNarasumberController::class, 'store'])->name('npd.ns.store');
         Route::get('/npd/kd/create', [NpdKontribusiDiklatController::class, 'create'])->name('npd.kd.create');
         Route::post('/npd/kd', [NpdKontribusiDiklatController::class, 'store'])->name('npd.kd.store');
-        Route::get('/npd/tr/create', [NpdTransportController::class, 'create'])->name('npd.tr.create');
-        Route::post('/npd/tr', [NpdTransportController::class, 'store'])->name('npd.tr.store');
+        // NPD Transport tidak lagi bisa DIBUAT: transport kini dibayar lewat
+        // NPD Perjalanan Dinas. NPD Transport yang sudah ada tetap bisa
+        // disunting dan dicetak - lihat rute npd.tr.edit/update di bawah.
         Route::delete('/npd/{npd}', [NpdController::class, 'destroy'])->name('npd.destroy');
     });
 

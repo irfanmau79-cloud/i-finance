@@ -1,13 +1,16 @@
 @extends('layouts.app')
 
 @section('activeNav', ['bpp' => 'persetujuan', 'verifikator' => 'verifikasi'][auth()->user()->role] ?? 'npd')
-@php($npdEdit = $npd ?? null)
-@section('title', $npdEdit ? 'Edit Nota Pencairan Dana Transport' : 'Buat Nota Pencairan Dana Transport')
+{{-- HANYA untuk menyunting NPD Transport yang sudah ada. Pembuatan NPD
+     Transport sudah dihapus: transport kini dibayar lewat NPD Perjalanan
+     Dinas (lihat NpdTransportController). --}}
+@php($npdEdit = $npd)
+@section('title', 'Edit Nota Pencairan Dana Transport')
 
 @section('content')
 <div class="dash-card">
-    <h3>{{ $npdEdit ? 'Edit' : 'Buat' }} Nota Pencairan Dana Transport</h3>
-    <div class="sub">Turunan dari NPD Perjalanan Dinas yang sudah Selesai — anggota disalin otomatis, isi komponen transport saja.</div>
+    <h3>Edit Nota Pencairan Dana Transport</h3>
+    <div class="sub">Turunan dari NPD Perjalanan Dinas yang sudah Selesai — anggotanya mengikuti NPD induk, isi komponen transport saja.</div>
 
     @if ($errors->any())
         <div class="err-box" style="display:block;">
@@ -22,35 +25,21 @@
 
     @php($wizStartStep = $errors->any() ? ($errors->has('npd_induk_id') ? 1 : 2) : 1)
     <div class="steps" id="wiz-steps">
-        <div class="step active" data-step="1"><span class="n">1</span><span class="lb">Pilih NPD Induk</span></div>
+        <div class="step active" data-step="1"><span class="n">1</span><span class="lb">NPD Induk</span></div>
         <div class="step" data-step="2"><span class="n">2</span><span class="lb">Detail &amp; Anggota</span></div>
         <div class="step" data-step="3"><span class="n">3</span><span class="lb">Review</span></div>
     </div>
 
-    <form method="POST" action="{{ $npdEdit ? route('npd.tr.update', $npdEdit) : route('npd.tr.store') }}" id="npd-tr-form" enctype="multipart/form-data" data-start-step="{{ $wizStartStep }}">
+    <form method="POST" action="{{ route('npd.tr.update', $npdEdit) }}" id="npd-tr-form" enctype="multipart/form-data" data-start-step="{{ $wizStartStep }}">
         @csrf
-        @if ($npdEdit) @method('PUT') @endif
+        @method('PUT')
 
         <div class="pane show" data-pane="1">
             <div class="fg">
                 <label class="fl" for="npd_induk_id">NPD Perjalanan Dinas Induk</label>
-                @if ($npdEdit)
-                    <input type="text" value="{{ $indukList->first()?->nomor_lengkap ?? '#'.$npdEdit->npd_induk_id }}" disabled style="background:var(--surface-2);">
-                    <input type="hidden" id="npd_induk_id" name="npd_induk_id" value="{{ $npdEdit->npd_induk_id }}">
-                    <div class="sub" style="margin-top:4px;">Induk tidak dapat diganti setelah NPD Transport dibuat.</div>
-                @else
-                    <select id="npd_induk_id" name="npd_induk_id" data-cari>
-                        <option value="">— Pilih NPD Perjalanan Dinas —</option>
-                        @foreach ($indukList as $induk)
-                            <option value="{{ $induk->id }}" @selected((string) old('npd_induk_id') === (string) $induk->id)>
-                                {{ $induk->nomor_lengkap ?? '(Draft #'.$induk->id.')' }} — {{ $induk->tanggal_npd->format('d-m-Y') }} — {{ $induk->tim->count() }} anggota
-                            </option>
-                        @endforeach
-                    </select>
-                    @if ($indukList->isEmpty())
-                        <div class="sub" style="margin-top:4px;color:var(--err);">Belum ada NPD Perjalanan Dinas berstatus Selesai yang tersedia sebagai induk (atau semuanya sudah punya NPD Transport aktif).</div>
-                    @endif
-                @endif
+                <input type="text" value="{{ $indukList->first()?->nomor_lengkap ?? '#'.$npdEdit->npd_induk_id }}" disabled style="background:var(--surface-2);">
+                <input type="hidden" id="npd_induk_id" name="npd_induk_id" value="{{ $npdEdit->npd_induk_id }}">
+                <div class="sub" style="margin-top:4px;">Induk tidak dapat diganti setelah NPD Transport dibuat.</div>
             </div>
 
             {{-- Transport mewarisi mata anggaran dari NPD induk, jadi tidak
@@ -59,7 +48,7 @@
 
             <div class="err-box" id="err-1"></div>
             <div class="nav">
-                <a class="btn" href="{{ $npdEdit ? route('npd.show', $npdEdit) : route('npd.index') }}">Batal</a>
+                <a class="btn" href="{{ route('npd.show', $npdEdit) }}">Batal</a>
                 <button type="button" class="btn prim" id="wiz-n1">Lanjut &rarr;</button>
             </div>
         </div>
@@ -134,7 +123,7 @@
             <div class="err-box" id="err-3"></div>
             <div class="nav">
                 <button type="button" class="btn" id="wiz-b3">&larr; Sebelumnya</button>
-                <button type="submit" class="btn prim">{{ $npdEdit ? 'Simpan Perubahan' : 'Simpan sebagai Draft' }}</button>
+                <button type="submit" class="btn prim">Simpan Perubahan</button>
             </div>
         </div>
     </form>

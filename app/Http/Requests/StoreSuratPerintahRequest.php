@@ -55,7 +55,14 @@ class StoreSuratPerintahRequest extends FormRequest
 
         return [
             'website' => ['prohibited'],
-            'jenis_permintaan' => ['required', Rule::in(SuratPerintah::JENIS_PERMINTAAN)],
+            // SP BARU hanya boleh berjenis Uang Harian/Akomodasi. Entri
+            // "Reimburse Transportasi" tidak lagi bisa dibuat: ia khusus
+            // melayani NPD Transport, yang pembuatannya sudah dihapus -
+            // transport kini dibayar lewat NPD Perjalanan Dinas dengan
+            // mencentang komponen Transport. Aturan Reimburse di bawah tetap
+            // ada karena dipakai UpdateSuratPerintahRequest untuk menyunting
+            // entri Reimburse yang sudah telanjur ada.
+            'jenis_permintaan' => ['required', Rule::in([SuratPerintah::JENIS_UANG_HARIAN])],
 
             // Hanya diisi (dan hanya berarti) pada Reimburse Transportasi.
             'sp_induk_id' => [
@@ -128,6 +135,7 @@ class StoreSuratPerintahRequest extends FormRequest
             'sp_induk_id.exists' => 'SP induk harus berjenis Uang Harian/Akomodasi.',
             'sp_induk_id.unique' => 'SP induk tersebut sudah memiliki entri Reimburse Transportasi.',
             'sp_induk_id.prohibited' => 'SP induk hanya boleh diisi untuk jenis Reimburse Transportasi.',
+            'jenis_permintaan.in' => 'Jenis Reimburse Transportasi tidak lagi bisa diinput. Transport dibayar lewat NPD Perjalanan Dinas: input SP Uang Harian/Akomodasi dan centang komponen Transport.',
             'nomor_sp.unique' => 'Nomor SP ini sudah terdaftar. Gunakan nomor lain.',
             'komponen.required' => 'Komponen Pembayaran wajib dipilih minimal satu.',
             'anggota.required' => 'Anggota SP wajib diisi minimal 1 orang.',

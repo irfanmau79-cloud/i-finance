@@ -8,13 +8,13 @@ use App\Http\Requests\StoreSuratPerintahRequest;
 use App\Http\Requests\UpdateSuratPerintahRequest;
 use App\Models\Pegawai;
 use App\Models\SuratPerintah;
+use App\Services\RekapPembayaranSpService;
 use App\Services\SuratPerintahAnggotaService;
 use App\Services\SuratPerintahTimelineService;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
-use Illuminate\Validation\ValidationException;
 use Mpdf\Mpdf;
 use Mpdf\Output\Destination;
 use Symfony\Component\HttpFoundation\StreamedResponse;
@@ -36,6 +36,19 @@ class SuratPerintahController extends Controller
             ->get();
 
         return view('surat-perintah.index', compact('suratPerintahs'));
+    }
+
+    /**
+     * Rekapitulasi Pembayaran SP: komponen mana (Uang Harian, Akomodasi,
+     * Transport) dari tiap SP yang sudah dibuatkan NPD-nya. Baca-saja;
+     * seluruh isinya dihitung RekapPembayaranSpService dari NPD tertaut.
+     */
+    public function rekapPembayaran(RekapPembayaranSpService $rekap)
+    {
+        return view('surat-perintah.rekap-pembayaran', [
+            'baris' => $rekap->baris(),
+            'komponen' => RekapPembayaranSpService::KOMPONEN,
+        ]);
     }
 
     /** Monitoring SP: hanya orderan yang masih dipantau. Port dari getSPMonitoringAktif di gas-lama/CodeSuratPerintah.gs. */
@@ -134,7 +147,6 @@ class SuratPerintahController extends Controller
     {
         return [
             'pegawaiList' => $this->pegawaiList(),
-            'indukList' => SuratPerintah::calonIndukReimburse(),
         ];
     }
 
@@ -173,13 +185,15 @@ class SuratPerintahController extends Controller
     }
 
     /**
-     * Port dari prosesInputSP(). Dua bentuk berkas ditangani di sini:
+     * Port dari prosesInputSP(). SP baru selalu berjenis Uang
+     * Harian/Akomodasi: identitas diisi pengguna dan PDF wajib.
      *
-     * - Uang Harian/Akomodasi: identitas diisi pengguna, PDF wajib.
-     * - Reimburse Transportasi: identitas & anggota DISALIN dari SP induk di
-     *   sisi server (bukan dari kiriman client, supaya tidak bisa dipalsukan),
-     *   nomornya "{nomor induk} (Reimburse)", komponen dipaksa Transport, dan
-     *   PDF tidak wajib.
+     * Bentuk kedua di GAS, "Reimburse Transportasi" (identitas & anggota
+     * disalin dari SP induk), TIDAK lagi bisa dibuat - ia khusus melayani
+     * NPD Transport, yang pembuatannya sudah dihapus. Transport kini dibayar
+     * lewat NPD Perjalanan Dinas dengan mencentang komponen Transport.
+     * StoreSuratPerintahRequest-lah yang menolak jenis itu; entri Reimburse
+     * yang sudah ada tetap bisa disunting lewat update().
      *
      * Seluruhnya dalam satu transaksi: bila anggota gagal disimpan, baris SP
      * ikut dibatalkan dan berkas yang terlanjur terunggah dihapus.
@@ -208,17 +222,10 @@ class SuratPerintahController extends Controller
         $data['sumber_npd'] = true;
 
         try {
-            $suratPerintah = DB::transaction(function () use ($data, $anggotaInput, $komponen, $jenisPembayaran, $request) {
-                if ($request->reimburse()) {
-                    $induk = SuratPerintah::query()->lockForUpdate()->findOrFail($data['sp_induk_id']);
-
-                    $data = $this->salinDariInduk($data, $induk);
-                    $anggota = $this->anggotaService->salinDariInduk($induk->anggota);
-                } else {
-                    $data['pengajuan'] = implode(', ', $komponen);
-                    $data['jenis_pembayaran'] = implode(', ', $jenisPembayaran);
-                    $anggota = $this->anggotaService->normalisasi($anggotaInput, false, true);
-                }
+            $suratPerintah = DB::transaction(function () use ($data, $anggotaInput, $komponen, $jenisPembayaran) {
+                $data['pengajuan'] = implode(', ', $komponen);
+                $data['jenis_pembayaran'] = implode(', ', $jenisPembayaran);
+                $anggota = $this->anggotaService->normalisasi($anggotaInput, false, true);
 
                 $suratPerintah = SuratPerintah::create($data);
                 $this->simpanAnggota($suratPerintah, $anggota);
@@ -241,41 +248,6 @@ class SuratPerintahController extends Controller
         ));
 
         return $suratPerintah;
-    }
-
-    /**
-     * Salin identitas SP induk untuk entri Reimburse Transportasi. Nomor
-     * memakai suffix, komponen dipaksa Transport, dan seluruh field identitas
-     * diambil dari induk - bukan dari kiriman client.
-     *
-     * @param  array<string, mixed>  $data
-     * @return array<string, mixed>
-     */
-    private function salinDariInduk(array $data, SuratPerintah $induk): array
-    {
-        $nomor = $induk->nomor_sp.SuratPerintah::SUFFIX_REIMBURSE;
-
-        if (SuratPerintah::where('nomor_sp', $nomor)->exists()) {
-            throw ValidationException::withMessages([
-                'sp_induk_id' => 'SP induk "'.$induk->nomor_sp.'" sudah memiliki entri Reimburse Transportasi.',
-            ]);
-        }
-
-        return array_replace($data, [
-            'nomor_sp' => $nomor,
-            'tanggal_sp' => $induk->tanggal_sp,
-            'unit_kerja' => $induk->unit_kerja,
-            'lokasi' => $induk->lokasi,
-            'nama_pengirim' => $induk->nama_pengirim,
-            'tujuan_transfer' => $induk->tujuan_transfer,
-            'irban_dibayar' => $induk->irban_dibayar,
-            'rincian_tgl_bayar' => $induk->rincian_tgl_bayar,
-            'keterangan' => $induk->keterangan,
-            'pengajuan' => 'Transport',
-            // Reimburse menumpang perjalanan yang sama dengan induknya, jadi
-            // jenis pembayarannya tidak boleh berbeda.
-            'jenis_pembayaran' => $induk->jenis_pembayaran,
-        ]);
     }
 
     /**
@@ -348,9 +320,8 @@ class SuratPerintahController extends Controller
                 ]);
 
                 // Snapshot anggota disalin PERSIS, termasuk tautan pegawai dan
-                // penanda manualnya. Tidak lewat salinDariInduk(): jalur
-                // Reimburse itu memaksa semua anggota jadi manual dan menolak
-                // SP tanpa anggota, padahal duplikat harus sama dengan sumbernya.
+                // penanda manualnya, dan tanpa lewat normalisasi(): duplikat
+                // harus sama dengan sumbernya, juga bila sumbernya tanpa anggota.
                 $this->simpanAnggota($duplikat, $suratPerintah->anggota->map(fn ($anggota) => [
                     'pegawai_id' => $anggota->pegawai_id,
                     'nama' => $anggota->nama,

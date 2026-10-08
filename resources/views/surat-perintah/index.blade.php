@@ -144,7 +144,7 @@
     <div class="sub" style="margin-top:10px;">
         <strong>Monitoring SP</strong> mengatur tampil atau tidaknya SP di halaman Monitoring.
         <strong>Sumber NPD</strong> mengatur muncul atau tidaknya SP sebagai sumber data di Pembuatan NPD Perjalanan Dinas
-        dan daftar Reimburse Transportasi &mdash; mematikannya tidak menghapus SP dari Monitoring.
+        &mdash; mematikannya tidak menghapus SP dari Monitoring.
         <strong>Duplikat</strong> membuat baris SP baru bernomor sama untuk SP yang dibayarkan lewat lebih dari satu NPD;
         keterangan (Duplikat-n) hanya tampil di halaman ini.
     </div>

@@ -409,17 +409,38 @@ class NpdPdfRenderTest extends TestCase
         $induk = self::$indukTransport;
         $this->assertNotNull($induk);
 
-        // Transport dibuat PPTK yang SAMA dengan pembuat induknya: sejak NPD
-        // Transport ikut dibatasi pelimpahan, PPTK lain tidak boleh menumpang
-        // pada Perjalanan Dinas Sub Kegiatan ini.
+        // Pembuatan NPD Transport sudah dihapus (transport kini dibayar lewat
+        // NPD Perjalanan Dinas), tetapi NPD Transport yang SUDAH ADA masih
+        // harus tercetak persis seperti dulu. Jadi dokumennya disusun
+        // langsung lewat model dengan isi yang sama seperti yang dulu
+        // disimpan formulirnya: identitas anggota disalin dari induk, paket
+        // perjalanan kosong, hanya komponen transport yang terisi.
         $pptk = User::where('username', 'audit-pd-pptk')->firstOrFail();
         $indukTim = $induk->tim()->orderBy('id')->get();
 
-        $tim = [];
+        $npd = Npd::create([
+            'jenis' => 'tr',
+            'npd_induk_id' => $induk->id,
+            'master_anggaran_id' => $induk->master_anggaran_id,
+            'surat_perintah_id' => $induk->surat_perintah_id,
+            'keu' => $induk->keu,
+            'bulan' => 7,
+            'tahun' => 2026,
+            'tanggal_npd' => '2026-07-25',
+            'jenis_panjar' => 'Tanpa Panjar',
+            'nominal' => 0,
+            'terbilang' => '-',
+            'status' => 'Draft NPD - PPTK',
+            'detail_json' => $induk->detail_json,
+            'dibuat_oleh' => $pptk->id,
+        ]);
+
         foreach ($indukTim as $i => $anggota) {
-            $tim[] = [
+            $npd->tim()->create([
+                'pegawai_id' => $anggota->pegawai_id,
                 'nama' => $anggota->nama,
                 'jabatan' => $anggota->jabatan,
+                'bidang_snapshot' => $anggota->bidang_snapshot,
                 'nip' => $anggota->nip,
                 'rekening' => $anggota->rekening,
                 'bbm_liter' => 8 + $i,
@@ -427,23 +448,16 @@ class NpdPdfRenderTest extends TestCase
                 'tol' => 40_000 + ($i * 5_000),
                 'tiket' => $i % 3 === 0 ? 300_000 : 0,
                 'representatif' => $i === 0 ? 75_000 : 0,
-            ];
+                'is_penerima' => $i === 0,
+            ]);
         }
 
-        $payload = [
-            'npd_induk_id' => $induk->id,
-            'jenis_panjar' => 'Tanpa Panjar',
-            'tanggal_npd' => '2026-07-25',
-            'bulan' => 7,
-            'tahun' => 2026,
-            'penerima_index' => 0,
-            'tim' => $tim,
-        ];
-
-        $response = $this->actingAs($pptk)->post(route('npd.tr.store'), $payload);
-        $npd = Npd::where('jenis', 'tr')->latest('id')->firstOrFail();
-        $response->assertRedirect(route('npd.show', $npd));
-        $this->assertSame(count($tim), $npd->tim()->count());
+        // Nominal = jumlah seluruh anggota, dihitung dengan rumus yang sama
+        // dengan yang dipakai dokumennya.
+        $nominal = round((float) $npd->tim()->get()->sum(fn ($anggota) => $anggota->hitung()['jumlah']), 2);
+        $npd->update(['nominal' => $nominal, 'terbilang' => \App\Helpers\Terbilang::rupiah($nominal)]);
+        $this->assertSame($indukTim->count(), $npd->tim()->count());
+        $this->assertGreaterThan(0, $nominal);
 
         $this->simpanPdf('tr-01-npd.pdf', $this->actingAs($pptk)->get(route('npd.cetak-npd', $npd)));
         $this->simpanPdf('tr-02-lampiran.pdf', $this->actingAs($pptk)->get(route('npd.cetak-lampiran', $npd)));

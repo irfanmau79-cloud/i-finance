@@ -10,136 +10,24 @@ use App\Helpers\Terbilang;
 use App\Http\Requests\StoreNpdTransportRequest;
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
-use App\Support\AnggaranNpd;
 use App\Support\KeteranganLampiranIsian;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
 
+/**
+ * NPD Transport ('tr') - turunan NPD Perjalanan Dinas yang hanya memuat
+ * komponen transport (BBM, tol, tiket, representatif).
+ *
+ * PEMBUATANNYA SUDAH DIHAPUS (keputusan Irfan, Oktober 2026): transport kini
+ * dibayar lewat NPD Perjalanan Dinas itu sendiri, yang formulirnya memuat
+ * BBM/tol/tiket per anggota. Controller ini tinggal melayani PENYUNTINGAN
+ * NPD Transport yang sudah telanjur ada, supaya dokumen yang masih berjalan
+ * bisa diselesaikan. Melihat, mencetak, dan alur persetujuannya tetap lewat
+ * NpdController seperti jenis NPD lain.
+ */
 class NpdTransportController extends Controller
 {
-    public function create()
-    {
-        return $this->form();
-    }
-
-    public function store(StoreNpdTransportRequest $request, SpjBerkasService $spj)
-    {
-        $data = $request->validated();
-
-        $induk = Npd::with(['masterAnggaran', 'tim'])->find($data['npd_induk_id']);
-
-        if (! $induk || $induk->jenis !== 'pd' || $induk->status !== 'Selesai') {
-            return back()->withInput()->withErrors([
-                'npd_induk_id' => 'Induk harus NPD Perjalanan Dinas berstatus Selesai.',
-            ]);
-        }
-
-        // PPTK hanya boleh menumpang pada Perjalanan Dinas yang Sub
-        // Kegiatannya dilimpahkan kepadanya. Daftar induk di formulir sudah
-        // disaring, tetapi id-nya dikirim dari peramban - jadi batasnya
-        // ditegakkan lagi di sini, sama seperti AnggaranNpd::aturan() pada
-        // jenis NPD lain.
-        if (! AnggaranNpd::boleh($request->user(), $induk->master_anggaran_id)) {
-            return back()->withInput()->withErrors([
-                'npd_induk_id' => 'NPD Perjalanan Dinas ini berada pada Sub Kegiatan yang tidak dilimpahkan kepada Anda.',
-            ]);
-        }
-
-        if ($induk->punyaTurunanTransportAktif()) {
-            return back()->withInput()->withErrors([
-                'npd_induk_id' => 'NPD Perjalanan Dinas ini sudah memiliki NPD Transport aktif. Batalkan yang lama terlebih dahulu bila ingin membuat ulang.',
-            ]);
-        }
-
-        if (count($data['tim']) !== $induk->tim->count()) {
-            return back()->withInput()->withErrors([
-                'tim' => 'Jumlah anggota harus sama dengan anggota NPD Perjalanan Dinas induk ('.$induk->tim->count().' orang).',
-            ]);
-        }
-
-        if ((int) $data['penerima_index'] >= count($data['tim'])) {
-            return back()->withInput()->withErrors(['penerima_index' => 'Penerima dana harus salah satu anggota tim.']);
-        }
-
-        $tim = $this->siapkanTim($data['tim'], $induk);
-        $nominal = round((float) $tim->sum('jumlah'), 2);
-
-        if ($nominal <= 0) {
-            return back()->withInput()->withErrors(['tim' => 'Total transport seluruh anggota harus lebih dari 0.']);
-        }
-
-        $detailJson = $this->snapshotDetailJson($induk, KeteranganLampiranIsian::dari($data));
-        $penerimaIndex = (int) $data['penerima_index'];
-
-        $npd = DB::transaction(function () use ($data, $induk, $nominal, $tim, $detailJson, $penerimaIndex, $request) {
-            $induk = Npd::query()->lockForUpdate()->findOrFail($induk->id);
-
-            if ($induk->jenis !== 'pd' || $induk->status !== 'Selesai') {
-                throw ValidationException::withMessages(['npd_induk_id' => 'Induk harus NPD Perjalanan Dinas berstatus Selesai.']);
-            }
-
-            if ($induk->punyaTurunanTransportAktif()) {
-                throw ValidationException::withMessages([
-                    'npd_induk_id' => 'NPD Perjalanan Dinas ini baru saja mendapat NPD Transport aktif dari transaksi lain.',
-                ]);
-            }
-
-            $masterAnggaran = MasterAnggaran::query()->lockForUpdate()->findOrFail($induk->master_anggaran_id);
-            $sisa = $masterAnggaran->sisaTersedia();
-
-            if ($nominal > $sisa) {
-                throw ValidationException::withMessages([
-                    'tim' => 'Total transport (Rp '.number_format($nominal, 2, ',', '.').') melebihi Sisa Tersedia sumber dana induk (Rp '.number_format($sisa, 2, ',', '.').').',
-                ]);
-            }
-
-            // SP Reimburse Transportasi (bila SP induk punya) adalah orderan
-            // yang justru dipenuhi NPD Transport ini, jadi itulah yang ditaut -
-            // di GAS pun entri Reimburse memang khusus dipakai pada alur ini.
-            // Tanpa entri Reimburse, tautannya tetap SP milik NPD induk.
-            $suratPerintahId = $induk->suratPerintah?->reimburse?->id ?? $induk->surat_perintah_id;
-
-            $npd = Npd::create([
-                'jenis' => 'tr',
-                'npd_induk_id' => $induk->id,
-                'master_anggaran_id' => $induk->master_anggaran_id,
-                'surat_perintah_id' => $suratPerintahId,
-                'keu' => $induk->keu,
-                'bulan' => $data['bulan'],
-                'tahun' => $data['tahun'],
-                'tanggal_npd' => $data['tanggal_npd'],
-                'jenis_panjar' => $data['jenis_panjar'],
-                'nominal' => $nominal,
-                'sisa_anggaran_manual' => Npd::sisaManualDariInput($data),
-                'terbilang' => Terbilang::rupiah($nominal),
-                'status' => 'Draft NPD - PPTK',
-                'detail_json' => $detailJson,
-                'dibuat_oleh' => $request->user()->id,
-            ]);
-
-            foreach ($tim as $i => $anggota) {
-                unset($anggota['jumlah']);
-                $anggota['is_penerima'] = $i === $penerimaIndex;
-                $npd->tim()->create($anggota);
-            }
-
-            $npd->mirrorStatusKeSuratPerintah();
-            $npd->catatHistoriStatus($request->user(), 'buat', null, $npd->status);
-
-            return $npd;
-        });
-
-        AuditLog::catat('Buat NPD', 'Jenis: Transport, Induk: '.($induk->nomor_lengkap ?? "#{$induk->id}").', Nominal: Rp '.number_format((float) $nominal, 2, ',', '.'));
-
-        // Berkas SPJ (opsional) disimpan SESUDAH NPD-nya tersimpan: berkas
-        // yang sudah tertulis ke disk tidak ikut ter-rollback kalau
-        // transaksi penyimpanan NPD gagal.
-        $spj->simpan($npd, $request->file('spj') ?? [], $request->user());
-
-        return redirect()->route('npd.show', $npd)->with('success', 'NPD Transport berhasil disimpan sebagai draft.');
-    }
-
     public function edit(Request $request, Npd $npd)
     {
         abort_unless($npd->jenis === 'tr', 404);
@@ -239,29 +127,17 @@ class NpdTransportController extends Controller
         return redirect($npd->fresh()->urlSetelahEdit($request->user()))->with('success', 'NPD Transport berhasil diperbarui.');
     }
 
-    private function form(?Npd $npd = null, ?array $timAwal = null)
+    private function form(Npd $npd, array $timAwal)
     {
         $bulanList = [
             1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni',
             7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
         ];
 
-        if ($npd) {
-            // Sedang mengedit: induk sudah tetap, hanya tampilkan induk ini (read-only di form).
-            $indukList = Npd::with('tim')->whereKey($npd->npd_induk_id)->get();
-        } else {
-            // NPD PD berstatus Selesai yang belum punya turunan Transport aktif.
-            $indukList = Npd::with(['tim', 'masterAnggaran'])
-                ->where('jenis', 'pd')
-                ->where('status', 'Selesai')
-                ->whereDoesntHave('turunanTransport', fn ($query) => $query->where('status', '!=', 'Dibatalkan'))
-                // PPTK: hanya Perjalanan Dinas pada Sub Kegiatan limpahannya.
-                ->tap(fn ($query) => AnggaranNpd::batasiNpd($query, auth()->user()))
-                ->orderBy('tanggal_npd', 'desc')
-                ->get();
-        }
+        // Induk sudah tetap, hanya ditampilkan (read-only di form).
+        $indukList = Npd::with('tim')->whereKey($npd->npd_induk_id)->get();
 
-        return view('npd.tr.create', compact('bulanList', 'npd', 'timAwal', 'indukList'));
+        return view('npd.tr.edit', compact('bulanList', 'npd', 'timAwal', 'indukList'));
     }
 
     /**

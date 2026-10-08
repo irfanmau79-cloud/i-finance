@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Builder as EloquentBuilder;
-use Illuminate\Database\Eloquent\Collection as EloquentCollection;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
@@ -46,6 +45,13 @@ class SuratPerintah extends Model
     /** Jenis Permintaan Pembayaran (kolom P sheet Monitoring SP di GAS). */
     public const JENIS_UANG_HARIAN = 'Uang Harian/Akomodasi';
 
+    /**
+     * JENIS LAMA - tidak lagi bisa diinput (keputusan Irfan, Oktober 2026).
+     * Entri ini khusus melayani NPD Transport, yang pembuatannya sudah
+     * dihapus: transport kini dibayar lewat NPD Perjalanan Dinas dengan
+     * mencentang komponen Transport pada SP Uang Harian/Akomodasi. Konstanta
+     * dan relasinya dipertahankan untuk entri Reimburse yang sudah ada.
+     */
     public const JENIS_REIMBURSE = 'Reimburse Transportasi';
 
     public const JENIS_PERMINTAAN = [self::JENIS_UANG_HARIAN, self::JENIS_REIMBURSE];
@@ -201,27 +207,5 @@ class SuratPerintah extends Model
     public function scopeDipantau(EloquentBuilder $query): EloquentBuilder
     {
         return $query->where('dipantau', true);
-    }
-
-    /**
-     * SP induk yang masih boleh dibuatkan entri Reimburse Transportasi:
-     * berjenis Uang Harian/Akomodasi, flag Sumber NPD menyala, punya
-     * anggota, dan belum punya entri Reimburse. Port dari
-     * daftarSPUntukReimburse().
-     *
-     * Duplikat tidak ikut: entri Reimburse dinomori "{nomor induk}
-     * (Reimburse)" dan hanya satu per nomor, jadi induknya cukup SP asli.
-     */
-    public static function calonIndukReimburse(): EloquentCollection
-    {
-        return self::query()
-            ->where('jenis_permintaan', self::JENIS_UANG_HARIAN)
-            ->where('duplikat_ke', 0)
-            ->where('sumber_npd', true)
-            ->whereDoesntHave('reimburse')
-            ->whereHas('anggota')
-            ->with('anggota')
-            ->orderByDesc('id')
-            ->get();
     }
 }

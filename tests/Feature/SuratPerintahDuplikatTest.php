@@ -253,20 +253,22 @@ class SuratPerintahDuplikatTest extends TestCase
             ->assertSee($npdDuplikat->nomor_lengkap);
     }
 
-    public function test_sp_reimburse_tidak_bisa_diduplikat_dan_duplikat_bukan_calon_induk_reimburse(): void
+    public function test_sp_reimburse_lama_tidak_bisa_diduplikat(): void
     {
         $pptk = $this->user('pptk');
         $asli = $this->buatSp($pptk);
         $duplikat = $this->duplikat($pptk, $asli);
 
-        $this->assertSame([$asli->id], SuratPerintah::calonIndukReimburse()->pluck('id')->all());
-
-        $this->actingAs($pptk)->post(route('surat-perintah.store'), [
+        // Entri Reimburse lama: jenis ini tidak lagi bisa diinput, jadi
+        // disusun langsung lewat model.
+        $reimburse = $asli->replicate(['file_url']);
+        $reimburse->fill([
+            'nomor_sp' => $asli->nomor_sp.SuratPerintah::SUFFIX_REIMBURSE,
             'jenis_permintaan' => SuratPerintah::JENIS_REIMBURSE,
             'sp_induk_id' => $asli->id,
-            'status_sp' => 'Baru',
-        ])->assertRedirect(route('surat-perintah.index'));
-        $reimburse = SuratPerintah::where('jenis_permintaan', SuratPerintah::JENIS_REIMBURSE)->sole();
+            'pengajuan' => 'Transport',
+            'file_url' => null,
+        ])->save();
 
         $jumlah = SuratPerintah::count();
         $this->actingAs($pptk)->from(route('surat-perintah.index'))

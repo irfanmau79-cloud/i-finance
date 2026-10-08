@@ -3,7 +3,6 @@
 
     $sp = $suratPerintah ?? null;
     $isEdit = $sp !== null;
-    $jenisAwal = old('jenis_permintaan', $sp?->jenis_permintaan ?? SuratPerintah::JENIS_UANG_HARIAN);
 
     $anggotaAwal = old('anggota', $sp?->anggota?->map(fn ($item) => $item->sebagaiInput())->values()->all() ?? []);
 
@@ -16,20 +15,6 @@
         'jabatan' => (string) $item->jabatan,
         'rekening' => (string) $item->rekening,
         'detail' => trim(($item->jabatan ?? '').' — '.($item->bidang ?? ''), ' —'),
-    ])->values()->all();
-
-    $indukJs = ($indukList ?? collect())->map(fn ($item) => [
-        'id' => $item->id,
-        'nomor_sp' => $item->nomor_sp,
-        'tanggal_sp' => $item->tanggal_sp?->format('Y-m-d'),
-        'unit_kerja' => $item->unit_kerja,
-        'lokasi' => $item->lokasi,
-        'nama_pengirim' => $item->nama_pengirim,
-        'tujuan_transfer' => $item->tujuan_transfer,
-        'irban_dibayar' => $item->irban_dibayar ? '1' : '0',
-        'rincian_tgl_bayar' => $item->rincian_tgl_bayar,
-        'keterangan' => $item->keterangan,
-        'jumlah_anggota' => $item->anggota->count(),
     ])->values()->all();
 
     $komponenAwal = old('komponen', $sp?->pengajuanArray() ?? []);
@@ -55,37 +40,13 @@
 </div>
 
 <div class="form-grid">
-    @unless ($isEdit)
-        <div class="fg span2">
-            <label class="fl" for="jenis_permintaan">Jenis Permintaan Pembayaran</label>
-            <select id="jenis_permintaan" name="jenis_permintaan">
-                @foreach (SuratPerintah::JENIS_PERMINTAAN as $jenis)
-                    <option value="{{ $jenis }}" @selected($jenisAwal === $jenis)>{{ $jenis }}</option>
-                @endforeach
-            </select>
-        </div>
-
-        <div class="fg span2" id="sp-induk-wrap" hidden>
-            <label class="fl" for="sp_induk_id">Pilih SP Uang Harian/Akomodasi (induk)</label>
-            <select id="sp_induk_id" name="sp_induk_id" data-cari>
-                <option value="">&mdash; Pilih SP induk &mdash;</option>
-                @foreach ($indukJs as $induk)
-                    <option value="{{ $induk['id'] }}" @selected((string) old('sp_induk_id') === (string) $induk['id'])>
-                        {{ $induk['nomor_sp'] }} &mdash; {{ $induk['lokasi'] }} ({{ $induk['jumlah_anggota'] }} anggota)
-                    </option>
-                @endforeach
-            </select>
-            <div class="sub" style="margin-top:4px;">
-                Data SP dan anggotanya disalin dari SP induk lalu terkunci. Nomor SP mengikuti induk dengan tambahan
-                &ldquo;{{ trim(SuratPerintah::SUFFIX_REIMBURSE) }}&rdquo;. Satu SP induk hanya bisa punya satu entri Reimburse.
-            </div>
-            @if ($indukJs === [])
-                <div class="sub" style="color:var(--warn-teks);margin-top:4px;">
-                    Belum ada SP Uang Harian/Akomodasi yang memenuhi syarat (punya anggota, Sumber NPD aktif, dan belum punya entri Reimburse).
-                </div>
-            @endif
-        </div>
-    @else
+    {{-- Input SP baru SELALU berjenis Uang Harian/Akomodasi. Pilihan
+         "Reimburse Transportasi" sudah dihapus bersama Pembuatan NPD
+         Transport: transport kini dibayar lewat NPD Perjalanan Dinas, cukup
+         dengan mencentang komponen Transport di bawah. Jenisnya hanya
+         ditampilkan saat menyunting, supaya entri Reimburse lama tetap
+         dikenali. --}}
+    @if ($isEdit)
         <div class="fg span2">
             <label class="fl">Jenis Permintaan Pembayaran</label>
             <input type="text" value="{{ $sp->jenis_permintaan }}" readonly>
@@ -96,7 +57,7 @@
                 @endif
             </div>
         </div>
-    @endunless
+    @endif
 
     <div class="fg" data-sp-identitas>
         <label class="fl" for="nomor_sp">Nomor Surat Perintah</label>
@@ -226,7 +187,6 @@
             </p>
         @endif
         <input type="file" id="file_url" name="file_url" accept="application/pdf">
-        <div class="sub" id="sp-file-note" style="margin-top:4px;" hidden>Untuk Reimburse Transportasi, unggahan PDF tidak wajib.</div>
     </div>
 </div>
 
@@ -257,10 +217,6 @@
         Tambah Anggota
     </button>
 </section>
-
-<div class="sub" id="sp-anggota-reimburse" hidden style="margin-top:12px;padding:10px;border:1px solid var(--garis-warn);background:var(--warn-bg);border-radius:8px;">
-    Anggota akan <strong>disalin otomatis</strong> dari SP induk yang dipilih, jadi tidak perlu diisi di sini.
-</div>
 
 <script>
 (function () {

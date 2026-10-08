@@ -143,6 +143,13 @@ Diklat, 2 mode: kontribusi lalu perjalanan).
 Semua: nominal = total BRUTO, validasi `<= sisa_tersedia`, alur transisi 8 aksi
 generik, histori tersimpan, penomoran anti race-condition.
 
+**`tr` TIDAK LAGI BISA DIBUAT** (keputusan Irfan, Oktober 2026): transport kini
+dibayar lewat NPD Perjalanan Dinas (`pd`), yang formulirnya memuat BBM/tol/tiket
+per anggota. Rute & pilihan "NPD Transport" di halaman Buat NPD sudah dihapus.
+NPD `tr` yang sudah ada TETAP dilayani - dilihat, dicetak, diproses, dan
+disunting (`npd.tr.edit/update`) - jadi jenis `tr`, templat PDF-nya, dan
+`NpdPdfRenderTest` untuk Transport jangan dibuang.
+
 ---
 
 ## KEBIJAKAN ADOPSI DARI GAS (PENTING)
