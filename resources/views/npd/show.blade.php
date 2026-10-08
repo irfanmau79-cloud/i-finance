@@ -100,6 +100,11 @@
             @if ($npd->jenis === 'kd')
                 <div class="li"><span class="k">Mode</span><span class="v">{{ $npd->mode_kd === 'perjalanan' ? 'Perjalanan Dinas' : 'Kontribusi' }}</span></div>
                 <div class="li"><span class="k">Nama Pelatihan</span><span class="v">{{ $npd->detail_json['nama_pelatihan'] ?? '—' }}</span></div>
+                @if ($npd->suratPerintah)
+                    <div class="li"><span class="k">Referensi SP</span><span class="v">{{ $npd->suratPerintah->nomor_sp }}</span></div>
+                @endif
+                {{-- Tautan lama: sebelum Referensi SP, mode Perjalanan Dinas
+                     merujuk ke NPD Kontribusinya. --}}
                 @if ($npd->referensi)
                     <div class="li"><span class="k">Referensi NPD Kontribusi</span><span class="v"><a href="{{ route('npd.show', $npd->referensi) }}">{{ $npd->referensi->nomor_lengkap ?? '#'.$npd->referensi->id }}</a></span></div>
                 @endif

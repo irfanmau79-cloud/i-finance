@@ -4,6 +4,7 @@ namespace App\Http\Requests;
 
 use App\Services\SpjBerkasService;
 use App\Models\Npd;
+use App\Models\SuratPerintah;
 use App\Support\AnggaranNpd;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
@@ -19,7 +20,18 @@ class StoreNpdKontribusiDiklatRequest extends FormRequest
     {
         return [
             'mode' => ['required', Rule::in(Npd::MODE_KD_LIST)],
-            'npd_referensi_id' => ['nullable', 'integer', 'exists:npd,id'],
+            // Referensi SP - hanya mode Perjalanan Dinas, dan OPSIONAL (boleh
+            // input manual tanpa referensi). SP-nya harus layak jadi sumber
+            // NPD, sama seperti pada NPD Perjalanan Dinas: berjenis Uang
+            // Harian/Akomodasi, masih Diterima PPTK, dan penanda Sumber NPD
+            // menyala. Saat menyunting, SP yang sudah tertaut tetap diterima
+            // walau statusnya kini mengikuti NPD ini.
+            'surat_perintah_id' => ['exclude_unless:mode,perjalanan', 'nullable', 'integer', Rule::exists('surat_perintah', 'id')
+                ->where(fn ($query) => $query
+                    ->where(fn ($q) => $q->where('status', SuratPerintah::STATUS_DITERIMA_PPTK)
+                        ->where('sumber_npd', true)
+                        ->where('jenis_permintaan', SuratPerintah::JENIS_UANG_HARIAN))
+                    ->when($this->route('npd')?->surat_perintah_id, fn ($q, $id) => $q->orWhere('id', $id)))],
             // PPTK hanya boleh memakai Sub Kegiatan limpahannya sendiri. Dropdown
             // di formulir memang sudah disaring, tetapi id-nya dikirim lewat isian
             // tersembunyi - jadi batasnya ditegakkan lagi di sini.
@@ -97,7 +109,7 @@ class StoreNpdKontribusiDiklatRequest extends FormRequest
     {
         return [
             'mode' => 'Mode NPD',
-            'npd_referensi_id' => 'Referensi NPD Kontribusi',
+            'surat_perintah_id' => 'Referensi SP',
             'master_anggaran_id' => 'Sumber Dana',
             'jenis_panjar' => 'Jenis NPD',
             'tanggal_npd' => 'Tanggal NPD',

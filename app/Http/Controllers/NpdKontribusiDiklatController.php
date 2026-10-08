@@ -9,6 +9,7 @@ use App\Helpers\Terbilang;
 use App\Http\Requests\StoreNpdKontribusiDiklatRequest;
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
+use App\Models\SuratPerintah;
 use App\Support\KeteranganLampiranIsian;
 use App\Models\Pegawai;
 use App\Support\AnggaranNpd;
@@ -37,21 +38,9 @@ class NpdKontribusiDiklatController extends Controller
             ]);
         }
 
-        $referensiId = $mode === 'perjalanan' ? ($data['npd_referensi_id'] ?? null) : null;
-
-        if ($referensiId !== null) {
-            $referensiValid = Npd::where('jenis', 'kd')
-                ->where('mode_kd', 'kontribusi')
-                ->where('status', '!=', 'Dibatalkan')
-                ->whereKey($referensiId)
-                ->exists();
-
-            if (! $referensiValid) {
-                return back()->withInput()->withErrors([
-                    'npd_referensi_id' => 'Referensi harus NPD Kontribusi Diklat mode Kontribusi yang belum dibatalkan.',
-                ]);
-            }
-        }
+        // Referensi SP (opsional) hanya berlaku untuk mode Perjalanan Dinas;
+        // kelayakan SP-nya sudah diperiksa StoreNpdKontribusiDiklatRequest.
+        $suratPerintahId = $mode === 'perjalanan' ? ($data['surat_perintah_id'] ?? null) : null;
 
         if ((int) $data['penerima_index'] >= count($data['peserta'])) {
             return back()->withInput()->withErrors(['penerima_index' => 'Penerima dana harus salah satu peserta yang diinput.']);
@@ -75,7 +64,7 @@ class NpdKontribusiDiklatController extends Controller
 
         $detailJson = $this->buatDetailJson($data, $mode);
 
-        $npd = DB::transaction(function () use ($data, $masterAnggaran, $keu, $mode, $referensiId, $nominal, $peserta, $detailJson, $request) {
+        $npd = DB::transaction(function () use ($data, $masterAnggaran, $keu, $mode, $suratPerintahId, $nominal, $peserta, $detailJson, $request) {
             $masterAnggaran = MasterAnggaran::query()->lockForUpdate()->findOrFail($masterAnggaran->id);
             $sisa = $masterAnggaran->sisaTersedia();
 
@@ -90,7 +79,7 @@ class NpdKontribusiDiklatController extends Controller
             $npd = Npd::create([
                 'jenis' => 'kd',
                 'mode_kd' => $mode,
-                'npd_referensi_id' => $referensiId,
+                'surat_perintah_id' => $suratPerintahId,
                 'master_anggaran_id' => $masterAnggaran->id,
                 'keu' => $keu,
                 'bulan' => $data['bulan'],
@@ -106,6 +95,9 @@ class NpdKontribusiDiklatController extends Controller
             ]);
 
             $this->simpanPeserta($npd, $peserta);
+            // Status SP mengikuti NPD yang menautnya, sama seperti NPD
+            // Perjalanan Dinas. No-op bila tanpa Referensi SP.
+            $npd->mirrorStatusKeSuratPerintah();
             $npd->catatHistoriStatus($request->user(), 'buat', null, $npd->status);
 
             return $npd;
@@ -160,22 +152,7 @@ class NpdKontribusiDiklatController extends Controller
         $data = $request->validated();
         $mode = $data['mode'];
 
-        $referensiId = $mode === 'perjalanan' ? ($data['npd_referensi_id'] ?? null) : null;
-
-        if ($referensiId !== null) {
-            $referensiValid = Npd::where('jenis', 'kd')
-                ->where('mode_kd', 'kontribusi')
-                ->where('status', '!=', 'Dibatalkan')
-                ->whereKeyNot($npd->id)
-                ->whereKey($referensiId)
-                ->exists();
-
-            if (! $referensiValid) {
-                return back()->withInput()->withErrors([
-                    'npd_referensi_id' => 'Referensi harus NPD Kontribusi Diklat mode Kontribusi yang belum dibatalkan.',
-                ]);
-            }
-        }
+        $suratPerintahId = $mode === 'perjalanan' ? ($data['surat_perintah_id'] ?? null) : null;
 
         if ((int) $data['penerima_index'] >= count($data['peserta'])) {
             return back()->withInput()->withErrors(['penerima_index' => 'Penerima dana harus salah satu peserta yang diinput.']);
@@ -196,7 +173,7 @@ class NpdKontribusiDiklatController extends Controller
 
         $detailJson = $this->buatDetailJson($data, $mode);
 
-        DB::transaction(function () use ($request, $npd, $data, $mode, $referensiId, $peserta, $nominal, $detailJson) {
+        DB::transaction(function () use ($request, $npd, $data, $mode, $suratPerintahId, $peserta, $nominal, $detailJson) {
             $npd = Npd::query()->lockForUpdate()->findOrFail($npd->id);
             abort_unless($npd->dapatDieditOleh($request->user()), 403);
             $sebelum = app(NpdRevisiService::class)->potret($npd);
@@ -217,9 +194,14 @@ class NpdKontribusiDiklatController extends Controller
                 ]);
             }
 
+            $suratPerintahLama = $npd->surat_perintah_id;
             $npd->update([
                 'mode_kd' => $mode,
-                'npd_referensi_id' => $referensiId,
+                // Referensi NPD Kontribusi sudah digantikan Referensi SP dan
+                // tidak lagi bisa dipilih. Tautan lama pada NPD yang dibuat
+                // sebelum itu dibiarkan, kecuali modenya pindah ke Kontribusi.
+                'npd_referensi_id' => $mode === 'perjalanan' ? $npd->npd_referensi_id : null,
+                'surat_perintah_id' => $suratPerintahId,
                 'master_anggaran_id' => $anggaran->id,
                 'keu' => $keu,
                 'bulan' => $data['bulan'],
@@ -234,6 +216,14 @@ class NpdKontribusiDiklatController extends Controller
 
             $npd->peserta()->delete();
             $this->simpanPeserta($npd, $peserta);
+            // SP yang dilepas kembali "Diterima PPTK"; SP yang kini ditaut
+            // mengikuti status NPD ini - pola yang sama dengan NpdPdController.
+            if ($suratPerintahLama && $suratPerintahLama !== $npd->surat_perintah_id) {
+                $npdLama = clone $npd;
+                $npdLama->surat_perintah_id = $suratPerintahLama;
+                $npdLama->lepaskanSuratPerintah();
+            }
+            $npd->mirrorStatusKeSuratPerintah();
             app(NpdRevisiService::class)->catatEdit($npd, $request->user(), $sebelum, 'Data Kontribusi Diklat diperbarui.');
         });
 
@@ -256,16 +246,18 @@ class NpdKontribusiDiklatController extends Controller
             7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember',
         ];
 
-        // Hanya NPD Kontribusi Diklat mode 'kontribusi' yang boleh jadi referensi mode 'perjalanan'.
-        $referensiList = Npd::with('peserta')
-            ->where('jenis', 'kd')
-            ->where('mode_kd', 'kontribusi')
-            ->where('status', '!=', 'Dibatalkan')
-            ->when($npd, fn ($query) => $query->whereKeyNot($npd->id))
-            ->orderBy('tanggal_npd', 'desc')
+        // Referensi SP untuk mode 'perjalanan': SP dari modul Input SP yang
+        // masih layak jadi sumber NPD (lihat SuratPerintah::scopeSumberNpdPerjalanan),
+        // ditambah SP yang sudah tertaut ke NPD ini supaya tetap terpilih saat disunting.
+        $suratPerintahList = SuratPerintah::query()
+            ->with('anggota')
+            ->where(fn ($query) => $query->sumberNpdPerjalanan()
+                ->when($npd?->surat_perintah_id, fn ($q, $id) => $q->orWhere('id', $id)))
+            ->orderBy('tanggal_sp', 'desc')
+            ->orderByDesc('id')
             ->get();
 
-        return view('npd.kd.create', compact('masterAnggaran', 'pegawai', 'bulanList', 'npd', 'pesertaAwal', 'detailAwal', 'referensiList'));
+        return view('npd.kd.create', compact('masterAnggaran', 'pegawai', 'bulanList', 'npd', 'pesertaAwal', 'detailAwal', 'suratPerintahList'));
     }
 
     /**

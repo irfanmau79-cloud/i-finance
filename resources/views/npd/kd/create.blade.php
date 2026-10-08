@@ -62,16 +62,23 @@
             </div>
 
             <div class="fg" id="referensi-wrap" style="display:none;">
-                <label class="fl" for="npd_referensi_id">Referensi NPD Kontribusi (opsional)</label>
-                <select id="npd_referensi_id" name="npd_referensi_id" data-cari>
+                {{-- Referensi SP menggantikan Referensi NPD Kontribusi: NPD ini
+                     ditaut ke Surat Perintah dari modul Input SP, dan status
+                     SP itu kemudian mengikuti NPD-nya di Monitoring SP. --}}
+                <label class="fl" for="surat_perintah_id">Referensi SP (opsional)</label>
+                <select id="surat_perintah_id" name="surat_perintah_id" data-cari>
                     <option value="">— Input manual, tanpa referensi —</option>
-                    @foreach ($referensiList as $r)
-                        <option value="{{ $r->id }}" @selected((string) old('npd_referensi_id', $npdEdit?->npd_referensi_id) === (string) $r->id)>
-                            {{ $r->nomor_lengkap ?? '(Draft #'.$r->id.')' }} — {{ $r->detail_json['nama_pelatihan'] ?? '' }}
+                    @foreach ($suratPerintahList as $sp)
+                        <option value="{{ $sp->id }}" @selected((string) old('surat_perintah_id', $npdEdit?->surat_perintah_id) === (string) $sp->id)>
+                            {{ $sp->nomor_sp }} — {{ $sp->unit_kerja }}{{ $sp->lokasi ? ' ('.$sp->lokasi.')' : '' }}{{ $sp->keterangan ? ' — '.Str::limit($sp->keterangan, 80) : '' }}
                         </option>
                     @endforeach
                 </select>
-                <div class="sub" style="margin-top:4px;">Memilih referensi akan menyalin nama/pangkat/NIP/rekening peserta ke bawah — bisa diedit.</div>
+                @error('surat_perintah_id')<div class="err-box" style="display:block;margin-top:6px;">{{ $message }}</div>@enderror
+                <div class="sub" style="margin-top:4px;">
+                    Pilihannya Surat Perintah dari menu Input SP yang belum dipakai NPD lain. Memilih referensi akan menyalin
+                    nama/pangkat/NIP/rekening anggota SP ke daftar peserta di bawah — bisa diedit.
+                </div>
             </div>
 
             <div class="nav">
@@ -295,17 +302,20 @@
         'rekening' => $p->rekening,
     ]);
 
-    $referensiJs = $referensiList->map(fn ($r) => [
-        'id' => $r->id,
-        'nama_pelatihan' => $r->detail_json['nama_pelatihan'] ?? '',
-        'tanggal_mulai' => $r->detail_json['tanggal_mulai'] ?? '',
-        'tanggal_selesai' => $r->detail_json['tanggal_selesai'] ?? '',
-        'peserta' => $r->peserta->map(fn ($p) => [
-            'pegawai_id' => $p->pegawai_id,
-            'nama' => $p->nama,
-            'pangkat' => $p->pangkat,
-            'nip' => $p->nip,
-            'rekening' => $p->rekening,
+    // Identitas peserta diambil dari SNAPSHOT anggota SP, bukan join ke
+    // master Pegawai - sama seperti NPD Perjalanan Dinas.
+    $referensiJs = $suratPerintahList->map(fn ($sp) => [
+        'id' => $sp->id,
+        'nama_pelatihan' => (string) $sp->keterangan,
+        'peserta' => $sp->anggota->map(fn ($a) => [
+            'pegawai_id' => $a->pegawai_id,
+            'nama' => (string) $a->nama,
+            // Isian peserta "Pangkat/Golongan" satu kolom, mis. "Penata (III/c)".
+            'pangkat' => filled($a->pangkat) && filled($a->golongan)
+                ? $a->pangkat.' ('.$a->golongan.')'
+                : (string) ($a->pangkat ?: $a->golongan),
+            'nip' => (string) $a->nip,
+            'rekening' => (string) $a->rekening,
         ])->all(),
     ]);
 ?>
@@ -498,8 +508,9 @@
     modeKontribusi.addEventListener('change', applyMode);
     modePerjalanan.addEventListener('change', applyMode);
 
-    // ---- Referensi NPD Kontribusi: salin peserta + nama pelatihan (client-side, boleh diedit) ----
-    const referensiSelect = document.getElementById('npd_referensi_id');
+    // ---- Referensi SP: salin anggota SP jadi peserta + keterangan SP jadi nama pelatihan
+    //      bila masih kosong (client-side, boleh diedit) ----
+    const referensiSelect = document.getElementById('surat_perintah_id');
     const namaPelatihanInput = document.getElementById('nama_pelatihan');
 
     referensiSelect.addEventListener('change', () => {

@@ -5,6 +5,7 @@ namespace Tests\Feature;
 use App\Http\Controllers\NpdController;
 use App\Models\MasterAnggaran;
 use App\Models\Npd;
+use App\Models\SuratPerintah;
 use App\Models\User;
 use Illuminate\Foundation\Testing\RefreshDatabase;
 use ReflectionMethod;
@@ -75,11 +76,37 @@ class NpdKontribusiDiklatTest extends TestCase
         ];
     }
 
-    private function payloadPerjalanan(MasterAnggaran $masterAnggaran, ?int $referensiId = null): array
+    /** Surat Perintah yang layak jadi Referensi SP, dengan dua anggota. */
+    private function buatSp(array $override = []): SuratPerintah
+    {
+        $sp = SuratPerintah::create(array_replace([
+            'nomor_sp' => '120/PW.02.01/Sekre',
+            'tanggal_sp' => '2026-07-28',
+            'jenis_permintaan' => SuratPerintah::JENIS_UANG_HARIAN,
+            'unit_kerja' => 'Sekretariat',
+            'lokasi' => 'Kota Bogor',
+            'nama_pengirim' => 'Pengirim',
+            'tujuan_transfer' => 'Koordinator',
+            'irban_dibayar' => false,
+            'rincian_tgl_bayar' => '1 - 5 Agustus 2026',
+            'keterangan' => 'Mengikuti Diklat Penjenjangan Auditor Ahli Muda',
+            'status_sp' => 'Baru',
+            'status' => SuratPerintah::STATUS_DITERIMA_PPTK,
+            'dipantau' => true,
+            'sumber_npd' => true,
+        ], $override));
+
+        $sp->anggota()->create(['nama' => 'Andi Saputra', 'nip' => '198501012010011001', 'golongan' => 'III/a', 'pangkat' => 'Penata Muda', 'jabatan' => 'Auditor', 'rekening' => '1112223334', 'manual' => true, 'urutan' => 1]);
+        $sp->anggota()->create(['nama' => 'Rina Marlina', 'nip' => '198602022011012002', 'golongan' => 'III/c', 'pangkat' => 'Penata', 'jabatan' => 'Auditor', 'rekening' => '5556667778', 'manual' => true, 'urutan' => 2]);
+
+        return $sp;
+    }
+
+    private function payloadPerjalanan(MasterAnggaran $masterAnggaran, ?int $suratPerintahId = null): array
     {
         return [
             'mode' => 'perjalanan',
-            'npd_referensi_id' => $referensiId,
+            'surat_perintah_id' => $suratPerintahId,
             'master_anggaran_id' => $masterAnggaran->id,
             'jenis_panjar' => 'Tanpa Panjar',
             'tanggal_npd' => '2026-08-06',
@@ -158,20 +185,23 @@ class NpdKontribusiDiklatTest extends TestCase
      * volume_akomodasi*tarif_akomodasi, jumlah_saku = hari_saku*tarif_saku,
      * transport at-cost. Nominal = subtotal perjalanan saja.
      */
-    public function test_mode_perjalanan_dengan_referensi_menyalin_snapshot_peserta_dan_formula_benar(): void
+    public function test_mode_perjalanan_dengan_referensi_sp_menaut_surat_perintah_dan_formula_benar(): void
     {
         $pptk = $this->buatUser('pptk', 'kd-pptk-perjalanan');
         $masterAnggaran = $this->buatMasterAnggaran();
         $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
+        // NPD Kontribusinya tetap ada, tetapi BUKAN lagi yang dirujuk.
         $this->actingAs($pptk)->post(route('npd.kd.store'), $this->payloadKontribusi($masterAnggaran));
         $referensi = Npd::where('mode_kd', 'kontribusi')->firstOrFail();
+
+        $sp = $this->buatSp();
 
         $masterAnggaranPd = $this->buatMasterAnggaran(100_000_000, '5.1.02.04.01.0002');
         $this->limpahkanSubKegiatan($pptk, $masterAnggaranPd);
         $response = $this->actingAs($pptk)->post(
             route('npd.kd.store'),
-            $this->payloadPerjalanan($masterAnggaranPd, $referensi->id)
+            $this->payloadPerjalanan($masterAnggaranPd, $sp->id)
         );
 
         $npdPerjalanan = Npd::with('peserta')->where('mode_kd', 'perjalanan')->firstOrFail();
@@ -179,7 +209,13 @@ class NpdKontribusiDiklatTest extends TestCase
 
         $this->assertSame('kd', $npdPerjalanan->jenis);
         $this->assertSame('perjalanan', $npdPerjalanan->mode_kd);
-        $this->assertSame($referensi->id, $npdPerjalanan->npd_referensi_id);
+        $this->assertSame($sp->id, $npdPerjalanan->surat_perintah_id);
+        $this->assertNull($npdPerjalanan->npd_referensi_id);
+
+        // SP mengikuti status NPD yang menautnya, dan tidak lagi ditawarkan
+        // sebagai sumber NPD lain.
+        $this->assertSame('Draft NPD - PPTK', $sp->fresh()->status);
+        $this->assertSame(0, SuratPerintah::sumberNpdPerjalanan()->count());
 
         // 5*400.000 + 4*600.000 + 5*100.000 + 350.000 = 2.000.000+2.400.000+500.000+350.000 = 5.250.000.
         $this->assertEquals(5_250_000.0, (float) $npdPerjalanan->nominal);
@@ -196,52 +232,109 @@ class NpdKontribusiDiklatTest extends TestCase
 
         $showResponse = $this->actingAs($pptk)->get(route('npd.show', $npdPerjalanan));
         $showResponse->assertOk();
-        $showResponse->assertSee($referensi->nomor_lengkap ?? '#'.$referensi->id);
+        $showResponse->assertSee('Referensi SP');
+        $showResponse->assertSee('120/PW.02.01/Sekre');
+        $showResponse->assertDontSee('Referensi NPD Kontribusi');
     }
 
-    public function test_referensi_ditolak_jika_bukan_npd_kontribusi_mode_kontribusi(): void
+    public function test_formulir_menawarkan_referensi_sp_beserta_anggotanya_bukan_npd_kontribusi(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-form-sp');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $this->payloadKontribusi($masterAnggaran));
+        $layak = $this->buatSp();
+        $terpakai = $this->buatSp(['nomor_sp' => '121/PW.02.01/Sekre', 'status' => 'Selesai']);
+        $reimburse = $this->buatSp(['nomor_sp' => '122/PW.02.01/Sekre (Reimburse)', 'jenis_permintaan' => SuratPerintah::JENIS_REIMBURSE]);
+
+        $isi = $this->actingAs($pptk)->get(route('npd.kd.create'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('Referensi SP (opsional)', $isi);
+        $this->assertStringContainsString('name="surat_perintah_id"', $isi);
+        $this->assertStringNotContainsString('Referensi NPD Kontribusi', $isi);
+        $this->assertStringNotContainsString('npd_referensi_id', $isi);
+
+        // Dicocokkan lewat nomor SP-nya: id saja bisa kebetulan sama dengan
+        // nilai pilihan lain di formulir (mis. bulan).
+        $this->assertStringContainsString($layak->nomor_sp.' — Sekretariat (Kota Bogor)', $isi);
+        $this->assertStringNotContainsString($terpakai->nomor_sp, $isi);
+        $this->assertStringNotContainsString($reimburse->nomor_sp, $isi);
+
+        // Anggota SP disediakan untuk disalin menjadi peserta.
+        $this->assertStringContainsString('"nama":"Rina Marlina","pangkat":"Penata (III\/c)","nip":"198602022011012002","rekening":"5556667778"', $isi);
+    }
+
+    public function test_referensi_sp_yang_tidak_layak_jadi_sumber_npd_ditolak(): void
     {
         $pptk = $this->buatUser('pptk', 'kd-ref-invalid');
         $masterAnggaran = $this->buatMasterAnggaran();
         $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
 
-        // Buat NPD BJ biasa sebagai referensi salah jenis.
-        $npdBj = Npd::create([
-            'jenis' => 'bj',
-            'master_anggaran_id' => $masterAnggaran->id,
-            'keu' => '1',
-            'bulan' => 7,
-            'tahun' => 2026,
-            'tanggal_npd' => '2026-07-18',
-            'jenis_panjar' => 'Tanpa Panjar',
-            'nominal' => 100_000,
-            'terbilang' => 'seratus ribu rupiah',
-            'status' => 'Draft NPD - PPTK',
-        ]);
+        $tidakLayak = [
+            'sudah dipakai NPD lain' => $this->buatSp(['nomor_sp' => '130/A', 'status' => 'Draft NPD - BPP']),
+            'penanda Sumber NPD mati' => $this->buatSp(['nomor_sp' => '130/B', 'sumber_npd' => false]),
+            'Reimburse Transportasi' => $this->buatSp(['nomor_sp' => '130/C (Reimburse)', 'jenis_permintaan' => SuratPerintah::JENIS_REIMBURSE]),
+        ];
 
-        $payload = $this->payloadPerjalanan($masterAnggaran, $npdBj->id);
+        foreach ($tidakLayak as $sebab => $sp) {
+            $this->actingAs($pptk)->post(route('npd.kd.store'), $this->payloadPerjalanan($masterAnggaran, $sp->id))
+                ->assertSessionHasErrors(['surat_perintah_id'], null, 'default');
+            $this->assertSame(0, Npd::where('jenis', 'kd')->count(), "SP {$sebab} seharusnya ditolak.");
+        }
 
-        $response = $this->actingAs($pptk)->post(route('npd.kd.store'), $payload);
-
-        $response->assertSessionHasErrors(['npd_referensi_id']);
-        $this->assertSame(0, Npd::where('jenis', 'kd')->count());
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $this->payloadPerjalanan($masterAnggaran, 999_999))
+            ->assertSessionHasErrors(['surat_perintah_id']);
     }
 
-    public function test_referensi_ditolak_jika_npd_kontribusi_sudah_dibatalkan(): void
+    public function test_referensi_sp_opsional_dan_diabaikan_pada_mode_kontribusi(): void
     {
-        $pptk = $this->buatUser('pptk', 'kd-ref-batal');
+        $pptk = $this->buatUser('pptk', 'kd-ref-opsional');
         $masterAnggaran = $this->buatMasterAnggaran();
         $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+        $sp = $this->buatSp();
 
-        $this->actingAs($pptk)->post(route('npd.kd.store'), $this->payloadKontribusi($masterAnggaran));
-        $referensi = Npd::where('mode_kd', 'kontribusi')->firstOrFail();
-        $referensi->update(['status' => 'Dibatalkan']);
+        // Mode Perjalanan Dinas tanpa referensi: input manual tetap boleh.
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $this->payloadPerjalanan($masterAnggaran))
+            ->assertSessionHasNoErrors();
+        $this->assertNull(Npd::where('mode_kd', 'perjalanan')->sole()->surat_perintah_id);
 
-        $payload = $this->payloadPerjalanan($masterAnggaran, $referensi->id);
+        // Mode Kontribusi tidak punya Referensi SP - kiriman liar diabaikan.
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $this->payloadKontribusi($masterAnggaran) + ['surat_perintah_id' => $sp->id])
+            ->assertSessionHasNoErrors();
+        $this->assertNull(Npd::where('mode_kd', 'kontribusi')->sole()->surat_perintah_id);
+        $this->assertSame(SuratPerintah::STATUS_DITERIMA_PPTK, $sp->fresh()->status);
+    }
 
-        $response = $this->actingAs($pptk)->post(route('npd.kd.store'), $payload);
+    public function test_mengganti_atau_melepas_referensi_sp_saat_edit_mengembalikan_sp_lama(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-ref-ganti');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+        $satu = $this->buatSp();
+        $dua = $this->buatSp(['nomor_sp' => '121/PW.02.01/Sekre']);
 
-        $response->assertSessionHasErrors(['npd_referensi_id']);
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $this->payloadPerjalanan($masterAnggaran, $satu->id));
+        $npd = Npd::sole();
+
+        // Menyimpan ulang dengan SP yang sama tetap diterima walau statusnya
+        // kini sudah mengikuti NPD ini.
+        $this->actingAs($pptk)->put(route('npd.kd.update', $npd), $this->payloadPerjalanan($masterAnggaran, $satu->id))
+            ->assertSessionHasNoErrors();
+        $this->assertSame($satu->id, $npd->fresh()->surat_perintah_id);
+
+        // Ganti ke SP lain: yang lama kembali Diterima PPTK.
+        $this->actingAs($pptk)->put(route('npd.kd.update', $npd), $this->payloadPerjalanan($masterAnggaran, $dua->id))
+            ->assertSessionHasNoErrors();
+        $this->assertSame($dua->id, $npd->fresh()->surat_perintah_id);
+        $this->assertSame(SuratPerintah::STATUS_DITERIMA_PPTK, $satu->fresh()->status);
+        $this->assertSame('Draft NPD - PPTK', $dua->fresh()->status);
+
+        // Lepas referensi sama sekali.
+        $this->actingAs($pptk)->put(route('npd.kd.update', $npd), $this->payloadPerjalanan($masterAnggaran))
+            ->assertSessionHasNoErrors();
+        $this->assertNull($npd->fresh()->surat_perintah_id);
+        $this->assertSame(SuratPerintah::STATUS_DITERIMA_PPTK, $dua->fresh()->status);
     }
 
     public function test_nominal_melebihi_sisa_anggaran_ditolak(): void
@@ -312,7 +405,7 @@ class NpdKontribusiDiklatTest extends TestCase
 
         $masterAnggaranPd = $this->buatMasterAnggaran(100_000_000, '5.1.02.04.01.0003');
         $this->limpahkanSubKegiatan($pptk, $masterAnggaranPd);
-        $this->actingAs($pptk)->post(route('npd.kd.store'), $this->payloadPerjalanan($masterAnggaranPd, $npdKontribusi->id));
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $this->payloadPerjalanan($masterAnggaranPd));
         $npdPerjalanan = Npd::where('mode_kd', 'perjalanan')->firstOrFail();
 
         foreach (['npd.cetak-npd', 'npd.cetak-lampiran', 'npd.cetak-daftar-kd'] as $route) {
