@@ -641,6 +641,57 @@ class Npd extends Model
      */
     public const CONTOH_NOMOR = '01/NPD-Keu.1.IBC/7/2026';
 
+    /**
+     * Tempat nomor urut pada nomor default: 8 spasi tak-terputus, sama dengan
+     * buatNomorNPD() di "i-finance gas". Spasi biasa akan dirapatkan HTML,
+     * padahal ruang ini harus tetap ada supaya nomornya bisa ditulis tangan.
+     */
+    public const RUANG_NOMOR_URUT = "\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}\u{00A0}";
+
+    /**
+     * Nomor default NPD: "        /NPD-Keu.<keu>.IBC/<bulan>/<tahun>", dengan
+     * bulan & tahun dari Tanggal NPD (bulan berupa angka tanpa nol di depan).
+     *
+     * DIHITUNG, tidak disimpan: nomor_lengkap ber-indeks unik dan baru terisi
+     * saat Verifikator menetapkan nomornya, sedangkan nomor default ini sama
+     * untuk semua NPD pada Keu dan bulan yang sama.
+     */
+    public function nomorDefault(): string
+    {
+        return self::RUANG_NOMOR_URUT.$this->ekorNomor();
+    }
+
+    /**
+     * Contoh nomor untuk NPD INI, sebagai petunjuk pada isian Verifikator:
+     * nomor defaultnya dengan ruang nomor urut diisi "01". Tetap sekadar
+     * contoh - lihat CONTOH_NOMOR.
+     */
+    public function contohNomor(): string
+    {
+        return '01'.$this->ekorNomor();
+    }
+
+    /** Bagian nomor default setelah nomor urut: "/NPD-Keu.<keu>.IBC/<bulan>/<tahun>". */
+    private function ekorNomor(): string
+    {
+        $bulan = $this->tanggal_npd?->month ?? (int) $this->bulan;
+        $tahun = $this->tanggal_npd?->year ?? (int) $this->tahun;
+
+        return "/NPD-Keu.{$this->keu}.IBC/{$bulan}/{$tahun}";
+    }
+
+    /**
+     * Nomor yang tercetak pada dokumen NPD: nomor dari Verifikator bila sudah
+     * ada, selain itu nomor default - jadi draft pun sudah bernomor.
+     *
+     * Untuk mengenali dokumen di daftar tetap pakai nomorDokumen(): nomor
+     * default tidak unik, sehingga tidak bisa membedakan satu NPD dari lainnya.
+     */
+    public function nomorCetak(): string
+    {
+        return $this->nomor_lengkap ?: $this->nomorDefault();
+    }
+
     /** Mirror status NPD ke surat_perintah terkait, kalau NPD ini tertaut ke satu (port _mirrorStatusKeSP). */
     public function mirrorStatusKeSuratPerintah(): void
     {

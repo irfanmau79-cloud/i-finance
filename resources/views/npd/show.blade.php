@@ -11,7 +11,7 @@
 @endif
 <div class="dash-card wf-card">
     <h3>Detail Nota Pencairan Dana &mdash; {{ \App\Models\Npd::JENIS_LABEL[$npd->jenis] ?? strtoupper($npd->jenis) }}</h3>
-    <div class="sub">{{ $npd->nomor_lengkap ?? 'Belum bernomor (masih Draft)' }}</div>
+    <div class="sub">{{ $npd->nomorCetak() }}@unless (filled($npd->nomor_lengkap)) &mdash; nomor default, belum ada nomor urut @endunless</div>
 
     @if (session('success'))
         <div class="sumbar ok"><span>{{ session('success') }}</span></div>
@@ -511,7 +511,7 @@
         $versiCetak = ($npd->revisi->isNotEmpty() || $adaCoretan)
             ? [
                 ['judul' => 'Cetak Draft NPD', 'ket' => 'Draft awal buatan PPTK beserta coretan: bagian yang diubah BPP/Verifikator tercoret otomatis dengan penggantinya tertulis merah, ditambah coretan tangan Verifikator bila ada.', 'q' => ['versi' => 'draft']],
-                ['judul' => $labelTerkini, 'ket' => $sudahVerifikasi ? 'Dokumen bersih tanpa coretan, lengkap dengan nomor NPD - siap dicetak.' : 'Dokumen bersih tanpa coretan dengan isi terkini. NPD ini belum diverifikasi, jadi belum bernomor.', 'q' => []],
+                ['judul' => $labelTerkini, 'ket' => $sudahVerifikasi ? 'Dokumen bersih tanpa coretan, lengkap dengan nomor NPD - siap dicetak.' : 'Dokumen bersih tanpa coretan dengan isi terkini. NPD ini belum diverifikasi, jadi masih memakai nomor default tanpa nomor urut.', 'q' => []],
             ]
             : [
                 ['judul' => $sudahVerifikasi ? 'Cetak NPD Terverifikasi' : 'Cetak Draft NPD', 'ket' => null, 'q' => []],

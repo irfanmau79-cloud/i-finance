@@ -7,7 +7,7 @@
 <div class="page-head">
     <div>
         <div class="ph-crumb">Beranda / Verifikasi NPD / <b>Verifikasi NPD</b></div>
-        <div class="ph-title">Verifikasi Nota Pencairan Dana &mdash; {{ $npd->nomor_lengkap ?? 'Belum bernomor (masih Draft)' }}</div>
+        <div class="ph-title">Verifikasi Nota Pencairan Dana &mdash; {{ $npd->nomorCetak() }}</div>
     </div>
 </div>
 
@@ -126,7 +126,7 @@
 
         <label class="fl" for="coret-nomor">Nomor NPD <span class="sub">(wajib untuk Verifikasi)</span></label>
         <input type="text" name="nomor_lengkap" id="coret-nomor" maxlength="100" autocomplete="off"
-               value="{{ old('nomor_lengkap') }}" placeholder="Contoh: {{ \App\Models\Npd::CONTOH_NOMOR }}"
+               value="{{ old('nomor_lengkap') }}" placeholder="Contoh: {{ $npd->contohNomor() }}"
                style="width:100%;box-sizing:border-box;">
         <div class="sub" style="margin-top:5px;">
             Ditulis lengkap apa adanya - inilah yang tercetak di dokumen. Nomor yang sudah dipakai NPD lain akan ditolak.

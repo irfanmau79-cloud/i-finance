@@ -89,7 +89,7 @@
 
   <table class="head-meta">
     <tr>
-      <td>Nomor&nbsp;&nbsp;: {{ $npd->nomor_lengkap }}</td>
+      <td>Nomor&nbsp;&nbsp;: {{ $npd->nomorCetak() }}</td>
       <td class="r">Tanggal&nbsp;&nbsp;: {{ $npd->tanggal_npd->translatedFormat('d F Y') }}</td>
     </tr>
   </table>

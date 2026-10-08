@@ -166,6 +166,7 @@
                                 <input type="checkbox" class="bulk-ck" data-massal-pilih
                                        value="{{ $npd->id }}" data-status="{{ $npd->status }}"
                                        data-dokumen="{{ $npd->nomorDokumen() }}"
+                                       data-contoh-nomor="{{ $npd->contohNomor() }}"
                                        data-penerima="{{ $npd->ringkasanPenerima() }}"
                                        data-nominal="{{ number_format((float) $npd->nominal, 2, ',', '.') }}"
                                        aria-label="Pilih {{ $npd->nomorDokumen() }}">
@@ -647,7 +648,7 @@
                 + '<div class="mv-sub">' + (d.penerima || '-') + ' &middot; Rp ' + (d.nominal || '0') + '</div>'
                 + '</div>'
                 + '<input type="text" class="mv-input" maxlength="100" autocomplete="off"'
-                + ' data-mv-untuk="' + ck.value + '" placeholder="{{ \App\Models\Npd::CONTOH_NOMOR }}">'
+                + ' data-mv-untuk="' + ck.value + '" placeholder="' + (d.contohNomor || '{{ \App\Models\Npd::CONTOH_NOMOR }}') + '">'
                 + '</div>';
         }).join('');
 

@@ -313,16 +313,29 @@ class MasterAnggaran extends Model
     }
 
     /**
-     * KEU ditentukan dari prefix kode sub kegiatan: 6.01.01 -> KEU 1,
-     * 6.01.02/6.01.03 -> KEU 2. Null kalau tidak dikenali. Membaca
-     * kode_sub_kegiatan langsung, bukan menebak prefix dari teks gabungan.
+     * KEU ditentukan dari kode sub kegiatan, mengikuti _keuByProgram() di
+     * "i-finance gas" (perbaikan Juli 2026):
+     *
+     *   6.01.01.1.01.*  -> KEU 2  (perencanaan & pelaporan kinerja)
+     *   6.01.01.* lain  -> KEU 1  (kesekretariatan)
+     *   6.01.02.*       -> KEU 2  (program pengawasan)
+     *   6.01.03.*       -> KEU 2  (perumusan kebijakan & pendampingan)
+     *
+     * Kegiatan 6.01.01.1.01 harus diperiksa LEBIH DULU: ia berada di bawah
+     * program 6.01.01 tetapi dibukukan di Keu.2. Null kalau tidak dikenali
+     * (GAS menjatuhkannya ke Keu.2; di sini ditolak supaya kode yang salah
+     * ketik tidak diam-diam mendapat nomor). Membaca kode_sub_kegiatan
+     * langsung, bukan menebak prefix dari teks gabungan.
      */
     public function tentukanKeu(): ?string
     {
+        $kode = (string) $this->kode_sub_kegiatan;
+
         return match (true) {
-            str_starts_with((string) $this->kode_sub_kegiatan, '6.01.01') => '1',
-            str_starts_with((string) $this->kode_sub_kegiatan, '6.01.02'),
-            str_starts_with((string) $this->kode_sub_kegiatan, '6.01.03') => '2',
+            $kode === '6.01.01.1.01' || str_starts_with($kode, '6.01.01.1.01.') => '2',
+            str_starts_with($kode, '6.01.01') => '1',
+            str_starts_with($kode, '6.01.02'),
+            str_starts_with($kode, '6.01.03') => '2',
             default => null,
         };
     }
