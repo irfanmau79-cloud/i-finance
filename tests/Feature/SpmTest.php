@@ -126,7 +126,13 @@ class SpmTest extends TestCase
         $indexResponse = $this->actingAs($bendahara)->get(route('spm.ls.index'));
         $indexResponse->assertOk();
         $indexResponse->assertSee('001/SPM-LS/2026');
-        $indexResponse->assertSee('CV Uji Jaya');
+        // Kolom daftar LS disamakan dengan UP/GU/TU: Nominal lalu Uraian.
+        // Penerima tidak lagi di daftar, tetapi tetap ada di Lihat Detail.
+        $indexResponse->assertSeeInOrder(['Nomor SP2D', 'Nominal', 'Uraian', 'Aksi']);
+        $indexResponse->assertSee('Pengadaan barang uji');
+        $this->actingAs($bendahara)->get(route('spm.ls.show', $spm))
+            ->assertOk()
+            ->assertSee('CV Uji Jaya');
 
         // Edit: menaikkan nominal masih dalam sisa (setelah nominal lama dikembalikan).
         $updateResponse = $this->actingAs($bendahara)->put(route('spm.ls.update', $spm), array_merge($payload, [

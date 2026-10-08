@@ -51,7 +51,7 @@
                     <th>Nomor SPM</th>
                     <th>Tanggal SP2D</th>
                     <th>Nomor SP2D</th>
-                    <th class="num">Nominal</th>
+                    <th class="num" style="font-weight:700;">Nominal</th>
                     <th>Uraian</th>
                     <th class="mid">Aksi</th>
                 </tr>
@@ -63,7 +63,7 @@
                         <td>{{ $spm->nomor_dokumen }}</td>
                         <td>{{ $spm->tanggal_sp2d?->format('d-m-Y') ?? '—' }}</td>
                         <td>{{ $spm->nomor_sp2d ?? '—' }}</td>
-                        <td class="num">Rp {{ number_format((float) $spm->nominal, 2, ',', '.') }}</td>
+                        <td class="num" style="font-weight:700;">Rp {{ number_format((float) $spm->nominal, 2, ',', '.') }}</td>
                         <td>
                             @if ($spm->uraian)
                                 <span class="tbl-clamp" title="{{ $spm->uraian }}">{{ $spm->uraian }}</span>

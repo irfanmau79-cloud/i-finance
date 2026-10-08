@@ -42,10 +42,14 @@
         <table class="realisasi tbl-fixed spm-tabel">
             {{-- Kolom Aksi 18%: empat ikon (Lihat, Validasi, Edit, Hapus)
                  beserta jaraknya butuh ~150px, dan pada 14% ikon terakhir
-                 terpotong di tepi tabel. --}}
+                 terpotong di tepi tabel.
+
+                 Susunan kolomnya disamakan dengan daftar SP2D UP/GU/TU:
+                 Nominal lalu Uraian. Penerima dan rekeningnya tetap ada di
+                 halaman Lihat Detail. --}}
             <colgroup>
-                <col style="width:10%;"><col style="width:19%;"><col style="width:10%;">
-                <col style="width:13%;"><col style="width:17%;"><col style="width:13%;"><col style="width:18%;">
+                <col style="width:10%;"><col style="width:16%;"><col style="width:10%;">
+                <col style="width:13%;"><col style="width:13%;"><col style="width:20%;"><col style="width:18%;">
             </colgroup>
             <thead>
                 <tr>
@@ -53,8 +57,8 @@
                     <th>Nomor SPM</th>
                     <th>Tanggal SP2D</th>
                     <th>Nomor SP2D</th>
-                    <th>Penerima</th>
-                    <th class="num">Nominal</th>
+                    <th class="num" style="font-weight:700;">Nominal</th>
+                    <th>Uraian</th>
                     <th class="mid">Aksi</th>
                 </tr>
             </thead>
@@ -100,13 +104,14 @@
                         </td>
                         <td>{{ $spm->tanggal_sp2d?->format('d-m-Y') ?? '—' }}</td>
                         <td>{{ $spm->nomor_sp2d ?? '—' }}</td>
+                        <td class="num" style="font-weight:700;">{{ fmt_rupiah($spm->totalNominal()) }}</td>
                         <td>
-                            {{ $spm->penerima ?? '—' }}
-                            @if ($spm->bank_tujuan || $spm->nomor_rekening)
-                                <span class="spm-sub">{{ trim(($spm->bank_tujuan ?? '').' · '.($spm->nomor_rekening ?? ''), ' ·') }}</span>
+                            @if ($spm->uraian)
+                                <span class="tbl-clamp" title="{{ $spm->uraian }}">{{ $spm->uraian }}</span>
+                            @else
+                                <span class="tbl-kosong">—</span>
                             @endif
                         </td>
-                        <td class="num">{{ fmt_rupiah($spm->totalNominal()) }}</td>
                         <td class="mid">
                             <div class="spm-aksi">
                                 <a class="ic-btn" title="Lihat Detail" aria-label="Lihat detail SPM" href="{{ route('spm.ls.show', $spm) }}">
