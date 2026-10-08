@@ -705,4 +705,63 @@ class NpdPdTest extends TestCase
 
         $this->assertSame(2_040_000.0, (float) Npd::sole()->nominal);
     }
+
+    public function test_cluster_manual_kab_kota_dan_tarifnya_diketik_bebas(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-cluster-manual');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        // Cluster Manual (MN) tidak punya daftar wilayah maupun tarif tetap: Kab/Kota
+        // dan tarifnya diketik bebas, termasuk kota yang sebetulnya masuk
+        // cluster jarak dengan tarif berbeda.
+        $payload = $this->payload($masterAnggaran);
+        $payload['penerima_index'] = 0;
+        $payload['tim'] = [[
+            'nama' => 'Anggota Cluster Manual',
+            'jabatan' => 'Auditor',
+            'nip' => '198001012000011001',
+            'rekening' => '111111',
+            'paket' => [[
+                'cluster' => 'MN',
+                'wilayah' => 'Kota Bogor',
+                'lama_hari' => 3,
+                'tarif_uh' => 150_000,
+                'malam' => 0,
+                'tarif_akom' => 0,
+            ]],
+        ]];
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload)
+            ->assertSessionHasNoErrors();
+
+        $npd = Npd::with('tim.paket')->sole();
+
+        $this->assertSame(450_000.0, (float) $npd->nominal);
+        $this->assertDatabaseHas('npd_tim_paket', [
+            'npd_tim_id' => $npd->tim[0]->id,
+            'cluster' => 'MN',
+            'wilayah' => 'Kota Bogor',
+            'tarif_uh' => 150_000,
+        ]);
+
+        // Kab/Kota tetap wajib walau diketik manual.
+        $payload['tim'][0]['paket'][0]['wilayah'] = '';
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload)
+            ->assertSessionHasErrors(['tim.0.paket.0.wilayah']);
+    }
+
+    public function test_formulir_menawarkan_cluster_manual_dengan_isian_bebas(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-form-cluster-manual');
+        $this->limpahkanSubKegiatan($pptk, $this->buatMasterAnggaran());
+
+        $isi = $this->actingAs($pptk)->get(route('npd.pd.create'))->assertOk()->getContent();
+
+        // Penanda "manual" inilah yang mengubah Kab/Kota jadi isian ketik dan
+        // membuka kunci tarif di formulir.
+        $this->assertStringContainsString('"kode":"MN","tarif":0,"label":"Manual","manual":true', $isi);
+        $this->assertStringContainsString('"kode":"LP","tarif":0,"label":"Luar Provinsi","manual":true', $isi);
+        $this->assertStringContainsString('"kode":"A","tarif":200000,"label":"A (4 km s.d. 30 km)","manual":false', $isi);
+    }
 }

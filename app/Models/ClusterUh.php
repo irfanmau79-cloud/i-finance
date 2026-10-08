@@ -22,7 +22,7 @@ class ClusterUh extends Model
      * di ClusterUhSeeder - tidak ada lagi daftar kode yang dihardcode di
      * formulir atau di Request.
      */
-    public const KODE = ['A', 'B', 'C', 'D', 'DK1', 'DK2', 'LP'];
+    public const KODE = ['A', 'B', 'C', 'D', 'DK1', 'DK2', 'LP', 'MN'];
 
     /**
      * Perjalanan DALAM Kota Bandung: asal dan tujuan sama-sama Kota Bandung,
@@ -31,8 +31,21 @@ class ClusterUh extends Model
      */
     public const KODE_DALAM_KOTA = ['DK1', 'DK2'];
 
-    /** Luar Provinsi: tarif uang harian dan nama kotanya diketik manual per NPD. */
-    public const KODE_MANUAL = 'LP';
+    /**
+     * Cluster yang Kab/Kota tujuan dan tarif uang hariannya DIKETIK MANUAL per
+     * NPD, bukan dipilih dari daftar wilayah dan tabel tarif:
+     *
+     *   LP = Luar Provinsi (sama seperti di GAS)
+     *   MN = Manual - tambahan di Laravel (permintaan Irfan, Oktober 2026),
+     *        tidak ada padanannya di `var CLUSTER` GAS. Untuk tujuan yang
+     *        tarifnya tidak mengikuti cluster mana pun.
+     */
+    public const KODE_MANUAL = ['LP', 'MN'];
+
+    public function isianManual(): bool
+    {
+        return in_array($this->kode, self::KODE_MANUAL, true);
+    }
 
     protected function casts(): array
     {
@@ -51,14 +64,14 @@ class ClusterUh extends Model
      * Teks pilihan cluster pada formulir NPD Perjalanan Dinas.
      *
      * Cluster jarak diberi prefiks kodenya ("A (4 km s.d. 30 km)") karena
-     * kode itulah yang dipakai di kantor saat menyebut tujuan. Dalam Kota dan
-     * Luar Provinsi tampil apa adanya tanpa prefiks - persis seperti
-     * clusterOptions() di "i-finance gas/index.html", supaya petugas yang
-     * pindah dari GAS menemukan pilihan yang sama bunyinya.
+     * kode itulah yang dipakai di kantor saat menyebut tujuan. Dalam Kota,
+     * Luar Provinsi, dan Manual tampil apa adanya tanpa prefiks - persis
+     * seperti clusterOptions() di "i-finance gas/index.html", supaya petugas
+     * yang pindah dari GAS menemukan pilihan yang sama bunyinya.
      */
     public function labelPilihan(): string
     {
-        $tanpaPrefiks = array_merge(self::KODE_DALAM_KOTA, [self::KODE_MANUAL]);
+        $tanpaPrefiks = array_merge(self::KODE_DALAM_KOTA, self::KODE_MANUAL);
 
         return in_array($this->kode, $tanpaPrefiks, true)
             ? $this->jarak

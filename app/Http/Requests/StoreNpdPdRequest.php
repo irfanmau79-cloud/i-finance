@@ -119,8 +119,8 @@ class StoreNpdPdRequest extends FormRequest
      * ATAU standar biaya berubah sementara formulirnya masih terbuka. Dua
      * duanya harus dilihat petugas, karena menimpa angka tanpa bilang-bilang
      * pada dokumen yang akan ditandatangani lebih berbahaya daripada gagal
-     * simpan. Luar Provinsi (LP) dikecualikan - tarifnya memang diketik
-     * manual per NPD, sama seperti di GAS.
+     * simpan. Luar Provinsi (LP) dan Manual (MN) dikecualikan - tarifnya
+     * memang diketik manual per NPD (lihat ClusterUh::KODE_MANUAL).
      *
      * Tarif akomodasi juga tetap manual: menginap di luar daftar standar
      * biaya memang terjadi (lihat juga config/kebutuhan.php).
@@ -142,14 +142,15 @@ class StoreNpdPdRequest extends FormRequest
                 foreach ((array) ($anggota['paket'] ?? []) as $iPaket => $paket) {
                     $kode = $paket['cluster'] ?? null;
 
-                    // Kode kosong, kode asing, dan LP ditangani di tempat lain:
-                    // dua yang pertama oleh aturan Rule::in di rules(), LP
+                    // Kode kosong, kode asing, dan cluster isian manual (Luar
+                    // Provinsi, Manual) ditangani di tempat lain: dua yang
+                    // pertama oleh aturan Rule::in di rules(), cluster manual
                     // karena tarifnya memang bebas.
                     if (! is_string($kode) || ! in_array($kode, ClusterUh::KODE, true)) {
                         continue;
                     }
 
-                    if ($kode === ClusterUh::KODE_MANUAL) {
+                    if (in_array($kode, ClusterUh::KODE_MANUAL, true)) {
                         continue;
                     }
 

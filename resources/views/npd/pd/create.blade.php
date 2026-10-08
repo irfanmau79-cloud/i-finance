@@ -251,6 +251,8 @@
         // tampil apa adanya (lihat ClusterUh::labelPilihan()). Keterangan
         // jarak mentahnya tidak dikirim - tidak ada lagi yang memakainya.
         'label' => $c->labelPilihan(),
+        // Luar Provinsi & Manual: Kab/Kota dan tarifnya diketik manual.
+        'manual' => $c->isianManual(),
         'wilayah' => $c->wilayah->pluck('nama_wilayah')->all(),
     ]);
 
@@ -547,7 +549,8 @@
     let paketSeq = 0;
 
     // Urutan pilihan mengikuti urutan kode dari basis data (A, B, C, D, DK1,
-    // DK2, LP) - sama dengan urutan dropdown GAS. Label WAJIB di-escape:
+    // DK2, LP, MN) - sama dengan urutan dropdown GAS, ditambah Manual di
+    // ujung. Label WAJIB di-escape:
     // keterangan Dalam Kota memuat tanda < dan > yang kalau mentah akan
     // memotong <option>.
     function clusterOptionsHtml(selected) {
@@ -740,9 +743,9 @@
             const fieldName = wilWrap.querySelector('[data-p-wilayah]').getAttribute('name');
             const tarifInput = paketRow.querySelector('[data-p-tarifuh]');
             const c = clusterData.find(x => x.kode === this.value);
-            if (this.value === 'LP') {
-                // LP: wilayah/kota diisi manual (bukan dropdown) — pakai input teks biasa
-                // supaya nilainya tetap terkirim (select disabled tidak ikut ter-submit).
+            if (c && c.manual) {
+                // Luar Provinsi & Manual: wilayah/kota diisi manual (bukan dropdown) — pakai
+                // input teks biasa supaya nilainya tetap terkirim (select disabled tidak ikut ter-submit).
                 wilWrap.innerHTML = '<input type="text" data-p-wilayah name="' + fieldName + '" placeholder="Ketik kota/kabupaten tujuan...">';
                 tarifInput.value = '';
                 tarifInput.readOnly = false;

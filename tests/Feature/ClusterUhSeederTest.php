@@ -83,6 +83,9 @@ class ClusterUhSeederTest extends TestCase
             ],
             // Luar Provinsi: tarif dan kotanya diketik manual di formulir.
             'LP' => ['tarif' => 0, 'jarak' => 'Luar Provinsi', 'wilayah' => []],
+            // Manual: SATU-SATUNYA cluster yang tidak berasal dari GAS -
+            // tambahan di Laravel. Kab/Kota dan tarifnya juga diketik manual.
+            'MN' => ['tarif' => 0, 'jarak' => 'Manual', 'wilayah' => []],
         ];
     }
 
@@ -149,7 +152,10 @@ class ClusterUhSeederTest extends TestCase
             'DK1' => 'Dalam Kota (< 8 Jam)',
             'DK2' => 'Dalam Kota (> 8 Jam)',
             'LP' => 'Luar Provinsi',
+            'MN' => 'Manual',
         ];
+
+        $this->assertSame(['LP', 'MN'], ClusterUh::all()->filter->isianManual()->pluck('kode')->sort()->values()->all());
 
         foreach ($harusnya as $kode => $label) {
             $this->assertSame($label, ClusterUh::where('kode', $kode)->first()->labelPilihan());

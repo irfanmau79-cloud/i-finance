@@ -6,7 +6,8 @@ use App\Models\ClusterUh;
 use Illuminate\Database\Seeder;
 
 /**
- * Port 1:1 dari `var CLUSTER` di "i-finance gas/index.html".
+ * Port 1:1 dari `var CLUSTER` di "i-finance gas/index.html", ditambah satu
+ * cluster yang hanya ada di Laravel: MN (Manual).
  *
  * Sumbernya CLUSTER di index.html, BUKAN CLUSTER_UH di ClusterData.gs: hanya
  * versi index.html yang memuat dua cluster Dalam Kota (DK1/DK2), dan itulah
@@ -65,6 +66,13 @@ class ClusterUhSeeder extends Seeder
             'LP' => [
                 'tarif' => 0,
                 'jarak' => 'Luar Provinsi',
+                'wilayah' => [],
+            ],
+            // Manual: TIDAK ada di CLUSTER GAS - tambahan di Laravel. Sama
+            // seperti LP, Kab/Kota dan tarifnya diketik manual per NPD.
+            'MN' => [
+                'tarif' => 0,
+                'jarak' => 'Manual',
                 'wilayah' => [],
             ],
         ];
