@@ -1352,7 +1352,7 @@ class NpdController extends Controller
      * _selRpSpan di gas-lama/CodePerjalanan.gs — pakai tabel bersarang asli
      * (bukan float+clear) sebab mPDF tidak konsisten merender itu.
      */
-    private function selRp(float $n, ?int $rowspan = null, bool $bold = false): string
+    private function selRp(float $n, ?int $rowspan = null, bool $bold = false, bool $tebalIsi = false): string
     {
         $rowspanAttr = $rowspan ? " rowspan=\"{$rowspan}\"" : '';
         $cls = 'rp'.($bold ? ' bold' : '');
@@ -1362,6 +1362,14 @@ class NpdController extends Controller
         }
 
         $angka = number_format($n, 0, ',', '.');
+        $rp = 'Rp';
+
+        // $tebalIsi: isinya dibungkus <b>, bukan mengandalkan kelas. Dipakai
+        // baris J U M L A H - lihat selRpJumlah().
+        if ($tebalIsi) {
+            $angka = "<b>{$angka}</b>";
+            $rp = '<b>Rp</b>';
+        }
 
         // Daftar Bayar Perjalanan Dinas & Kontribusi Diklat (bagian
         // perjalanan) MENYEMBUNYIKAN label "Rp" supaya kolomnya muat -
@@ -1371,8 +1379,24 @@ class NpdController extends Controller
             return "<td class=\"{$cls}\"{$rowspanAttr}>{$angka}</td>";
         }
 
-        return "<td class=\"{$cls}\"{$rowspanAttr}><table class=\"rpwrap\"><tr><td class=\"rp-l\">Rp</td><td class=\"rp-a\">{$angka}</td></tr></table></td>";
+        return "<td class=\"{$cls}\"{$rowspanAttr}><table class=\"rpwrap\"><tr><td class=\"rp-l\">{$rp}</td><td class=\"rp-a\">{$angka}</td></tr></table></td>";
     }
+
+    /**
+     * Sel angka pada baris J U M L A H Daftar Pembayaran: selalu TEBAL.
+     *
+     * Barisnya memang berkelas "bold", tetapi mPDF tidak meneruskan
+     * font-weight dari <tr> ke sel-selnya (apalagi ke tabel kecil "Rp" di
+     * dalam sel), jadi di cetakan baris jumlahnya tampil biasa. Tebalnya
+     * dipasang langsung di isi sel lewat <b>, yang selalu dipatuhi mPDF.
+     */
+    private function selRpJumlah(float $n): string
+    {
+        return $this->selRp($n, null, true, true);
+    }
+
+    /** Sel judul baris J U M L A H Daftar Pembayaran - tebal dengan alasan yang sama. */
+    private const SEL_JUDUL_JUMLAH = '<td class="center bold" colspan="5"><b>J U M L A H</b></td>';
 
     /**
      * Komponen biaya yang benar-benar dipakai (nilai total > 0) di antara
@@ -1459,13 +1483,13 @@ class NpdController extends Controller
         }
 
         $body .= '<tr class="bold">'
-            .'<td class="center" colspan="5">J U M L A H</td>'
-            .$this->selRp($tHarian)
+            .self::SEL_JUDUL_JUMLAH
+            .$this->selRpJumlah($tHarian)
             .'<td colspan="2"></td>'
-            .$this->selRp($tAkom)
-            .$this->selRp($tRepr)
-            .$this->selRp($tTransport)
-            .$this->selRp($tJumlah)
+            .$this->selRpJumlah($tAkom)
+            .$this->selRpJumlah($tRepr)
+            .$this->selRpJumlah($tTransport)
+            .$this->selRpJumlah($tJumlah)
             .'<td></td>'
             .'</tr>';
 
@@ -1770,13 +1794,15 @@ class NpdController extends Controller
                 .'</tr>';
         }
 
+        // Tebalnya dipasang di isi sel (<b>), bukan hanya di kelas barisnya -
+        // lihat selRpJumlah().
         $body .= '<tr class="bold">'
-            .'<td colspan="5" class="center">J U M L A H</td>'
-            .'<td class="num">'.fmt_rupiah($tHonor).'</td>'
-            .'<td class="num">'.($tTransport > 0 ? fmt_rupiah($tTransport) : '-').'</td>'
-            .'<td class="num">'.fmt_rupiah($tBruto).'</td>'
-            .'<td class="num">'.fmt_rupiah($tPph).'</td>'
-            .'<td class="num">'.fmt_rupiah($tNetto).'</td>'
+            .self::SEL_JUDUL_JUMLAH
+            .'<td class="num bold"><b>'.fmt_rupiah($tHonor).'</b></td>'
+            .'<td class="num bold"><b>'.($tTransport > 0 ? fmt_rupiah($tTransport) : '-').'</b></td>'
+            .'<td class="num bold"><b>'.fmt_rupiah($tBruto).'</b></td>'
+            .'<td class="num bold"><b>'.fmt_rupiah($tPph).'</b></td>'
+            .'<td class="num bold"><b>'.fmt_rupiah($tNetto).'</b></td>'
             .'<td></td>'
             .'</tr>';
 
@@ -1886,11 +1912,11 @@ class NpdController extends Controller
         }
 
         $body .= '<tr class="bold">'
-            .'<td class="center" colspan="5">J U M L A H</td>'
-            .$this->selRp($tKontribusi)
+            .self::SEL_JUDUL_JUMLAH
+            .$this->selRpJumlah($tKontribusi)
             .'<td colspan="2"></td>'
-            .$this->selRp($tMooc)
-            .$this->selRp($tJumlah)
+            .$this->selRpJumlah($tMooc)
+            .$this->selRpJumlah($tJumlah)
             .'<td></td>'
             .'</tr>';
 
@@ -1947,15 +1973,15 @@ class NpdController extends Controller
         }
 
         $body .= '<tr class="bold">'
-            .'<td class="center" colspan="5">J U M L A H</td>'
-            .$this->selRp($tHarian)
+            .self::SEL_JUDUL_JUMLAH
+            .$this->selRpJumlah($tHarian)
             .'<td colspan="2"></td>'
-            .$this->selRp($tAkom)
+            .$this->selRpJumlah($tAkom)
             .'<td></td>'
             .'<td></td>'
-            .$this->selRp($tSaku)
-            .$this->selRp($tTransport)
-            .$this->selRp($tJumlah)
+            .$this->selRpJumlah($tSaku)
+            .$this->selRpJumlah($tTransport)
+            .$this->selRpJumlah($tJumlah)
             .'<td></td>'
             .'</tr>';
 

@@ -55,7 +55,8 @@
                     <tr data-cari="{{ Str::lower($b['nomor_sp'].' '.$b['unit_kerja'].' '.$b['koordinator'].' '.$b['keterangan']) }}">
                         <td style="font-weight:600;">{{ $b['nomor_sp'] }}</td>
                         <td>{{ $b['unit_kerja'] }}</td>
-                        <td>{{ $b['koordinator'] ?: '—' }}</td>
+                        {{-- --tegas = navy untuk TULISAN (ikut terang di mode gelap). --}}
+                        <td style="font-weight:700;color:var(--tegas);">{{ $b['koordinator'] ?: '—' }}</td>
                         <td>{{ $b['keterangan'] ?: '—' }}</td>
                         @foreach ($komponen as $kunci => $judul)
                             @php

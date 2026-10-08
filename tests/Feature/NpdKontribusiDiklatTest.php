@@ -1026,4 +1026,44 @@ class NpdKontribusiDiklatTest extends TestCase
             ->assertSee('<th>Golongan</th>', false)
             ->assertDontSee('<th>Pangkat</th>', false);
     }
+
+    // ---------------- Baris J U M L A H Daftar Pembayaran ----------------
+
+    /**
+     * Baris jumlah harus tercetak TEBAL. Kelas "bold" pada <tr> saja tidak
+     * cukup - mPDF tidak meneruskannya ke sel - jadi tebalnya dipasang di
+     * isi tiap sel lewat <b>.
+     */
+    public function test_baris_jumlah_daftar_pembayaran_tebal_di_kedua_mode(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-jumlah-tebal');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $html = fn (Npd $npd) => (new ReflectionMethod(NpdController::class, 'htmlDaftarKontribusiDiklat'))
+            ->invoke(app(NpdController::class), $npd);
+
+        // Mode Kontribusi: angka berlabel "Rp" dalam tabel kecil di tiap sel.
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $this->payloadKontribusi($masterAnggaran))->assertSessionHasNoErrors();
+        $kontribusi = $html(Npd::where('mode_kd', 'kontribusi')->sole());
+
+        $this->assertStringContainsString('<td class="center bold" colspan="5"><b>J U M L A H</b></td>', $kontribusi);
+        // Kontribusi 5.000.000, MOOC 500.000, jumlah 5.500.000.
+        foreach (['5.000.000', '500.000', '5.500.000'] as $angka) {
+            $this->assertStringContainsString('<td class="rp-l"><b>Rp</b></td><td class="rp-a"><b>'.$angka.'</b></td>', $kontribusi);
+        }
+
+        // Mode Perjalanan Dinas: angka tanpa label.
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $this->payloadPerjalanan($masterAnggaran))->assertSessionHasNoErrors();
+        $perjalanan = $html(Npd::where('mode_kd', 'perjalanan')->sole());
+
+        $this->assertStringContainsString('<td class="center bold" colspan="5"><b>J U M L A H</b></td>', $perjalanan);
+        // Harian 2.000.000, akomodasi 2.400.000, saku 500.000, transport 350.000, jumlah 5.250.000.
+        foreach (['2.000.000', '2.400.000', '500.000', '350.000', '5.250.000'] as $angka) {
+            $this->assertStringContainsString('<td class="rp bold"><b>'.$angka.'</b></td>', $perjalanan);
+        }
+
+        // Baris peserta tidak ikut dibungkus <b>: hanya baris jumlah yang berubah.
+        $this->assertSame(5, substr_count($perjalanan, '<td class="rp bold"><b>'));
+    }
 }
