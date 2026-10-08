@@ -13,6 +13,7 @@ use Illuminate\Support\Facades\Storage;
 
 #[Fillable([
     'nomor_sp',
+    'duplikat_ke',
     'tanggal_sp',
     'unit_kerja',
     'lokasi',
@@ -68,6 +69,7 @@ class SuratPerintah extends Model
     {
         return [
             'tanggal_sp' => 'date',
+            'duplikat_ke' => 'integer',
             'irban_dibayar' => 'boolean',
             'dipantau' => 'boolean',
             'sumber_npd' => 'boolean',
@@ -137,6 +139,44 @@ class SuratPerintah extends Model
     }
 
     /**
+     * Duplikat SP: baris SP tersendiri dengan nomor_sp yang SAMA dengan
+     * aslinya, dibuat dari halaman Data SP supaya satu Surat Perintah bisa
+     * dijadikan acuan beberapa NPD Perjalanan Dinas (satu baris SP hanya
+     * bisa ditaut ke satu NPD). duplikat_ke: 0 = asli, n = duplikat ke-n.
+     */
+    public function isDuplikat(): bool
+    {
+        return (int) $this->duplikat_ke > 0;
+    }
+
+    /**
+     * Nomor SP dengan keterangan "(Duplikat-n)" di ujungnya. HANYA untuk
+     * halaman Data SP, tempat duplikat harus bisa dibedakan dari aslinya. Di
+     * Monitoring SP, NPD, dan dokumen cetak pakai nomor_sp apa adanya.
+     */
+    public function nomorBerlabel(): string
+    {
+        return $this->isDuplikat()
+            ? $this->nomor_sp.' (Duplikat-'.$this->duplikat_ke.')'
+            : (string) $this->nomor_sp;
+    }
+
+    /**
+     * Hanya SP Uang Harian/Akomodasi yang bisa diduplikat. SP Reimburse
+     * Transportasi menumpang SP induknya dan dibatasi satu per induk.
+     */
+    public function dapatDiduplikat(): bool
+    {
+        return ! $this->isReimburse();
+    }
+
+    /** SP asli beserta seluruh duplikatnya: semua baris bernomor sama. */
+    public function scopeSenomor(EloquentBuilder $query, string $nomorSp): EloquentBuilder
+    {
+        return $query->where('nomor_sp', $nomorSp);
+    }
+
+    /**
      * SP yang boleh dipakai sebagai sumber data pembuatan NPD: masih
      * berstatus awal DAN flag Sumber NPD menyala. Port dari getSPTerinput()
      * di CodeSuratPerintah.gs.
@@ -168,11 +208,15 @@ class SuratPerintah extends Model
      * berjenis Uang Harian/Akomodasi, flag Sumber NPD menyala, punya
      * anggota, dan belum punya entri Reimburse. Port dari
      * daftarSPUntukReimburse().
+     *
+     * Duplikat tidak ikut: entri Reimburse dinomori "{nomor induk}
+     * (Reimburse)" dan hanya satu per nomor, jadi induknya cukup SP asli.
      */
     public static function calonIndukReimburse(): EloquentCollection
     {
         return self::query()
             ->where('jenis_permintaan', self::JENIS_UANG_HARIAN)
+            ->where('duplikat_ke', 0)
             ->where('sumber_npd', true)
             ->whereDoesntHave('reimburse')
             ->whereHas('anggota')

@@ -76,7 +76,7 @@
             @forelse ($suratPerintahs as $index => $suratPerintah)
                 <tr>
                     <td class="center">{{ $index + 1 }}</td>
-                    <td>{{ $suratPerintah->nomor_sp }}</td>
+                    <td>{{ $suratPerintah->nomorBerlabel() }}</td>
                     <td class="center">{{ $suratPerintah->tanggal_sp?->format('d-m-Y') }}</td>
                     <td>{{ $suratPerintah->unit_kerja }}</td>
                     <td>{{ $suratPerintah->lokasi }}</td>

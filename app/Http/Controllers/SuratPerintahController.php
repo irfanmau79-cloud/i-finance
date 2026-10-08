@@ -278,6 +278,113 @@ class SuratPerintahController extends Controller
         ]);
     }
 
+    /**
+     * Duplikat SP dari halaman Data SP: satu Surat Perintah yang dibayarkan
+     * lewat beberapa NPD Perjalanan Dinas butuh satu baris SP per NPD, karena
+     * status tiap baris mengikuti NPD yang ditautkan kepadanya.
+     *
+     * Duplikat membawa nomor_sp, identitas, anggota, dan salinan berkas PDF
+     * dari sumbernya, tetapi MULAI DARI AWAL sebagai acuan NPD: statusnya
+     * "Diterima PPTK" dan kedua penandanya menyala. Berkas PDF disalin, bukan
+     * dipakai bersama - menghapus satu baris tidak boleh menghilangkan berkas
+     * baris lainnya.
+     *
+     * Urutan duplikat dihitung per NOMOR SP, jadi menduplikat sebuah duplikat
+     * tetap menghasilkan nomor urut berikutnya dari SP yang sama.
+     */
+    public function duplikat(SuratPerintah $suratPerintah)
+    {
+        if (! $suratPerintah->dapatDiduplikat()) {
+            return back()->withErrors([
+                'duplikat' => 'SP Reimburse Transportasi tidak bisa diduplikat. Duplikat SP Uang Harian/Akomodasi induknya.',
+            ]);
+        }
+
+        $salinanBerkas = null;
+
+        if ($suratPerintah->fileTersedia()) {
+            $salinanBerkas = 'sp/'.Str::uuid().'.pdf';
+            $tersalin = Storage::disk('local')->put(
+                $salinanBerkas,
+                Storage::disk($suratPerintah->fileDisk())->get($suratPerintah->filePath())
+            );
+
+            if (! $tersalin) {
+                throw new \RuntimeException('Berkas SP gagal disalin untuk duplikat.');
+            }
+        }
+
+        try {
+            $duplikat = DB::transaction(function () use ($suratPerintah, $salinanBerkas) {
+                // Seluruh baris bernomor sama dikunci supaya dua klik Duplikat
+                // yang berbarengan tidak mendapat urutan yang sama.
+                $terakhir = (int) SuratPerintah::query()
+                    ->senomor($suratPerintah->nomor_sp)
+                    ->lockForUpdate()
+                    ->get(['id', 'duplikat_ke'])
+                    ->max('duplikat_ke');
+
+                $suratPerintah->load('anggota');
+
+                $duplikat = SuratPerintah::create([
+                    'nomor_sp' => $suratPerintah->nomor_sp,
+                    'duplikat_ke' => $terakhir + 1,
+                    'tanggal_sp' => $suratPerintah->tanggal_sp,
+                    'jenis_permintaan' => $suratPerintah->jenis_permintaan,
+                    'unit_kerja' => $suratPerintah->unit_kerja,
+                    'lokasi' => $suratPerintah->lokasi,
+                    'nama_pengirim' => $suratPerintah->nama_pengirim,
+                    'tujuan_transfer' => $suratPerintah->tujuan_transfer,
+                    'irban_dibayar' => $suratPerintah->irban_dibayar,
+                    'rincian_tgl_bayar' => $suratPerintah->rincian_tgl_bayar,
+                    'keterangan' => $suratPerintah->keterangan,
+                    'status_sp' => $suratPerintah->status_sp,
+                    'pengajuan' => $suratPerintah->pengajuan,
+                    'jenis_pembayaran' => $suratPerintah->jenis_pembayaran,
+                    'file_url' => $salinanBerkas ? 'private:'.$salinanBerkas : null,
+                    'status' => SuratPerintah::STATUS_DITERIMA_PPTK,
+                    'dipantau' => true,
+                    'sumber_npd' => true,
+                ]);
+
+                // Snapshot anggota disalin PERSIS, termasuk tautan pegawai dan
+                // penanda manualnya. Tidak lewat salinDariInduk(): jalur
+                // Reimburse itu memaksa semua anggota jadi manual dan menolak
+                // SP tanpa anggota, padahal duplikat harus sama dengan sumbernya.
+                $this->simpanAnggota($duplikat, $suratPerintah->anggota->map(fn ($anggota) => [
+                    'pegawai_id' => $anggota->pegawai_id,
+                    'nama' => $anggota->nama,
+                    'nip' => $anggota->nip,
+                    'golongan' => $anggota->golongan,
+                    'pangkat' => $anggota->pangkat,
+                    'jabatan' => $anggota->jabatan,
+                    'rekening' => $anggota->rekening,
+                    'manual' => $anggota->manual,
+                    'jabatan_sp' => $anggota->jabatan_sp,
+                ])->all());
+
+                return $duplikat;
+            });
+        } catch (Throwable $e) {
+            if ($salinanBerkas) {
+                Storage::disk('local')->delete($salinanBerkas);
+            }
+
+            throw $e;
+        }
+
+        AuditLog::catat('Duplikat SP', sprintf(
+            'Nomor SP: %s, dari: %s, anggota: %d',
+            $duplikat->nomorBerlabel(),
+            $suratPerintah->nomorBerlabel(),
+            $duplikat->anggota()->count()
+        ));
+
+        return redirect()
+            ->route('surat-perintah.index')
+            ->with('success', 'Surat Perintah berhasil diduplikat sebagai '.$duplikat->nomorBerlabel().'.');
+    }
+
     public function edit(SuratPerintah $suratPerintah)
     {
         $suratPerintah->load('anggota', 'induk:id,nomor_sp');
@@ -317,9 +424,23 @@ class SuratPerintahController extends Controller
             unset($data['file_url']);
         }
 
+        $nomorLama = $suratPerintah->nomor_sp;
+
         try {
-            $suratPerintah->update($data);
-            $this->simpanAnggota($suratPerintah, $anggota);
+            DB::transaction(function () use ($suratPerintah, $data, $anggota, $nomorLama) {
+                $suratPerintah->update($data);
+                $this->simpanAnggota($suratPerintah, $anggota);
+
+                // SP asli dan duplikatnya dikenali dari nomor yang sama. Bila
+                // nomornya dibetulkan di salah satu baris, baris lainnya ikut -
+                // kalau tidak, duplikat terlepas dari SP aslinya.
+                if ($suratPerintah->nomor_sp !== $nomorLama) {
+                    SuratPerintah::query()
+                        ->senomor($nomorLama)
+                        ->where('jenis_permintaan', $suratPerintah->jenis_permintaan)
+                        ->update(['nomor_sp' => $suratPerintah->nomor_sp]);
+                }
+            });
         } catch (Throwable $e) {
             if (isset($pathBaru)) {
                 Storage::disk('local')->delete($pathBaru);
@@ -343,7 +464,7 @@ class SuratPerintahController extends Controller
 
     public function destroy(SuratPerintah $suratPerintah)
     {
-        $nomorSp = $suratPerintah->nomor_sp;
+        $nomorSp = $suratPerintah->nomorBerlabel();
 
         if (filled($suratPerintah->file_url)) {
             Storage::disk($suratPerintah->fileDisk())->delete($suratPerintah->filePath());

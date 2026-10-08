@@ -24,7 +24,20 @@ class UpdateSuratPerintahRequest extends StoreSuratPerintahRequest
 
     public function rules(): array
     {
-        $id = $this->route('suratPerintah')?->id;
+        $sp = $this->route('suratPerintah');
+        $id = $sp?->id;
+
+        // SP asli dan duplikatnya memang bernomor sama (lihat
+        // SuratPerintah::isDuplikat), jadi yang dianggap bentrok hanya SP di
+        // LUAR kelompok itu. Tanpa ini duplikat - dan SP asli yang sudah
+        // punya duplikat - tidak bisa disunting sama sekali.
+        $nomorUnik = Rule::unique('surat_perintah', 'nomor_sp')->ignore($id);
+
+        if ($sp && ! $sp->isReimburse()) {
+            $nomorUnik->where(fn ($query) => $query->whereNot(fn ($q) => $q
+                ->where('nomor_sp', $sp->nomor_sp)
+                ->where('jenis_permintaan', $sp->jenis_permintaan)));
+        }
 
         return array_merge(parent::rules(), [
             'jenis_permintaan' => ['prohibited'],
@@ -32,7 +45,7 @@ class UpdateSuratPerintahRequest extends StoreSuratPerintahRequest
 
             // Identitas SP tetap wajib saat edit - nilainya sudah ada di form,
             // termasuk pada SP Reimburse (field-nya read-only, tetap terkirim).
-            'nomor_sp' => ['required', 'string', 'max:100', Rule::unique('surat_perintah', 'nomor_sp')->ignore($id)],
+            'nomor_sp' => ['required', 'string', 'max:100', $nomorUnik],
             'tanggal_sp' => ['required', 'date'],
             'unit_kerja' => ['required', Rule::in(self::UNIT_KERJA)],
             'lokasi' => ['required', 'string', 'max:100'],

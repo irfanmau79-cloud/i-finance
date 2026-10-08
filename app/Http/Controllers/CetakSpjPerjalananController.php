@@ -106,8 +106,13 @@ class CetakSpjPerjalananController extends Controller
         // pegawai dicari apa adanya, bukan jadi wildcard.
         $pola = str_replace(['\\', '%', '_'], ['\\\\', '\\%', '\\_'], $q).'%';
 
+        // SP asli dan duplikatnya bernomor sama (SuratPerintah::isDuplikat);
+        // tiap nomor cukup muncul sekali di daftar saran.
         return SuratPerintah::query()
-            ->where('nomor_sp', 'like', $pola)
+            ->whereIn('id', SuratPerintah::query()
+                ->selectRaw('MIN(id)')
+                ->where('nomor_sp', 'like', $pola)
+                ->groupBy('nomor_sp'))
             ->orderBy('nomor_sp')
             ->limit(self::MAKS_SARAN)
             ->get();
@@ -120,7 +125,7 @@ class CetakSpjPerjalananController extends Controller
     {
         // Nomor utuh selalu menang: pegawai yang menyalin nomor lengkap tidak
         // perlu memilih dari daftar walau ada nomor lain berawalan sama.
-        $suratPerintah = SuratPerintah::where('nomor_sp', $nomorSp)->first();
+        $suratPerintah = SuratPerintah::where('nomor_sp', $nomorSp)->orderBy('duplikat_ke')->first();
 
         if (! $suratPerintah) {
             if (mb_strlen($nomorSp) < self::MIN_CARI) {
@@ -148,8 +153,11 @@ class CetakSpjPerjalananController extends Controller
             $suratPerintah = $cocok->first();
         }
 
+        // Satu SP bisa dibayarkan lewat beberapa NPD, masing-masing ditaut ke
+        // duplikat SP-nya sendiri - jadi NPD dikumpulkan dari SEMUA baris
+        // bernomor ini, bukan hanya dari baris yang kebetulan ditemukan.
         $terkait = Npd::query()
-            ->where('surat_perintah_id', $suratPerintah->id)
+            ->whereIn('surat_perintah_id', SuratPerintah::query()->senomor($suratPerintah->nomor_sp)->select('id'))
             ->whereIn('jenis', ['pd', 'tr'])
             ->with(['tim.paket'])
             ->orderBy('tanggal_npd')
