@@ -596,12 +596,34 @@
         applyMode();
     }
 
+    /*
+     * Selain nomor tampilannya, pilihan "Penerima Dana" ikut dirapikan:
+     *
+     * - nilainya selalu URUTAN baris (0, 1, 2, ...), karena begitulah server
+     *   membacanya. Nomor internal baris (peserta[idx]) terus bertambah dan
+     *   tidak dipakai ulang, jadi tidak bisa diandalkan sebagai urutan;
+     * - selalu ada tepat satu yang terpilih. Dulu hanya baris bernomor
+     *   internal 0 yang otomatis tercentang - begitu daftar peserta dibuat
+     *   ulang (memilih Referensi SP, atau menghapus baris pertama) tidak ada
+     *   lagi yang terpilih, dan penyimpanan ditolak "Penerima Dana wajib
+     *   diisi" walaupun di mode Perjalanan Dinas pilihannya tersembunyi.
+     */
     function renumber() {
         const rows = pesertaList.querySelectorAll('[data-peserta-row]');
+        let adaTerpilih = false;
+
         rows.forEach((row, i) => {
             row.querySelector('[data-peserta-number]').textContent = '#' + (i + 1);
             row.querySelector('[data-peserta-remove]').disabled = rows.length <= 1;
+
+            const radio = row.querySelector('[data-penerima-radio]');
+            radio.value = i;
+            adaTerpilih = adaTerpilih || radio.checked;
         });
+
+        if (! adaTerpilih && rows.length) {
+            rows[0].querySelector('[data-penerima-radio]').checked = true;
+        }
     }
 
     function recalcRow(row) {

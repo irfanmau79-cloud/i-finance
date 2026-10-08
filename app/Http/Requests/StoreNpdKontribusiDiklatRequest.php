@@ -105,6 +105,32 @@ class StoreNpdKontribusiDiklatRequest extends FormRequest
         ];
     }
 
+    /**
+     * Dua perapian sebelum validasi, supaya urutan penerima tidak bergantung
+     * pada penomoran baris di peramban:
+     *
+     * - `peserta` diurutkan ulang dari 0. Formulir menamai barisnya
+     *   peserta[idx] dengan idx yang terus bertambah (baris yang dihapus
+     *   tidak dipakai ulang), sedangkan penerima_index dibaca sebagai
+     *   URUTAN peserta - lihat pemakaiannya di controller dan dokumen cetak.
+     *
+     * - Pada mode Perjalanan Dinas, penerima_index yang kosong dianggap 0.
+     *   Di mode itu penerima dananya ditentukan Tujuan Transfer
+     *   (penerima_transfer); pilihan "Penerima Dana" per peserta tersembunyi,
+     *   jadi tidak boleh menggagalkan penyimpanan. Mode Kontribusi tetap
+     *   wajib memilihnya.
+     */
+    protected function prepareForValidation(): void
+    {
+        if (is_array($this->input('peserta'))) {
+            $this->merge(['peserta' => array_values($this->input('peserta'))]);
+        }
+
+        if ($this->input('mode') === 'perjalanan' && blank($this->input('penerima_index'))) {
+            $this->merge(['penerima_index' => 0]);
+        }
+    }
+
     public function attributes(): array
     {
         return [

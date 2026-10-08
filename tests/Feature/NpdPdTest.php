@@ -764,4 +764,68 @@ class NpdPdTest extends TestCase
         $this->assertStringContainsString('"kode":"LP","tarif":0,"label":"Luar Provinsi","manual":true', $isi);
         $this->assertStringContainsString('"kode":"A","tarif":200000,"label":"A (4 km s.d. 30 km)","manual":false', $isi);
     }
+
+    // ---------------- Penerima Dana vs penomoran baris anggota ----------------
+
+    /**
+     * Baris anggota di formulir bernomor internal yang tidak berurutan dari 0
+     * (setelah impor dari SP baris pertama bernomor 1). Server membaca
+     * penerima_index sebagai URUTAN anggota, jadi formulir wajib mengirim
+     * urutan - bukan nomor internal - supaya penerimanya tidak bergeser.
+     */
+    public function test_penerima_dana_dibaca_sebagai_urutan_anggota_bukan_nomor_baris(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-urutan-penerima');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payload($masterAnggaran);
+        $tim = array_values($payload['tim']);
+        $this->assertGreaterThanOrEqual(2, count($tim), 'Payload uji harus punya minimal dua anggota.');
+
+        // Dua anggota pertama dikirim dengan nomor internal 3 dan 5; penerimanya urutan ke-0.
+        $payload['tim'] = [3 => $tim[0], 5 => $tim[1]];
+        $payload['penerima_index'] = 0;
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload)->assertSessionHasNoErrors();
+
+        $npd = Npd::with('tim')->sole();
+        $this->assertSame([true, false], $npd->tim->pluck('is_penerima')->map(fn ($x) => (bool) $x)->all());
+        $this->assertSame($tim[0]['nama'], $npd->tim->firstWhere('is_penerima', true)->nama);
+
+        // Skrip formulir menyetel nilai pilihan = urutan baris dan menjaga
+        // selalu ada satu yang terpilih.
+        $isi = $this->actingAs($pptk)->get(route('npd.pd.create'))->assertOk()->getContent();
+        $this->assertStringContainsString('radio.value = i;', $isi);
+        $this->assertStringContainsString("rows[0].querySelector('[data-penerima-radio]').checked = true;", $isi);
+    }
+
+    public function test_anggota_yang_sudah_diisi_tidak_hilang_dari_formulir_setelah_validasi_gagal(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-isian-kembali');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payload($masterAnggaran);
+        $tim = array_values($payload['tim']);
+        // Nomor internal seperti yang dikirim peramban: anggota 3 & 5, paket 7.
+        $tim[0]['paket'] = [7 => array_values($tim[0]['paket'])[0]];
+        $payload['tim'] = [3 => $tim[0], 5 => $tim[1]];
+        // Tarif dikarang supaya validasinya gagal dan formulir dikembalikan.
+        $payload['tim'][3]['paket'][7]['tarif_uh'] = 999_999;
+
+        $this->actingAs($pptk)->from(route('npd.pd.create'))->post(route('npd.pd.store'), $payload)
+            ->assertRedirect(route('npd.pd.create'))
+            ->assertSessionHasErrors();
+
+        $isi = $this->actingAs($pptk)->get(route('npd.pd.create'))->assertOk()->getContent();
+
+        // Harus berupa LARIK ("[{"), bukan objek ("{"3":") - kalau objek,
+        // skripnya menganggap daftar anggota kosong.
+        $this->assertStringContainsString('const initialTim = [{', $isi);
+        $this->assertStringNotContainsString('const initialTim = {', $isi);
+        $this->assertStringContainsString(json_encode($tim[0]['nama']), $isi);
+        $this->assertStringContainsString(json_encode($tim[1]['nama']), $isi);
+        $this->assertStringContainsString('"paket":[{', $isi);
+    }
 }

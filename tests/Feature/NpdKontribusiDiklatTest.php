@@ -550,4 +550,86 @@ class NpdKontribusiDiklatTest extends TestCase
         // Keterangan otomatis menyebut seluruh penerimanya.
         $this->assertStringContainsString('an. Andi Saputra, Bendahara Tim', $lampiran['rows'][0]['keterangan']);
     }
+
+    // ---------------- Penerima Dana vs penomoran baris peserta ----------------
+
+    /**
+     * Kasus nyata: peserta diisi lewat Referensi SP, sehingga baris-barisnya
+     * dibuat ulang dengan nomor internal yang tidak lagi mulai dari 0 dan
+     * tidak ada pilihan "Penerima Dana" yang terkirim. Di mode Perjalanan
+     * Dinas penerimanya ditentukan Tujuan Transfer, jadi penyimpanan tidak
+     * boleh ditolak "Penerima Dana wajib diisi".
+     */
+    public function test_mode_perjalanan_tersimpan_walau_pilihan_penerima_dana_tidak_terkirim(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-tanpa-penerima-index');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payloadPerjalanan($masterAnggaran, $this->buatSp()->id);
+        unset($payload['penerima_index']);
+        // Baris peserta bernomor internal 3, bukan 0 - seperti setelah daftar dibuat ulang.
+        $payload['peserta'] = [3 => $payload['peserta'][0]];
+
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $payload)
+            ->assertSessionHasNoErrors();
+
+        $npd = Npd::with('peserta')->sole();
+        $this->assertSame('perjalanan', $npd->mode_kd);
+        $this->assertSame(5_250_000.0, (float) $npd->nominal);
+        $this->assertCount(1, $npd->peserta);
+        $this->assertSame(0, $npd->detail_json['penerima_index']);
+        // Penerima dananya tetap Tujuan Transfer yang diisi.
+        $this->assertSame('Andi Saputra', $npd->detail_json['penerima_transfer'][0]['nama']);
+
+        foreach (['npd.cetak-npd', 'npd.cetak-lampiran', 'npd.cetak-daftar-kd'] as $route) {
+            $this->actingAs($pptk)->get(route($route, $npd))->assertOk();
+        }
+    }
+
+    public function test_penerima_dana_dibaca_sebagai_urutan_peserta_bukan_nomor_baris(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-urutan-penerima');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        // Dua peserta bernomor internal 4 dan 7; penerimanya peserta KEDUA (urutan 1).
+        $payload = $this->payloadKontribusi($masterAnggaran);
+        $payload['peserta'] = [4 => $payload['peserta'][0], 7 => $payload['peserta'][1]];
+        $payload['penerima_index'] = 1;
+
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $payload)
+            ->assertSessionHasNoErrors();
+
+        $npd = Npd::with('peserta')->sole();
+        $this->assertSame(1, $npd->detail_json['penerima_index']);
+        $this->assertSame('Rina Marlina', $npd->peserta->values()->get($npd->detail_json['penerima_index'])->nama);
+    }
+
+    public function test_mode_kontribusi_tetap_wajib_memilih_penerima_dana(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-kontribusi-wajib');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payloadKontribusi($masterAnggaran);
+        unset($payload['penerima_index']);
+
+        $this->actingAs($pptk)->post(route('npd.kd.store'), $payload)
+            ->assertSessionHasErrors(['penerima_index']);
+        $this->assertSame(0, Npd::count());
+    }
+
+    public function test_formulir_menjaga_pilihan_penerima_dana_saat_daftar_peserta_dibuat_ulang(): void
+    {
+        $pptk = $this->buatUser('pptk', 'kd-form-penerima');
+        $this->limpahkanSubKegiatan($pptk, $this->buatMasterAnggaran());
+
+        $isi = $this->actingAs($pptk)->get(route('npd.kd.create'))->assertOk()->getContent();
+
+        // Skrip formulir: nilai pilihan = urutan baris, dan baris pertama
+        // dipilih bila belum ada yang terpilih.
+        $this->assertStringContainsString('radio.value = i;', $isi);
+        $this->assertStringContainsString("rows[0].querySelector('[data-penerima-radio]').checked = true;", $isi);
+    }
 }

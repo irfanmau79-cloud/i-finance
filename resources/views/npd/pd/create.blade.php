@@ -299,7 +299,17 @@
             'tarif_akom' => $paket->tarif_akom,
         ])->all(),
     ])->all() ?? [];
-    $timAwal = old('tim', $timTersimpan);
+    // Isian yang dikembalikan setelah validasi gagal memakai nomor internal
+    // baris (tim[3], paket[7]) yang tidak berurutan dari 0. Tanpa diurutkan
+    // ulang, @json menuliskannya sebagai OBJEK, bukan larik - skrip di bawah
+    // lalu menganggap daftarnya kosong dan seluruh anggota yang sudah diisi
+    // hilang dari formulir.
+    $timAwal = array_values(array_map(
+        fn ($anggota) => is_array($anggota)
+            ? array_replace($anggota, ['paket' => array_values((array) ($anggota['paket'] ?? []))])
+            : $anggota,
+        (array) old('tim', $timTersimpan)
+    ));
     $penerimaAwal = (int) old('penerima_index', $npdEdit?->tim->search(fn ($tim) => $tim->is_penerima) ?? 0);
 ?>
 <script>
@@ -627,14 +637,37 @@
             + '</div>';
     }
 
+    /*
+     * Selain nomor tampilannya, pilihan "Penerima Dana" ikut dirapikan:
+     * nilainya selalu URUTAN baris (0, 1, 2, ...), karena server membaca
+     * penerima_index sebagai urutan anggota (array_values di NpdPdController).
+     *
+     * Nomor internal baris (tim[idx]) terus bertambah dan tidak dipakai ulang.
+     * Begitu anggota diimpor dari Surat Perintah, baris kosong pertama
+     * (idx 0) dibuang dan anggotanya bernomor mulai 1 - sehingga memilih
+     * anggota pertama terkirim sebagai "1" dan penerima dananya bergeser ke
+     * anggota KEDUA tanpa pesan apa pun. Dengan nilai = urutan, yang dipilih
+     * di layar itulah yang disimpan. Selalu ada tepat satu yang terpilih.
+     */
     function renumber() {
         const rows = timList.querySelectorAll('[data-tim-row]');
+        let adaTerpilih = false;
+
         rows.forEach((row, i) => {
             row.querySelector('[data-tim-number]').textContent = i + 1;
             row.querySelector('[data-tim-name-label]').textContent =
                 row.querySelector('[data-name-input]').value.trim() || 'Belum dipilih';
             row.querySelector('[data-tim-remove]').disabled = rows.length <= 1;
+
+            const radio = row.querySelector('[data-penerima-radio]');
+            radio.value = i;
+            adaTerpilih = adaTerpilih || radio.checked;
         });
+
+        if (! adaTerpilih && rows.length) {
+            rows[0].querySelector('[data-penerima-radio]').checked = true;
+        }
+
         refreshCopySources();
     }
 
