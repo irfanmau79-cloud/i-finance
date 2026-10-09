@@ -30,13 +30,10 @@
         @if (boleh_kelola('spm'))
             <a href="{{ route('spm.up-gu.create') }}" class="btn prim" style="white-space:nowrap;">Tambah Realisasi SP2D UP/GU/TU</a>
         @endif
-        <form method="GET" action="{{ route('spm.up-gu.index') }}" class="spm-cari">
-            <input type="text" name="cari" placeholder="Cari nomor SPM, penerima, atau uraian&hellip;" value="{{ request('cari') }}">
-            <button type="submit" class="btn prim" style="white-space:nowrap;">Cari</button>
-            @if (request()->hasAny(['cari']))
-                <a href="{{ route('spm.up-gu.index') }}" class="btn" style="white-space:nowrap;">Reset</a>
-            @endif
-        </form>
+        @include('spm._penyaring', [
+            'rute' => 'spm.up-gu.index',
+            'placeholder' => 'Cari nomor SPM, penerima, atau uraian…',
+        ])
     </div>
 
     <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">
@@ -104,7 +101,7 @@
                     </tr>
                 @empty
                     <tr>
-                        <td colspan="7" style="text-align:center;color:var(--mut);padding:20px;">Belum ada data SPM UP/GU.</td>
+                        <td colspan="7" style="text-align:center;color:var(--mut);padding:20px;">{{ request()->anyFilled(['cari', 'bulan', 'tahun']) ? 'Tidak ada data yang cocok dengan pencarian atau penyaring ini.' : 'Belum ada data SPM UP/GU.' }}</td>
                     </tr>
                 @endforelse
             </tbody>

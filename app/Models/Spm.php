@@ -93,6 +93,12 @@ class Spm extends Model
         return $query->whereYear(self::tanggalRealisasiSql(), $tahun);
     }
 
+    /** Realisasi yang jatuh PADA bulan tertentu (1-12), di tahun mana pun. */
+    public function scopeRealisasiBulan(Builder $query, int $bulan): Builder
+    {
+        return $query->whereMonth(self::tanggalRealisasiSql(), $bulan);
+    }
+
     /** Dipakai bersama realisasiTahun(): realisasi s.d. bulan tertentu pada tahun itu. */
     public function scopeRealisasiSampaiBulan(Builder $query, int $bulan): Builder
     {

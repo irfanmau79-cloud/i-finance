@@ -19,7 +19,7 @@ class SpmController extends Controller
     {
         $spms = $this->daftarSpm($request, 'up_gu');
 
-        return view('spm.up-gu.index', ['spms' => $spms]);
+        return view('spm.up-gu.index', ['spms' => $spms, 'tahunList' => $this->tahunTersedia('up_gu')]);
     }
 
     public function createUpGu()
@@ -58,7 +58,7 @@ class SpmController extends Controller
     {
         $spms = $this->daftarSpm($request, 'ls');
 
-        return view('spm.ls.index', ['spms' => $spms]);
+        return view('spm.ls.index', ['spms' => $spms, 'tahunList' => $this->tahunTersedia('ls')]);
     }
 
     public function createLs()
@@ -227,6 +227,37 @@ class SpmController extends Controller
             });
         }
 
+        // Penyaring Bulan/Tahun memakai TANGGAL SP2D - tanggal realisasinya -
+        // bukan tanggal SPM, sama dengan seluruh laporan realisasi. Nilai di
+        // luar jangkauan diabaikan, bukan ditolak: alamatnya bisa diketik.
+        $bulan = $request->integer('bulan');
+        if ($bulan >= 1 && $bulan <= 12) {
+            $query->realisasiBulan($bulan);
+        }
+
+        $tahun = $request->integer('tahun');
+        if ($tahun >= 2000 && $tahun <= 2100) {
+            $query->realisasiTahun($tahun);
+        }
+
         return $query->paginate(25)->withQueryString();
+    }
+
+    /**
+     * Tahun-tahun (menurut tanggal SP2D) yang punya data jenis ini, terbaru
+     * di atas - isi pilihan Tahun pada penyaring. Dihitung di PHP karena
+     * fungsi tahun SQL berbeda antara MySQL dan SQLite.
+     *
+     * @return array<int, int>
+     */
+    private function tahunTersedia(string $jenis): array
+    {
+        return Spm::where('jenis_spm', $jenis)
+            ->get(['id', 'tanggal_dokumen', 'tanggal_sp2d'])
+            ->map(fn (Spm $spm) => (int) $spm->tanggalRealisasi()->year)
+            ->unique()
+            ->sortDesc()
+            ->values()
+            ->all();
     }
 }

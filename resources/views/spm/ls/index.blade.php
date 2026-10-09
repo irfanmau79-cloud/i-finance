@@ -28,14 +28,10 @@
         @if (boleh_kelola('spm'))
             <a href="{{ route('spm.ls.create') }}" class="btn prim" style="white-space:nowrap;">Tambah Realisasi SP2D LS</a>
         @endif
-        <form method="GET" action="{{ route('spm.ls.index') }}" class="spm-cari">
-            <input type="text" name="cari" placeholder="Cari nomor SPM, nomor SP2D, penerima, atau uraian&hellip;"
-                   value="{{ request('cari') }}">
-            <button type="submit" class="btn prim" style="white-space:nowrap;">Cari</button>
-            @if (request()->hasAny(['cari']))
-                <a href="{{ route('spm.ls.index') }}" class="btn" style="white-space:nowrap;">Reset</a>
-            @endif
-        </form>
+        @include('spm._penyaring', [
+            'rute' => 'spm.ls.index',
+            'placeholder' => 'Cari nomor SPM, nomor SP2D, penerima, atau uraian…',
+        ])
     </div>
 
     <div class="sp-table-wrap" style="border:1px solid var(--line);border-radius:8px;">
@@ -180,7 +176,7 @@
                     @endif
                 @empty
                     <tr>
-                        <td colspan="7" style="text-align:center;color:var(--mut);padding:20px;">Belum ada data SPM LS.</td>
+                        <td colspan="7" style="text-align:center;color:var(--mut);padding:20px;">{{ request()->anyFilled(['cari', 'bulan', 'tahun']) ? 'Tidak ada data yang cocok dengan pencarian atau penyaring ini.' : 'Belum ada data SPM LS.' }}</td>
                     </tr>
                 @endforelse
             </tbody>

@@ -161,4 +161,89 @@ class RealisasiTanggalSp2dTest extends TestCase
                 ->assertSee('Realisasi dihitung menurut Tanggal SP2D, bukan Tanggal SPM.');
         }
     }
+
+    // ---------------- Penyaring Bulan pada daftar Realisasi SP2D ----------------
+
+    public function test_daftar_realisasi_sp2d_bisa_disaring_per_bulan_menurut_tanggal_sp2d(): void
+    {
+        $bendahara = User::create(['username' => 'sp2d-saring', 'nama' => 'Bendahara', 'role' => 'bendahara_pengeluaran', 'password' => 'rahasia']);
+        $anggaran = $this->anggaran();
+
+        // SPM terbit Juli, SP2D Agustus -> termasuk AGUSTUS.
+        $this->ls($anggaran, 'LS-JULI-SP2D-AGUSTUS', '2026-07-30', '2026-08-04', 1_000_000);
+        $this->ls($anggaran, 'LS-JULI-SP2D-JULI', '2026-07-10', '2026-07-12', 2_000_000);
+        // SPM lama tanpa tanggal SP2D -> mengikuti tanggal SPM-nya (September).
+        $this->ls($anggaran, 'LS-LAMA-SEPTEMBER', '2026-09-03', null, 3_000_000);
+
+        $semua = $this->actingAs($bendahara)->get(route('spm.ls.index'))->assertOk();
+        $semua->assertSee('LS-JULI-SP2D-AGUSTUS')->assertSee('LS-JULI-SP2D-JULI')->assertSee('LS-LAMA-SEPTEMBER');
+        $semua->assertSee('<option value="">Semua bulan</option>', false);
+        $semua->assertSee('name="bulan"', false);
+
+        $this->actingAs($bendahara)->get(route('spm.ls.index', ['bulan' => 8]))
+            ->assertOk()
+            ->assertSee('LS-JULI-SP2D-AGUSTUS')
+            ->assertDontSee('LS-JULI-SP2D-JULI')
+            ->assertDontSee('LS-LAMA-SEPTEMBER')
+            ->assertSee('<option value="8" selected>Agustus</option>', false);
+
+        $this->actingAs($bendahara)->get(route('spm.ls.index', ['bulan' => 7]))
+            ->assertOk()
+            ->assertSee('LS-JULI-SP2D-JULI')
+            ->assertDontSee('LS-JULI-SP2D-AGUSTUS');
+
+        $this->actingAs($bendahara)->get(route('spm.ls.index', ['bulan' => 9]))
+            ->assertOk()
+            ->assertSee('LS-LAMA-SEPTEMBER');
+
+        // Bulan tanpa data, dan gabungan dengan kotak cari.
+        $this->actingAs($bendahara)->get(route('spm.ls.index', ['bulan' => 3]))
+            ->assertOk()
+            ->assertSee('Tidak ada data yang cocok dengan pencarian atau penyaring ini.');
+        $this->actingAs($bendahara)->get(route('spm.ls.index', ['bulan' => 7, 'cari' => 'AGUSTUS']))
+            ->assertOk()
+            ->assertDontSee('LS-JULI-SP2D-JULI');
+
+        // Nilai di luar jangkauan diabaikan, bukan galat.
+        $this->actingAs($bendahara)->get(route('spm.ls.index', ['bulan' => 99]))
+            ->assertOk()
+            ->assertSee('LS-JULI-SP2D-JULI');
+    }
+
+    public function test_penyaring_bulan_juga_ada_di_daftar_up_gu_dan_tahun_muncul_bila_lebih_dari_satu(): void
+    {
+        $bendahara = User::create(['username' => 'sp2d-saring-upgu', 'nama' => 'Bendahara', 'role' => 'bendahara_pengeluaran', 'password' => 'rahasia']);
+
+        $buat = fn (string $nomor, string $spm, string $sp2d) => Spm::create([
+            'jenis_spm' => 'up_gu', 'tanggal_dokumen' => $spm, 'nomor_dokumen' => $nomor, 'tanggal_sp2d' => $sp2d, 'nominal' => 5_000_000,
+        ]);
+        $buat('GU-AGUSTUS-2026', '2026-08-01', '2026-08-03');
+
+        // Satu tahun saja: pilihan Tahun tidak perlu tampil.
+        $this->actingAs($bendahara)->get(route('spm.up-gu.index'))
+            ->assertOk()
+            ->assertSee('name="bulan"', false)
+            ->assertDontSee('name="tahun"', false);
+
+        // SPM Desember 2025 dengan SP2D Januari 2026 tetap tahun 2026;
+        // yang SP2D-nya 2025 membuat pilihan Tahun muncul.
+        $buat('GU-SP2D-JANUARI-2026', '2025-12-30', '2026-01-04');
+        $buat('GU-DESEMBER-2025', '2025-12-01', '2025-12-05');
+
+        $this->actingAs($bendahara)->get(route('spm.up-gu.index'))
+            ->assertOk()
+            ->assertSee('name="tahun"', false)
+            ->assertSeeInOrder(['<option value="2026"', '<option value="2025"'], false);
+
+        $this->actingAs($bendahara)->get(route('spm.up-gu.index', ['tahun' => 2026]))
+            ->assertOk()
+            ->assertSee('GU-AGUSTUS-2026')
+            ->assertSee('GU-SP2D-JANUARI-2026')
+            ->assertDontSee('GU-DESEMBER-2025');
+
+        $this->actingAs($bendahara)->get(route('spm.up-gu.index', ['tahun' => 2025, 'bulan' => 12]))
+            ->assertOk()
+            ->assertSee('GU-DESEMBER-2025')
+            ->assertDontSee('GU-SP2D-JANUARI-2026');
+    }
 }

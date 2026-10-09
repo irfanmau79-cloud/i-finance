@@ -1546,6 +1546,9 @@
      Dipakai dua daftar dan satu halaman rincian, jadi gayanya di sini. */
   .spm-cari{display:flex;flex-wrap:wrap;gap:var(--sp-2);align-items:center;flex:1 1 320px;}
   .spm-cari input[type=text]{flex:1 1 260px;min-width:220px;}
+  /* Penyaring Bulan/Tahun (menurut tanggal SP2D) di samping kotak cari:
+     selebar isinya saja, tidak ikut melar seperti kotak carinya. */
+  .spm-cari select.spm-saring{flex:0 0 auto;width:auto;min-width:138px;}
   .spm-aksi{display:inline-flex;align-items:center;gap:6px;}
   /* Tombol validasi memakai nada "selesai", bukan biru aksen: yang
      ditandainya memang keadaan akhir, bukan tautan biasa. */
