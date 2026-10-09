@@ -39,7 +39,7 @@ class DashboardNpdService
         $bidangPerNama = $pegawai->mapWithKeys(fn (Pegawai $p) => [$this->kunciNama($p->nama) => $p->bidang]);
 
         $semua = Npd::query()
-            ->with(['masterAnggaran', 'penerima', 'tim', 'narasumber', 'peserta', 'suratPerintah:id,nomor_sp'])
+            ->with(['masterAnggaran', 'penerima', 'tim.paket', 'narasumber', 'peserta', 'suratPerintah:id,nomor_sp'])
             ->where('tahun', $tahun)
             ->where('status', '!=', 'Dibatalkan')
             ->orderByDesc('tanggal_npd')

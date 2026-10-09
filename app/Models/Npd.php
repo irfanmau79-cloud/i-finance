@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use App\Services\KeteranganLampiranService;
 use Illuminate\Database\Eloquent\Attributes\Fillable;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
@@ -508,16 +509,37 @@ class Npd extends Model
     /**
      * Uraian ringkas NPD untuk ditampilkan di daftar.
      *
-     * Urutan sumbernya mengikuti InventarisasiSpjService, lalu DITAMBAH satu
-     * langkah terakhir untuk Barang/Jasa: jenis itu tidak punya uraian di
+     * Urutannya: uraian tersimpan (NPD impor lama), lalu Uraian Lampiran
+     * untuk NPD perjalanan/diklat/narasumber yang dibuat di aplikasi, lalu
+     * isian mentahnya sebagai cadangan. Barang/Jasa tidak punya uraian di
      * tingkat NPD sama sekali - yang ada hanya Keterangan per baris penerima -
-     * sehingga tanpa langkah ini kolomnya selalu kosong untuk BJ.
+     * jadi langkah terakhirnya mengambil keterangan itu.
+     *
+     * Butuh relasi tim.paket / peserta / masterAnggaran; daftar yang memanggil
+     * ini untuk banyak NPD sebaiknya memuatnya sekaligus (eager load).
      */
     public function uraianRingkas(): string
     {
         $detail = $this->detail_json ?? [];
 
-        foreach (['uraian', 'uraian_sp', 'uraian_kegiatan', 'keterangan_lampiran', 'nama_pelatihan'] as $kunci) {
+        // NPD hasil impor lama sudah menyimpan uraian lengkapnya.
+        if (filled($detail['uraian'] ?? null)) {
+            return (string) $detail['uraian'];
+        }
+
+        // NPD yang dibuat di aplikasi: tampilkan Uraian LAMPIRAN-nya - kalimat
+        // utuh "… Pembayaran Belanja … dalam rangka …" yang sama dengan kotak
+        // Keterangan Lampiran di halaman Edit - bukan isian mentahnya. Dulu
+        // yang tampil hanya Uraian SP / Nama Pelatihan ("Untuk mengikuti …").
+        if (in_array($this->jenis, ['pd', 'tr', 'kd', 'ns'], true) && $this->sumber_data !== 'import_historis') {
+            $lampiran = KeteranganLampiranService::untukNpd($this);
+
+            if (filled($lampiran)) {
+                return (string) $lampiran;
+            }
+        }
+
+        foreach (['uraian_sp', 'uraian_kegiatan', 'keterangan_lampiran', 'nama_pelatihan'] as $kunci) {
             if (filled($detail[$kunci] ?? null)) {
                 return (string) $detail[$kunci];
             }

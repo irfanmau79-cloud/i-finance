@@ -26,7 +26,9 @@ class InventarisasiSpjService
         $npds = Npd::query()
             ->with([
                 'masterAnggaran.tagging', 'penerima.pegawai', 'penerima.vendor',
-                'tim.pegawai', 'narasumber.pegawai', 'narasumber.vendor', 'peserta.pegawai',
+                // tim.paket: kolom Uraian merakit kalimat Lampiran, yang butuh
+                // paket tiap anggota (lihat Npd::uraianRingkas).
+                'tim.pegawai', 'tim.paket', 'narasumber.pegawai', 'narasumber.vendor', 'peserta.pegawai',
                 'suratPerintah', 'induk.suratPerintah', 'arsipSpj', 'arsipSpjAktif', 'spjDetail',
             ])
             // Cuma JUMLAHNYA yang dibutuhkan tabel (penanda "ada berkas"),
@@ -225,7 +227,7 @@ class InventarisasiSpjService
             'kode_rekening' => $npd->masterAnggaran->kode_rekening_bersih,
             'uraian_rekening' => $npd->masterAnggaran->uraian_rekening,
             'tagging' => $npd->tagging_snapshot ?: ($npd->masterAnggaran->tagging?->nama ?? '-'),
-            'uraian' => $npd->detail_json['uraian'] ?? $npd->detail_json['uraian_sp'] ?? $npd->detail_json['keterangan_lampiran'] ?? '-',
+            'uraian' => $npd->uraianRingkas(),
             'label_orang' => match ($npd->jenis) {
                 'pd', 'tr' => 'Anggota Tim',
                 'ns' => 'Narasumber',
@@ -302,7 +304,7 @@ class InventarisasiSpjService
             'kode_rekening' => $npd->masterAnggaran->kode_rekening_bersih,
             'uraian_rekening' => $npd->masterAnggaran->uraian_rekening,
             'tagging' => $npd->tagging_snapshot ?: ($npd->masterAnggaran->tagging?->nama ?? ''),
-            'uraian' => $npd->detail_json['uraian'] ?? $npd->detail_json['uraian_sp'] ?? $npd->detail_json['keterangan_lampiran'] ?? '-',
+            'uraian' => $npd->uraianRingkas(),
             'nominal' => (float) $npd->nominal,
             'penerima' => $penerima ?: '-',
             'lokasi' => $lokasi,
@@ -342,7 +344,7 @@ class InventarisasiSpjService
     {
         $override = $npd->spjDetail;
         [$koordinatorDefault, $bidangDefault] = $this->koordinatorDanBidang($npd);
-        $uraianDefault = $npd->detail_json['uraian'] ?? $npd->detail_json['uraian_sp'] ?? $npd->detail_json['keterangan_lampiran'] ?? '-';
+        $uraianDefault = $npd->uraianRingkas();
 
         $bulan = (int) ($override?->bulan ?? $npd->tanggal_npd->month);
 

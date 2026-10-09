@@ -3,6 +3,8 @@
 namespace App\Services;
 
 use App\Helpers\NpdPerjalananHitung;
+use App\Models\Npd;
+use App\Support\PptkPenerima;
 use Carbon\Carbon;
 
 /**
@@ -137,6 +139,88 @@ class KeteranganLampiranService
             .' dalam rangka Mengikuti '.($detail['nama_pelatihan'] ?? '')
             .' '.$periode
             .' an. '.$atasNama;
+    }
+
+    /**
+     * Kalimat intro Daftar Pembayaran & uraian default Lampiran NPD
+     * Narasumber. Port dari introDaftar di buatNPDNarasumber()
+     * gas-lama/CodeNarasumber.gs.
+     *
+     * @param  array<string, mixed>  $detail
+     */
+    public static function narasumber(array $detail): string
+    {
+        $tglMulai = $detail['tanggal_mulai'] ?? null;
+        $tglSelesai = $detail['tanggal_selesai'] ?? null;
+
+        $periode = ($tglMulai && $tglSelesai)
+            ? 'pada tanggal '.self::tanggalIndo($tglMulai).' s.d '.self::tanggalIndo($tglSelesai)
+            : '';
+
+        return 'Pembayaran Honorarium Narasumber atau Pembahas, Moderator, Pembawa Acara dan Panitia (Narasumber) dalam rangka '
+            .($detail['uraian_kegiatan'] ?? '').($periode !== '' ? ' '.$periode : '');
+    }
+
+    /**
+     * Uraian Lampiran sebuah NPD TERSIMPAN, sebagaimana tercetak di baris
+     * pertama Lampirannya dan tampil di kotak "Keterangan Lampiran" halaman
+     * Edit: teks yang diketik manual bila ada, selain itu kalimat bakunya.
+     *
+     * Dipakai kolom Uraian di daftar NPD (Npd::uraianRingkas). Dulu kolom itu
+     * menampilkan isian mentahnya - Uraian SP atau Nama Pelatihan - sehingga
+     * yang terbaca hanya "Untuk mengikuti ..." tanpa "Pembayaran Belanja ...",
+     * berbeda dari yang dilihat petugas di halaman Edit.
+     *
+     * Barang/Jasa tidak punya uraian tingkat dokumen (hanya keterangan per
+     * penerima), jadi hasilnya NULL dan pemanggil memakai caranya sendiri.
+     */
+    public static function untukNpd(Npd $npd): ?string
+    {
+        $detail = $npd->detail_json ?? [];
+
+        if (filled($detail['keterangan_lampiran'] ?? null)) {
+            return (string) $detail['keterangan_lampiran'];
+        }
+
+        return match ($npd->jenis) {
+            'pd', 'tr' => self::pd(
+                $detail,
+                $npd->tim->map(fn ($anggota) => $anggota->toHitungArray())->all(),
+                self::namaPenerimaPd($npd),
+                $npd->masterAnggaran?->kode_rekening_bersih,
+            ),
+            'kd' => self::kd($detail, $npd->mode_kd, self::namaPenerimaKd($npd)),
+            'ns' => self::narasumber($detail),
+            default => null,
+        };
+    }
+
+    /** Penerima transfer NPD Perjalanan Dinas/Transport: PPTK bila mode itu menyala, selain itu anggota bertanda penerima. */
+    private static function namaPenerimaPd(Npd $npd): string
+    {
+        if (PptkPenerima::aktif($npd)) {
+            return PptkPenerima::untukNpd($npd)->nama;
+        }
+
+        return (string) (($npd->tim->firstWhere('is_penerima', true) ?? $npd->tim->first())?->nama ?? '');
+    }
+
+    /**
+     * Penerima baris PERTAMA Lampiran NPD Kontribusi Diklat: PPTK, penerima
+     * transfer pertama, atau (NPD lama) peserta pada penerima_index - urutan
+     * yang sama dengan NpdController::bangunLampiranKontribusiDiklat().
+     */
+    private static function namaPenerimaKd(Npd $npd): string
+    {
+        if (PptkPenerima::aktif($npd)) {
+            return PptkPenerima::untukNpd($npd)->nama;
+        }
+
+        $detail = $npd->detail_json ?? [];
+        $peserta = $npd->peserta->values();
+        $tunggal = $peserta->get((int) ($detail['penerima_index'] ?? 0)) ?? $peserta->first();
+
+        return self::atasNamaKd((array) ($detail['penerima_transfer'] ?? []), (string) ($tunggal?->nama ?? ''))[0];
     }
 
     /**

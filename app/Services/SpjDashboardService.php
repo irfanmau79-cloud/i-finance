@@ -15,7 +15,7 @@ class SpjDashboardService
     public function ringkasan(array $filters, int $tahun): array
     {
         $rows = Npd::query()
-            ->with(['masterAnggaran', 'suratPerintah', 'dibuatOleh.pegawai', 'spjVerifiedBy'])
+            ->with(['masterAnggaran', 'suratPerintah', 'dibuatOleh.pegawai', 'spjVerifiedBy', 'tim.paket', 'peserta', 'penerima'])
             ->where('status', 'Selesai')
             ->whereYear('tanggal_npd', $tahun)
             ->orderByDesc('tanggal_npd')
@@ -95,7 +95,7 @@ class SpjDashboardService
             'nomor_npd' => $npd->nomor_lengkap ?: 'NPD #'.$npd->id,
             'nomor_sp' => $npd->suratPerintah?->nomor_sp ?? ($npd->detail_json['nomor_sp'] ?? '-'),
             'sub_kegiatan' => $npd->masterAnggaran->subKegiatanNormal(),
-            'uraian' => $npd->detail_json['uraian_sp'] ?? $npd->detail_json['uraian'] ?? '-',
+            'uraian' => $npd->uraianRingkas(),
             'bidang' => self::bidang($npd),
             'nominal' => (float) $npd->nominal,
             'status_spj' => $npd->spj_verified_at ? 'terverifikasi' : 'belum',

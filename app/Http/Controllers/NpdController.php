@@ -66,7 +66,7 @@ class NpdController extends Controller
     public function dataNpd(Request $request)
     {
         $npds = Npd::query()
-            ->with(['masterAnggaran.tagging', 'penerima', 'tim', 'narasumber', 'peserta', 'historiStatus', 'suratPerintah'])
+            ->with(['masterAnggaran.tagging', 'penerima', 'tim.paket', 'narasumber', 'peserta', 'historiStatus', 'suratPerintah'])
             ->withCount('notifikasi')
             ->orderByDesc('tanggal_npd')
             ->orderByDesc('id')
@@ -203,7 +203,7 @@ class NpdController extends Controller
 
         $query = Npd::query()
             ->with($lengkap
-                ? ['masterAnggaran.tagging', 'penerima', 'tim', 'narasumber', 'peserta']
+                ? ['masterAnggaran.tagging', 'penerima', 'tim.paket', 'narasumber', 'peserta']
                 : ['masterAnggaran:id,kode_rekening,sub_kegiatan'])
             ->latest('tanggal_npd')
             ->latest('id');
@@ -1815,16 +1815,9 @@ class NpdController extends Controller
      */
     private function introNarasumber(Npd $npd): string
     {
-        $detail = $npd->detail_json ?? [];
-        $uraianKeg = $detail['uraian_kegiatan'] ?? '';
-        $tglMulai = $detail['tanggal_mulai'] ?? null;
-        $tglSelesai = $detail['tanggal_selesai'] ?? null;
-
-        $periode = ($tglMulai && $tglSelesai)
-            ? 'pada tanggal '.$this->tanggalIndo($tglMulai).' s.d '.$this->tanggalIndo($tglSelesai)
-            : '';
-
-        return 'Pembayaran Honorarium Narasumber atau Pembahas, Moderator, Pembawa Acara dan Panitia (Narasumber) dalam rangka '.$uraianKeg.($periode !== '' ? ' '.$periode : '');
+        // Kalimatnya dirakit di KeteranganLampiranService supaya dokumen dan
+        // kolom Uraian di daftar NPD berasal dari satu tempat.
+        return KeteranganLampiranService::narasumber($npd->detail_json ?? []);
     }
 
     /**
