@@ -1876,6 +1876,94 @@
   .sp-toggle.sumber.aktif .sp-toggle-lbl{color:var(--gold-d);}
   .sp-toggle.menunggu{opacity:.6;pointer-events:none;}
 
+  /* ===== Chat internal =====
+     Ikon di bilah atas memakai .tb-ikon dan lencana .lc-angka yang sama
+     dengan lonceng; bedanya ia tautan ke halaman Chat, bukan pembuka menu. */
+  .tb-chat{position:relative;text-decoration:none;}
+  .tb-chat.aktif{background:var(--tb-chip-hover);}
+
+  /* Halaman Chat: dua kolom setinggi layar - daftar ruang di kiri, ruang
+     yang dibuka di kanan. Kartunya tanpa padding supaya garis pemisah kedua
+     kolom menyentuh tepi kartu. */
+  .dash-card.chat-kartu{padding:0;overflow:hidden;height:calc(100dvh - var(--tb-h) - var(--isi-y) - var(--sp-7));min-height:420px;}
+  .chat{display:grid;grid-template-columns:320px minmax(0,1fr);height:100%;}
+  .chat-sisi{display:flex;flex-direction:column;min-height:0;border-right:1px solid var(--line);background:var(--surface);}
+  .chat-sisi-kepala{display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border-bottom:1px solid var(--line);}
+  .chat-sisi-kepala h3{margin:0;font-size:16px;color:var(--tegas);}
+  .chat-baru-tombol{padding:7px 12px;font-size:12.5px;white-space:nowrap;}
+  /* Panel "Chat Baru" mengisi SELURUH tinggi kolom kiri sampai bawah, dan
+     daftar percakapan disembunyikan selama ia terbuka (.baru-terbuka).
+     Dulu panelnya dibatasi 55% sehingga pilihan akun terpotong dan harus
+     digulir di kotak sempit, padahal di bawahnya masih ada ruang. */
+  .chat-baru{display:flex;flex-direction:column;flex:1 1 auto;min-height:0;background:var(--surface-2);}
+  .chat-baru[hidden]{display:none;}
+  .chat-sisi.baru-terbuka .chat-daftar{display:none;}
+  .chat-baru input{margin:10px 12px 6px;width:auto;flex:0 0 auto;}
+  .chat-baru-daftar{flex:1 1 auto;min-height:0;overflow-y:auto;padding:0 6px 10px;}
+  .chat-baru-judul{padding:10px 10px 4px;font-size:10.5px;font-weight:800;letter-spacing:.5px;text-transform:uppercase;color:var(--mut);}
+  .chat-baru-daftar form{margin:0;}
+  .chat-baru-item{display:flex;align-items:center;gap:10px;width:100%;padding:7px 10px;border:none;border-radius:var(--r-sm);
+    background:none;color:var(--ink);text-align:left;cursor:pointer;font:inherit;}
+  .chat-baru-item:hover{background:var(--surface-3);}
+  .chat-baru-item b{display:block;font-size:13px;font-weight:600;}
+  .chat-baru-item small{display:block;font-size:11px;color:var(--mut);}
+  .chat-daftar{flex:1 1 auto;min-height:0;overflow-y:auto;padding:6px;}
+  .chat-item{display:flex;align-items:center;gap:10px;padding:9px 10px;border-radius:var(--r-sm);text-decoration:none;color:var(--ink);}
+  .chat-item:hover{background:var(--surface-2);}
+  .chat-item.aktif{background:var(--navy-l);}
+  .chat-item-isi{flex:1 1 auto;min-width:0;display:flex;flex-direction:column;gap:1px;}
+  .chat-item-nama{font-size:13.5px;font-weight:600;color:var(--tegas);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .chat-item-cuplikan{font-size:12px;color:var(--mut);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+  .chat-item.belum .chat-item-nama{font-weight:800;}
+  .chat-item.belum .chat-item-cuplikan{color:var(--ink);font-weight:600;}
+  .chat-item-angka{flex:0 0 auto;min-width:20px;height:20px;padding:0 6px;box-sizing:border-box;border-radius:50px;
+    background:var(--err);color:#fff;font-size:11px;font-weight:800;line-height:20px;text-align:center;}
+  .chat-avatar{flex:0 0 36px;width:36px;height:36px;border-radius:50%;display:flex;align-items:center;justify-content:center;
+    background:var(--navy);color:#fff;font-size:14px;font-weight:700;}
+  /* Ruang role dibedakan dari akun perorangan: emas, bukan navy. */
+  .chat-avatar.role{background:var(--gold);color:#1b1408;font-size:17px;}
+
+  .chat-utama{display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--surface-2);}
+  .chat-kepala{display:flex;align-items:center;gap:12px;padding:12px 18px;border-bottom:1px solid var(--line);background:var(--surface);}
+  .chat-kepala-nama{font-size:15px;font-weight:700;color:var(--tegas);}
+  .chat-kepala-ket{font-size:12px;color:var(--mut);}
+  .chat-kembali{display:none;text-decoration:none;font-size:20px;color:var(--tegas);padding:0 4px;}
+  .chat-pesan{flex:1 1 auto;min-height:0;overflow-y:auto;padding:16px 18px;display:flex;flex-direction:column;gap:6px;}
+  .chat-hari{align-self:center;margin:8px 0 4px;padding:3px 12px;border-radius:50px;background:var(--surface-3);
+    font-size:11px;font-weight:600;color:var(--mut);}
+  /* Gelembung pesan: orang lain di kiri (permukaan kartu), milik sendiri di
+     kanan (navy). pre-wrap menjaga baris baru yang diketik pengirimnya. */
+  .chat-b{align-self:flex-start;max-width:min(72%,560px);padding:8px 12px 6px;border-radius:14px 14px 14px 4px;
+    background:var(--surface);border:1px solid var(--line);color:var(--ink);}
+  .chat-b.saya{align-self:flex-end;border-radius:14px 14px 4px 14px;background:var(--navy);border-color:var(--navy);color:#fff;}
+  .chat-b-nama{font-size:11.5px;font-weight:700;color:var(--aksen-d);margin-bottom:2px;}
+  .chat-b-isi{font-size:13.5px;line-height:1.5;white-space:pre-wrap;overflow-wrap:anywhere;}
+  .chat-b-jam{margin-top:2px;font-size:10.5px;text-align:right;opacity:.65;}
+  .chat-tulis{display:flex;align-items:flex-end;gap:10px;padding:12px 16px;border-top:1px solid var(--line);background:var(--surface);}
+  .chat-tulis textarea{flex:1 1 auto;min-height:40px;max-height:140px;resize:none;line-height:1.45;}
+  .chat-tulis .btn{flex:0 0 auto;}
+  .chat-galat{margin:0 16px 12px;padding:8px 12px;border-radius:var(--r-sm);background:var(--err-bg);color:var(--err);font-size:12.5px;}
+  .chat-galat[hidden]{display:none;}
+  .chat-kosong{flex:1 1 auto;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:8px;padding:24px;text-align:center;color:var(--mut);}
+  .chat-kosong svg{width:46px;height:46px;fill:none;stroke:currentColor;stroke-width:1.6;stroke-linecap:round;stroke-linejoin:round;opacity:.6;}
+  .chat-kosong-judul{font-size:16px;font-weight:700;color:var(--tegas);}
+  .chat-kosong-ket{font-size:13px;max-width:360px;line-height:1.5;}
+  .chat-kosong-kecil{padding:18px 14px;font-size:12.5px;color:var(--mut);text-align:center;}
+  /* Mode gelap: navy sebagai latar gelembung terlalu dekat dengan kanvas. */
+  :root[data-tema="gelap"] .chat-b.saya{background:var(--aksen-d);border-color:var(--aksen-d);}
+  :root[data-tema="gelap"] .chat-item.aktif{background:var(--surface-3);}
+
+  /* Layar sempit: satu kolom. Daftar tampil sendiri; begitu sebuah ruang
+     dibuka, ruang itu yang tampil dan ada panah kembali ke daftar. */
+  @media(max-width:840px){
+    .dash-card.chat-kartu{height:calc(100dvh - var(--tb-h) - var(--isi-y) - var(--sp-4));}
+    .chat{grid-template-columns:minmax(0,1fr);}
+    .chat-kartu.ada-ruang .chat-sisi{display:none;}
+    .chat-kartu:not(.ada-ruang) .chat-utama{display:none;}
+    .chat-kembali{display:inline-block;}
+    .chat-b{max-width:86%;}
+  }
+
   /* ===== Dialog i-Finance (pengganti confirm()/alert() peramban) =====
      Dipakai layouts/partials/dialog.blade.php. Wajahnya mengikuti modal
      konfirmasi alur kerja NPD: ikon bulat, judul, pesan di tengah. Yang

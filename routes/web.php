@@ -31,6 +31,7 @@ use App\Http\Controllers\PerjalananDinasDashboardController;
 use App\Http\Controllers\PerjalananDinasPegawaiController;
 use App\Http\Controllers\PkptController;
 use App\Http\Controllers\PkptImportController;
+use App\Http\Controllers\ChatController;
 use App\Http\Controllers\ProfilController;
 use App\Http\Controllers\RakBulananImportController;
 use App\Http\Controllers\RealisasiPeriodeController;
@@ -346,6 +347,20 @@ Route::middleware('auth.or.guest')->group(function () {
         });
         Route::get('/surat-perintah/export-pdf', [SuratPerintahController::class, 'exportPdf'])->name('surat-perintah.export-pdf');
         Route::get('/surat-perintah/{suratPerintah}/file', [SuratPerintahController::class, 'downloadFile'])->name('surat-perintah.file');
+
+        // Chat internal antar akun: percakapan pribadi dan ruang per role.
+        // Berada di grup berlogin ini, jadi Pengguna Layanan (tanpa akun)
+        // tidak ikut. Sengaja TANPA 'baca-saja': Pengawas boleh ikut chat -
+        // pesan bukan data keuangan (keputusan Irfan, Oktober 2026).
+        Route::middleware('menu-akses:chat')->group(function () {
+            Route::get('/chat', [ChatController::class, 'index'])->name('chat.index');
+            Route::get('/chat/ringkas', [ChatController::class, 'ringkas'])->name('chat.ringkas');
+            Route::post('/chat/pribadi/{user}', [ChatController::class, 'bukaPribadi'])->name('chat.pribadi');
+            Route::post('/chat/role', [ChatController::class, 'bukaRole'])->name('chat.role');
+            Route::get('/chat/ruang/{ruang}/pesan', [ChatController::class, 'pesan'])->name('chat.pesan');
+            Route::post('/chat/ruang/{ruang}/pesan', [ChatController::class, 'kirim'])
+                ->middleware('throttle:40,1')->name('chat.kirim');
+        });
 
         Route::get('/profil', [ProfilController::class, 'show'])->name('profil.show');
         Route::put('/profil', [ProfilController::class, 'update'])->name('profil.update');

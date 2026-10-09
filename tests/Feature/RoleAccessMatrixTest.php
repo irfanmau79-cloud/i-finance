@@ -258,6 +258,7 @@ class RoleAccessMatrixTest extends TestCase
             'sp-input', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd',
             'tk-pegawai', 'tk-data', 'tk-form', 'tk-monitor',
             'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak',
+            'chat',
             'profil',
         ], config('akses.menu.kepegawaian'));
 

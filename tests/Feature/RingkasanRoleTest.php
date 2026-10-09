@@ -116,6 +116,9 @@ class RingkasanRoleTest extends TestCase
             'manajemen-data.index' => ['superadmin'],
             'users.index' => ['superadmin'],
 
+            // Chat internal: semua akun, tanpa Pengguna Layanan.
+            'chat.index' => self::LOGIN,
+
             'profil.show' => self::LOGIN,
         ];
     }
@@ -224,6 +227,7 @@ class RingkasanRoleTest extends TestCase
             'sp-input', 'sp-monitor', 'sp-cetakspj', 'sp-cetaksppd',
             'tk-form', 'tk-monitor',
             'gt-gaji', 'gt-beban', 'gt-kondisi', 'gt-total', 'gt-cetak',
+            'chat',
             'profil',
         ], config('akses.menu.pengelola_spj'));
 

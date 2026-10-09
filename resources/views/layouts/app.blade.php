@@ -428,6 +428,20 @@
           </div>
         </div>
 
+        {{-- Chat internal: hanya untuk AKUN (yang punya username & kata
+             sandi). Pengguna Layanan tidak punya akun, jadi ikonnya tidak
+             tampil. Angkanya = pesan belum dibaca, disegarkan berkala oleh
+             skrip di bawah. --}}
+        @if (auth()->check() && in_array('chat', $akses, true))
+          @php($chatBelum = app(\App\Services\ChatService::class)->belumDibaca(auth()->user()))
+          <a class="tb-ikon tb-chat{{ $activeNav === 'chat' ? ' aktif' : '' }}" id="tb-chat" href="{{ route('chat.index') }}" title="Chat"
+             aria-label="Chat{{ $chatBelum > 0 ? ', '.$chatBelum.' pesan belum dibaca' : '' }}"
+             data-ringkas="{{ route('chat.ringkas') }}">
+            <svg viewBox="0 0 24 24"><path d="M21 15a2 2 0 0 1-2 2H7l-4 4V5a2 2 0 0 1 2-2h14a2 2 0 0 1 2 2z"/></svg>
+            <span class="lc-angka" id="tb-chat-angka"{!! $chatBelum === 0 ? ' hidden' : '' !!}>{{ $chatBelum > 99 ? '99+' : $chatBelum }}</span>
+          </a>
+        @endif
+
         {{-- Ganti Mode: tiga pilihan tampilan. "Default" berarti tanpa
              atribut data-tema, yaitu rangka navy seperti sedia kala. --}}
         <div class="tb-tema-wrap">
@@ -601,6 +615,30 @@
       document.addEventListener('keydown', function (e) {
         if (e.key === 'Escape') tutupMenuTema();
       });
+    }
+
+    /* Ikon chat: angka pesan belum dibaca disegarkan tiap 45 detik selama
+       tabnya terlihat. Halaman Chat menyegarkannya sendiri lebih sering,
+       jadi di sana penyegar ini tidak dijalankan. */
+    var ikonChat = document.getElementById('tb-chat');
+    if (ikonChat && ! ikonChat.classList.contains('aktif')) {
+      var angkaChat = document.getElementById('tb-chat-angka');
+      setInterval(function () {
+        if (document.hidden) return;
+
+        fetch(ikonChat.getAttribute('data-ringkas'), {
+          headers: { 'Accept': 'application/json', 'X-Requested-With': 'XMLHttpRequest' },
+          credentials: 'same-origin',
+        })
+          .then(function (r) { return r.ok ? r.json() : null; })
+          .then(function (data) {
+            if (! data || ! angkaChat) return;
+            var n = data.belum || 0;
+            angkaChat.textContent = n > 99 ? '99+' : String(n);
+            angkaChat.hidden = n === 0;
+          })
+          .catch(function () {});
+      }, 45000);
     }
 
     /* Lonceng notifikasi. Siaran yang belum dibaca ditandai dibaca saat

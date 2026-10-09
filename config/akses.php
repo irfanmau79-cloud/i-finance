@@ -116,6 +116,10 @@ $matriks = [
     'manajemen-data' => ['superadmin'],
     'users' => ['superadmin'],
 
+    // Chat internal: semua AKUN (yang punya username & kata sandi), termasuk
+    // Pengawas. Pengguna Layanan tidak punya akun, jadi tidak ikut.
+    'chat' => $login,
+
     // Pengguna Layanan tidak punya akun, jadi tidak punya profil.
     'profil' => $login,
 ];

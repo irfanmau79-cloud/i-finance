@@ -221,6 +221,12 @@ Dua modul terakhir (adopsi GAS #54-64, 5 September 2026) tinggal di bawah grup
   biaya di `config/kebutuhan.php`, tarif akomodasi boleh manual.
   Manajemen Data hanya menyediakan Export — datanya lahir di aplikasi.
 
+**Chat internal** (Oktober 2026, bukan adopsi GAS): antar AKUN saja - Pengguna
+Layanan tidak ikut. Percakapan pribadi 1-ke-1 (tertutup, superadmin pun tidak
+bisa membaca milik orang lain) + satu ruang per role yang terbuka bagi semua
+akun. Pengawas boleh ikut walau baca-saja. Tanpa WebSocket: polling dari
+peramban. Logika di `ChatService`; kunci menu `chat`; ikon di bilah atas.
+
 Migration untuk restrukturisasi SPM LS (header/detail) & tabel Pengembalian
 sudah jalan di DB. Status eksekusi fitur di level kode BELUM tentu final —
 konfirmasi kondisi aktual sebelum asumsi.
