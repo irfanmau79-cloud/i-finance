@@ -32,7 +32,7 @@ class SpmUpGuTemplateExport implements FromArray, PunyaPetunjukKolom, ShouldAuto
     public const PETUNJUK = [
         ['Tanggal SPM', 'Ya', 'Tanggal YYYY-MM-DD', 'Tanggal dokumen SPM. Bersama Nomor SPM menjadi identitas dokumen. Kosong atau tidak valid berarti baris ditolak.', '2026-07-01'],
         ['Nomor SPM', 'Ya', 'Teks, maks 100 karakter', 'Nomor dokumen SPM. Nomor + tanggal yang sama muncul dua kali dalam satu berkas dianggap duplikat dan ditolak.', '001/SPM-UP/2026'],
-        ['Tanggal SP2D', 'Tidak', 'Tanggal YYYY-MM-DD', 'Tanggal SP2D terbit. Kosongkan bila SP2D belum turun.', '2026-07-02'],
+        ['Tanggal SP2D', 'Ya', 'Tanggal YYYY-MM-DD', 'Tanggal SP2D terbit. Realisasi dihitung menurut tanggal ini, bukan Tanggal SPM.', '2026-07-02'],
         ['Nomor SP2D', 'Tidak', 'Teks, maks 100 karakter', 'Nomor SP2D. Kosongkan bila SP2D belum turun.', 'SP2D-0012/2026'],
         ['Nominal', 'Ya', 'Angka, tanpa Rp', 'Nilai dokumen SPM. Harus lebih besar dari 0. Isi angka saja, tanpa Rp atau huruf.', '3000000'],
         ['Uraian', 'Tidak', 'Teks', 'Keterangan singkat dokumen.', 'Pengisian UP triwulan III'],

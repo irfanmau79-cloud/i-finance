@@ -331,6 +331,12 @@ class SpmImport extends Model
             return self::dasarDitolak($dasar, 'Nomor Dokumen atau Tanggal Dokumen kosong/tidak valid.');
         }
 
+        // Tanggal SP2D wajib: realisasi dihitung menurut tanggal SP2D, bukan
+        // tanggal SPM (lihat Spm::tanggalRealisasiSql()).
+        if ($dasar['tanggal_sp2d'] === null) {
+            return self::dasarDitolak($dasar, 'Tanggal SP2D kosong/tidak valid. Tanggal SP2D wajib diisi karena realisasi dihitung menurut tanggal itu.');
+        }
+
         if ($dasar['nominal'] === null || $dasar['nominal'] <= 0) {
             return self::dasarDitolak($dasar, 'Nominal harus lebih dari 0.');
         }
@@ -361,6 +367,12 @@ class SpmImport extends Model
 
         if ($dasar['nomor_dokumen'] === '' || $dasar['tanggal_dokumen'] === null) {
             return self::dasarDitolak($dasar, 'Nomor Dokumen atau Tanggal Dokumen kosong/tidak valid.');
+        }
+
+        // Tanggal SP2D wajib: realisasi dihitung menurut tanggal SP2D, bukan
+        // tanggal SPM (lihat Spm::tanggalRealisasiSql()).
+        if ($dasar['tanggal_sp2d'] === null) {
+            return self::dasarDitolak($dasar, 'Tanggal SP2D kosong/tidak valid. Tanggal SP2D wajib diisi karena realisasi dihitung menurut tanggal itu.');
         }
 
         if ($dasar['nominal'] === null || $dasar['nominal'] <= 0) {

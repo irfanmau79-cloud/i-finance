@@ -87,7 +87,7 @@ class SpmImportTest extends TestCase
             'nomor_dokumen' => '001/SPM-LS/2026',
             'tanggal_dokumen' => '2026-07-01',
             'nomor_sp2d' => '',
-            'tanggal_sp2d' => '',
+            'tanggal_sp2d' => '2026-07-02',
             'sub_kegiatan' => $anggaran->sub_kegiatan_lengkap,
             'kode_rekening' => $anggaran->kode_rekening_bersih,
             'uraian_rekening' => $anggaran->uraian_rekening,
@@ -393,6 +393,9 @@ class SpmImportTest extends TestCase
         Spm::buatLs([
             'tanggal_dokumen' => '2026-07-01',
             'nomor_dokumen' => '900/SPM-LS/2026',
+            // Tanggal SP2D wajib saat import, jadi dokumen yang diekspor harus
+            // sudah memilikinya supaya bisa diunggah kembali apa adanya.
+            'tanggal_sp2d' => '2026-07-03',
             'baris' => [
                 ['master_anggaran_id' => $a1->id, 'nominal' => 1_000_000],
                 ['master_anggaran_id' => $a2->id, 'nominal' => 2_000_000],
@@ -507,7 +510,7 @@ class SpmImportTest extends TestCase
         return array_values(array_replace([
             'tanggal_spm' => '2026-07-01',
             'nomor_spm' => '001/SPM-LS/2026',
-            'tanggal_sp2d' => '',
+            'tanggal_sp2d' => '2026-07-02',
             'nomor_sp2d' => '',
             'kode_sub_kegiatan' => $anggaran->kode_sub_kegiatan,
             'sub_kegiatan' => $anggaran->sub_kegiatan,

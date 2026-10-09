@@ -56,7 +56,7 @@ class SpmLsTemplateExport implements FromArray, PunyaPetunjukKolom, ShouldAutoSi
     public const PETUNJUK = [
         ['Tanggal SPM', 'Ya', 'Tanggal YYYY-MM-DD', 'Tanggal dokumen SPM. Bersama Nomor SPM menjadi identitas dokumen.', '2026-07-05'],
         ['Nomor SPM', 'Ya', 'Teks, maks 100 karakter', 'Nomor dokumen SPM. Baris dengan nomor + tanggal yang sama dianggap satu dokumen yang sama.', '002/SPM-LS/2026'],
-        ['Tanggal SP2D', 'Tidak', 'Tanggal YYYY-MM-DD', 'Tanggal SP2D terbit. Kosongkan bila belum turun. Harus sama di semua baris dokumen ini.', '2026-07-08'],
+        ['Tanggal SP2D', 'Ya', 'Tanggal YYYY-MM-DD', 'Tanggal SP2D terbit. Realisasi dihitung menurut tanggal ini, bukan Tanggal SPM. Harus sama di semua baris dokumen ini.', '2026-07-08'],
         ['Nomor SP2D', 'Tidak', 'Teks, maks 100 karakter', 'Nomor SP2D. Harus sama di semua baris dokumen ini.', 'SP2D-0031/2026'],
         ['Kode Sub Kegiatan', 'Ya', 'Teks', 'Kode sub kegiatan mata anggaran yang dibebani. Bersama Kode Rekening dan Tagging dipakai mencari mata anggaran yang sudah ada dan AKTIF.', '6.01.01.2.01'],
         ['Sub Kegiatan', 'Ya', 'Teks', 'Nama sub kegiatan TANPA kodenya.', 'Penyusunan Dokumen Perencanaan Perangkat Daerah'],

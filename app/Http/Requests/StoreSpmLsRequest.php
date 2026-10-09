@@ -24,7 +24,10 @@ class StoreSpmLsRequest extends FormRequest
                     ->where(fn ($query) => $query->where('jenis_spm', 'ls')->whereDate('tanggal_dokumen', $this->input('tanggal_dokumen')))
                     ->ignore($this->route('spm')),
             ],
-            'tanggal_sp2d' => ['nullable', 'date'],
+            // WAJIB: realisasi SP2D dihitung menurut tanggal SP2D, bukan tanggal
+            // SPM (lihat Spm::tanggalRealisasiSql()). SPM lama yang masih kosong
+            // tetap terbaca, tetapi tidak bisa disimpan ulang tanpa tanggal ini.
+            'tanggal_sp2d' => ['required', 'date'],
             'nomor_sp2d' => ['nullable', 'string', 'max:100'],
             // Satu dokumen LS bisa mencakup beberapa mata anggaran sekaligus
             // (Prompt 22) - PPN/PPh/penerima/uraian di bawah tetap satu angka

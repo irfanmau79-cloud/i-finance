@@ -86,6 +86,7 @@ class SpmTest extends TestCase
 
         $this->actingAs($superadmin)->post(route('spm.up-gu.store'), [
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'nomor_dokumen' => '002/SPM-UP/2026',
             'nominal' => 50_000_000,
             'uraian' => 'UP besar, tidak boleh terpengaruh pagu',
@@ -105,6 +106,7 @@ class SpmTest extends TestCase
 
         $payload = [
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'nomor_dokumen' => '001/SPM-LS/2026',
             'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 3_000_000]],
             'ppn' => 100_000,
@@ -156,6 +158,7 @@ class SpmTest extends TestCase
 
         $response = $this->actingAs($superadmin)->post(route('spm.ls.store'), [
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'nomor_dokumen' => '002/SPM-LS/2026',
             'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 1_500_000]],
             'uraian' => 'Melebihi sisa tersedia',
@@ -167,11 +170,13 @@ class SpmTest extends TestCase
         $spm = Spm::buatLs([
             'nomor_dokumen' => '003/SPM-LS/2026',
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 800_000]],
         ]);
 
         $editResponse = $this->actingAs($superadmin)->put(route('spm.ls.update', $spm), [
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'nomor_dokumen' => '003/SPM-LS/2026',
             'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 1_200_000]],
             'uraian' => 'Revisi melebihi sisa',
@@ -220,6 +225,7 @@ class SpmTest extends TestCase
         $spm = Spm::buatLs([
             'nomor_dokumen' => '040/SPM-LS/2026',
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'baris' => [
                 ['master_anggaran_id' => $a1->id, 'nominal' => 1_000_000],
                 ['master_anggaran_id' => $a2->id, 'nominal' => 2_000_000],
@@ -250,6 +256,7 @@ class SpmTest extends TestCase
 
         $this->actingAs($superadmin)->post(route('spm.ls.store'), [
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'nomor_dokumen' => '050/SPM-LS/2026',
             'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 1_000_000]],
             'penerima_sumber' => 'pegawai:'.$pegawai->id,
@@ -276,6 +283,7 @@ class SpmTest extends TestCase
 
         $this->actingAs($superadmin)->post(route('spm.ls.store'), [
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'nomor_dokumen' => '051/SPM-LS/2026',
             'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 1_000_000]],
             'penerima_sumber' => 'vendor:'.$vendor->id,
@@ -296,6 +304,7 @@ class SpmTest extends TestCase
 
         $this->actingAs($superadmin)->post(route('spm.ls.store'), [
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'nomor_dokumen' => '052/SPM-LS/2026',
             'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 1_000_000]],
             'penerima_sumber' => 'manual',
@@ -321,6 +330,7 @@ class SpmTest extends TestCase
         $spm = Spm::buatLs([
             'nomor_dokumen' => '053/SPM-LS/2026',
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'baris' => [
                 ['master_anggaran_id' => $a1->id, 'nominal' => 4_000_000],
                 ['master_anggaran_id' => $a2->id, 'nominal' => 6_000_000],
@@ -370,6 +380,7 @@ class SpmTest extends TestCase
 
         $response = $this->actingAs($superadmin)->post(route('spm.ls.store'), [
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'nomor_dokumen' => '030/SPM-LS/2026',
             'baris' => [
                 ['master_anggaran_id' => $a1->id, 'nominal' => 1_000_000],
@@ -403,6 +414,7 @@ class SpmTest extends TestCase
 
         $response = $this->actingAs($superadmin)->post(route('spm.ls.store'), [
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'nomor_dokumen' => '031/SPM-LS/2026',
             'baris' => [
                 ['master_anggaran_id' => $anggaran->id, 'nominal' => 1_000_000],
@@ -423,6 +435,7 @@ class SpmTest extends TestCase
 
         $response = $this->actingAs($superadmin)->post(route('spm.ls.store'), [
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'nomor_dokumen' => '032/SPM-LS/2026',
             'baris' => [
                 ['master_anggaran_id' => $cukup->id, 'nominal' => 2_000_000],
@@ -445,6 +458,7 @@ class SpmTest extends TestCase
 
         $response = $this->actingAs($superadmin)->post(route('spm.ls.store'), [
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'nomor_dokumen' => '033/SPM-LS/2026',
             'baris' => [],
             'uraian' => 'Tanpa baris',
@@ -463,6 +477,7 @@ class SpmTest extends TestCase
 
         $this->actingAs($superadmin)->post(route('spm.up-gu.store'), [
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'nomor_dokumen' => '010/SPM/2026',
             'nominal' => 1_000_000,
             'uraian' => 'Pertama',
@@ -471,6 +486,7 @@ class SpmTest extends TestCase
         // Nomor + jenis + tanggal sama persis -> ditolak.
         $dupResponse = $this->actingAs($superadmin)->post(route('spm.up-gu.store'), [
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'nomor_dokumen' => '010/SPM/2026',
             'nominal' => 2_000_000,
             'uraian' => 'Duplikat',
@@ -481,6 +497,7 @@ class SpmTest extends TestCase
         // Nomor sama tapi tanggal beda -> boleh.
         $this->actingAs($superadmin)->post(route('spm.up-gu.store'), [
             'tanggal_dokumen' => '2026-07-21',
+            'tanggal_sp2d' => '2026-07-22',
             'nomor_dokumen' => '010/SPM/2026',
             'nominal' => 1_500_000,
             'uraian' => 'Tanggal beda',
@@ -489,6 +506,7 @@ class SpmTest extends TestCase
         // Nomor sama, tanggal sama, tapi jenis LS -> boleh (jenis berbeda).
         $this->actingAs($superadmin)->post(route('spm.ls.store'), [
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'nomor_dokumen' => '010/SPM/2026',
             'baris' => [['master_anggaran_id' => $anggaran->id, 'nominal' => 500_000]],
             'uraian' => 'Jenis beda',
@@ -503,6 +521,7 @@ class SpmTest extends TestCase
 
         $this->actingAs($superadmin)->post(route('spm.up-gu.store'), [
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'nomor_dokumen' => '011/SPM/2026',
             'nominal' => 1_000_000,
             'uraian' => 'Awal',
@@ -511,6 +530,7 @@ class SpmTest extends TestCase
 
         $response = $this->actingAs($superadmin)->put(route('spm.up-gu.update', $spm), [
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'nomor_dokumen' => '011/SPM/2026',
             'nominal' => 1_200_000,
             'uraian' => 'Diperbarui, nomor & tanggal tetap sama',
@@ -584,6 +604,7 @@ class SpmTest extends TestCase
         $spm = Spm::buatUpGu([
             'nomor_dokumen' => '020/SPM/2026',
             'tanggal_dokumen' => '2026-07-20',
+            'tanggal_sp2d' => '2026-07-21',
             'nominal' => 100_000,
         ]);
 

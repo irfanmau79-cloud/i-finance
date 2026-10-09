@@ -48,6 +48,13 @@ sisa_tersedia    = pagu - dana_terikat_npd - realisasi_ls
 realisasi_sp2d   = SPM LS + SPM UP/GU/TU   (kas keluar total, BEDA dari SPJ3)
 ```
 
+**TANGGAL REALISASI SPM = TANGGAL SP2D, bukan Tanggal SPM** (keputusan Irfan,
+Oktober 2026). Semua penyaringan realisasi menurut waktu (bulan, tahun, periode,
+"sisa anggaran sebelum NPD", kas UP/GU) lewat `Spm::tanggalRealisasiSql()` dan
+scope `realisasiTahun/SampaiBulan/Antara/Sampai` - jangan menulis
+`tanggal_dokumen` langsung. Tanggal SP2D WAJIB di formulir & import; SPM lama
+yang masih kosong jatuh ke Tanggal SPM-nya.
+
 **SPM ada 2 jenis:**
 - **UP/GU/TU** — isi ulang kas. TIDAK mengurangi pagu, TIDAK masuk realisasi.
 - **LS** — dicairkan langsung. MENGURANGI pagu, WAJIB terikat mata anggaran.

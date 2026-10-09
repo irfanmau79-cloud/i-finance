@@ -3,9 +3,11 @@
 namespace App\Models;
 
 use Illuminate\Database\Eloquent\Attributes\Fillable;
+use Illuminate\Database\Eloquent\Builder;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 use Illuminate\Database\Eloquent\Relations\HasMany;
+use Illuminate\Support\Carbon;
 use Illuminate\Support\Facades\DB;
 use RuntimeException;
 
@@ -59,6 +61,59 @@ class Spm extends Model
             'pph2' => 'decimal:2',
             'divalidasi_at' => 'datetime',
         ];
+    }
+
+    /**
+     * TANGGAL REALISASI sebuah SPM = Tanggal SP2D, bukan Tanggal SPM
+     * (keputusan Irfan, Oktober 2026): uang baru benar-benar keluar saat
+     * SP2D-nya terbit, dan SPM bisa terbit di bulan - bahkan tahun - yang
+     * berbeda dari SP2D-nya.
+     *
+     * Tanggal SP2D kini wajib diisi di formulir dan import. SPM LAMA yang
+     * tanggal SP2D-nya masih kosong jatuh ke Tanggal SPM-nya, supaya tidak
+     * menghilang dari laporan per bulan.
+     *
+     * Semua penyaringan realisasi menurut waktu (bulan, tahun, periode,
+     * "sampai tanggal") harus lewat ekspresi/scope di bawah ini, jangan
+     * menulis tanggal_dokumen langsung.
+     */
+    public static function tanggalRealisasiSql(): \Illuminate\Contracts\Database\Query\Expression
+    {
+        return DB::raw('COALESCE(spm.tanggal_sp2d, spm.tanggal_dokumen)');
+    }
+
+    /** Tanggal realisasi SPM ini - lihat tanggalRealisasiSql(). */
+    public function tanggalRealisasi(): Carbon
+    {
+        return $this->tanggal_sp2d ?? $this->tanggal_dokumen;
+    }
+
+    public function scopeRealisasiTahun(Builder $query, int $tahun): Builder
+    {
+        return $query->whereYear(self::tanggalRealisasiSql(), $tahun);
+    }
+
+    /** Dipakai bersama realisasiTahun(): realisasi s.d. bulan tertentu pada tahun itu. */
+    public function scopeRealisasiSampaiBulan(Builder $query, int $bulan): Builder
+    {
+        return $query->whereMonth(self::tanggalRealisasiSql(), '<=', $bulan);
+    }
+
+    /**
+     * whereDate, BUKAN whereBetween: kolom tanggalnya bertipe date di MySQL
+     * tetapi tersimpan sebagai '2026-08-31 00:00:00' di SQLite, sehingga
+     * perbandingan string biasa membuang tanggal batas atas.
+     */
+    public function scopeRealisasiAntara(Builder $query, mixed $dari, mixed $sampai): Builder
+    {
+        return $query
+            ->whereDate(self::tanggalRealisasiSql(), '>=', $dari)
+            ->whereDate(self::tanggalRealisasiSql(), '<=', $sampai);
+    }
+
+    public function scopeRealisasiSampai(Builder $query, mixed $tanggal): Builder
+    {
+        return $query->whereDate(self::tanggalRealisasiSql(), '<=', $tanggal);
     }
 
     /**

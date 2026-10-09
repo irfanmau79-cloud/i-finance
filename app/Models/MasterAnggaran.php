@@ -489,7 +489,8 @@ class MasterAnggaran extends Model
             ->sum('nominal');
 
         $realisasiLsSebelum = (float) $this->spmDetail()
-            ->whereHas('spm', fn ($query) => $query->whereDate('tanggal_dokumen', '<=', $npd->tanggal_npd))
+            // Realisasi LS dihitung menurut tanggal SP2D, bukan tanggal SPM.
+            ->whereHas('spm', fn ($query) => $query->realisasiSampai($npd->tanggal_npd))
             ->sum('nominal');
 
         $pengembalianNpdSebelum = (float) $this->pengembalianDetail()

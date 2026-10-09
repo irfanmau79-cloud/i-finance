@@ -36,8 +36,9 @@
         </div>
         <div class="form-grid">
             <div class="fg">
-                <label class="fl" for="tanggal_sp2d">Tanggal SP2D (opsional)</label>
+                <label class="fl" for="tanggal_sp2d">Tanggal SP2D</label>
                 <input type="date" id="tanggal_sp2d" name="tanggal_sp2d" value="{{ old('tanggal_sp2d', $spmEdit?->tanggal_sp2d?->format('Y-m-d')) }}">
+                <div class="sub" style="margin-top:4px;">Wajib. Realisasi dihitung menurut Tanggal SP2D, bukan Tanggal SPM.</div>
             </div>
             <div class="fg">
                 <label class="fl" for="nomor_sp2d">Nomor SP2D (opsional)</label>

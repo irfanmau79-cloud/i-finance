@@ -91,7 +91,8 @@ class DashboardNpdService
      */
     public function sisaUangPersediaan(int $tahun): array
     {
-        $sp2d = (float) Spm::query()->where('jenis_spm', 'up_gu')->whereYear('tanggal_dokumen', $tahun)->sum('nominal');
+        // Kas persediaan terisi saat SP2D-nya terbit: tahunnya tahun SP2D.
+        $sp2d = (float) Spm::query()->where('jenis_spm', 'up_gu')->realisasiTahun($tahun)->sum('nominal');
         $npdSelesai = (float) Npd::query()->where('tahun', $tahun)->where('status', 'Selesai')->sum('nominal');
 
         return ['sp2d' => $sp2d, 'npd_selesai' => $npdSelesai, 'sisa' => $sp2d - $npdSelesai];

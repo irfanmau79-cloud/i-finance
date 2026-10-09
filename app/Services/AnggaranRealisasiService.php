@@ -155,7 +155,8 @@ class AnggaranRealisasiService
      * TANGGAL PENENTU BULAN, sama dengan realisasiPeriode() & analisis():
      *
      *   - NPD          -> tanggal_npd
-     *   - SPM LS       -> spm.tanggal_dokumen
+     *   - SPM LS       -> tanggal SP2D (Spm::tanggalRealisasiSql()), BUKAN
+     *                     tanggal SPM
      *   - Pengembalian -> tanggal_pengembalian
      *
      * Pengembalian yang sudah disetujui MENGURANGI bulan pengembalian itu
@@ -205,12 +206,12 @@ class AnggaranRealisasiService
 
             SpmDetail::query()
                 ->whereIn('master_anggaran_id', $ids)
-                ->whereHas('spm', fn (Builder $query) => $query->whereYear('tanggal_dokumen', $tahun))
-                ->with('spm:id,tanggal_dokumen')
+                ->whereHas('spm', fn (Builder $query) => $query->realisasiTahun($tahun))
+                ->with('spm:id,tanggal_dokumen,tanggal_sp2d')
                 ->get(['id', 'spm_id', 'master_anggaran_id', 'nominal'])
                 ->each(fn (SpmDetail $detail) => $tambah(
                     (int) $detail->master_anggaran_id,
-                    (int) $detail->spm->tanggal_dokumen->month,
+                    (int) $detail->spm->tanggalRealisasi()->month,
                     (float) $detail->nominal,
                 ));
 
@@ -351,7 +352,8 @@ class AnggaranRealisasiService
      * MasterAnggaran::sisaAnggaranSebelum():
      *
      *   - NPD          -> tanggal_npd
-     *   - SPM LS       -> spm.tanggal_dokumen
+     *   - SPM LS       -> tanggal SP2D (Spm::tanggalRealisasiSql()), BUKAN
+     *                     tanggal SPM
      *   - Pengembalian -> tanggal_pengembalian
      *
      * Pengembalian ikut dibatasi rentang yang sama karena realisasi di
@@ -382,9 +384,7 @@ class AnggaranRealisasiService
             ], 'nominal')
             ->withSum([
                 'spmDetail as realisasi_ls_bruto' => fn (Builder $query) => $query
-                    ->whereHas('spm', fn (Builder $spm) => $spm
-                        ->whereDate('tanggal_dokumen', '>=', $dari)
-                        ->whereDate('tanggal_dokumen', '<=', $sampai)),
+                    ->whereHas('spm', fn (Builder $spm) => $spm->realisasiAntara($dari, $sampai)),
             ], 'nominal')
             ->withSum([
                 'pengembalianDetail as pengembalian_npd' => fn (Builder $query) => $query
@@ -542,12 +542,12 @@ class AnggaranRealisasiService
             });
 
         SpmDetail::query()
-            ->whereHas('spm', fn (Builder $query) => $query->whereYear('tanggal_dokumen', $tahun))
+            ->whereHas('spm', fn (Builder $query) => $query->realisasiTahun($tahun))
             ->whereHas('masterAnggaran', fn (Builder $query) => $this->terapkanFilterMaster($query, $filters))
-            ->with('spm:id,tanggal_dokumen')
+            ->with('spm:id,tanggal_dokumen,tanggal_sp2d')
             ->get(['id', 'spm_id', 'master_anggaran_id', 'nominal'])
             ->each(function (SpmDetail $detail) use (&$realisasiBulanan) {
-                $realisasiBulanan[$detail->spm->tanggal_dokumen->month - 1] += (float) $detail->nominal;
+                $realisasiBulanan[$detail->spm->tanggalRealisasi()->month - 1] += (float) $detail->nominal;
             });
 
         // Pengembalian disetujui mengurangi realisasi pada BULAN pengembalian
@@ -660,8 +660,8 @@ class AnggaranRealisasiService
         SpmDetail::query()
             ->whereIn('master_anggaran_id', $masters->pluck('id'))
             ->whereHas('spm', fn (Builder $query) => $query
-                ->whereYear('tanggal_dokumen', $tahun)
-                ->whereMonth('tanggal_dokumen', '<=', $bulanAcuan))
+                ->realisasiTahun($tahun)
+                ->realisasiSampaiBulan($bulanAcuan))
             ->get(['master_anggaran_id', 'nominal'])
             ->each(function (SpmDetail $detail) use ($subByMaster, $realisasiSdBulan) {
                 $sub = $subByMaster->get($detail->master_anggaran_id);

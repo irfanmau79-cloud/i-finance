@@ -27,7 +27,10 @@ class StoreSpmUpGuRequest extends FormRequest
                     ->where(fn ($query) => $query->where('jenis_spm', 'up_gu')->whereDate('tanggal_dokumen', $this->input('tanggal_dokumen')))
                     ->ignore($this->route('spm')),
             ],
-            'tanggal_sp2d' => ['nullable', 'date'],
+            // WAJIB: realisasi SP2D dihitung menurut tanggal SP2D, bukan tanggal
+            // SPM (lihat Spm::tanggalRealisasiSql()). SPM lama yang masih kosong
+            // tetap terbaca, tetapi tidak bisa disimpan ulang tanpa tanggal ini.
+            'tanggal_sp2d' => ['required', 'date'],
             'nomor_sp2d' => ['nullable', 'string', 'max:100'],
             'nominal' => ['required', 'numeric', 'min:0.01'],
             'penerima' => ['nullable', 'string', 'max:255'],

@@ -186,8 +186,9 @@ class PengembalianController extends Controller
 
         $spmList = Spm::with('detail.masterAnggaran.tagging')
             ->where('jenis_spm', 'ls')
-            ->whereYear('tanggal_dokumen', $tahun)
-            ->orderByDesc('tanggal_dokumen')
+            // SPM LS yang REALISASINYA jatuh di tahun ini: menurut tanggal SP2D.
+            ->realisasiTahun($tahun)
+            ->orderByDesc(Spm::tanggalRealisasiSql())
             ->get();
 
         return view('pengembalian.create', [
@@ -330,8 +331,9 @@ class PengembalianController extends Controller
                 'tipe' => Pengembalian::TIPE_SPM_LS,
                 'id' => $spm->id,
                 'label' => $spm->nomor_dokumen,
-                'tanggal' => $spm->tanggal_dokumen->format('d-m-Y'),
-                'bulan' => (int) $spm->tanggal_dokumen->month,
+                // Tanggal & bulan realisasinya = tanggal SP2D.
+                'tanggal' => $spm->tanggalRealisasi()->format('d-m-Y'),
+                'bulan' => (int) $spm->tanggalRealisasi()->month,
                 'program_list' => $spm->detail->pluck('masterAnggaran.program')->unique()->values()->all(),
                 'kegiatan_list' => $spm->detail->pluck('masterAnggaran.kegiatan')->unique()->values()->all(),
                 'sub_kegiatan_list' => $spm->detail->pluck('masterAnggaran.sub_kegiatan')->unique()->values()->all(),
