@@ -175,7 +175,11 @@ class SisaAnggaranKasTest extends TestCase
         $this->assertEqualsWithDelta(78_000_000, $service->sisaAnggaranKas($masters, $disunting)[$a->id]['sisa'], 0.01);
     }
 
-    public function test_formulir_keempat_jenis_npd_memuat_sisa_anggaran_kas(): void
+    /**
+     * Tampilannya disembunyikan sementara (lihat npd/_sisa-kas), tetapi
+     * hitungannya tetap ikut di data formulir supaya bisa dimunculkan lagi.
+     */
+    public function test_formulir_keempat_jenis_npd_menyimpan_hitungan_sisa_kas_tanpa_menampilkannya(): void
     {
         $a = $this->anggaran('5.1.02.01.01.0001', 'Tagging A');
         $tanpaRak = $this->anggaran('5.1.02.01.01.0002', null);
@@ -187,10 +191,10 @@ class SisaAnggaranKasTest extends TestCase
         foreach (['bj', 'pd', 'ns', 'kd'] as $jenis) {
             $halaman = $this->actingAs($user)->get(route("npd.{$jenis}.create"))->assertOk();
 
-            $halaman->assertSee('Sisa Anggaran Kas')
-                ->assertSee('RAK s.d. Agustus 2026')
-                ->assertSee('id="ma-sisa-kas"', false)
-                ->assertSee('window.NpdSisaKas.tampil(m)', false);
+            $halaman->assertDontSee('id="ma-sisa-kas"', false)
+                ->assertDontSee('<div class="ai sisa-kas">', false)
+                ->assertSee('window.NpdSisaKas.tampil(m)', false)
+                ->assertSee('aktif: false', false);
 
             $data = collect($this->dataMasterAnggaran($halaman->getContent()))->keyBy('id');
 

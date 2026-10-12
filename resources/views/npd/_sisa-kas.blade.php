@@ -13,10 +13,18 @@
     ikut di data tiap mata anggaran ('sisa_kas', 'rak_kas'); formulir cukup
     memanggil window.NpdSisaKas.tampil(m) saat mata anggaran dipilih dan
     window.NpdSisaKas.teks(m) untuk halaman Review.
+
+    DISEMBUNYIKAN SEMENTARA (keputusan Irfan, Oktober 2026): ada yang belum
+    setuju angka ini ditampilkan di Pembuatan NPD. Yang dimatikan HANYA
+    tampilannya - baris di kotak mata anggaran dan baris di halaman Review.
+    Hitungan sisaAnggaranKas() dan data 'sisa_kas'/'rak_kas' tetap berjalan,
+    jadi untuk memunculkannya lagi cukup ubah $tampilSisaKas menjadi true.
 --}}
 @php
+    $tampilSisaKas = false;
     $bulanKas = \App\Services\AnggaranRealisasiService::BULAN[now()->month - 1].' '.now()->year;
 @endphp
+@if ($tampilSisaKas)
 <div class="ai sisa-kas">
     <span class="k">
         Sisa Anggaran Kas
@@ -24,6 +32,7 @@
     </span>
     <span class="v" id="ma-sisa-kas"></span>
 </div>
+@endif
 
 <script>
 window.NpdSisaKas = (function () {
@@ -46,6 +55,6 @@ window.NpdSisaKas = (function () {
         el.title = kosong ? '' : 'RAK s.d. {{ $bulanKas }}: ' + rupiah(m.rak_kas) + ' — terpakai: ' + rupiah(m.rak_kas - m.sisa_kas);
     }
 
-    return { teks: teks, tampil: tampil };
+    return { aktif: @json($tampilSisaKas), teks: teks, tampil: tampil };
 })();
 </script>

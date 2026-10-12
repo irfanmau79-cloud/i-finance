@@ -553,7 +553,7 @@
             ? liRow('Program', m.program) + liRow('Kegiatan', m.kegiatan) + liRow('Sub Kegiatan', m.sub_kegiatan)
                 + liRow('Kode Rekening', kodeLabel(m)) + liRow('Tagging', m.tagging)
                 + liRow('Pagu Anggaran', formatRupiah(m.pagu)) + liRow('Sisa Anggaran', formatRupiah(m.sisa))
-                + liRow('Sisa Anggaran Kas', escapeHtml(window.NpdSisaKas.teks(m)))
+                + (window.NpdSisaKas.aktif ? liRow('Sisa Anggaran Kas', escapeHtml(window.NpdSisaKas.teks(m))) : '')
             : liRow('Sumber dana', 'Belum dipilih');
         html += '</div>';
 
