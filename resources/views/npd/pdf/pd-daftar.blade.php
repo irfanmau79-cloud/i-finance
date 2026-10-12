@@ -73,8 +73,8 @@
            penyetelan kolom di changelog #34: NAMA dan JABATAN dilebarkan,
            enam kolom nominal dipangkas sebagai gantinya. Dokumen acuan di
            storage/app/acuan-pdf lebih tua dari penyetelan itu. --}}
-      <col style="width:3%;"><col style="width:17%;"><col style="width:10%;"><col style="width:4%;">
-      <col style="width:7.5%;"><col style="width:8%;"><col style="width:4%;"><col style="width:8%;">
+      <col style="width:3%;"><col style="width:17%;"><col style="width:11%;"><col style="width:4%;">
+      <col style="width:6.5%;"><col style="width:8%;"><col style="width:4%;"><col style="width:8%;">
       <col style="width:8%;"><col style="width:6.5%;"><col style="width:8%;"><col style="width:8%;"><col style="width:8%;">
     </colgroup>
     <thead>
@@ -84,7 +84,7 @@
              jauh dari dokumen aslinya. --}}
         <th rowspan="2" style="width:3%;">NO</th>
         <th rowspan="2" style="width:17%;">NAMA</th>
-        <th rowspan="2" style="width:10%;">JABATAN</th>
+        <th rowspan="2" style="width:11%;">JABATAN</th>
         <th colspan="6">RINCIAN PERHITUNGAN</th>
         <th rowspan="2" style="width:6.5%;">UANG REPRE-<br>SENTATIF (Rp)</th>
         <th rowspan="2" style="width:8%;">TRANSPORT<br>/BBM/TIKET (Rp)</th>
@@ -93,7 +93,7 @@
       </tr>
       <tr>
         <th style="width:4%;">JML<br>HARI</th>
-        <th style="width:7.5%;">UANG HARIAN<br>(Rp)</th>
+        <th style="width:6.5%;">UANG HARIAN<br>(Rp)</th>
         <th style="width:8%;">JUMLAH UANG<br>HARIAN (Rp)</th>
         <th style="width:4%;">JML<br>MLM</th>
         <th style="width:8%;">UANG<br>AKOMODASI<br>(Rp)</th>

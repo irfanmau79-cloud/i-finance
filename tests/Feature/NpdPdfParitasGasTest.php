@@ -38,6 +38,17 @@ class NpdPdfParitasGasTest extends TestCase
         'tpl_nara_daftar.html' => 'ns-daftar.blade.php',
     ];
 
+    /**
+     * Lebar kolom yang SENGAJA berbeda dari GAS: berkas => [urutan kolom => lebar].
+     *
+     * Daftar Pembayaran Perjalanan Dinas (keputusan Irfan, Oktober 2026):
+     * JABATAN 10% -> 11% supaya "Pengadministrasi" tidak terpenggal ke baris
+     * berikutnya; 1%-nya diambil dari UANG HARIAN (Rp) 7,5% -> 6,5%.
+     */
+    private const LEBAR_SENGAJA_BEDA = [
+        'pd-daftar.blade.php' => [2 => '11%', 4 => '6.5%'],
+    ];
+
     protected function setUp(): void
     {
         parent::setUp();
@@ -109,7 +120,7 @@ class NpdPdfParitasGasTest extends TestCase
             'tpl_pd_daftar.html' => 'pd-daftar.blade.php',
             'tpl_pd_spd.html' => 'pd-spd.blade.php'] as $gas => $laravel) {
             $this->assertSame(
-                $this->lebarKolom($this->isiGas($gas)),
+                array_replace($this->lebarKolom($this->isiGas($gas)), self::LEBAR_SENGAJA_BEDA[$laravel] ?? []),
                 $this->lebarKolom($this->isiLaravel($laravel)),
                 "Lebar kolom berbeda pada {$laravel}."
             );

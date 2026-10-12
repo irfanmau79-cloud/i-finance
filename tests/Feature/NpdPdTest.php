@@ -796,7 +796,7 @@ class NpdPdTest extends TestCase
         // Skrip formulir menyetel nilai pilihan koordinator = urutan baris
         // dan menjaga selalu ada satu yang terpilih.
         $isi = $this->actingAs($pptk)->get(route('npd.pd.create'))->assertOk()->getContent();
-        $this->assertStringContainsString('\'<option value="\' + i + \'"\'', $isi);
+        $this->assertStringContainsString('\'<option value="\' + i + \'" data-sub="\'', $isi);
         $this->assertStringContainsString('penerimaRowIdx = rows.length ? rows[0].dataset.idx : null;', $isi);
     }
 
@@ -838,10 +838,13 @@ class NpdPdTest extends TestCase
         $isi = $this->actingAs($pptk)->get(route('npd.pd.create'))->assertOk()->getContent();
 
         $this->assertStringContainsString('Pilih Penerima', $isi);
-        $this->assertStringContainsString('1. Koordinator Anggota Tim', $isi);
-        $this->assertStringContainsString('2. Semua Anggota Tim menjadi Penerima', $isi);
-        $this->assertStringContainsString('3. PPTK', $isi);
-        $this->assertStringContainsString('<select id="penerima_index" name="penerima_index">', $isi);
+        foreach (['koordinator' => 'Koordinator Anggota Tim', 'semua' => 'Semua Anggota Tim menjadi Penerima', 'pptk' => 'PPTK'] as $kode => $label) {
+            $this->assertStringContainsString('name="mode_penerima" value="'.$kode.'"', $isi);
+            $this->assertStringContainsString('<strong>'.$label.'</strong>', $isi);
+        }
+        // Bawaannya koordinator, dan pilihan anggotanya bisa diketik untuk mencari.
+        $this->assertStringContainsString('name="mode_penerima" value="koordinator" data-mode-penerima checked', $isi);
+        $this->assertStringContainsString('<select id="penerima_index" name="penerima_index" data-cari', $isi);
         $this->assertStringNotContainsString('name="pptk_penerima"', $isi);
         $this->assertStringNotContainsString('dialihkan ke PPTK', $isi);
     }
@@ -907,7 +910,7 @@ class NpdPdTest extends TestCase
 
         // Halaman Edit membuka kembali pilihan yang tersimpan.
         $isi = $this->actingAs($pptk)->get(route('npd.pd.edit', $npd))->assertOk()->getContent();
-        $this->assertStringContainsString('<option value="semua" selected>', $isi);
+        $this->assertStringContainsString('name="mode_penerima" value="semua" data-mode-penerima checked', $isi);
     }
 
     public function test_pilihan_pptk_mengalihkan_lampiran_ke_pptk(): void

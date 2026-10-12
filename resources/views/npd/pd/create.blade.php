@@ -180,27 +180,64 @@
                  centang "PPTK Sebagai Penerima" dan radio "Penerima Dana" di
                  tiap anggota. Hanya menentukan tujuan transfer di Lampiran. --}}
             @php($modePenerima = old('mode_penerima', $npdEdit ? \App\Support\PenerimaPd::mode($npdEdit) : \App\Support\PenerimaPd::KOORDINATOR))
-            <h3 style="margin-top:22px;">Pilih Penerima</h3>
-            <div class="form-grid" data-penerima-wrap>
-                <div class="fg">
-                    <label class="fl" for="mode_penerima">Penerima Dana</label>
-                    <select id="mode_penerima" name="mode_penerima">
-                        @foreach (\App\Support\PenerimaPd::PILIHAN as $kode => $label)
-                            <option value="{{ $kode }}" @selected($modePenerima === $kode)>{{ $loop->iteration }}. {{ $label }}</option>
-                        @endforeach
-                    </select>
+            @php($penjelasanPenerima = [
+                \App\Support\PenerimaPd::KOORDINATOR => 'Seluruh dana ditransfer ke satu anggota tim yang Anda pilih.',
+                \App\Support\PenerimaPd::SEMUA => 'Tiap anggota menerima bagiannya sendiri. Anggota bernilai Rp 0 dilewati.',
+                \App\Support\PenerimaPd::PPTK => 'Seluruh dana ditransfer ke PPTK sub kegiatan ini.',
+            ])
+            <style>
+                .pp{margin-top:22px;border:1px solid var(--line);border-left:4px solid var(--navy);border-radius:var(--r-md);padding:16px;background:var(--surface);box-shadow:0 5px 16px rgba(30,58,95,.07);}
+                .pp-judul{margin:0;font-size:15px;color:var(--tegas);}
+                .pp-sub{margin:3px 0 0;font-size:12.5px;color:var(--mut);}
+                .pp-opsi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px;}
+                .pp-kartu{position:relative;display:flex;gap:10px;align-items:flex-start;padding:12px;border:1.6px solid var(--line);border-radius:var(--r-sm);background:var(--surface);cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s;}
+                .pp-kartu:hover{border-color:#94a3b8;}
+                .pp-kartu input{position:absolute;opacity:0;width:0;height:0;pointer-events:none;}
+                .pp-no{flex:none;width:26px;height:26px;border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:12.5px;font-weight:700;background:var(--navy-l);color:var(--tegas);transition:background .15s,color .15s;}
+                .pp-isi{display:flex;flex-direction:column;gap:3px;min-width:0;}
+                .pp-isi strong{font-size:13.5px;color:var(--ink);line-height:1.3;}
+                .pp-isi small{font-size:12px;color:var(--mut);line-height:1.4;}
+                .pp-kartu:has(input:checked){border-color:var(--navy);background:var(--surface-3);box-shadow:0 0 0 3px rgba(30,58,95,.08);}
+                .pp-kartu:has(input:checked) .pp-no{background:var(--navy);color:#fff;}
+                .pp-kartu:has(input:checked) .pp-isi strong{color:var(--tegas);}
+                .pp-kartu:has(input:focus-visible){outline:2px solid var(--aksen);outline-offset:2px;}
+                .pp-rinci{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);}
+                .pp-rinci .fl{margin-top:0;}
+                .pp-rinci .mini{margin-top:6px;}
+                @media(max-width:820px){.pp-opsi{grid-template-columns:1fr;}}
+            </style>
+            <div class="pp" data-penerima-wrap>
+                <h3 class="pp-judul">Pilih Penerima</h3>
+                <p class="pp-sub">Menentukan tujuan transfer pada Lampiran NPD. Daftar Pembayaran dan SPD Rampung tetap memerinci seluruh anggota tim.</p>
+
+                <div class="pp-opsi" role="radiogroup" aria-label="Pilih Penerima">
+                    @foreach (\App\Support\PenerimaPd::PILIHAN as $kode => $label)
+                        <label class="pp-kartu">
+                            <input type="radio" name="mode_penerima" value="{{ $kode }}" data-mode-penerima @checked($modePenerima === $kode)>
+                            <span class="pp-no">{{ $loop->iteration }}</span>
+                            <span class="pp-isi">
+                                <strong>{{ $label }}</strong>
+                                <small>{{ $penjelasanPenerima[$kode] }}</small>
+                            </span>
+                        </label>
+                    @endforeach
                 </div>
-                <div class="fg" data-penerima-koordinator>
+
+                <div class="pp-rinci" data-penerima-koordinator>
                     <label class="fl" for="penerima_index">Anggota yang menerima totalnya</label>
-                    <select id="penerima_index" name="penerima_index"></select>
+                    {{-- data-cari: bisa diketik untuk mencari (layouts.partials.select-cari).
+                         Pilihannya diisi skrip di bawah, mengikuti daftar Anggota Tim. --}}
+                    <select id="penerima_index" name="penerima_index" data-cari data-cari-placeholder="Ketik nama anggota untuk mencari…"></select>
+                    <p class="mini">Namanya tercetak pada Lampiran dan di akhir Keterangan Lampiran ("an. &hellip;").</p>
                 </div>
-                <div class="fg" data-penerima-pptk style="display:none;">
+
+                <div class="pp-rinci" data-penerima-pptk style="display:none;">
                     <label class="fl" for="pptk_rekening">No. Rekening PPTK</label>
                     <input type="text" id="pptk_rekening" name="pptk_rekening" inputmode="numeric"
                            placeholder="Kosongkan bila rekening PPTK sudah ada di Data Pegawai"
                            value="{{ old('pptk_rekening', $npdEdit?->detail_json['pptk_rekening'] ?? '') }}">
+                    <p class="mini">Nama PPTK diambil dari pelimpahan sub kegiatan, sama dengan tanda tangan PPTK di dokumen. Rekeningnya dibaca dari Data Pegawai; isi di sini hanya bila di sana masih kosong.</p>
                 </div>
-                <div class="fg span2"><div class="sub" id="mode-penerima-catatan"></div></div>
             </div>
 
             <div style="margin-top:16px;">
@@ -658,13 +695,13 @@
     }
 
     // ==================== Pilih Penerima ====================
-    const modePenerima = document.getElementById('mode_penerima');
+    const modeRadios = Array.from(document.querySelectorAll('[data-mode-penerima]'));
     const penerimaSelect = document.getElementById('penerima_index');
-    const CATATAN_PENERIMA = {
-        koordinator: 'Seluruh dana ditransfer ke satu anggota tim yang dipilih. Namanya tercetak pada Lampiran dan di akhir Keterangan Lampiran.',
-        semua: 'Tiap anggota menerima bagiannya sendiri: Lampiran memuat satu baris per anggota yang dibayar. Anggota bernilai Rp 0 tidak mendapat baris.',
-        pptk: 'Seluruh dana ditransfer ke PPTK sub kegiatan. Namanya diambil dari pelimpahan (sama dengan tanda tangan PPTK); rekeningnya dari Data Pegawai - isi di sini hanya bila di sana masih kosong.',
-    };
+
+    function modePenerima() {
+        return (modeRadios.find(radio => radio.checked) || modeRadios[0]).value;
+    }
+
     // Koordinator diingat lewat nomor INTERNAL barisnya (data-idx), supaya
     // pilihannya tidak bergeser saat anggota lain dihapus atau ditambah.
     let penerimaRowIdx = null;
@@ -683,17 +720,20 @@
 
         penerimaSelect.innerHTML = rows.map((row, i) => {
             const nama = row.querySelector('[data-name-input]').value.trim();
-            return '<option value="' + i + '"' + (row.dataset.idx === penerimaRowIdx ? ' selected' : '') + '>'
+            // Baris kedua pilihan (data-sub) ikut dicari: jabatan & rekening.
+            const rekening = row.querySelector('[data-rekening]').value.trim();
+            const sub = [row.querySelector('[data-jabatan]').value.trim(), rekening ? 'Rek. ' + rekening : '']
+                .filter(Boolean).join(' · ');
+            return '<option value="' + i + '" data-sub="' + escapeHtml(sub) + '"'
+                + (row.dataset.idx === penerimaRowIdx ? ' selected' : '') + '>'
                 + escapeHtml((i + 1) + '. ' + (nama || 'Belum dipilih')) + '</option>';
         }).join('');
     }
 
     function terapkanModePenerima() {
-        const mode = modePenerima.value;
-        // .form-grid .fg memaksa display:flex, jadi atribut hidden tidak mempan.
+        const mode = modePenerima();
         document.querySelector('[data-penerima-koordinator]').style.display = mode === 'koordinator' ? '' : 'none';
         document.querySelector('[data-penerima-pptk]').style.display = mode === 'pptk' ? '' : 'none';
-        document.getElementById('mode-penerima-catatan').textContent = CATATAN_PENERIMA[mode] || '';
     }
 
     // Pratinjau Keterangan Lampiran mendengarkan event 'change' formulir;
@@ -706,8 +746,12 @@
         const row = timList.querySelectorAll('[data-tim-row]')[Number(penerimaSelect.value)];
         if (row) penerimaRowIdx = row.dataset.idx;
     });
-    modePenerima.addEventListener('change', terapkanModePenerima);
+    modeRadios.forEach(radio => radio.addEventListener('change', terapkanModePenerima));
     terapkanModePenerima();
+    // Jabatan/rekening anggota tampil di bawah namanya pada pilihan koordinator.
+    timList.addEventListener('input', (e) => {
+        if (e.target.matches('[data-jabatan],[data-rekening]')) refreshPenerima();
+    });
 
     function renumber() {
         const rows = timList.querySelectorAll('[data-tim-row]');
@@ -1098,8 +1142,8 @@
         html += '</div>';
 
         html += '<div class="grp"><div class="gt">Penerima</div>'
-            + liRow('Penerima Dana', escapeHtml(modePenerima.selectedOptions[0]?.textContent || '-'))
-            + (modePenerima.value === 'koordinator'
+            + liRow('Penerima Dana', escapeHtml(modeRadios.find(radio => radio.checked)?.closest('label').querySelector('strong').textContent || '-'))
+            + (modePenerima() === 'koordinator'
                 ? liRow('Menerima totalnya', escapeHtml(penerimaSelect.selectedOptions[0]?.textContent || '-'))
                 : '')
             + '</div>';
