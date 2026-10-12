@@ -56,17 +56,43 @@ class PptkPenerima
     }
 
     /**
+     * Identitas PPTK sub kegiatan untuk ditampilkan di formulir NPD
+     * Perjalanan Dinas begitu "PPTK" dipilih sebagai penerima: nama dari
+     * pelimpahan, jabatan dan rekening dari Data Pegawai.
+     *
+     * @return array{nama: string, jabatan: string, rekening: string}
+     */
+    public static function profil(MasterAnggaran $masterAnggaran, ?int $tahun = null): array
+    {
+        $nama = self::nama($masterAnggaran, $tahun);
+        $pegawai = Pegawai::cariByNama($nama);
+
+        return [
+            'nama' => $nama,
+            'jabatan' => trim((string) ($pegawai?->jabatan ?? '')),
+            'rekening' => trim((string) ($pegawai?->rekening ?? '')),
+        ];
+    }
+
+    /**
      * Penerima transfer yang dipakai NPD & Lampiran saat mode ini menyala.
+     *
+     * Pada NPD Perjalanan Dinas rekening yang TERSIMPAN yang menang: isian
+     * rekeningnya di formulir sudah terisi dari Data Pegawai dan boleh
+     * diubah, jadi yang tersimpan adalah yang dilihat (dan mungkin
+     * dikoreksi) pembuatnya. Jenis lain tetap seperti semula - Data Pegawai
+     * dulu, isian manual hanya bila di sana kosong.
      *
      * @return object{nama: string, rekening: string}
      */
     public static function untukNpd(Npd $npd): object
     {
         $nama = self::nama($npd->masterAnggaran, $npd->tahun);
+        $tersimpan = trim((string) ($npd->detail_json['pptk_rekening'] ?? ''));
 
         return (object) [
             'nama' => $nama,
-            'rekening' => self::rekening($nama, $npd->detail_json['pptk_rekening'] ?? null),
+            'rekening' => $npd->jenis === 'pd' && $tersimpan !== '' ? $tersimpan : self::rekening($nama, $tersimpan),
         ];
     }
 }

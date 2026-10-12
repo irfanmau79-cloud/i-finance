@@ -4,6 +4,7 @@ namespace App\Services;
 
 use App\Helpers\NpdPerjalananHitung;
 use App\Models\Npd;
+use App\Support\PenerimaPd;
 use App\Support\PptkPenerima;
 use Carbon\Carbon;
 
@@ -103,10 +104,15 @@ class KeteranganLampiranService
     /**
      * Uraian baku Lampiran NPD Perjalanan Dinas dan Transport.
      *
+     * $namaPenerima NULL = tanpa "an. <nama>" di ujungnya. Dipakai pilihan
+     * "Semua Anggota Tim menjadi Penerima": tiap baris Lampiran sudah memuat
+     * nama penerimanya sendiri di kolom Nama Penerima (keputusan Irfan,
+     * Oktober 2026).
+     *
      * @param  array<string, mixed>  $detail
      * @param  array<int, array<string, mixed>>  $tim
      */
-    public static function pd(array $detail, array $tim, string $namaPenerima, ?string $kodeRekeningBersih = null): string
+    public static function pd(array $detail, array $tim, ?string $namaPenerima, ?string $kodeRekeningBersih = null): string
     {
         $kompStr = self::komponenPd($tim)['komp_str'];
 
@@ -117,7 +123,7 @@ class KeteranganLampiranService
             .' dalam rangka '.($detail['uraian_sp'] ?? '')
             .', berdasarkan Surat Perintah Nomor: '.($detail['nomor_sp'] ?? '')
             .' tanggal '.self::tanggalIndo($detail['tanggal_sp'] ?? null)
-            .' an. '.$namaPenerima;
+            .($namaPenerima === null ? '' : ' an. '.$namaPenerima);
     }
 
     /**
@@ -195,9 +201,17 @@ class KeteranganLampiranService
         };
     }
 
-    /** Penerima transfer NPD Perjalanan Dinas/Transport: PPTK bila mode itu menyala, selain itu anggota bertanda penerima. */
-    private static function namaPenerimaPd(Npd $npd): string
+    /**
+     * Penerima transfer NPD Perjalanan Dinas/Transport: PPTK bila mode itu
+     * menyala, selain itu anggota bertanda penerima. NULL pada "Semua Anggota
+     * Tim menjadi Penerima" - uraiannya tidak menyebut nama.
+     */
+    private static function namaPenerimaPd(Npd $npd): ?string
     {
+        if (PenerimaPd::mode($npd) === PenerimaPd::SEMUA) {
+            return null;
+        }
+
         if (PptkPenerima::aktif($npd)) {
             return PptkPenerima::untukNpd($npd)->nama;
         }

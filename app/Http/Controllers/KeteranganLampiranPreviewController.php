@@ -115,14 +115,15 @@ class KeteranganLampiranPreviewController extends Controller
         $anggaran = isset($data['master_anggaran_id']) ? MasterAnggaran::find($data['master_anggaran_id']) : null;
 
         // "Pilih Penerima" menentukan nama di belakang "an.", persis seperti
-        // baris PERTAMA Lampiran saat dicetak (NpdController::bangunLampiranPd):
-        // PPTK sub kegiatan, anggota pertama yang dibayar, atau koordinatornya.
+        // saat dicetak (NpdController::bangunLampiranPd): PPTK sub kegiatan
+        // atau koordinatornya. Pada Semua Anggota uraiannya tanpa nama.
         $mode = PenerimaPd::modeDariIsian($data);
+        $namaPenerima = trim((string) ($penerima['nama'] ?? ''));
 
         if ($mode === PenerimaPd::PPTK) {
-            $penerima = ['nama' => $anggaran ? PptkPenerima::nama($anggaran, isset($data['tahun']) ? (int) $data['tahun'] : null) : ''];
+            $namaPenerima = $anggaran ? PptkPenerima::nama($anggaran, isset($data['tahun']) ? (int) $data['tahun'] : null) : '';
         } elseif ($mode === PenerimaPd::SEMUA) {
-            $penerima = collect($tim)->first(fn ($anggota) => PenerimaPd::dibayar((array) $anggota)) ?? $penerima;
+            $namaPenerima = null;
         }
 
         return KeteranganLampiranService::pd([
@@ -131,7 +132,7 @@ class KeteranganLampiranPreviewController extends Controller
             'uraian_sp' => $data['uraian_sp'] ?? '',
             'nomor_sp' => $sp?->nomor_sp ?? '',
             'tanggal_sp' => $sp?->tanggal_sp?->format('Y-m-d'),
-        ], $tim, trim((string) ($penerima['nama'] ?? '')), $anggaran?->kode_rekening_bersih);
+        ], $tim, $namaPenerima, $anggaran?->kode_rekening_bersih);
     }
 
     /** @param  array<string, mixed>  $data */

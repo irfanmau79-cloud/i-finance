@@ -1665,10 +1665,11 @@ class NpdController extends Controller
         $tim = $this->timKeArray($npd);
         $kodeRekening = $npd->masterAnggaran?->kode_rekening_bersih;
 
-        // Uraian tiap baris hanya menyebut penerima baris itu sendiri. Uraian
-        // yang diketik manual dipakai apa adanya di semua baris.
+        // Uraian baris menyebut penerimanya ("an. <nama>") - kecuali pada
+        // Semua Anggota, yang uraiannya tanpa nama (NULL). Uraian yang
+        // diketik manual dipakai apa adanya di semua baris.
         $keteranganManual = filled($detail['keterangan_lampiran'] ?? null) ? $detail['keterangan_lampiran'] : null;
-        $keteranganUntuk = fn (string $nama): string => $keteranganManual
+        $keteranganUntuk = fn (?string $nama): string => $keteranganManual
             ?? KeteranganLampiranService::pd($detail, $tim, $nama, $kodeRekening);
 
         $rows = [];
@@ -1682,7 +1683,7 @@ class NpdController extends Controller
                         'nama' => (string) $anggota->nama,
                         'rekening' => (string) $anggota->rekening,
                         'nominal' => $jumlah,
-                        'keterangan' => $keteranganUntuk((string) $anggota->nama),
+                        'keterangan' => $keteranganUntuk(null),
                     ];
                 }
             }

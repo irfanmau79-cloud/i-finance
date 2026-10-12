@@ -901,8 +901,16 @@ class NpdPdTest extends TestCase
         $this->assertSame(['111111', '222222'], array_column($lampiran['rows'], 'rekening'));
         $this->assertSame([1_080_000.0, 1_325_000.0], array_column($lampiran['rows'], 'nominal'));
         $this->assertSame((float) $npd->nominal, array_sum(array_column($lampiran['rows'], 'nominal')));
-        $this->assertStringEndsWith('an. Anggota Pertama', $lampiran['rows'][0]['keterangan']);
-        $this->assertStringEndsWith('an. Anggota Kedua', $lampiran['rows'][1]['keterangan']);
+        // Uraiannya tanpa "an. <nama>": namanya sudah ada di kolom Nama Penerima.
+        foreach ($lampiran['rows'] as $baris) {
+            $this->assertStringNotContainsString(' an. ', $baris['keterangan']);
+            $this->assertStringEndsWith('tanggal 15 Juli 2026', $baris['keterangan']);
+        }
+        // Pratinjau di formulir dan kolom Uraian di daftar NPD ikut tanpa nama.
+        $this->actingAs($pptk)->post(route('npd.keterangan-lampiran.pratinjau'), ['jenis' => 'pd'] + $payload)
+            ->assertOk()
+            ->assertJsonPath('teks', $lampiran['rows'][0]['keterangan']);
+        $this->assertSame($lampiran['rows'][0]['keterangan'], $npd->uraianRingkas());
 
         foreach (['npd.cetak-npd', 'npd.cetak-lampiran', 'npd.cetak-daftar', 'npd.cetak-spd'] as $rute) {
             $this->actingAs($pptk)->get(route($rute, $npd))->assertOk();
@@ -933,6 +941,44 @@ class NpdPdTest extends TestCase
         $this->assertCount(1, $lampiran['rows']);
         $this->assertSame($namaPptk, $lampiran['rows'][0]['nama']);
         $this->assertSame((float) $npd->nominal, $lampiran['rows'][0]['nominal']);
+    }
+
+    /**
+     * Begitu "PPTK" dipilih, formulir menampilkan nama, jabatan, dan rekening
+     * PPTK sub kegiatan itu. Rekeningnya terisi dari Data Pegawai tetapi boleh
+     * diubah - dan yang tersimpan itulah yang tercetak di Lampiran.
+     */
+    public function test_formulir_membawa_identitas_pptk_dan_rekening_yang_diubah_dipakai_lampiran(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-profil-pptk');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $namaPptk = \App\Support\PptkPenerima::nama($masterAnggaran, 2026);
+        $this->assertNotSame('', $namaPptk);
+        Pegawai::cariByNama($namaPptk)->update(['jabatan' => 'Kepala Subbagian Uji', 'rekening' => '11112222']);
+
+        $isi = $this->actingAs($pptk)->get(route('npd.pd.create'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('"pptk":'.json_encode([
+            'nama' => $namaPptk, 'jabatan' => 'Kepala Subbagian Uji', 'rekening' => '11112222',
+        ]), $isi);
+        $this->assertStringContainsString('id="pptk_nama" readonly', $isi);
+        $this->assertStringContainsString('id="pptk_jabatan" readonly', $isi);
+        $this->assertStringContainsString('id="pptk_rekening" name="pptk_rekening"', $isi);
+
+        // Rekening bawaan dibiarkan: Lampiran memakai rekening Data Pegawai.
+        $payload = $this->payloadOtomatis($masterAnggaran);
+        $payload['mode_penerima'] = 'pptk';
+        $payload['pptk_rekening'] = '11112222';
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload)->assertSessionHasNoErrors();
+        $npd = Npd::sole();
+        $this->assertSame('11112222', $this->lampiran($npd)['rows'][0]['rekening']);
+
+        // Rekening diubah di formulir: yang diketik itulah yang dipakai.
+        $payload['pptk_rekening'] = '99998888';
+        $this->actingAs($pptk)->put(route('npd.pd.update', $npd), $payload)->assertSessionHasNoErrors();
+        $this->assertSame('99998888', $this->lampiran($npd->fresh())['rows'][0]['rekening']);
     }
 
     public function test_anggota_tanpa_cluster_dan_bernilai_nol_diterima_sebagai_tidak_dibayar(): void

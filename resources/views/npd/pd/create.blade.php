@@ -201,6 +201,9 @@
                 .pp-kartu:has(input:focus-visible){outline:2px solid var(--aksen);outline-offset:2px;}
                 .pp-rinci{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);}
                 .pp-rinci .fl{margin-top:0;}
+                .pp-pptk{display:grid;grid-template-columns:1.4fr 1fr 1fr;gap:12px;}
+                .pp-pptk input[readonly]{background:var(--surface-2);color:var(--tegas);cursor:default;}
+                @media(max-width:820px){.pp-pptk{grid-template-columns:1fr;}}
                 @media(max-width:820px){.pp-opsi{grid-template-columns:1fr;}}
             </style>
             <div class="pp" data-penerima-wrap>
@@ -226,11 +229,24 @@
                     <select id="penerima_index" name="penerima_index" data-cari data-cari-placeholder="Ketik nama anggota untuk mencari…"></select>
                 </div>
 
-                <div class="pp-rinci" data-penerima-pptk style="display:none;">
-                    <label class="fl" for="pptk_rekening">No. Rekening PPTK</label>
-                    <input type="text" id="pptk_rekening" name="pptk_rekening" inputmode="numeric"
-                           placeholder="Kosongkan bila rekening PPTK sudah ada di Data Pegawai"
-                           value="{{ old('pptk_rekening', $npdEdit?->detail_json['pptk_rekening'] ?? '') }}">
+                {{-- Nama & jabatan hanya tampilan: namanya diresolusi ulang di
+                     server dari pelimpahan (App\Support\PptkPenerima). Yang
+                     dikirim hanya rekeningnya - terisi dari Data Pegawai,
+                     boleh diubah. --}}
+                <div class="pp-rinci pp-pptk" data-penerima-pptk style="display:none;">
+                    <div>
+                        <label class="fl" for="pptk_nama">Nama PPTK</label>
+                        <input type="text" id="pptk_nama" readonly tabindex="-1">
+                    </div>
+                    <div>
+                        <label class="fl" for="pptk_jabatan">Jabatan</label>
+                        <input type="text" id="pptk_jabatan" readonly tabindex="-1">
+                    </div>
+                    <div>
+                        <label class="fl" for="pptk_rekening">Nomor Rekening</label>
+                        <input type="text" id="pptk_rekening" name="pptk_rekening" inputmode="numeric"
+                               value="{{ old('pptk_rekening', $npdEdit?->detail_json['pptk_rekening'] ?? '') }}">
+                    </div>
                 </div>
             </div>
 
@@ -269,7 +285,8 @@
 <?php
     $sisaKas = app(\App\Services\AnggaranRealisasiService::class)->sisaAnggaranKas($masterAnggaran, $npdEdit);
 
-    $masterAnggaranJs = $masterAnggaran->map(fn ($m) => [
+    $pptkPerSub = [];
+    $masterAnggaranJs = $masterAnggaran->map(function ($m) use ($sisaKas, $npdEdit, &$pptkPerSub) { return [
         'id' => $m->id,
         'program' => $m->program_lengkap,
         'kegiatan' => $m->kegiatan_lengkap,
@@ -283,7 +300,11 @@
         'sisa_kas' => $sisaKas[$m->id]['sisa'] ?? null,
         'rak_kas' => $sisaKas[$m->id]['rak'] ?? null,
         'keu' => $m->tentukanKeu(),
-    ]);
+        // Ditampilkan begitu "PPTK" dipilih sebagai penerima. PPTK melekat
+        // pada sub kegiatan, jadi cukup dicari sekali per sub kegiatan.
+        'pptk' => $pptkPerSub[$m->program_lengkap.'|'.$m->sub_kegiatan_lengkap]
+            ??= \App\Support\PptkPenerima::profil($m, (int) ($npdEdit?->tahun ?? config('anggaran.tahun_aktif'))),
+    ]; });
 
     $pegawaiJs = $pegawai->map(fn ($p) => [
         'id' => $p->id,
@@ -727,7 +748,28 @@
         const mode = modePenerima();
         document.querySelector('[data-penerima-koordinator]').style.display = mode === 'koordinator' ? '' : 'none';
         document.querySelector('[data-penerima-pptk]').style.display = mode === 'pptk' ? '' : 'none';
+        isiPptk(false);
     }
+
+    /*
+     * Nama, jabatan, dan rekening PPTK sub kegiatan yang sedang dipilih.
+     * Rekening yang sudah terisi (tersimpan, atau diketik) tidak ditimpa -
+     * kecuali sumber dananya diganti, karena PPTK-nya bisa orang lain.
+     */
+    function isiPptk(gantiAnggaran) {
+        const m = masterAnggaranData.find(x => String(x.id) === String(maIdField.value));
+        const pptk = (m && m.pptk) || { nama: '', jabatan: '', rekening: '' };
+        const rekening = document.getElementById('pptk_rekening');
+
+        document.getElementById('pptk_nama').value = pptk.nama
+            || (m ? 'PPTK belum diset di Pelimpahan' : 'Pilih sumber dana terlebih dahulu');
+        document.getElementById('pptk_jabatan').value = pptk.jabatan || (pptk.nama ? '-' : '');
+        if (gantiAnggaran || ! rekening.value.trim()) rekening.value = pptk.rekening;
+    }
+
+    // Dipasang SETELAH pengendali cascade sumber dana, jadi saat ini jalan
+    // master_anggaran_id sudah memuat pilihan yang baru.
+    Object.values(maSel).forEach(sel => sel.addEventListener('change', () => isiPptk(true)));
 
     // Pratinjau Keterangan Lampiran mendengarkan event 'change' formulir;
     // perubahan lewat skrip tidak memicunya sendiri.
