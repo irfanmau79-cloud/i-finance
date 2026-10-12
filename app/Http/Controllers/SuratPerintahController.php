@@ -152,11 +152,13 @@ class SuratPerintahController extends Controller
 
     public function store(StoreSuratPerintahRequest $request)
     {
-        $this->simpanSuratPerintah($request);
+        $suratPerintah = $this->simpanSuratPerintah($request);
 
         return redirect()
             ->route('surat-perintah.index')
-            ->with('success', 'Surat Perintah berhasil disimpan.');
+            ->with('success', $suratPerintah->isDuplikat()
+                ? 'Surat Perintah berhasil disimpan sebagai '.$suratPerintah->nomorBerlabel().'.'
+                : 'Surat Perintah berhasil disimpan.');
     }
 
     /** Form input publik (tanpa login) untuk role layanan. */
@@ -204,8 +206,11 @@ class SuratPerintahController extends Controller
         $anggotaInput = $data['anggota'] ?? [];
         $komponen = $data['komponen'] ?? [];
         $jenisPembayaran = $data['jenis_pembayaran'] ?? [];
-        unset($data['anggota'], $data['komponen'], $data['jenis_pembayaran'], $data['website']);
+        unset($data['anggota'], $data['komponen'], $data['jenis_pembayaran'], $data['website'], $data['pakai_data_sp']);
 
+        // Nomor yang sudah pernah diinput dan disetujui pengguna untuk dipakai
+        // lagi: entri ini menjadi duplikat berikutnya dari nomor tersebut.
+        $sumber = $request->sumberDuplikat();
         $stored = null;
 
         if ($request->hasFile('file_url')) {
@@ -214,6 +219,10 @@ class SuratPerintahController extends Controller
             if (! $stored) {
                 throw new \RuntimeException('File SP gagal disimpan pada penyimpanan private.');
             }
+        } elseif ($sumber?->fileTersedia()) {
+            // Tanpa unggahan baru, berkas SP yang sudah ada DISALIN - sama
+            // seperti duplikat(): tiap baris memegang berkasnya sendiri.
+            $stored = $this->salinBerkas($sumber);
         }
 
         $data['file_url'] = $stored ? 'private:'.$stored : null;
@@ -222,10 +231,14 @@ class SuratPerintahController extends Controller
         $data['sumber_npd'] = true;
 
         try {
-            $suratPerintah = DB::transaction(function () use ($data, $anggotaInput, $komponen, $jenisPembayaran) {
+            $suratPerintah = DB::transaction(function () use ($data, $anggotaInput, $komponen, $jenisPembayaran, $sumber) {
                 $data['pengajuan'] = implode(', ', $komponen);
                 $data['jenis_pembayaran'] = implode(', ', $jenisPembayaran);
                 $anggota = $this->anggotaService->normalisasi($anggotaInput, false, true);
+
+                if ($sumber) {
+                    $data['duplikat_ke'] = $this->urutanDuplikatBerikutnya($data['nomor_sp']);
+                }
 
                 $suratPerintah = SuratPerintah::create($data);
                 $this->simpanAnggota($suratPerintah, $anggota);
@@ -240,9 +253,9 @@ class SuratPerintahController extends Controller
             throw $e;
         }
 
-        AuditLog::catat('Buat SP', sprintf(
+        AuditLog::catat($sumber ? 'Buat SP (duplikat dari Input SP)' : 'Buat SP', sprintf(
             'Nomor SP: %s, jenis: %s, anggota: %d',
-            $suratPerintah->nomor_sp,
+            $suratPerintah->nomorBerlabel(),
             $suratPerintah->jenis_permintaan,
             $suratPerintah->anggota()->count()
         ));
@@ -272,35 +285,17 @@ class SuratPerintahController extends Controller
             ]);
         }
 
-        $salinanBerkas = null;
-
-        if ($suratPerintah->fileTersedia()) {
-            $salinanBerkas = 'sp/'.Str::uuid().'.pdf';
-            $tersalin = Storage::disk('local')->put(
-                $salinanBerkas,
-                Storage::disk($suratPerintah->fileDisk())->get($suratPerintah->filePath())
-            );
-
-            if (! $tersalin) {
-                throw new \RuntimeException('Berkas SP gagal disalin untuk duplikat.');
-            }
-        }
+        $salinanBerkas = $suratPerintah->fileTersedia() ? $this->salinBerkas($suratPerintah) : null;
 
         try {
             $duplikat = DB::transaction(function () use ($suratPerintah, $salinanBerkas) {
-                // Seluruh baris bernomor sama dikunci supaya dua klik Duplikat
-                // yang berbarengan tidak mendapat urutan yang sama.
-                $terakhir = (int) SuratPerintah::query()
-                    ->senomor($suratPerintah->nomor_sp)
-                    ->lockForUpdate()
-                    ->get(['id', 'duplikat_ke'])
-                    ->max('duplikat_ke');
+                $urutan = $this->urutanDuplikatBerikutnya($suratPerintah->nomor_sp);
 
                 $suratPerintah->load('anggota');
 
                 $duplikat = SuratPerintah::create([
                     'nomor_sp' => $suratPerintah->nomor_sp,
-                    'duplikat_ke' => $terakhir + 1,
+                    'duplikat_ke' => $urutan,
                     'tanggal_sp' => $suratPerintah->tanggal_sp,
                     'jenis_permintaan' => $suratPerintah->jenis_permintaan,
                     'unit_kerja' => $suratPerintah->unit_kerja,
@@ -356,6 +351,79 @@ class SuratPerintahController extends Controller
             ->with('success', 'Surat Perintah berhasil diduplikat sebagai '.$duplikat->nomorBerlabel().'.');
     }
 
+    /**
+     * Salin berkas PDF sebuah SP menjadi berkas baru di penyimpanan private.
+     * Disalin, bukan dipakai bersama: menghapus satu baris tidak boleh
+     * menghilangkan berkas baris lainnya. Mengembalikan path berkas barunya.
+     */
+    private function salinBerkas(SuratPerintah $sumber): string
+    {
+        $salinan = 'sp/'.Str::uuid().'.pdf';
+        $tersalin = Storage::disk('local')->put(
+            $salinan,
+            Storage::disk($sumber->fileDisk())->get($sumber->filePath())
+        );
+
+        if (! $tersalin) {
+            throw new \RuntimeException('Berkas SP gagal disalin untuk duplikat.');
+        }
+
+        return $salinan;
+    }
+
+    /**
+     * Urutan duplikat berikutnya untuk sebuah nomor SP. WAJIB dipanggil di
+     * dalam transaksi: seluruh baris bernomor sama dikunci supaya dua
+     * penyimpanan yang berbarengan tidak mendapat urutan yang sama.
+     */
+    private function urutanDuplikatBerikutnya(string $nomorSp): int
+    {
+        return 1 + (int) SuratPerintah::query()
+            ->senomor($nomorSp)
+            ->lockForUpdate()
+            ->get(['id', 'duplikat_ke'])
+            ->max('duplikat_ke');
+    }
+
+    /**
+     * Dipanggil formulir Input SP begitu Nomor SP selesai diketik. Bila nomor
+     * itu sudah pernah diinput, datanya dikembalikan supaya formulir bisa
+     * menawarkan "lanjut menggunakan data yang sudah ada".
+     *
+     * Nomor dicocokkan PERSIS (bukan awalan), jadi titik ini tidak bisa
+     * dipakai menelusuri daftar SP. Isinya sama dengan yang sudah terlihat di
+     * formulir Edit SP; berkas PDF-nya tidak ikut dikirim.
+     */
+    public function cekNomor(Request $request)
+    {
+        $nomor = trim((string) $request->query('nomor_sp'));
+        $sp = $nomor !== '' && mb_strlen($nomor) <= 100 ? SuratPerintah::cariUntukDuplikat($nomor) : null;
+
+        if (! $sp) {
+            return response()->json(['ada' => false]);
+        }
+
+        return response()->json([
+            'ada' => true,
+            'punya_berkas' => $sp->fileTersedia(),
+            'sp' => [
+                'nomor_sp' => $sp->nomor_sp,
+                'status_sp' => (string) $sp->status_sp,
+                'tanggal_sp' => $sp->tanggal_sp?->format('Y-m-d'),
+                'unit_kerja' => (string) $sp->unit_kerja,
+                'lokasi' => (string) $sp->lokasi,
+                'nama_pengirim' => (string) $sp->nama_pengirim,
+                'tujuan_transfer' => (string) $sp->tujuan_transfer,
+                'irban_dibayar' => $sp->irban_dibayar ? '1' : '0',
+                'rincian_tgl_bayar' => (string) $sp->rincian_tgl_bayar,
+                'keterangan' => (string) $sp->keterangan,
+                'komponen' => array_values($sp->pengajuanArray()),
+                'jenis_pembayaran' => $sp->jenisPembayaranArray(),
+                'anggota' => $sp->anggota->map(fn ($item) => $item->sebagaiInput())->values()->all(),
+            ],
+        ]);
+    }
+
     public function edit(SuratPerintah $suratPerintah)
     {
         $suratPerintah->load('anggota', 'induk:id,nomor_sp');
@@ -369,7 +437,7 @@ class SuratPerintahController extends Controller
         $anggotaInput = $data['anggota'] ?? [];
         $komponen = $data['komponen'] ?? null;
         $jenisPembayaran = $data['jenis_pembayaran'] ?? null;
-        unset($data['anggota'], $data['komponen'], $data['jenis_pembayaran'], $data['website']);
+        unset($data['anggota'], $data['komponen'], $data['jenis_pembayaran'], $data['website'], $data['pakai_data_sp']);
 
         if ($jenisPembayaran !== null) {
             $data['jenis_pembayaran'] = implode(', ', $jenisPembayaran);

@@ -49,12 +49,41 @@ class StoreSuratPerintahRequest extends FormRequest
         return $this->input('jenis_permintaan') === SuratPerintah::JENIS_REIMBURSE;
     }
 
+    /** Dihitung sekali per permintaan; false = sudah dicari dan tidak ada. */
+    private SuratPerintah|false|null $sumberDuplikat = null;
+
+    /**
+     * Input SP dengan nomor yang SUDAH pernah diinput: formulir bertanya
+     * "ingin lanjut menggunakan data yang sudah ada?" dan, bila dijawab Ya,
+     * mengirim penanda `pakai_data_sp`. Entri itu lalu disimpan sebagai
+     * DUPLIKAT berikutnya dari nomor tersebut, bukan ditolak sebagai nomor
+     * ganda. Yang dikembalikan di sini adalah baris SP yang datanya dipakai:
+     * SP asli, atau duplikat tertua bila aslinya sudah dihapus.
+     *
+     * Tanpa penanda itu - atau bila nomornya ternyata belum ada - hasilnya
+     * null dan aturan Input SP biasa berlaku (nomor wajib unik, PDF wajib).
+     */
+    public function sumberDuplikat(): ?SuratPerintah
+    {
+        if ($this->sumberDuplikat === null) {
+            $nomor = trim((string) $this->input('nomor_sp'));
+
+            $this->sumberDuplikat = $this->boolean('pakai_data_sp') && $nomor !== ''
+                ? (SuratPerintah::cariUntukDuplikat($nomor) ?? false)
+                : false;
+        }
+
+        return $this->sumberDuplikat ?: null;
+    }
+
     public function rules(): array
     {
         $wajibManual = $this->reimburse() ? 'nullable' : 'required';
+        $sumber = $this->reimburse() ? null : $this->sumberDuplikat();
 
         return [
             'website' => ['prohibited'],
+            'pakai_data_sp' => ['nullable', 'boolean'],
             // SP BARU hanya boleh berjenis Uang Harian/Akomodasi. Entri
             // "Reimburse Transportasi" tidak lagi bisa dibuat: ia khusus
             // melayani NPD Transport, yang pembuatannya sudah dihapus -
@@ -73,7 +102,12 @@ class StoreSuratPerintahRequest extends FormRequest
                 Rule::unique('surat_perintah', 'sp_induk_id'),
             ],
 
-            'nomor_sp' => [$wajibManual, 'string', 'max:100', Rule::unique('surat_perintah', 'nomor_sp')],
+            // Nomor wajib unik, KECUALI pengguna sudah menyetujui memakai data
+            // SP bernomor sama: entri itu disimpan sebagai duplikatnya.
+            'nomor_sp' => array_merge(
+                [$wajibManual, 'string', 'max:100'],
+                $sumber ? [] : [Rule::unique('surat_perintah', 'nomor_sp')],
+            ),
             'tanggal_sp' => [$wajibManual, 'date'],
             'unit_kerja' => [$wajibManual, Rule::in(self::UNIT_KERJA)],
             'lokasi' => [$wajibManual, 'string', 'max:100'],
@@ -94,8 +128,13 @@ class StoreSuratPerintahRequest extends FormRequest
             'jenis_pembayaran' => [$this->reimburse() ? 'nullable' : 'required', 'array', 'min:1'],
             'jenis_pembayaran.*' => ['string', Rule::in(SuratPerintah::JENIS_PEMBAYARAN_OPTIONS)],
 
-            // Unggahan PDF tidak wajib untuk Reimburse (lihat prosesInputSP).
-            'file_url' => [$wajibManual, 'file', 'mimes:pdf', 'mimetypes:application/pdf', 'max:10240'],
+            // Unggahan PDF tidak wajib untuk Reimburse (lihat prosesInputSP),
+            // dan tidak wajib pula saat memakai data SP yang sudah ada selama
+            // SP itu punya berkas: berkasnya disalin bila tidak diunggah ulang.
+            'file_url' => [
+                $sumber?->fileTersedia() ? 'nullable' : $wajibManual,
+                'file', 'mimes:pdf', 'mimetypes:application/pdf', 'max:10240',
+            ],
 
             'anggota' => [$this->reimburse() ? 'nullable' : 'required', 'array', 'max:'.SuratPerintah::MAKS_ANGGOTA],
             'anggota.*.nama' => ['required', 'string', 'max:255'],
@@ -136,7 +175,7 @@ class StoreSuratPerintahRequest extends FormRequest
             'sp_induk_id.unique' => 'SP induk tersebut sudah memiliki entri Reimburse Transportasi.',
             'sp_induk_id.prohibited' => 'SP induk hanya boleh diisi untuk jenis Reimburse Transportasi.',
             'jenis_permintaan.in' => 'Jenis Reimburse Transportasi tidak lagi bisa diinput. Transport dibayar lewat NPD Perjalanan Dinas: input SP Uang Harian/Akomodasi dan centang komponen Transport.',
-            'nomor_sp.unique' => 'Nomor SP ini sudah terdaftar. Gunakan nomor lain.',
+            'nomor_sp.unique' => 'Nomor SP ini sudah terdaftar. Gunakan nomor lain, atau pilih "Ya" pada pertanyaan yang muncul untuk memakai data yang sudah ada.',
             'komponen.required' => 'Komponen Pembayaran wajib dipilih minimal satu.',
             'anggota.required' => 'Anggota SP wajib diisi minimal 1 orang.',
             'anggota.*.nama.required' => 'Nama anggota wajib diisi.',

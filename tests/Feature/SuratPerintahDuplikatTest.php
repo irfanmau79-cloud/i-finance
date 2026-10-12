@@ -349,6 +349,211 @@ class SuratPerintahDuplikatTest extends TestCase
         ]))->assertSessionHasErrors('nomor_sp');
     }
 
+    // ---------------- Nomor yang sudah pernah diinput, dari Input SP ----------------
+
+    /** Isian formulir Input SP untuk nomor yang sudah ada, TANPA berkas PDF. */
+    private function isianUlang(SuratPerintah $sp, array $ubah = []): array
+    {
+        return array_replace([
+            'jenis_permintaan' => SuratPerintah::JENIS_UANG_HARIAN,
+            'pakai_data_sp' => '1',
+            'nomor_sp' => $sp->nomor_sp,
+            'tanggal_sp' => $sp->tanggal_sp->format('Y-m-d'),
+            'unit_kerja' => $sp->unit_kerja,
+            'lokasi' => $sp->lokasi,
+            'nama_pengirim' => $sp->nama_pengirim,
+            'tujuan_transfer' => $sp->tujuan_transfer,
+            'irban_dibayar' => $sp->irban_dibayar ? '1' : '0',
+            'rincian_tgl_bayar' => $sp->rincian_tgl_bayar,
+            'keterangan' => $sp->keterangan,
+            'status_sp' => $sp->status_sp,
+            'komponen' => $sp->pengajuanArray(),
+            'jenis_pembayaran' => $sp->jenisPembayaranArray(),
+            'anggota' => $sp->anggota->map(fn ($a) => $a->sebagaiInput())->all(),
+        ], $ubah);
+    }
+
+    public function test_cek_nomor_mengembalikan_data_sp_yang_sudah_pernah_diinput(): void
+    {
+        $pptk = $this->user('pptk');
+        $asli = $this->buatSp($pptk);
+        $duplikat = $this->duplikat($pptk, $asli);
+        $duplikat->update(['keterangan' => 'Milik duplikat']);
+
+        // Yang dipakai data SP ASLI, bukan duplikatnya.
+        $this->actingAs($pptk)->getJson(route('sp.cek-nomor', ['nomor_sp' => '087/PW.02.01/Sekre']))
+            ->assertOk()
+            ->assertJsonPath('ada', true)
+            ->assertJsonPath('punya_berkas', true)
+            ->assertJsonPath('sp.nomor_sp', '087/PW.02.01/Sekre')
+            ->assertJsonPath('sp.tanggal_sp', '2026-07-20')
+            ->assertJsonPath('sp.unit_kerja', 'Sekretariat')
+            ->assertJsonPath('sp.irban_dibayar', '0')
+            ->assertJsonPath('sp.keterangan', 'Reviu LKPD')
+            ->assertJsonPath('sp.komponen', ['Uang Harian', 'Akomodasi'])
+            ->assertJsonPath('sp.jenis_pembayaran', ['Dalam Daerah/Luar Daerah'])
+            ->assertJsonPath('sp.anggota.0.nama', $asli->anggota->first()->nama)
+            ->assertJsonPath('sp.anggota.0.jabatan_sp', 'Ketua Tim')
+            ->assertJsonMissingPath('sp.file_url');
+
+        // Nomor dicocokkan PERSIS: awalan tidak membuka data SP mana pun.
+        foreach (['087/PW', '999/PW.02.01/Sekre', ''] as $nomor) {
+            $this->actingAs($pptk)->getJson(route('sp.cek-nomor', ['nomor_sp' => $nomor]))
+                ->assertOk()
+                ->assertExactJson(['ada' => false]);
+        }
+    }
+
+    public function test_cek_nomor_dipakai_formulir_publik_tetapi_tetap_di_balik_gerbang_layanan(): void
+    {
+        $asli = $this->buatSp($this->user('pptk'));
+        auth()->logout();
+
+        // Tamu yang sudah melewati gerbang (lihat setUp) boleh bertanya.
+        $this->getJson(route('sp.cek-nomor', ['nomor_sp' => $asli->nomor_sp]))
+            ->assertOk()
+            ->assertJsonPath('ada', true);
+
+        $this->get(route('sp.input.create'))
+            ->assertOk()
+            ->assertSee(json_encode(route('sp.cek-nomor')), false)
+            ->assertSee('name="pakai_data_sp"', false);
+
+        $this->flushSession();
+        $this->getJson(route('sp.cek-nomor', ['nomor_sp' => $asli->nomor_sp]))->assertForbidden();
+    }
+
+    public function test_input_sp_bernomor_sama_disimpan_sebagai_duplikat_dan_isinya_boleh_diubah(): void
+    {
+        $pptk = $this->user('pptk');
+        $asli = $this->buatSp($pptk);
+        $asli->update(['status' => 'Selesai', 'dipantau' => false, 'sumber_npd' => false]);
+
+        $this->actingAs($pptk)->post(route('surat-perintah.store'), $this->isianUlang($asli, [
+            'lokasi' => 'Kota Bandung',
+            'keterangan' => 'Reviu LKPD tahap 2',
+            'komponen' => ['Transport'],
+        ]))->assertRedirect(route('surat-perintah.index'))
+            ->assertSessionHas('success', 'Surat Perintah berhasil disimpan sebagai 087/PW.02.01/Sekre (Duplikat-1).');
+
+        $baru = SuratPerintah::latest('id')->firstOrFail();
+
+        $this->assertSame(2, SuratPerintah::count());
+        $this->assertSame($asli->nomor_sp, $baru->nomor_sp);
+        $this->assertSame(1, $baru->duplikat_ke);
+        $this->assertSame('087/PW.02.01/Sekre (Duplikat-1)', $baru->nomorBerlabel());
+
+        // Yang diubah di formulir ikut tersimpan; SP asli tidak tersentuh.
+        $this->assertSame('Kota Bandung', $baru->lokasi);
+        $this->assertSame('Reviu LKPD tahap 2', $baru->keterangan);
+        $this->assertSame('Transport', $baru->pengajuan);
+        $this->assertSame('Kabupaten Bekasi', $asli->fresh()->lokasi);
+        $this->assertSame('Reviu LKPD', $asli->fresh()->keterangan);
+
+        // Mulai dari awal sebagai acuan NPD, seperti tombol Duplikat.
+        $this->assertSame(SuratPerintah::STATUS_DITERIMA_PPTK, $baru->status);
+        $this->assertTrue($baru->dipantau);
+        $this->assertTrue($baru->sumber_npd);
+        $this->assertSame([$baru->id], SuratPerintah::sumberNpdPerjalanan()->pluck('id')->all());
+        $this->assertSame(1, $baru->anggota()->count());
+
+        // PDF tidak diunggah ulang -> berkas SP asli DISALIN, bukan dipakai bersama.
+        $this->assertTrue($baru->fileTersedia());
+        $this->assertNotSame($asli->file_url, $baru->file_url);
+
+        $this->actingAs($pptk)->get(route('surat-perintah.index'))
+            ->assertOk()
+            ->assertSee('087/PW.02.01/Sekre (Duplikat-1)');
+
+        // Urutannya menyambung dengan tombol Duplikat di Data SP.
+        $this->assertSame(2, $this->duplikat($pptk, $asli)->duplikat_ke);
+
+        $this->actingAs($pptk)->post(route('surat-perintah.store'), $this->isianUlang($asli, [
+            'file_url' => UploadedFile::fake()->create('sp-baru.pdf', 100, 'application/pdf'),
+        ]))->assertRedirect(route('surat-perintah.index'));
+
+        $ketiga = SuratPerintah::latest('id')->firstOrFail();
+        $this->assertSame(3, $ketiga->duplikat_ke);
+        $this->assertTrue($ketiga->fileTersedia());
+    }
+
+    public function test_semua_role_penginput_termasuk_formulir_publik_boleh_memakai_data_sp_yang_ada(): void
+    {
+        $asli = $this->buatSp($this->user('pptk'));
+
+        // Tombol Duplikat di Data SP tetap milik PPTK & superadmin; lewat
+        // Input SP siapa pun yang boleh menginput boleh memakai datanya.
+        foreach (['bpp', 'verifikator', 'bendahara_pengeluaran'] as $role) {
+            $this->actingAs($this->user($role))->post(route('surat-perintah.store'), $this->isianUlang($asli))
+                ->assertRedirect(route('surat-perintah.index'));
+        }
+        auth()->logout();
+
+        $this->post(route('sp.input.store'), $this->isianUlang($asli))
+            ->assertRedirect(route('surat-perintah.monitoring'));
+
+        $this->assertSame([0, 1, 2, 3, 4], SuratPerintah::orderBy('id')->pluck('duplikat_ke')->all());
+        $this->assertSame(1, SuratPerintah::distinct()->count('nomor_sp'));
+    }
+
+    public function test_tanpa_persetujuan_nomor_ganda_tetap_ditolak_dan_penanda_tidak_melonggarkan_nomor_baru(): void
+    {
+        $pptk = $this->user('pptk');
+        $asli = $this->buatSp($pptk);
+
+        // Menjawab "Tidak": penanda tidak menyala, nomor ganda ditolak.
+        $this->actingAs($pptk)->post(route('surat-perintah.store'), $this->isianUlang($asli, ['pakai_data_sp' => '0']))
+            ->assertSessionHasErrors('nomor_sp');
+
+        // Penanda menyala tetapi nomornya ternyata baru: ini Input SP biasa,
+        // jadi PDF tetap wajib dan hasilnya BUKAN duplikat.
+        $this->actingAs($pptk)->post(route('surat-perintah.store'), $this->isianUlang($asli, ['nomor_sp' => '090/PW.02.01/Sekre']))
+            ->assertSessionHasErrors('file_url')
+            ->assertSessionDoesntHaveErrors('nomor_sp');
+        $this->assertSame(1, SuratPerintah::count());
+
+        $this->actingAs($pptk)->post(route('surat-perintah.store'), $this->isianUlang($asli, [
+            'nomor_sp' => '090/PW.02.01/Sekre',
+            'file_url' => UploadedFile::fake()->create('sp.pdf', 100, 'application/pdf'),
+        ]))->assertRedirect(route('surat-perintah.index'));
+        $this->assertSame(0, SuratPerintah::latest('id')->firstOrFail()->duplikat_ke);
+
+        // SP yang berkasnya tidak ada: PDF wajib diunggah walau memakai datanya.
+        Storage::disk('local')->delete($asli->filePath());
+        $this->actingAs($pptk)->post(route('surat-perintah.store'), $this->isianUlang($asli))
+            ->assertSessionHasErrors('file_url');
+
+        // Aturan lain tetap berlaku penuh pada entri duplikat.
+        $this->actingAs($pptk)->post(route('surat-perintah.store'), $this->isianUlang($asli, [
+            'anggota' => [],
+            'file_url' => UploadedFile::fake()->create('sp.pdf', 100, 'application/pdf'),
+        ]))->assertSessionHasErrors('anggota');
+        $this->assertSame(2, SuratPerintah::count());
+    }
+
+    public function test_nomor_sp_reimburse_lama_tidak_ditawarkan_dan_tidak_bisa_diduplikat_lewat_input(): void
+    {
+        $pptk = $this->user('pptk');
+        $asli = $this->buatSp($pptk);
+
+        $reimburse = $asli->replicate(['file_url']);
+        $reimburse->fill([
+            'nomor_sp' => $asli->nomor_sp.SuratPerintah::SUFFIX_REIMBURSE,
+            'jenis_permintaan' => SuratPerintah::JENIS_REIMBURSE,
+            'sp_induk_id' => $asli->id,
+            'file_url' => null,
+        ])->save();
+
+        $this->actingAs($pptk)->getJson(route('sp.cek-nomor', ['nomor_sp' => $reimburse->nomor_sp]))
+            ->assertExactJson(['ada' => false]);
+
+        $this->actingAs($pptk)->post(route('surat-perintah.store'), $this->isianUlang($asli, [
+            'nomor_sp' => $reimburse->nomor_sp,
+            'file_url' => UploadedFile::fake()->create('sp.pdf', 100, 'application/pdf'),
+        ]))->assertSessionHasErrors('nomor_sp');
+        $this->assertSame(2, SuratPerintah::count());
+    }
+
     public function test_menghapus_duplikat_tidak_menghilangkan_sp_asli_maupun_berkasnya(): void
     {
         $pptk = $this->user('pptk');

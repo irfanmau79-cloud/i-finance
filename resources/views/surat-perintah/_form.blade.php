@@ -62,6 +62,14 @@
     <div class="fg" data-sp-identitas>
         <label class="fl" for="nomor_sp">Nomor Surat Perintah</label>
         <input type="text" id="nomor_sp" name="nomor_sp" placeholder="87/PW.02.01/Sekre" value="{{ old('nomor_sp', $sp->nomor_sp ?? '') }}">
+        {{-- Input SP dengan nomor yang sudah pernah diinput: setelah pengguna
+             menjawab "Ya" pada pertanyaan yang muncul, penanda ini bernilai 1
+             dan entrinya disimpan sebagai duplikat nomor tersebut (lihat
+             StoreSuratPerintahRequest::sumberDuplikat). --}}
+        @unless ($isEdit)
+            <input type="hidden" name="pakai_data_sp" value="{{ old('pakai_data_sp') ? '1' : '0' }}" data-pakai-data-sp>
+            <div class="sub" style="margin-top:4px;" data-duplikat-catatan hidden></div>
+        @endunless
     </div>
 
     <div class="fg">
@@ -494,5 +502,125 @@
         jenisSelect.addEventListener('change', terapkanJenis);
         terapkanJenis();
     }
+
+    @unless ($isEdit)
+    /*
+     * Nomor SP yang sudah pernah diinput. Begitu nomornya selesai diketik,
+     * server ditanya; bila sudah ada, pengguna ditawari memakai data SP itu.
+     * "Ya" mengisi seluruh formulir (tetap bisa diubah) dan menyalakan
+     * penanda pakai_data_sp, sehingga entri ini tersimpan sebagai duplikat.
+     * "Tidak" membiarkan formulir apa adanya - nomornya harus diganti, karena
+     * tanpa penanda itu server tetap menolak nomor ganda.
+     */
+    const nomorInput = document.getElementById('nomor_sp');
+    const penanda = document.querySelector('[data-pakai-data-sp]');
+    const catatanDuplikat = document.querySelector('[data-duplikat-catatan]');
+
+    if (nomorInput && penanda) {
+        const URL_CEK = @json(route('sp.cek-nomor'));
+        // Nomor yang penandanya sedang berlaku; mengganti nomor melepasnya.
+        let nomorDisetujui = penanda.value === '1' ? nomorInput.value.trim() : null;
+        let terakhirDicek = nomorDisetujui ?? '';
+
+        function tandaiDuplikat(nomor, punyaBerkas) {
+            nomorDisetujui = nomor;
+            penanda.value = nomor === null ? '0' : '1';
+            if (! catatanDuplikat) return;
+            catatanDuplikat.hidden = nomor === null;
+            catatanDuplikat.textContent = nomor === null ? '' : 'Memakai data SP yang sudah ada. Entri ini disimpan sebagai duplikat nomor tersebut.'
+                + (punyaBerkas ? ' PDF boleh dikosongkan - berkas SP yang sudah ada ikut disalin.' : '');
+        }
+
+        function isiDariSp(sp) {
+            const setel = (id, nilai) => { const el = document.getElementById(id); if (el) el.value = nilai ?? ''; };
+
+            setel('status_sp', sp.status_sp || 'Baru');
+            setel('tanggal_sp', sp.tanggal_sp);
+            setel('unit_kerja', sp.unit_kerja);
+            setel('lokasi', sp.lokasi);
+            setel('nama_pengirim', sp.nama_pengirim);
+            setel('irban_dibayar', sp.irban_dibayar);
+            setel('rincian_tgl_bayar', sp.rincian_tgl_bayar);
+            setel('keterangan', sp.keterangan);
+
+            if (tujuanWrap) {
+                // Sama seperti saat formulir Edit dibuka: tujuan di luar Data
+                // Pegawai langsung masuk mode Isi Manual supaya tidak hilang.
+                const tujuan = sp.tujuan_transfer || '';
+                const cocok = Array.from(tujuanSelect.options).some(o => o.value === tujuan);
+                tujuanManual.checked = tujuan !== '' && ! cocok;
+                tujuanSelect.value = cocok ? tujuan : '';
+                tujuanTeks.value = cocok ? '' : tujuan;
+                terapkanTujuan();
+            }
+
+            document.querySelectorAll('input[name="komponen[]"]').forEach(el => {
+                el.checked = (sp.komponen || []).includes(el.value);
+            });
+            document.querySelectorAll('input[name="jenis_pembayaran[]"]').forEach(el => {
+                el.checked = (sp.jenis_pembayaran || []).includes(el.value);
+            });
+
+            list.innerHTML = '';
+            (sp.anggota || []).forEach(item => {
+                // Pegawai yang sudah tidak aktif tidak ada lagi di daftar
+                // pilihan; identitas tersimpannya dibawa lewat Isi Manual.
+                const dikenal = pegawai.some(p => String(p.id) === String(item.pegawai_id ?? ''));
+                addAnggota(item.manual || dikenal ? item : Object.assign({}, item, { manual: true, pegawai_id: '' }));
+            });
+            refresh();
+        }
+
+        async function cekNomor() {
+            const nomor = nomorInput.value.trim();
+            if (nomor === terakhirDicek) return;
+            terakhirDicek = nomor;
+            if (nomor !== nomorDisetujui) tandaiDuplikat(null);
+            if (nomor === '') return;
+
+            let hasil;
+            try {
+                const jawaban = await fetch(URL_CEK + '?nomor_sp=' + encodeURIComponent(nomor), {
+                    headers: { Accept: 'application/json' },
+                    credentials: 'same-origin',
+                });
+                if (! jawaban.ok) return;
+                hasil = await jawaban.json();
+            } catch (e) {
+                // Gagal bertanya bukan halangan mengisi: server tetap
+                // memeriksa nomornya saat formulir dikirim.
+                return;
+            }
+
+            // Nomornya sudah diketik ulang selagi menunggu jawaban.
+            if (! hasil.ada || nomorInput.value.trim() !== nomor) return;
+
+            const setuju = await window.iFinance.konfirmasi(
+                'Data SP sudah pernah diinput, ingin lanjut menggunakan data yang sudah ada?',
+                { judul: 'Nomor SP ' + nomor, ya: 'Ya', batal: 'Tidak', jenis: 'biasa' }
+            );
+
+            if (! setuju) {
+                nomorInput.focus();
+                nomorInput.select();
+                return;
+            }
+
+            isiDariSp(hasil.sp);
+            tandaiDuplikat(nomor, hasil.punya_berkas);
+        }
+
+        nomorInput.addEventListener('change', cekNomor);
+
+        if (nomorDisetujui !== null) {
+            // Kembali dari validasi yang gagal: isian sudah dipulihkan, cukup
+            // catatannya yang ditampilkan lagi.
+            tandaiDuplikat(nomorDisetujui, false);
+        } else {
+            // Nomor yang ditolak server sebagai ganda ditanyakan lagi.
+            cekNomor();
+        }
+    }
+    @endunless
 })();
 </script>

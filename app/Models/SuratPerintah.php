@@ -183,6 +183,22 @@ class SuratPerintah extends Model
     }
 
     /**
+     * Baris yang datanya dipakai saat nomor ini diinput LAGI di Input SP:
+     * SP aslinya, atau duplikat tertua bila aslinya sudah dihapus. Nomor
+     * dicocokkan PERSIS dan hanya pada SP yang memang bisa diduplikat - entri
+     * Reimburse Transportasi lama tidak ikut.
+     */
+    public static function cariUntukDuplikat(string $nomorSp): ?self
+    {
+        return self::query()
+            ->senomor($nomorSp)
+            ->where('jenis_permintaan', self::JENIS_UANG_HARIAN)
+            ->orderBy('duplikat_ke')
+            ->orderBy('id')
+            ->first();
+    }
+
+    /**
      * SP yang boleh dipakai sebagai sumber data pembuatan NPD: masih
      * berstatus awal DAN flag Sumber NPD menyala. Port dari getSPTerinput()
      * di CodeSuratPerintah.gs.

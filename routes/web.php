@@ -82,6 +82,11 @@ Route::middleware('gerbang-layanan')->group(function () {
         ->middleware('baca-saja')->name('sp.input.create');
     Route::post('/sp/input', [SuratPerintahController::class, 'publicStore'])
         ->middleware(['throttle:5,1', 'baca-saja'])->name('sp.input.store');
+    // Dipanggil formulir Input SP (publik maupun yang login) saat Nomor SP
+    // selesai diketik: bila nomornya sudah pernah diinput, datanya ditawarkan
+    // untuk dipakai lagi dan entri barunya disimpan sebagai duplikat.
+    Route::get('/sp/cek-nomor', [SuratPerintahController::class, 'cekNomor'])
+        ->middleware('throttle:30,1')->name('sp.cek-nomor');
 
     // Monitoring SP juga dipakai role "layanan" untuk memantau orderan SP
     // miliknya (lihat CodeSuratPerintah.gs: "Monitoring SP = daftar orderan
