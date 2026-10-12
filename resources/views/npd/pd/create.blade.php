@@ -91,7 +91,6 @@
                     <svg class="kb-chev" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
                     <div class="kb-drop" id="sp-taut-drop" role="listbox"></div>
                 </div>
-                <p class="mini">Nota Pencairan Dana Perjalanan Dinas selalu berangkat dari Surat Perintah. Memilih SP akan mengisi keterangan di bawah dan memunculkan anggota timnya.</p>
                 @if ($npdEdit && ! $npdEdit->surat_perintah_id)
                     {{-- NPD lama dibuat sebelum aturan ini berlaku, jadi belum
                          punya tautan SP. Diberi tahu di sini supaya pengguna
@@ -188,7 +187,6 @@
             <style>
                 .pp{margin-top:22px;border:1px solid var(--line);border-left:4px solid var(--navy);border-radius:var(--r-md);padding:16px;background:var(--surface);box-shadow:0 5px 16px rgba(30,58,95,.07);}
                 .pp-judul{margin:0;font-size:15px;color:var(--tegas);}
-                .pp-sub{margin:3px 0 0;font-size:12.5px;color:var(--mut);}
                 .pp-opsi{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin-top:14px;}
                 .pp-kartu{position:relative;display:flex;gap:10px;align-items:flex-start;padding:12px;border:1.6px solid var(--line);border-radius:var(--r-sm);background:var(--surface);cursor:pointer;transition:border-color .15s,background .15s,box-shadow .15s;}
                 .pp-kartu:hover{border-color:#94a3b8;}
@@ -203,12 +201,10 @@
                 .pp-kartu:has(input:focus-visible){outline:2px solid var(--aksen);outline-offset:2px;}
                 .pp-rinci{margin-top:14px;padding-top:14px;border-top:1px dashed var(--line);}
                 .pp-rinci .fl{margin-top:0;}
-                .pp-rinci .mini{margin-top:6px;}
                 @media(max-width:820px){.pp-opsi{grid-template-columns:1fr;}}
             </style>
             <div class="pp" data-penerima-wrap>
                 <h3 class="pp-judul">Pilih Penerima</h3>
-                <p class="pp-sub">Menentukan tujuan transfer pada Lampiran NPD. Daftar Pembayaran dan SPD Rampung tetap memerinci seluruh anggota tim.</p>
 
                 <div class="pp-opsi" role="radiogroup" aria-label="Pilih Penerima">
                     @foreach (\App\Support\PenerimaPd::PILIHAN as $kode => $label)
@@ -228,7 +224,6 @@
                     {{-- data-cari: bisa diketik untuk mencari (layouts.partials.select-cari).
                          Pilihannya diisi skrip di bawah, mengikuti daftar Anggota Tim. --}}
                     <select id="penerima_index" name="penerima_index" data-cari data-cari-placeholder="Ketik nama anggota untuk mencari…"></select>
-                    <p class="mini">Namanya tercetak pada Lampiran dan di akhir Keterangan Lampiran ("an. &hellip;").</p>
                 </div>
 
                 <div class="pp-rinci" data-penerima-pptk style="display:none;">
@@ -236,7 +231,6 @@
                     <input type="text" id="pptk_rekening" name="pptk_rekening" inputmode="numeric"
                            placeholder="Kosongkan bila rekening PPTK sudah ada di Data Pegawai"
                            value="{{ old('pptk_rekening', $npdEdit?->detail_json['pptk_rekening'] ?? '') }}">
-                    <p class="mini">Nama PPTK diambil dari pelimpahan sub kegiatan, sama dengan tanda tangan PPTK di dokumen. Rekeningnya dibaca dari Data Pegawai; isi di sini hanya bila di sana masih kosong.</p>
                 </div>
             </div>
 
@@ -244,7 +238,6 @@
                 @include('npd._keterangan-lampiran', [
                     'jenis' => 'pd',
                     'nilai' => $npdEdit?->detail_json['keterangan_lampiran'] ?? null,
-                    'catatan' => 'Inilah kalimat yang tercetak pada Lampiran NPD.',
                 ])
             </div>
 
@@ -656,7 +649,7 @@
             + '<div class="tim-copy-icon" aria-hidden="true">&#8646;</div>'
             + '<div class="tim-copy-field"><label class="fl">Data perjalanan sama dengan</label>'
             + '<select data-copy-source><option value="">Pilih anggota yang sudah diinput</option></select>'
-            + '<span class="mini" data-copy-feedback>Pilih sumber untuk menyalin paket tujuan dan biaya perjalanan.</span></div>'
+            + '<span class="mini" data-copy-feedback></span></div>'
             + '<button type="button" class="btn tim-copy-btn" data-copy-apply disabled>Salin Data Perjalanan</button>'
             + '</div>'
             + '<div class="form-grid">'
@@ -959,9 +952,7 @@
         const copyFeedback = timRow.querySelector('[data-copy-feedback]');
         copySource.addEventListener('change', () => {
             copyButton.disabled = ! copySource.value;
-            copyFeedback.textContent = copySource.value
-                ? 'Siap menyalin paket tujuan dan seluruh biaya perjalanan.'
-                : 'Pilih sumber untuk menyalin paket tujuan dan biaya perjalanan.';
+            copyFeedback.textContent = '';
         });
         copyButton.addEventListener('click', () => {
             const rows = Array.from(timList.querySelectorAll('[data-tim-row]'));

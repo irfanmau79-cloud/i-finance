@@ -27,9 +27,10 @@
               placeholder="Terisi otomatis dari data di atas. Boleh diubah bila perlu.">{{ $nilai }}</textarea>
     <input type="hidden" name="keterangan_mode" value="{{ $mode }}" data-ket-mode>
 
-    <div class="sub" style="margin-top:4px;display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;justify-content:space-between;">
-        <span data-ket-status></span>
-        <button type="button" class="btn" style="padding:2px 10px;font-size:11px;" data-ket-reset hidden>
+    {{-- Hanya tampil pada mode manual. Disembunyikan lewat style, bukan
+         atribut hidden: .btn menetapkan display sendiri. --}}
+    <div style="margin-top:4px;text-align:right;">
+        <button type="button" class="btn" style="padding:2px 10px;font-size:11px;display:none;" data-ket-reset>
             Kembalikan ke otomatis
         </button>
     </div>
@@ -47,7 +48,6 @@
     const form = wrap.closest('form');
     const teks = wrap.querySelector('[data-ket-teks]');
     const mode = wrap.querySelector('[data-ket-mode]');
-    const status = wrap.querySelector('[data-ket-status]');
     const tombolReset = wrap.querySelector('[data-ket-reset]');
     const jenis = wrap.dataset.ketJenis;
     const url = wrap.dataset.ketUrl;
@@ -70,10 +70,7 @@
     }
 
     function perbaruiTampilan() {
-        tombolReset.hidden = ! manual();
-        status.textContent = manual()
-            ? 'Mode manual - uraian ini tidak lagi mengikuti perubahan data di atas.'
-            : 'Mengikuti data di atas secara otomatis. Mulai mengetik untuk menulis sendiri.';
+        tombolReset.style.display = manual() ? '' : 'none';
     }
 
     function muatan() {

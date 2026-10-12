@@ -16,14 +16,6 @@
 @php($spjTerunggah = $npdEdit?->spjBerkas ?? collect())
 
 <h3 style="margin-top:22px;">Berkas SPJ <span class="spj-ops">opsional</span></h3>
-<div class="sub">
-    Simpan hasil pindaian SPJ di sini (PDF atau JPG, maksimal
-    {{ \App\Services\SpjBerkasService::MAKS_UKURAN_KB / 1024 }} MB per berkas,
-    {{ \App\Services\SpjBerkasService::MAKS_BERKAS }} berkas per NPD). Boleh dikosongkan
-    &mdash; NPD tetap tersimpan tanpa berkas SPJ. Berkas yang diunggah bisa dilihat di
-    halaman detail NPD dan di modul Inventarisasi SPJ, dan ikut tercetak pada
-    &ldquo;Cetak Semua (1 Berkas)&rdquo;.
-</div>
 
 <div class="spj-unggah">
     <label class="spj-pilih" for="spj-input">
