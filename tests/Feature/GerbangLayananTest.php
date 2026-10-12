@@ -91,6 +91,98 @@ class GerbangLayananTest extends TestCase
         $this->post(route('layanan.masuk'), ['sandi' => 'sandi-server-lain'])->assertSessionHasNoErrors();
     }
 
+    // ---------------- Ganti kata sandi dari Manajemen Users ----------------
+
+    private function akun(string $role): User
+    {
+        return User::create([
+            'username' => 'gerbang-'.$role,
+            'nama' => 'Penguji '.$role,
+            'role' => $role,
+            'password' => 'rahasia',
+        ]);
+    }
+
+    public function test_superadmin_mengganti_kata_sandi_layanan_dari_manajemen_users(): void
+    {
+        $superadmin = $this->akun('superadmin');
+
+        $this->actingAs($superadmin)->get(route('users.index'))
+            ->assertOk()
+            ->assertSee('Pengguna Layanan')
+            ->assertSee('(tanpa login)')
+            ->assertSee('Kata sandi bawaan server')
+            ->assertSee(route('users.layanan.edit'), false);
+
+        $this->actingAs($superadmin)->get(route('users.layanan.edit'))
+            ->assertOk()
+            ->assertSee(route('users.layanan.update'), false)
+            ->assertDontSee('itprovjabar');
+
+        $this->actingAs($superadmin)->put(route('users.layanan.update'), [
+            'password' => 'sandi-baru-2026',
+            'password_confirmation' => 'sandi-baru-2026',
+        ])->assertRedirect(route('users.index'))->assertSessionHasNoErrors();
+
+        // Disimpan sebagai hash, dan kata sandinya tidak ikut ke audit log.
+        $this->assertDatabaseMissing('pengaturan', ['nilai' => 'sandi-baru-2026']);
+        $catatan = AuditLog::where('aktivitas', 'Ubah Kata Sandi Pengguna Layanan')->sole();
+        $this->assertStringNotContainsString('sandi-baru-2026', (string) $catatan->keterangan);
+
+        $this->actingAs($superadmin)->get(route('users.index'))
+            ->assertOk()
+            ->assertSee('Kata sandi diganti')
+            ->assertDontSee('sandi-baru-2026');
+
+        $this->post(route('logout'));
+
+        // Kata sandi lama (termasuk nilai .env) langsung tidak berlaku.
+        $this->post(route('layanan.masuk'), ['sandi' => 'itprovjabar'])->assertSessionHasErrors('sandi');
+        $this->get(route('sp.input.create'))->assertRedirect(route('login'));
+
+        $this->post(route('layanan.masuk'), ['sandi' => 'sandi-baru-2026'])
+            ->assertRedirect(route('sp.input.create'))
+            ->assertSessionHasNoErrors();
+        $this->get(route('sp.input.create'))->assertOk();
+    }
+
+    public function test_kata_sandi_layanan_baru_wajib_cukup_panjang_dan_dikonfirmasi(): void
+    {
+        $superadmin = $this->akun('superadmin');
+
+        foreach ([
+            ['password' => '', 'password_confirmation' => ''],
+            ['password' => 'abc', 'password_confirmation' => 'abc'],
+            ['password' => 'sandi-baru-2026', 'password_confirmation' => 'sandi-lain-2026'],
+        ] as $isian) {
+            $this->actingAs($superadmin)->put(route('users.layanan.update'), $isian)
+                ->assertSessionHasErrors('password');
+        }
+
+        $this->assertDatabaseCount('pengaturan', 0);
+        $this->post(route('logout'));
+        $this->post(route('layanan.masuk'), ['sandi' => 'itprovjabar'])->assertSessionHasNoErrors();
+    }
+
+    public function test_hanya_superadmin_yang_boleh_mengganti_kata_sandi_layanan(): void
+    {
+        foreach (['bendahara_pengeluaran', 'bpp', 'pptk', 'verifikator', 'pengawas'] as $role) {
+            $aktor = $this->akun($role);
+
+            $this->actingAs($aktor)->get(route('users.layanan.edit'))->assertForbidden();
+            $this->actingAs($aktor)->put(route('users.layanan.update'), [
+                'password' => 'sandi-baru-2026',
+                'password_confirmation' => 'sandi-baru-2026',
+            ])->assertForbidden();
+        }
+
+        $this->assertDatabaseCount('pengaturan', 0);
+
+        // Tamu layanan sendiri juga tidak bisa.
+        $this->post(route('logout'));
+        $this->lolosGerbangLayanan()->get(route('users.layanan.edit'))->assertForbidden();
+    }
+
     public function test_user_yang_login_tidak_perlu_kata_sandi_layanan(): void
     {
         $pptk = User::create([

@@ -5,6 +5,7 @@ namespace App\Http\Controllers;
 use App\Helpers\AuditLog;
 use App\Helpers\GuestSession;
 use App\Models\User;
+use App\Support\SandiLayanan;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Auth;
 
@@ -75,9 +76,7 @@ class AuthController extends Controller
             ['sandi.required' => 'Kata sandi wajib diisi.']
         );
 
-        $benar = (string) config('akses.sandi_layanan');
-
-        if (! hash_equals($benar, (string) $request->input('sandi'))) {
+        if (! SandiLayanan::cocok((string) $request->input('sandi'))) {
             AuditLog::catatSebagai('(layanan)', 'layanan', 'Login Gagal', 'Kata sandi Pengguna Layanan salah');
 
             return back()->withErrors(['sandi' => 'Kata sandi salah.']);

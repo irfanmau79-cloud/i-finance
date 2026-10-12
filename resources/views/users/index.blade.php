@@ -82,6 +82,20 @@
                         <td colspan="7" style="text-align:center;color:var(--mut);padding:20px;">Belum ada user.</td>
                     </tr>
                 @endforelse
+                {{-- Pengguna Layanan bukan akun: tidak punya username, tidak bisa
+                     dinonaktifkan atau dihapus. Barisnya ada di sini hanya
+                     supaya kata sandi bersamanya bisa diganti. --}}
+                <tr>
+                    <td><span class="sub">(tanpa login)</span></td>
+                    <td>Pengguna Layanan</td>
+                    <td>-</td>
+                    <td>{{ config('akses.role_label')['layanan'] ?? 'Pengguna Layanan' }}</td>
+                    <td><span class="badge st-aktif">Aktif</span></td>
+                    <td><span class="sub">Kata sandi {{ $sandiLayananDiubah ? 'diganti '.$sandiLayananDiubah->format('d-m-Y H:i') : 'bawaan server' }}</span></td>
+                    <td style="text-align:center;">
+                        <a class="ic-btn" title="Ganti Kata Sandi Pengguna Layanan" href="{{ route('users.layanan.edit') }}"><svg viewBox="0 0 24 24"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.12 2.12 0 0 1 3 3L12 15l-4 1 1-4z"/></svg></a>
+                    </td>
+                </tr>
             </tbody>
         </table>
     </div>

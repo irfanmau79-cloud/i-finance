@@ -375,6 +375,11 @@ Route::middleware('auth.or.guest')->group(function () {
     Route::middleware('role:superadmin')->group(function () {
         Route::get('/users', [UserController::class, 'index'])->name('users.index');
         Route::get('/users/create', [UserController::class, 'create'])->name('users.create');
+        // Pengguna Layanan: bukan akun, hanya kata sandi bersamanya yang
+        // bisa diganti. Didaftarkan sebelum /users/{user} supaya "layanan"
+        // tidak dibaca sebagai id user.
+        Route::get('/users/layanan', [UserController::class, 'editLayanan'])->name('users.layanan.edit');
+        Route::put('/users/layanan', [UserController::class, 'updateLayanan'])->name('users.layanan.update');
         Route::post('/users', [UserController::class, 'store'])->name('users.store');
         Route::get('/users/{user}/edit', [UserController::class, 'edit'])->name('users.edit');
         Route::put('/users/{user}', [UserController::class, 'update'])->name('users.update');

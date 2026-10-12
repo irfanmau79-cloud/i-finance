@@ -8,6 +8,7 @@ use App\Models\AuditLog as AuditLogModel;
 use App\Models\Pegawai;
 use App\Models\User;
 use App\Rules\UniqueUsername;
+use App\Support\SandiLayanan;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
@@ -20,7 +21,10 @@ class UserController extends Controller
     {
         $users = User::with('pegawai')->orderBy('username')->get();
 
-        return view('users.index', compact('users'));
+        return view('users.index', [
+            'users' => $users,
+            'sandiLayananDiubah' => SandiLayanan::terakhirDiubah(),
+        ]);
     }
 
     public function create()
@@ -146,6 +150,30 @@ class UserController extends Controller
         }
 
         return redirect()->route('users.index')->with('success', "Username berhasil diubah menjadi \"{$usernameBaru}\".");
+    }
+
+    /**
+     * Pengguna Layanan bukan akun (tidak ada baris di tabel users), tetapi
+     * tampil sebagai satu baris di Manajemen Users supaya superadmin bisa
+     * mengganti kata sandi bersamanya tanpa menyentuh .env di server.
+     */
+    public function editLayanan()
+    {
+        return view('users.layanan', ['terakhirDiubah' => SandiLayanan::terakhirDiubah()]);
+    }
+
+    public function updateLayanan(Request $request)
+    {
+        $validated = $request->validate([
+            'password' => ['required', 'string', 'min:'.SandiLayanan::MIN_PANJANG, 'max:100', 'confirmed'],
+        ], [], ['password' => 'Kata sandi baru']);
+
+        SandiLayanan::ubah($validated['password']);
+
+        // Kata sandinya sendiri TIDAK ikut dicatat.
+        AuditLog::catat('Ubah Kata Sandi Pengguna Layanan', 'Kata sandi bersama Pengguna Layanan diganti');
+
+        return redirect()->route('users.index')->with('success', 'Kata sandi Pengguna Layanan berhasil diganti.');
     }
 
     /** Nyalakan/matikan akun tanpa menghapus data. Diutamakan daripada hapus permanen. */
