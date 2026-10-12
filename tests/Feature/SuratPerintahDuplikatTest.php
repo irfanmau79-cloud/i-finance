@@ -216,6 +216,21 @@ class SuratPerintahDuplikatTest extends TestCase
         $halaman->assertSeeInOrder(['st-diterima">Diterima PPTK</span>', 'UH/Akomodasi</span>'], false);
     }
 
+    /** Status di Data SP berwarna sama dengan Monitoring SP, bukan abu-abu semua. */
+    public function test_status_di_data_sp_berwarna_sesuai_statusnya(): void
+    {
+        $pptk = $this->user('pptk');
+        $sp = $this->buatSp($pptk);
+
+        foreach (Npd::STATUS_BADGE_CLASS as $status => $kelas) {
+            $sp->update(['status' => $status]);
+
+            $this->actingAs($pptk)->get(route('surat-perintah.index'))
+                ->assertOk()
+                ->assertSee('<span class="badge '.$kelas.'">'.$status.'</span>', false);
+        }
+    }
+
     public function test_duplikat_menjadi_acuan_npd_perjalanan_dinas_saat_sp_asli_sudah_terpakai(): void
     {
         $pptk = $this->user('pptk');

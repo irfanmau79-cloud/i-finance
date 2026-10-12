@@ -10,6 +10,9 @@
     $bolehKelola = in_array($role, ['pptk', 'superadmin'], true);
     // Toggle Sumber NPD sengaja lebih luas: BPP ikut boleh (setSumberNPD di GAS).
     $bolehSumber = in_array($role, ['pptk', 'bpp', 'superadmin'], true);
+    // Warna status sama dengan Monitoring SP dan Data NPD: status SP mengikuti
+    // NPD yang ditautkan, jadi peta warnanya juga milik NPD.
+    $statusBadgeClass = ['Diterima PPTK' => 'st-diterima'] + \App\Models\Npd::STATUS_BADGE_CLASS;
 @endphp
 
 <div class="dash-card wf-card">
@@ -66,7 +69,7 @@
                         <td>{{ $suratPerintah->tujuan_transfer ?: '—' }}</td>
                         <td>{{ $suratPerintah->keterangan ?: '—' }}</td>
                         <td>
-                            <span class="badge st-diterima">{{ $suratPerintah->status }}</span>
+                            <span class="badge {{ $statusBadgeClass[$suratPerintah->status] ?? 'st-diterima' }}">{{ $suratPerintah->status }}</span>
                             <div style="margin-top:6px;">
                                 @if ($suratPerintah->isReimburse())
                                     <span class="badge" style="background:var(--warn-bg);color:var(--warn-teks);">Reimburse</span>
