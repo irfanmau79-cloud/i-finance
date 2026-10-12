@@ -3,10 +3,12 @@
 namespace App\Http\Requests;
 
 use App\Services\SpjBerkasService;
+use App\Helpers\NpdPerjalananHitung;
 use App\Models\ClusterUh;
 use App\Models\Npd;
 use App\Models\SuratPerintah;
 use App\Support\AnggaranNpd;
+use App\Support\PenerimaPd;
 use Illuminate\Foundation\Http\FormRequest;
 use Illuminate\Validation\Rule;
 use Illuminate\Validation\Validator;
@@ -64,9 +66,12 @@ class StoreNpdPdRequest extends FormRequest
 
             'penerima_index' => ['required', 'integer', 'min:0'],
 
-            // Mode "PPTK Sebagai Penerima": hanya mengalihkan tujuan transfer
-            // pada NPD & Lampiran. Tim tetap utuh untuk Daftar Pembayaran dan
-            // SPD, jadi penerima_index di atas tetap wajib.
+            // "Pilih Penerima" (App\Support\PenerimaPd): koordinator, semua
+            // anggota, atau PPTK. Hanya mengalihkan tujuan transfer pada
+            // Lampiran; tim tetap utuh untuk Daftar Pembayaran dan SPD, jadi
+            // penerima_index di atas tetap wajib. `pptk_penerima` = cara lama
+            // (kotak centang), masih diterima bila mode_penerima tidak dikirim.
+            'mode_penerima' => ['nullable', Rule::in(array_keys(PenerimaPd::PILIHAN))],
             'pptk_penerima' => ['nullable', 'boolean'],
             'pptk_rekening' => ['nullable', 'string', 'max:100'],
 
@@ -92,11 +97,15 @@ class StoreNpdPdRequest extends FormRequest
             'tim.*.tiket' => ['nullable', 'numeric', 'min:0'],
             'tim.*.representatif' => ['nullable', 'numeric', 'min:0'],
 
-            'tim.*.paket' => ['required', 'array', 'min:1'],
-            'tim.*.paket.*.cluster' => ['required', Rule::in(ClusterUh::KODE)],
-            'tim.*.paket.*.wilayah' => ['required', 'string', 'max:100'],
-            'tim.*.paket.*.lama_hari' => ['required', 'integer', 'min:0'],
-            'tim.*.paket.*.tarif_uh' => ['required', 'numeric', 'min:0'],
+            // Paket boleh KOSONG (cluster tidak dipilih, semuanya 0): anggota
+            // itu ikut ditugaskan dalam SP tetapi tidak dibayar. Begitu
+            // cluster dipilih, wilayah/hari/tarifnya wajib seperti biasa.
+            // Paket kosong tidak disimpan - lihat NpdPdController::rapikanTim().
+            'tim.*.paket' => ['nullable', 'array'],
+            'tim.*.paket.*.cluster' => ['nullable', Rule::in(ClusterUh::KODE)],
+            'tim.*.paket.*.wilayah' => ['nullable', 'required_with:tim.*.paket.*.cluster', 'string', 'max:100'],
+            'tim.*.paket.*.lama_hari' => ['nullable', 'required_with:tim.*.paket.*.cluster', 'integer', 'min:0'],
+            'tim.*.paket.*.tarif_uh' => ['nullable', 'required_with:tim.*.paket.*.cluster', 'numeric', 'min:0'],
             'tim.*.paket.*.malam' => ['nullable', 'integer', 'min:0'],
             'tim.*.paket.*.tarif_akom' => ['nullable', 'numeric', 'min:0'],
             // Unggah SPJ - OPSIONAL, lihat App\Services\SpjBerkasService.
@@ -141,6 +150,16 @@ class StoreNpdPdRequest extends FormRequest
             foreach ($tim as $iTim => $anggota) {
                 foreach ((array) ($anggota['paket'] ?? []) as $iPaket => $paket) {
                     $kode = $paket['cluster'] ?? null;
+
+                    // Paket tanpa cluster hanya boleh bernilai 0 (anggota
+                    // tidak dibayar). Kalau ada nilainya, cluster-nya yang
+                    // lupa dipilih - jangan sampai angkanya hilang diam-diam.
+                    if (blank($kode) && NpdPerjalananHitung::subUh((array) $paket) + NpdPerjalananHitung::subAkom((array) $paket) > 0) {
+                        $validator->errors()->add(
+                            "tim.{$iTim}.paket.{$iPaket}.cluster",
+                            'Cluster wajib dipilih bila Uang Harian atau Akomodasi paket ini diisi.',
+                        );
+                    }
 
                     // Kode kosong, kode asing, dan cluster isian manual (Luar
                     // Provinsi, Manual) ditangani di tempat lain: dua yang
@@ -194,6 +213,7 @@ class StoreNpdPdRequest extends FormRequest
             'tanggal_berangkat' => 'Tanggal Berangkat',
             'tanggal_pulang' => 'Tanggal Pulang',
             'penerima_index' => 'Penerima Dana',
+            'mode_penerima' => 'Pilih Penerima',
             'tim.*.nama' => 'Nama Anggota',
             'tim.*.paket' => 'Paket Tujuan',
             'tim.*.paket.*.cluster' => 'Cluster',

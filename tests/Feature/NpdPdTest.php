@@ -793,11 +793,188 @@ class NpdPdTest extends TestCase
         $this->assertSame([true, false], $npd->tim->pluck('is_penerima')->map(fn ($x) => (bool) $x)->all());
         $this->assertSame($tim[0]['nama'], $npd->tim->firstWhere('is_penerima', true)->nama);
 
-        // Skrip formulir menyetel nilai pilihan = urutan baris dan menjaga
-        // selalu ada satu yang terpilih.
+        // Skrip formulir menyetel nilai pilihan koordinator = urutan baris
+        // dan menjaga selalu ada satu yang terpilih.
         $isi = $this->actingAs($pptk)->get(route('npd.pd.create'))->assertOk()->getContent();
-        $this->assertStringContainsString('radio.value = i;', $isi);
-        $this->assertStringContainsString("rows[0].querySelector('[data-penerima-radio]').checked = true;", $isi);
+        $this->assertStringContainsString('\'<option value="\' + i + \'"\'', $isi);
+        $this->assertStringContainsString('penerimaRowIdx = rows.length ? rows[0].dataset.idx : null;', $isi);
+    }
+
+    // ---------------- Pilih Penerima & anggota yang tidak dibayar ----------------
+
+    /** Baris Lampiran, hasil bangunLampiranPd() yang private. */
+    private function lampiran(Npd $npd): array
+    {
+        $metode = new \ReflectionMethod(\App\Http\Controllers\NpdController::class, 'bangunLampiranPd');
+        $metode->setAccessible(true);
+
+        return $metode->invoke(app(\App\Http\Controllers\NpdController::class), $npd->load('tim.paket', 'masterAnggaran'));
+    }
+
+    /** Payload tanpa Keterangan Lampiran manual, supaya uraiannya dirangkai otomatis. */
+    private function payloadOtomatis(MasterAnggaran $masterAnggaran): array
+    {
+        $payload = $this->payload($masterAnggaran);
+        unset($payload['keterangan_lampiran']);
+
+        return $payload;
+    }
+
+    /** Anggota ketiga: ikut ditugaskan dalam SP, tetapi tidak dibayar. */
+    private const ANGGOTA_TIDAK_DIBAYAR = [
+        'nama' => 'Anggota Tidak Dibayar',
+        'jabatan' => 'Auditor',
+        'nip' => '198303032003031003',
+        'rekening' => '333333',
+        // Persis yang dikirim formulir untuk paket yang tidak disentuh.
+        'paket' => [['cluster' => '', 'wilayah' => '', 'lama_hari' => 0, 'tarif_uh' => '', 'malam' => 0, 'tarif_akom' => 0]],
+    ];
+
+    public function test_formulir_memuat_pilih_penerima_pengganti_kotak_centang_pptk(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-form-penerima');
+        $this->limpahkanSubKegiatan($pptk, $this->buatMasterAnggaran());
+
+        $isi = $this->actingAs($pptk)->get(route('npd.pd.create'))->assertOk()->getContent();
+
+        $this->assertStringContainsString('Pilih Penerima', $isi);
+        $this->assertStringContainsString('1. Koordinator Anggota Tim', $isi);
+        $this->assertStringContainsString('2. Semua Anggota Tim menjadi Penerima', $isi);
+        $this->assertStringContainsString('3. PPTK', $isi);
+        $this->assertStringContainsString('<select id="penerima_index" name="penerima_index">', $isi);
+        $this->assertStringNotContainsString('name="pptk_penerima"', $isi);
+        $this->assertStringNotContainsString('dialihkan ke PPTK', $isi);
+    }
+
+    public function test_koordinator_terpilih_menjadi_penerima_lampiran_dan_nama_di_keterangan(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-koordinator');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payloadOtomatis($masterAnggaran);
+        $payload['mode_penerima'] = 'koordinator';
+        $payload['penerima_index'] = 1;
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload)->assertSessionHasNoErrors();
+
+        $npd = Npd::sole();
+        $lampiran = $this->lampiran($npd);
+
+        $this->assertSame('koordinator', $npd->detail_json['mode_penerima']);
+        $this->assertFalse($npd->detail_json['pptk_penerima']);
+        $this->assertCount(1, $lampiran['rows']);
+        $this->assertSame('Anggota Kedua', $lampiran['rows'][0]['nama']);
+        $this->assertSame('222222', $lampiran['rows'][0]['rekening']);
+        $this->assertSame(2_405_000.0, $lampiran['rows'][0]['nominal']);
+        $this->assertStringEndsWith('an. Anggota Kedua', $lampiran['rows'][0]['keterangan']);
+
+        // Pratinjau di formulir menyebut nama yang sama.
+        $this->actingAs($pptk)->post(route('npd.keterangan-lampiran.pratinjau'), ['jenis' => 'pd'] + $payload)
+            ->assertOk()
+            ->assertJsonPath('teks', $lampiran['rows'][0]['keterangan']);
+    }
+
+    public function test_semua_anggota_menjadi_penerima_mendapat_baris_lampiran_masing_masing(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-semua-penerima');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payloadOtomatis($masterAnggaran);
+        $payload['mode_penerima'] = 'semua';
+        $payload['penerima_index'] = 0;
+        $payload['tim'][] = self::ANGGOTA_TIDAK_DIBAYAR;
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload)->assertSessionHasNoErrors();
+
+        $npd = Npd::with('tim')->sole();
+        $lampiran = $this->lampiran($npd);
+
+        $this->assertSame('semua', $npd->detail_json['mode_penerima']);
+        // Yang tidak dibayar bukan penerima dan tidak mendapat baris.
+        $this->assertSame([true, true, false], $npd->tim->pluck('is_penerima')->all());
+        $this->assertSame(['Anggota Pertama', 'Anggota Kedua'], array_column($lampiran['rows'], 'nama'));
+        $this->assertSame(['111111', '222222'], array_column($lampiran['rows'], 'rekening'));
+        $this->assertSame([1_080_000.0, 1_325_000.0], array_column($lampiran['rows'], 'nominal'));
+        $this->assertSame((float) $npd->nominal, array_sum(array_column($lampiran['rows'], 'nominal')));
+        $this->assertStringEndsWith('an. Anggota Pertama', $lampiran['rows'][0]['keterangan']);
+        $this->assertStringEndsWith('an. Anggota Kedua', $lampiran['rows'][1]['keterangan']);
+
+        foreach (['npd.cetak-npd', 'npd.cetak-lampiran', 'npd.cetak-daftar', 'npd.cetak-spd'] as $rute) {
+            $this->actingAs($pptk)->get(route($rute, $npd))->assertOk();
+        }
+
+        // Halaman Edit membuka kembali pilihan yang tersimpan.
+        $isi = $this->actingAs($pptk)->get(route('npd.pd.edit', $npd))->assertOk()->getContent();
+        $this->assertStringContainsString('<option value="semua" selected>', $isi);
+    }
+
+    public function test_pilihan_pptk_mengalihkan_lampiran_ke_pptk(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-penerima-pptk');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payloadOtomatis($masterAnggaran);
+        $payload['mode_penerima'] = 'pptk';
+        $payload['pptk_rekening'] = '99990000';
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload)->assertSessionHasNoErrors();
+
+        $npd = Npd::sole();
+        $namaPptk = \App\Support\PptkPenerima::nama($masterAnggaran, 2026);
+        $lampiran = $this->lampiran($npd);
+
+        $this->assertTrue($npd->detail_json['pptk_penerima']);
+        $this->assertCount(1, $lampiran['rows']);
+        $this->assertSame($namaPptk, $lampiran['rows'][0]['nama']);
+        $this->assertSame((float) $npd->nominal, $lampiran['rows'][0]['nominal']);
+    }
+
+    public function test_anggota_tanpa_cluster_dan_bernilai_nol_diterima_sebagai_tidak_dibayar(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-tidak-dibayar');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payload($masterAnggaran);
+        $payload['tim'][] = self::ANGGOTA_TIDAK_DIBAYAR;
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload)->assertSessionHasNoErrors();
+
+        $npd = Npd::with('tim.paket')->sole();
+
+        // Tetap tercatat di tim, tanpa paket, dan tidak menambah nominal.
+        $this->assertCount(3, $npd->tim);
+        $this->assertSame('Anggota Tidak Dibayar', $npd->tim[2]->nama);
+        $this->assertCount(0, $npd->tim[2]->paket);
+        $this->assertSame(0.0, $npd->tim[2]->hitung()['jumlah']);
+        $this->assertSame(2_405_000.0, (float) $npd->nominal);
+
+        foreach (['npd.cetak-npd', 'npd.cetak-lampiran', 'npd.cetak-daftar', 'npd.cetak-spd'] as $rute) {
+            $this->actingAs($pptk)->get(route($rute, $npd))->assertOk();
+        }
+
+        // Bisa dibuka dan disimpan ulang lewat Edit.
+        $this->actingAs($pptk)->get(route('npd.pd.edit', $npd))->assertOk();
+        $this->actingAs($pptk)->put(route('npd.pd.update', $npd), $payload)->assertSessionHasNoErrors();
+        $this->assertCount(3, $npd->fresh()->tim);
+    }
+
+    public function test_paket_bernilai_tanpa_cluster_tetap_ditolak(): void
+    {
+        $pptk = $this->buatUser('pptk', 'pd-tanpa-cluster');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payload($masterAnggaran);
+        $payload['tim'][1]['paket'][0]['cluster'] = '';
+
+        $this->actingAs($pptk)->post(route('npd.pd.store'), $payload)
+            ->assertSessionHasErrors(['tim.1.paket.0.cluster']);
+
+        $this->assertSame(0, Npd::count());
     }
 
     public function test_anggota_yang_sudah_diisi_tidak_hilang_dari_formulir_setelah_validasi_gagal(): void

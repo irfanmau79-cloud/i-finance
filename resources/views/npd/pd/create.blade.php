@@ -176,11 +176,32 @@
             <div id="tim-list"></div>
             <button type="button" class="add" id="tim-add">+ Tambah Anggota</button>
 
-            @include('npd._pptk-penerima', [
-                'aktif' => (bool) old('pptk_penerima', $npdEdit?->detail_json['pptk_penerima'] ?? false),
-                'rekening' => $npdEdit?->detail_json['pptk_rekening'] ?? '',
-                'catatan' => 'Bila dicentang, tujuan transfer pada NPD dan Lampiran dialihkan ke PPTK. Daftar Pembayaran dan SPD Rampung TETAP memerinci anggota tim seperti biasa.',
-            ])
+            {{-- "Pilih Penerima" (App\Support\PenerimaPd) - pengganti kotak
+                 centang "PPTK Sebagai Penerima" dan radio "Penerima Dana" di
+                 tiap anggota. Hanya menentukan tujuan transfer di Lampiran. --}}
+            @php($modePenerima = old('mode_penerima', $npdEdit ? \App\Support\PenerimaPd::mode($npdEdit) : \App\Support\PenerimaPd::KOORDINATOR))
+            <h3 style="margin-top:22px;">Pilih Penerima</h3>
+            <div class="form-grid" data-penerima-wrap>
+                <div class="fg">
+                    <label class="fl" for="mode_penerima">Penerima Dana</label>
+                    <select id="mode_penerima" name="mode_penerima">
+                        @foreach (\App\Support\PenerimaPd::PILIHAN as $kode => $label)
+                            <option value="{{ $kode }}" @selected($modePenerima === $kode)>{{ $loop->iteration }}. {{ $label }}</option>
+                        @endforeach
+                    </select>
+                </div>
+                <div class="fg" data-penerima-koordinator>
+                    <label class="fl" for="penerima_index">Anggota yang menerima totalnya</label>
+                    <select id="penerima_index" name="penerima_index"></select>
+                </div>
+                <div class="fg" data-penerima-pptk style="display:none;">
+                    <label class="fl" for="pptk_rekening">No. Rekening PPTK</label>
+                    <input type="text" id="pptk_rekening" name="pptk_rekening" inputmode="numeric"
+                           placeholder="Kosongkan bila rekening PPTK sudah ada di Data Pegawai"
+                           value="{{ old('pptk_rekening', $npdEdit?->detail_json['pptk_rekening'] ?? '') }}">
+                </div>
+                <div class="fg span2"><div class="sub" id="mode-penerima-catatan"></div></div>
+            </div>
 
             <div style="margin-top:16px;">
                 @include('npd._keterangan-lampiran', [
@@ -614,7 +635,6 @@
             + '<div class="fg"><label class="fl">Jabatan</label><input type="text" data-jabatan name="tim[' + idx + '][jabatan]" value=""></div>'
             + '<div class="fg"><label class="fl">NIP</label><input type="text" data-nip name="tim[' + idx + '][nip]" value=""></div>'
             + '<div class="fg"><label class="fl">No. Rekening</label><input type="text" data-rekening name="tim[' + idx + '][rekening]" value=""></div>'
-            + '<div class="fg"><label class="fl" style="display:flex;align-items:center;gap:7px;cursor:pointer;"><input type="radio" name="penerima_index" data-penerima-radio value="' + idx + '" style="width:auto;"> Penerima Dana</label></div>'
             + '</div>'
             + '<div class="sub">Paket Tujuan (Uang Harian &amp; Akomodasi)</div>'
             + '<div data-paket-list></div>'
@@ -637,37 +657,69 @@
             + '</div>';
     }
 
+    // ==================== Pilih Penerima ====================
+    const modePenerima = document.getElementById('mode_penerima');
+    const penerimaSelect = document.getElementById('penerima_index');
+    const CATATAN_PENERIMA = {
+        koordinator: 'Seluruh dana ditransfer ke satu anggota tim yang dipilih. Namanya tercetak pada Lampiran dan di akhir Keterangan Lampiran.',
+        semua: 'Tiap anggota menerima bagiannya sendiri: Lampiran memuat satu baris per anggota yang dibayar. Anggota bernilai Rp 0 tidak mendapat baris.',
+        pptk: 'Seluruh dana ditransfer ke PPTK sub kegiatan. Namanya diambil dari pelimpahan (sama dengan tanda tangan PPTK); rekeningnya dari Data Pegawai - isi di sini hanya bila di sana masih kosong.',
+    };
+    // Koordinator diingat lewat nomor INTERNAL barisnya (data-idx), supaya
+    // pilihannya tidak bergeser saat anggota lain dihapus atau ditambah.
+    let penerimaRowIdx = null;
+
     /*
-     * Selain nomor tampilannya, pilihan "Penerima Dana" ikut dirapikan:
-     * nilainya selalu URUTAN baris (0, 1, 2, ...), karena server membaca
-     * penerima_index sebagai urutan anggota (array_values di NpdPdController).
-     *
-     * Nomor internal baris (tim[idx]) terus bertambah dan tidak dipakai ulang.
-     * Begitu anggota diimpor dari Surat Perintah, baris kosong pertama
-     * (idx 0) dibuang dan anggotanya bernomor mulai 1 - sehingga memilih
-     * anggota pertama terkirim sebagai "1" dan penerima dananya bergeser ke
-     * anggota KEDUA tanpa pesan apa pun. Dengan nilai = urutan, yang dipilih
-     * di layar itulah yang disimpan. Selalu ada tepat satu yang terpilih.
+     * Nilai pilihan koordinator selalu URUTAN baris (0, 1, 2, ...), karena
+     * server membaca penerima_index sebagai urutan anggota (rapikanTim di
+     * NpdPdController) - bukan nomor internal baris (tim[idx]), yang terus
+     * bertambah dan tidak dipakai ulang. Selalu ada tepat satu yang terpilih.
      */
+    function refreshPenerima() {
+        const rows = Array.from(timList.querySelectorAll('[data-tim-row]'));
+        if (! rows.some(row => row.dataset.idx === penerimaRowIdx)) {
+            penerimaRowIdx = rows.length ? rows[0].dataset.idx : null;
+        }
+
+        penerimaSelect.innerHTML = rows.map((row, i) => {
+            const nama = row.querySelector('[data-name-input]').value.trim();
+            return '<option value="' + i + '"' + (row.dataset.idx === penerimaRowIdx ? ' selected' : '') + '>'
+                + escapeHtml((i + 1) + '. ' + (nama || 'Belum dipilih')) + '</option>';
+        }).join('');
+    }
+
+    function terapkanModePenerima() {
+        const mode = modePenerima.value;
+        // .form-grid .fg memaksa display:flex, jadi atribut hidden tidak mempan.
+        document.querySelector('[data-penerima-koordinator]').style.display = mode === 'koordinator' ? '' : 'none';
+        document.querySelector('[data-penerima-pptk]').style.display = mode === 'pptk' ? '' : 'none';
+        document.getElementById('mode-penerima-catatan').textContent = CATATAN_PENERIMA[mode] || '';
+    }
+
+    // Pratinjau Keterangan Lampiran mendengarkan event 'change' formulir;
+    // perubahan lewat skrip tidak memicunya sendiri.
+    function kabariPenerimaBerubah() {
+        penerimaSelect.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+
+    penerimaSelect.addEventListener('change', () => {
+        const row = timList.querySelectorAll('[data-tim-row]')[Number(penerimaSelect.value)];
+        if (row) penerimaRowIdx = row.dataset.idx;
+    });
+    modePenerima.addEventListener('change', terapkanModePenerima);
+    terapkanModePenerima();
+
     function renumber() {
         const rows = timList.querySelectorAll('[data-tim-row]');
-        let adaTerpilih = false;
 
         rows.forEach((row, i) => {
             row.querySelector('[data-tim-number]').textContent = i + 1;
             row.querySelector('[data-tim-name-label]').textContent =
                 row.querySelector('[data-name-input]').value.trim() || 'Belum dipilih';
             row.querySelector('[data-tim-remove]').disabled = rows.length <= 1;
-
-            const radio = row.querySelector('[data-penerima-radio]');
-            radio.value = i;
-            adaTerpilih = adaTerpilih || radio.checked;
         });
 
-        if (! adaTerpilih && rows.length) {
-            rows[0].querySelector('[data-penerima-radio]').checked = true;
-        }
-
+        refreshPenerima();
         refreshCopySources();
     }
 
@@ -841,6 +893,8 @@
                         rekeningInput.value = n.rekening || '';
                         nameDrop.classList.remove('show');
                         refreshCopySources();
+                        refreshPenerima();
+                        kabariPenerimaBerubah();
                     });
                     nameDrop.appendChild(el);
                 });
@@ -852,6 +906,7 @@
             pegawaiIdField.value = '';
             renderNameDrop(nameInput.value);
             refreshCopySources();
+            refreshPenerima();
         });
         nameInput.addEventListener('focus', () => renderNameDrop(nameInput.value));
 
@@ -892,6 +947,7 @@
             timRow.remove();
             renumber();
             recalcTotal();
+            kabariPenerimaBerubah();
         });
 
         addPaket(timRow); // minimal 1 paket
@@ -938,9 +994,7 @@
             });
         }
 
-        if (timIndex === initialPenerima || (! initialTim.length && timIndex === 0)) {
-            row.querySelector('[data-penerima-radio]').checked = true;
-        }
+        if (timIndex === initialPenerima) penerimaRowIdx = row.dataset.idx;
         timIndex++;
         renumber();
         recalcTim(row);
@@ -964,9 +1018,12 @@
             representatif: '',
             paket: [],
         }));
-        importedRows[0]?.querySelector('[data-penerima-radio]')?.click();
+        // Bawaannya anggota pertama SP; koordinator sebenarnya dipilih di
+        // "Pilih Penerima".
+        penerimaRowIdx = importedRows[0]?.dataset.idx ?? null;
         renumber();
         recalcTotal();
+        kabariPenerimaBerubah();
     }
 
     document.addEventListener('click', (e) => {
@@ -1039,6 +1096,13 @@
             html += liRow(nama, jumlah);
         });
         html += '</div>';
+
+        html += '<div class="grp"><div class="gt">Penerima</div>'
+            + liRow('Penerima Dana', escapeHtml(modePenerima.selectedOptions[0]?.textContent || '-'))
+            + (modePenerima.value === 'koordinator'
+                ? liRow('Menerima totalnya', escapeHtml(penerimaSelect.selectedOptions[0]?.textContent || '-'))
+                : '')
+            + '</div>';
 
         document.getElementById('rev-box').innerHTML = html;
     }

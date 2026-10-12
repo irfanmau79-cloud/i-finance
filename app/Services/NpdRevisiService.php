@@ -61,6 +61,7 @@ class NpdRevisiService
         'tanggal_berangkat' => ['Tanggal Berangkat', 'tanggal'],
         'tanggal_pulang' => ['Tanggal Pulang', 'tanggal'],
         'keterangan_lampiran' => ['Uraian Lampiran', 'teks'],
+        'mode_penerima' => ['Pilih Penerima', 'teks'],
         'pptk_penerima' => ['PPTK Sebagai Penerima', 'ya'],
         'pptk_rekening' => ['Rekening PPTK', 'teks'],
         'uraian_kegiatan' => ['Uraian Kegiatan', 'teks'],

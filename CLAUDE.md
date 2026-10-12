@@ -150,6 +150,13 @@ Diklat, 2 mode: kontribusi lalu perjalanan).
 Semua: nominal = total BRUTO, validasi `<= sisa_tersedia`, alur transisi 8 aksi
 generik, histori tersimpan, penomoran anti race-condition.
 
+**"Pilih Penerima" pada `pd`** (keputusan Irfan, Oktober 2026;
+`App\Support\PenerimaPd`, `detail_json.mode_penerima`): `koordinator` (satu
+anggota tim yang dipilih menerima totalnya), `semua` (satu baris Lampiran per
+anggota yang DIBAYAR), atau `pptk`. Hanya mengubah Lampiran; Daftar Pembayaran &
+SPD Rampung tetap memerinci seluruh tim. Anggota tanpa cluster dan bernilai 0
+BOLEH - ia ditugaskan dalam SP tetapi tidak dibayar (disimpan tanpa paket).
+
 **`tr` TIDAK LAGI BISA DIBUAT** (keputusan Irfan, Oktober 2026): transport kini
 dibayar lewat NPD Perjalanan Dinas (`pd`), yang formulirnya memuat BBM/tol/tiket
 per anggota. Rute & pilihan "NPD Transport" di halaman Buat NPD sudah dihapus.

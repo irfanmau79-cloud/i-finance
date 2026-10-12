@@ -24,6 +24,7 @@ use App\Support\CoretanPdf;
 use App\Support\MpdfFont;
 use App\Services\KeteranganLampiranService;
 use App\Support\PdfGabung;
+use App\Support\PenerimaPd;
 use App\Support\PptkPenerima;
 use Illuminate\Database\QueryException;
 use Illuminate\Http\Request;
@@ -1644,37 +1645,71 @@ class NpdController extends Controller
     }
 
     /**
-     * Data Lampiran NPD Perjalanan Dinas: 1 baris = total tim (bukan
-     * multi-penerima seperti BJ). Port dari blok "4. Lampiran" di
-     * buatNPDPerjalanan() gas-lama/CodePerjalanan.gs.
+     * Data Lampiran NPD Perjalanan Dinas. Port dari blok "4. Lampiran" di
+     * buatNPDPerjalanan() gas-lama/CodePerjalanan.gs, yang mencetak 1 baris =
+     * total tim; "Pilih Penerima" (App\Support\PenerimaPd) menentukan kepada
+     * siapa baris itu ditujukan:
+     *
+     *  - koordinator : 1 baris senilai nominal NPD ke anggota bertanda penerima.
+     *  - pptk        : 1 baris senilai nominal NPD ke PPTK sub kegiatan.
+     *  - semua       : 1 baris per anggota yang DIBAYAR, senilai bagiannya
+     *                  sendiri. Anggota bernilai 0 (ditugaskan tapi tidak
+     *                  dibayar) tidak mendapat baris.
+     *
+     * $npd->tim sengaja TIDAK disentuh: Daftar Pembayaran dan SPD Rampung
+     * tetap memerinci seluruh anggota apa pun pilihannya.
      */
     private function bangunLampiranPd(Npd $npd): array
     {
         $detail = $npd->detail_json ?? [];
-        $penerimaTim = $npd->tim->firstWhere('is_penerima', true) ?? $npd->tim->first();
+        $tim = $this->timKeArray($npd);
+        $kodeRekening = $npd->masterAnggaran?->kode_rekening_bersih;
 
-        // Mode "PPTK Sebagai Penerima" hanya mengganti tujuan transfer pada
-        // NPD & Lampiran ini. $npd->tim sengaja TIDAK disentuh: Daftar
-        // Pembayaran dan SPD Rampung tetap memerinci anggota sebenarnya.
-        $penerima = PptkPenerima::aktif($npd)
-            ? PptkPenerima::untukNpd($npd)
-            : (object) [
-                'nama' => $penerimaTim->nama ?? '',
-                'rekening' => $penerimaTim->rekening ?? '',
+        // Uraian tiap baris hanya menyebut penerima baris itu sendiri. Uraian
+        // yang diketik manual dipakai apa adanya di semua baris.
+        $keteranganManual = filled($detail['keterangan_lampiran'] ?? null) ? $detail['keterangan_lampiran'] : null;
+        $keteranganUntuk = fn (string $nama): string => $keteranganManual
+            ?? KeteranganLampiranService::pd($detail, $tim, $nama, $kodeRekening);
+
+        $rows = [];
+
+        if (PenerimaPd::mode($npd) === PenerimaPd::SEMUA) {
+            foreach ($npd->tim as $anggota) {
+                $jumlah = $anggota->hitung()['jumlah'];
+
+                if ($jumlah > 0) {
+                    $rows[] = [
+                        'nama' => (string) $anggota->nama,
+                        'rekening' => (string) $anggota->rekening,
+                        'nominal' => $jumlah,
+                        'keterangan' => $keteranganUntuk((string) $anggota->nama),
+                    ];
+                }
+            }
+        }
+
+        // Koordinator / PPTK - juga jaring pengaman bila pada mode Semua
+        // Anggota ternyata tidak ada satu pun yang bernilai.
+        if ($rows === []) {
+            $penerimaTim = $npd->tim->firstWhere('is_penerima', true) ?? $npd->tim->first();
+            $penerima = PptkPenerima::aktif($npd)
+                ? PptkPenerima::untukNpd($npd)
+                : (object) ['nama' => $penerimaTim->nama ?? '', 'rekening' => $penerimaTim->rekening ?? ''];
+
+            $rows[] = [
+                'nama' => (string) $penerima->nama,
+                'rekening' => (string) $penerima->rekening,
+                'nominal' => (float) $npd->nominal,
+                'keterangan' => $keteranganUntuk((string) $penerima->nama),
             ];
+        }
 
-        $komponen = $this->komponenBiayaPd($npd);
-
-        $ketDefault = KeteranganLampiranService::pd(
-            $detail,
-            $this->timKeArray($npd),
-            $penerima->nama,
-            $npd->masterAnggaran?->kode_rekening_bersih,
-        );
-
-        $keterangan = filled($detail['keterangan_lampiran'] ?? null) ? $detail['keterangan_lampiran'] : $ketDefault;
-
-        return ['penerima' => $penerima, 'keterangan' => $keterangan];
+        return [
+            'rows' => $rows,
+            // Baris pertama, untuk pemanggil yang hanya butuh satu penerima.
+            'penerima' => (object) ['nama' => $rows[0]['nama'], 'rekening' => $rows[0]['rekening']],
+            'keterangan' => $rows[0]['keterangan'],
+        ];
     }
 
     /**

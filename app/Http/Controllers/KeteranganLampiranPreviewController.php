@@ -6,6 +6,7 @@ use App\Models\Npd;
 use App\Models\MasterAnggaran;
 use App\Models\SuratPerintah;
 use App\Services\KeteranganLampiranService;
+use App\Support\PenerimaPd;
 use App\Support\PptkPenerima;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
@@ -51,6 +52,7 @@ class KeteranganLampiranPreviewController extends Controller
             'tanggal_selesai' => ['nullable', 'date'],
             'peserta' => ['nullable', 'array', 'max:200'],
             'penerima_transfer' => ['nullable', 'array', 'max:200'],
+            'mode_penerima' => ['nullable', 'string', 'max:30'],
             'pptk_penerima' => ['nullable', 'boolean'],
             'tahun' => ['nullable', 'integer'],
         ]);
@@ -111,6 +113,17 @@ class KeteranganLampiranPreviewController extends Controller
 
         // Mata anggaran menentukan frasa belanjanya: Dalam Kota atau Biasa.
         $anggaran = isset($data['master_anggaran_id']) ? MasterAnggaran::find($data['master_anggaran_id']) : null;
+
+        // "Pilih Penerima" menentukan nama di belakang "an.", persis seperti
+        // baris PERTAMA Lampiran saat dicetak (NpdController::bangunLampiranPd):
+        // PPTK sub kegiatan, anggota pertama yang dibayar, atau koordinatornya.
+        $mode = PenerimaPd::modeDariIsian($data);
+
+        if ($mode === PenerimaPd::PPTK) {
+            $penerima = ['nama' => $anggaran ? PptkPenerima::nama($anggaran, isset($data['tahun']) ? (int) $data['tahun'] : null) : ''];
+        } elseif ($mode === PenerimaPd::SEMUA) {
+            $penerima = collect($tim)->first(fn ($anggota) => PenerimaPd::dibayar((array) $anggota)) ?? $penerima;
+        }
 
         return KeteranganLampiranService::pd([
             'tanggal_berangkat' => $data['tanggal_berangkat'] ?? null,

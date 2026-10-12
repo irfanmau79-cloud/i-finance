@@ -16,6 +16,7 @@ use App\Models\Npd;
 use App\Models\Pegawai;
 use App\Models\SuratPerintah;
 use App\Support\AnggaranNpd;
+use App\Support\PenerimaPd;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\DB;
 use Illuminate\Validation\ValidationException;
@@ -65,12 +66,13 @@ class NpdPdController extends Controller
             ]);
         }
 
-        $tim = array_values($data['tim']);
+        $tim = $this->rapikanTim($data['tim']);
 
         $penerimaIndex = (int) $data['penerima_index'];
         if (! isset($tim[$penerimaIndex])) {
             $penerimaIndex = 0;
         }
+        $modePenerima = PenerimaPd::modeDariIsian($data);
 
         // Nominal NPD = total jumlah seluruh anggota tim (persis _hitungAnggota / buatNPDPerjalanan).
         $nominal = round(NpdPerjalananHitung::totalTim($tim), 2);
@@ -96,14 +98,17 @@ class NpdPdController extends Controller
             'tanggal_berangkat' => $data['tanggal_berangkat'],
             'tanggal_pulang' => $data['tanggal_pulang'],
             'keterangan_lampiran' => KeteranganLampiranIsian::dari($data),
-            // Hanya penanda + rekening yang disimpan. Nama PPTK sengaja TIDAK
-            // disimpan: ia diresolusi ulang saat mencetak dari pelimpahan yang
-            // sama dengan blok tanda tangan, supaya keduanya tidak bisa beda.
-            'pptk_penerima' => (bool) ($data['pptk_penerima'] ?? false),
-            'pptk_rekening' => $data['pptk_rekening'] ?? null,
+            // "Pilih Penerima" - lihat App\Support\PenerimaPd. Penanda lama
+            // pptk_penerima ikut disimpan supaya pembacanya tidak berubah.
+            // Nama PPTK sengaja TIDAK disimpan: ia diresolusi ulang saat
+            // mencetak dari pelimpahan yang sama dengan blok tanda tangan,
+            // supaya keduanya tidak bisa beda.
+            'mode_penerima' => $modePenerima,
+            'pptk_penerima' => $modePenerima === PenerimaPd::PPTK,
+            'pptk_rekening' => $modePenerima === PenerimaPd::PPTK ? ($data['pptk_rekening'] ?? null) : null,
         ];
 
-        $npd = DB::transaction(function () use ($data, $masterAnggaran, $keu, $nominal, $tim, $penerimaIndex, $suratPerintahId, $detailJson, $request) {
+        $npd = DB::transaction(function () use ($data, $masterAnggaran, $keu, $nominal, $tim, $penerimaIndex, $modePenerima, $suratPerintahId, $detailJson, $request) {
             $masterAnggaran = MasterAnggaran::query()->lockForUpdate()->findOrFail($masterAnggaran->id);
             $sisa = $masterAnggaran->sisaTersedia();
 
@@ -130,42 +135,7 @@ class NpdPdController extends Controller
                 'dibuat_oleh' => $request->user()->id,
             ]);
 
-            foreach ($tim as $i => $anggota) {
-                $pegawaiId = $anggota['pegawai_id'] ?? null;
-                $nama = $anggota['nama'];
-
-                $pegawai = $pegawaiId ? Pegawai::find($pegawaiId) : null;
-                if ($pegawai) {
-                    $nama = $pegawai->nama;
-                }
-
-                $npdTim = $npd->tim()->create([
-                    'pegawai_id' => $pegawaiId,
-                    'nama' => $nama,
-                    'jabatan' => $anggota['jabatan'] ?? null,
-                    'bidang_snapshot' => $pegawai?->bidang,
-                    'nip' => $anggota['nip'] ?? null,
-                    'rekening' => $anggota['rekening'] ?? null,
-                    'bbm_nominal' => NpdPerjalananHitung::memakaiNominalBbm($anggota) ? (float) $anggota['bbm_nominal'] : null,
-                    'bbm_liter' => NpdPerjalananHitung::literBbm($anggota),
-                    'bbm_tarif' => $anggota['bbm_tarif'] ?? 0,
-                    'tol' => $anggota['tol'] ?? 0,
-                    'tiket' => $anggota['tiket'] ?? 0,
-                    'representatif' => $anggota['representatif'] ?? 0,
-                    'is_penerima' => $i === $penerimaIndex,
-                ]);
-
-                foreach ($anggota['paket'] as $paket) {
-                    $npdTim->paket()->create([
-                        'cluster' => $paket['cluster'],
-                        'wilayah' => $paket['wilayah'],
-                        'lama_hari' => $paket['lama_hari'],
-                        'tarif_uh' => $paket['tarif_uh'],
-                        'malam' => $paket['malam'] ?? 0,
-                        'tarif_akom' => $paket['tarif_akom'] ?? 0,
-                    ]);
-                }
-            }
+            $this->simpanTim($npd, $tim, $penerimaIndex, $modePenerima);
 
             // Aman dipanggil selalu — method ini sendiri no-op kalau surat_perintah_id kosong.
             $npd->mirrorStatusKeSuratPerintah();
@@ -218,8 +188,9 @@ class NpdPdController extends Controller
         abort_unless($npd->dapatDieditOleh($request->user()), 403);
 
         $data = $request->validated();
-        $tim = array_values($data['tim']);
+        $tim = $this->rapikanTim($data['tim']);
         $penerimaIndex = isset($tim[(int) $data['penerima_index']]) ? (int) $data['penerima_index'] : 0;
+        $modePenerima = PenerimaPd::modeDariIsian($data);
         $nominal = round(NpdPerjalananHitung::totalTim($tim), 2);
         if ($nominal <= 0) {
             return back()->withInput()->withErrors(['tim' => 'Total perjalanan dinas seluruh tim harus lebih dari 0.']);
@@ -239,14 +210,17 @@ class NpdPdController extends Controller
             'tanggal_berangkat' => $data['tanggal_berangkat'],
             'tanggal_pulang' => $data['tanggal_pulang'],
             'keterangan_lampiran' => KeteranganLampiranIsian::dari($data),
-            // Hanya penanda + rekening yang disimpan. Nama PPTK sengaja TIDAK
-            // disimpan: ia diresolusi ulang saat mencetak dari pelimpahan yang
-            // sama dengan blok tanda tangan, supaya keduanya tidak bisa beda.
-            'pptk_penerima' => (bool) ($data['pptk_penerima'] ?? false),
-            'pptk_rekening' => $data['pptk_rekening'] ?? null,
+            // "Pilih Penerima" - lihat App\Support\PenerimaPd. Penanda lama
+            // pptk_penerima ikut disimpan supaya pembacanya tidak berubah.
+            // Nama PPTK sengaja TIDAK disimpan: ia diresolusi ulang saat
+            // mencetak dari pelimpahan yang sama dengan blok tanda tangan,
+            // supaya keduanya tidak bisa beda.
+            'mode_penerima' => $modePenerima,
+            'pptk_penerima' => $modePenerima === PenerimaPd::PPTK,
+            'pptk_rekening' => $modePenerima === PenerimaPd::PPTK ? ($data['pptk_rekening'] ?? null) : null,
         ];
 
-        DB::transaction(function () use ($request, $npd, $data, $tim, $penerimaIndex, $nominal, $detailJson) {
+        DB::transaction(function () use ($request, $npd, $data, $tim, $penerimaIndex, $modePenerima, $nominal, $detailJson) {
             $npd = Npd::query()->lockForUpdate()->findOrFail($npd->id);
             abort_unless($npd->dapatDieditOleh($request->user()), 403);
             $sebelum = app(NpdRevisiService::class)->potret($npd);
@@ -277,7 +251,7 @@ class NpdPdController extends Controller
             ]);
 
             $npd->tim()->delete();
-            $this->simpanTim($npd, $tim, $penerimaIndex);
+            $this->simpanTim($npd, $tim, $penerimaIndex, $modePenerima);
             if ($suratPerintahLama && $suratPerintahLama !== $npd->surat_perintah_id) {
                 $npdLama = clone $npd;
                 $npdLama->surat_perintah_id = $suratPerintahLama;
@@ -297,7 +271,34 @@ class NpdPdController extends Controller
         return redirect($npd->fresh()->urlSetelahEdit($request->user()))->with('success', 'NPD Perjalanan Dinas berhasil diperbarui.');
     }
 
-    private function simpanTim(Npd $npd, array $tim, int $penerimaIndex): void
+    /**
+     * Tim dari formulir, siap dihitung dan disimpan: diurutkan ulang dari 0
+     * dan paket KOSONG (cluster tidak dipilih) dibuang. Anggota yang seluruh
+     * paketnya kosong tetap tinggal di tim tanpa paket - ia ikut ditugaskan
+     * dalam Surat Perintah tetapi tidak dibayar.
+     *
+     * @param  array<int|string, array<string, mixed>>  $tim
+     * @return array<int, array<string, mixed>>
+     */
+    private function rapikanTim(array $tim): array
+    {
+        return array_values(array_map(function (array $anggota): array {
+            $anggota['paket'] = array_values(array_filter(
+                (array) ($anggota['paket'] ?? []),
+                fn ($paket) => filled($paket['cluster'] ?? null),
+            ));
+
+            return $anggota;
+        }, $tim));
+    }
+
+    /**
+     * Penanda is_penerima mengikuti "Pilih Penerima": pada mode Semua Anggota
+     * tiap anggota yang DIBAYAR adalah penerima; selain itu hanya anggota pada
+     * $penerimaIndex (koordinator - pada mode PPTK ia tetap dicatat sebagai
+     * penerima di tim, seperti sebelumnya).
+     */
+    private function simpanTim(Npd $npd, array $tim, int $penerimaIndex, string $modePenerima): void
     {
         foreach ($tim as $i => $anggota) {
             $pegawaiId = $anggota['pegawai_id'] ?? null;
@@ -310,7 +311,8 @@ class NpdPdController extends Controller
                 'bbm_nominal' => NpdPerjalananHitung::memakaiNominalBbm($anggota) ? (float) $anggota['bbm_nominal'] : null,
                 'bbm_liter' => NpdPerjalananHitung::literBbm($anggota), 'bbm_tarif' => $anggota['bbm_tarif'] ?? 0,
                 'tol' => $anggota['tol'] ?? 0, 'tiket' => $anggota['tiket'] ?? 0,
-                'representatif' => $anggota['representatif'] ?? 0, 'is_penerima' => $i === $penerimaIndex,
+                'representatif' => $anggota['representatif'] ?? 0,
+                'is_penerima' => $modePenerima === PenerimaPd::SEMUA ? PenerimaPd::dibayar($anggota) : $i === $penerimaIndex,
             ]);
             foreach ($anggota['paket'] as $paket) {
                 $npdTim->paket()->create([

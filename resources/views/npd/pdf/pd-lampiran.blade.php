@@ -65,18 +65,22 @@
       </tr>
     </thead>
     <tbody>
+      {{-- Satu baris, kecuali "Semua Anggota Tim menjadi Penerima": satu
+           baris per anggota yang dibayar (lihat bangunLampiranPd). --}}
+      @foreach ($rows as $baris)
       <tr>
-        <td class="vtop">{{ $penerima->nama }}</td>
-        <td class="vtop">{{ $penerima->rekening }}</td>
-        <td class="num vtop">{{ fmt_rupiah($npd->nominal) }}</td>
+        <td class="vtop">{{ $baris['nama'] }}</td>
+        <td class="vtop">{{ $baris['rekening'] }}</td>
+        <td class="num vtop">{{ fmt_rupiah($baris['nominal']) }}</td>
         <td class="vtop"></td>
         <td class="num vtop"></td>
         <td class="num vtop">{{ fmt_rupiah(0) }}</td>
-        <td class="num vtop">{{ fmt_rupiah($npd->nominal) }}</td>
+        <td class="num vtop">{{ fmt_rupiah($baris['nominal']) }}</td>
         {{-- GAS mencetak payload.kodeRek, yaitu gabungan kode + uraian rekening
              ("5.1.02.04.001.00001 Belanja Perjalanan Dinas Biasa") - bukan kodenya saja. --}}
-        <td class="vtop ket"><b>{{ $npd->masterAnggaran->rekening_lengkap }}</b><br>{{ $keterangan }}</td>
+        <td class="vtop ket"><b>{{ $npd->masterAnggaran->rekening_lengkap }}</b><br>{{ $baris['keterangan'] }}</td>
       </tr>
+      @endforeach
       <tr class="jml">
         <td colspan="2" class="center bold">J u m l a h</td>
         <td class="num bold">{{ fmt_rupiah($npd->nominal) }}</td>
