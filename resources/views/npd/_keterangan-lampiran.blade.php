@@ -22,8 +22,8 @@
 @endphp
 
 <div class="fg span2" data-ket-wrap data-ket-jenis="{{ $jenis }}" data-ket-url="{{ route('npd.keterangan-lampiran.pratinjau') }}">
-    <label class="fl" for="keterangan_lampiran">Keterangan Lampiran (opsional)</label>
-    <textarea id="keterangan_lampiran" name="keterangan_lampiran" rows="3" data-ket-teks
+    <label class="fl" for="keterangan_lampiran">Keterangan Lampiran</label>
+    <textarea id="keterangan_lampiran" name="keterangan_lampiran" rows="6" data-ket-teks
               placeholder="Terisi otomatis dari data di atas. Boleh diubah bila perlu.">{{ $nilai }}</textarea>
     <input type="hidden" name="keterangan_mode" value="{{ $mode }}" data-ket-mode>
 
