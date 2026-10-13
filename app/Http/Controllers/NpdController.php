@@ -336,7 +336,7 @@ class NpdController extends Controller
         $catatanInput = trim((string) $request->input('catatan', ''));
 
         if (in_array($aksi, Npd::AKSI_WAJIB_CATATAN, true) && $catatanInput === '') {
-            $pesan = $aksi === 'batal_selesai' ? 'Alasan pembatalan wajib diisi.' : 'Catatan revisi wajib diisi.';
+            $pesan = in_array($aksi, ['batal_setuju', 'batal_selesai'], true) ? 'Alasan pembatalan wajib diisi.' : 'Catatan revisi wajib diisi.';
 
             return back()->withErrors(['catatan' => $pesan]);
         }
@@ -396,6 +396,7 @@ class NpdController extends Controller
         $catatanBaru = match (true) {
             $aksi === 'verifikasi' => '[Terverifikasi]'.($catatanInput !== '' ? ' '.$catatanInput : ''),
             in_array($aksi, ['kembali_bpp', 'kembali_pptk'], true) => '[Perlu Revisi] '.$catatanInput,
+            $aksi === 'batal_setuju' => '[Pembatalan Persetujuan] '.$catatanInput,
             $aksi === 'batal_selesai' => '[Pembatalan Selesai] '.$catatanInput,
             default => null,
         };

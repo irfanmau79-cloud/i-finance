@@ -279,6 +279,83 @@ class NpdTransisiTest extends TestCase
         $this->assertSame('[Pembatalan Selesai] Salah input nominal', $npdSelesai->catatan);
     }
 
+    /**
+     * "Batalkan Persetujuan NPD": NPD Disetujui - BPP ditarik kembali ke
+     * Draft NPD - BPP oleh BPP atau superadmin, wajib beralasan, dan nomor
+     * NPD-nya tidak ikut hilang.
+     */
+    public function test_bpp_dan_superadmin_bisa_membatalkan_persetujuan_npd(): void
+    {
+        $bpp = $this->buatUser('bpp', 'batal-setuju-bpp');
+        $superadmin = $this->buatUser('superadmin', 'batal-setuju-admin');
+
+        foreach ([$bpp, $superadmin] as $i => $user) {
+            $npd = $this->buatNpd();
+            $npd->update(['status' => 'NPD Disetujui - BPP', 'nomor_lengkap' => "0{$i}/NPD-Keu.1.IBC/7/2026"]);
+
+            // Tanpa alasan ditolak, status tidak berubah.
+            $this->actingAs($user)
+                ->post(route('npd.transisi', $npd), ['aksi' => 'batal_setuju'])
+                ->assertSessionHasErrors(['catatan']);
+            $this->assertSame('NPD Disetujui - BPP', $npd->fresh()->status);
+
+            $this->actingAs($user)
+                ->post(route('npd.transisi', $npd), ['aksi' => 'batal_setuju', 'catatan' => 'Salah rekening'])
+                ->assertSessionHasNoErrors();
+
+            $npd->refresh();
+            $this->assertSame('Draft NPD - BPP', $npd->status);
+            $this->assertSame('[Pembatalan Persetujuan] Salah rekening', $npd->catatan);
+            $this->assertSame("0{$i}/NPD-Keu.1.IBC/7/2026", $npd->nomor_lengkap);
+
+            $histori = $npd->historiStatus()->latest('nomor_urut')->first();
+            $this->assertSame('batal_setuju', $histori->aksi);
+            $this->assertSame('NPD Disetujui - BPP', $histori->status_asal);
+            $this->assertSame('Draft NPD - BPP', $histori->status_tujuan);
+            $this->assertSame($user->id, $histori->user_id);
+        }
+    }
+
+    public function test_batalkan_persetujuan_ditolak_untuk_role_lain_dan_status_lain(): void
+    {
+        $npd = $this->buatNpd();
+        $npd->update(['status' => 'NPD Disetujui - BPP']);
+
+        foreach (['pptk', 'verifikator', 'bendahara_pengeluaran'] as $role) {
+            $this->actingAs($this->buatUser($role, 'batal-setuju-'.$role))
+                ->post(route('npd.transisi', $npd), ['aksi' => 'batal_setuju', 'catatan' => 'Coba-coba']);
+
+            $this->assertSame('NPD Disetujui - BPP', $npd->fresh()->status, "Role {$role} tidak boleh membatalkan persetujuan.");
+        }
+
+        // BPP sendiri pun hanya bisa dari status NPD Disetujui - BPP.
+        $bpp = $this->buatUser('bpp', 'batal-setuju-status');
+        $npd->update(['status' => 'Selesai']);
+        $this->actingAs($bpp)
+            ->post(route('npd.transisi', $npd), ['aksi' => 'batal_setuju', 'catatan' => 'Coba-coba'])
+            ->assertSessionHasErrors(['aksi']);
+        $this->assertSame('Selesai', $npd->fresh()->status);
+    }
+
+    public function test_tombol_batalkan_persetujuan_tampil_di_persetujuan_npd_hanya_untuk_bpp_dan_superadmin(): void
+    {
+        $npd = $this->buatNpd();
+        $npd->update(['status' => 'NPD Disetujui - BPP']);
+
+        foreach (['bpp', 'superadmin'] as $role) {
+            $this->actingAs($this->buatUser($role, 'tombol-batal-'.$role))
+                ->get(route('npd.persetujuan'))
+                ->assertOk()
+                ->assertSee('data-wf-open="batal_setuju"', false);
+        }
+
+        // Bendahara Pengeluaran hanya memantau antrean ini.
+        $this->actingAs($this->buatUser('bendahara_pengeluaran', 'tombol-batal-bp'))
+            ->get(route('npd.persetujuan'))
+            ->assertOk()
+            ->assertDontSee('data-wf-open="batal_setuju"', false);
+    }
+
     public function test_superadmin_boleh_melakukan_aksi_apa_pun(): void
     {
         $superadmin = $this->buatUser('superadmin', 'boleh-semua');

@@ -134,6 +134,15 @@ class Npd extends Model
             'roles' => ['bpp'],
             'label' => 'Setujui Final',
         ],
+        // Persetujuan yang keliru ditarik kembali ke meja BPP, tempat NPD
+        // bisa disunting, dikembalikan ke PPTK, atau disetujui ulang. Nomor
+        // NPD dari Verifikator tidak ikut dilepas.
+        'batal_setuju' => [
+            'from' => 'NPD Disetujui - BPP',
+            'to' => 'Draft NPD - BPP',
+            'roles' => ['bpp'],
+            'label' => 'Batalkan Persetujuan NPD',
+        ],
         'selesai' => [
             'from' => 'NPD Disetujui - BPP',
             'to' => 'Selesai',
@@ -186,7 +195,7 @@ class Npd extends Model
     public const AKSI_WARISAN = ['ajukan_bpp'];
 
     /** Aksi yang mewajibkan catatan/alasan diisi. */
-    public const AKSI_WAJIB_CATATAN = ['kembali_bpp', 'kembali_pptk', 'batal_selesai'];
+    public const AKSI_WAJIB_CATATAN = ['kembali_bpp', 'kembali_pptk', 'batal_setuju', 'batal_selesai'];
 
     /**
      * Aksi meja Verifikator. Keduanya terikat ke Verifikator yang ditetapkan

@@ -45,9 +45,10 @@
         'setuju' => '<svg viewBox="0 0 24 24"><polyline points="20 6 9 17 4 12"/></svg>',
         'selesai' => '<svg viewBox="0 0 24 24"><path d="M4 22V4a1 1 0 0 1 1-1h13l-2 5 2 5H6"/></svg>',
         'batal_selesai' => '<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><polyline points="3 3 3 8 8 8"/></svg>',
+        'batal_setuju' => '<svg viewBox="0 0 24 24"><path d="M3 12a9 9 0 1 0 3-6.7L3 8"/><polyline points="3 3 3 8 8 8"/></svg>',
     ];
-    $wfDanger = ['kembali_bpp', 'kembali_pptk', 'batal_selesai'];
-    $aksiButuhForm = ['verifikasi', 'kembali_pptk', 'batal_selesai'];
+    $wfDanger = ['kembali_bpp', 'kembali_pptk', 'batal_setuju', 'batal_selesai'];
+    $aksiButuhForm = ['verifikasi', 'kembali_pptk', 'batal_setuju', 'batal_selesai'];
     $role = auth()->user()->role;
 
     // Penugasan Verifikator per Sub Kegiatan dimuat SEKALI untuk seluruh
@@ -438,6 +439,7 @@
     var WF_FORM_META = {
         verifikasi: { title: 'Verifikasi NPD', nomor: true, catatanLabel: 'Catatan untuk BPP (opsional)', catatanRequired: false },
         kembali_pptk: { title: 'Kembalikan ke PPTK', nomor: false, catatanLabel: 'Catatan Revisi (wajib)', catatanRequired: true },
+        batal_setuju: { title: 'Batalkan Persetujuan NPD', nomor: false, catatanLabel: 'Alasan Pembatalan (wajib)', catatanRequired: true },
         batal_selesai: { title: 'Batalkan Status Selesai', nomor: false, catatanLabel: 'Alasan Pembatalan (wajib)', catatanRequired: true },
     };
 
