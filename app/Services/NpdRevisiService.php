@@ -380,6 +380,12 @@ class NpdRevisiService
             // baru tidak terbaca "berubah" padahal nominalnya sama.
             $rata['Nominal BBM'] = $this->tampil(\App\Helpers\NpdPerjalananHitung::bbm($baris), 'uang');
 
+            // Jenis BBM tambahan ("Tambah Jenis BBM"), tiap jenis satu kolom.
+            foreach (\App\Helpers\NpdPerjalananHitung::bbmLain($baris) as $i => $lain) {
+                $rata['BBM jenis '.($i + 2)] = $this->tampil($lain['nominal'], 'uang')
+                    .' @ '.\App\Helpers\NpdPerjalananHitung::formatTarifBbm($lain['tarif']);
+            }
+
             foreach (array_values($baris['paket'] ?? []) as $i => $paket) {
                 $rata['Paket '.($i + 1)] = sprintf(
                     '%s %s, %s hari x %s, %s malam x %s',

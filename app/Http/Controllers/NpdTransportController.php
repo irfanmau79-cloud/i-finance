@@ -173,7 +173,7 @@ class NpdTransportController extends Controller
                 'nip' => $sumber?->nip,
                 'rekening' => $sumber?->rekening,
                 'bbm_nominal' => NpdPerjalananHitung::memakaiNominalBbm($t) ? (float) $t['bbm_nominal'] : null,
-                'bbm_liter' => NpdPerjalananHitung::literBbm($t),
+                'bbm_liter' => NpdPerjalananHitung::literBbmUtama($t),
                 'bbm_tarif' => (float) ($t['bbm_tarif'] ?? 0),
                 'tol' => (float) ($t['tol'] ?? 0),
                 'tiket' => (float) ($t['tiket'] ?? 0),

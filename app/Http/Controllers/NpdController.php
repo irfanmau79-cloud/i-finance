@@ -1597,29 +1597,59 @@ class NpdController extends Controller
             }
         }
 
-        // ---- III. Transport: 3 baris agregat (BBM liter, e-Toll, Tiket) ----
-        $totBbm = $totTol = $totTiket = $totLiter = 0.0;
-        // true bila ada anggota yang BBM-nya diisi sebagai nominal (cara sekarang).
-        $literDihitung = false;
+        // ---- III. Transport: BBM (satu baris per tarif), e-Toll, Tiket ----
+        //
+        // BBM seluruh tim dikumpulkan PER TARIF per liter: satu tarif satu
+        // baris, memuat jumlah liter, tarifnya, dan nominalnya. Tim yang
+        // memakai dua jenis BBM ("Tambah Jenis BBM") mencetak dua baris.
+        $totBbm = $totTol = $totTiket = 0.0;
+        $perTarif = [];
         foreach ($tim as $anggota) {
             $h = $anggota->hitung();
             $totBbm += $h['bbm'];
             $totTol += $h['tol'];
             $totTiket += $h['tiket'];
-            $totLiter += NpdPerjalananHitung::literBbm($anggota->toHitungArray());
-            $literDihitung = $literDihitung || $anggota->bbm_nominal !== null;
+
+            foreach (NpdPerjalananHitung::rincianBbm($anggota->toHitungArray()) as $bbm) {
+                $kunci = number_format($bbm['tarif'], 2, '.', '');
+                $perTarif[$kunci] ??= ['tarif' => $bbm['tarif'], 'nominal' => 0.0, 'liter' => 0.0, 'liter_dihitung' => false];
+                $perTarif[$kunci]['nominal'] += $bbm['nominal'];
+                $perTarif[$kunci]['liter'] += $bbm['liter'];
+                $perTarif[$kunci]['liter_dihitung'] = $perTarif[$kunci]['liter_dihitung'] || ! $bbm['liter_diketik'];
+            }
         }
         $tTr = $totBbm + $totTol + $totTiket;
-        // Liter yang DIKETIK (NPD lama) dicetak apa adanya, seluruh angka di
-        // belakang koma, karena memang diketik panjang supaya liter x tarif
-        // tepat membulat ke nominal BBM. Liter yang DIHITUNG dari Total
-        // Nominal BBM : Tarif hampir selalu pecahan tak berujung, jadi
-        // dibulatkan dua desimal.
-        $literStr = NpdTim::formatLiter($literDihitung ? round($totLiter, 2) : $totLiter);
-        $rowsTr =
-            '<tr class="dat"><td class="center v bl0">1</td><td class="v">BBM</td><td class="v"></td>'
-                .'<td class="center">'.($totBbm > 0 ? $literStr.' liter' : '').'</td><td class="num"></td><td class="num br0">'.fmt_rupiah($totBbm).'</td></tr>'
-            .'<tr class="dat"><td class="center v bl0">2</td><td class="v">e-Toll</td><td class="v"></td>'
+
+        $perTarif = array_values($perTarif);
+        $nTarif = max(1, count($perTarif));
+        $rowsTr = '';
+
+        foreach ($perTarif ?: [null] as $idx => $bbm) {
+            $rowsTr .= '<tr class="dat">';
+            if ($idx === 0) {
+                $rowsTr .= '<td class="center v bl0" rowspan="'.$nTarif.'">1</td><td class="v" rowspan="'.$nTarif.'">BBM</td>'
+                    .'<td class="v" rowspan="'.$nTarif.'"></td>';
+            }
+
+            if ($bbm === null) {
+                $rowsTr .= '<td class="center"></td><td class="num"></td><td class="num br0">'.fmt_rupiah(0).'</td></tr>';
+
+                continue;
+            }
+
+            // Liter yang DIKETIK (NPD lama) dicetak apa adanya, seluruh angka
+            // di belakang koma, karena memang diketik panjang supaya liter x
+            // tarif tepat membulat ke nominal BBM. Liter yang DIHITUNG dari
+            // Total Nominal BBM : Tarif hampir selalu pecahan tak berujung,
+            // jadi dibulatkan dua desimal.
+            $literStr = NpdTim::formatLiter($bbm['liter_dihitung'] ? round($bbm['liter'], 2) : $bbm['liter']);
+            $rowsTr .= '<td class="center">'.$literStr.' liter</td>'
+                .'<td class="num">'.($bbm['tarif'] > 0 ? NpdPerjalananHitung::formatTarifBbm($bbm['tarif']) : '').'</td>'
+                .'<td class="num br0">'.fmt_rupiah($bbm['nominal']).'</td></tr>';
+        }
+
+        $rowsTr .=
+            '<tr class="dat"><td class="center v bl0">2</td><td class="v">e-Toll</td><td class="v"></td>'
                 .'<td class="center"></td><td class="num"></td><td class="num br0">'.fmt_rupiah($totTol).'</td></tr>'
             .'<tr class="dat"><td class="center v bl0">3</td><td class="v">Tiket</td><td class="v"></td>'
                 .'<td class="center"></td><td class="num"></td><td class="num br0">'.fmt_rupiah($totTiket).'</td></tr>';

@@ -269,6 +269,86 @@ class NpdPdTest extends TestCase
             ->assertSee('"bbm_nominal":105000', false);
     }
 
+    /**
+     * "Tambah Jenis BBM": satu anggota mengisi BBM dengan lebih dari satu
+     * tarif. Nominalnya dijumlahkan, dan SPD Rampung mencetak satu baris per
+     * tarif - liter, tarif per liter, dan nominalnya.
+     */
+    public function test_tambah_jenis_bbm_dijumlahkan_dan_dirinci_per_tarif_di_spd_rampung(): void
+    {
+        $superadmin = $this->buatUser('superadmin', 'pd-bbm-lain');
+        $anggaran = $this->buatMasterAnggaran();
+        $satuJenis = $this->payload($anggaran);
+        unset($satuJenis['tim'][0]['bbm_liter']);
+        $satuJenis['tim'][0]['bbm_nominal'] = 250_000;
+        $satuJenis['tim'][0]['bbm_tarif'] = 12_950;
+
+        $duaJenis = $this->payload($anggaran, $this->buatSuratPerintah('002/SP/TEST/2026'));
+        $duaJenis['tim'][0] = $satuJenis['tim'][0];
+        $duaJenis['tim'][0]['bbm_lain'] = [
+            // Kunci tidak berurutan dan satu baris kosong, seperti dari formulir.
+            7 => ['nominal' => 159_500, 'tarif' => 15_950],
+            9 => ['nominal' => '', 'tarif' => ''],
+        ];
+        // Anggota kedua memakai tarif yang sama dengan jenis kedua anggota pertama.
+        $duaJenis['tim'][1]['bbm_nominal'] = 31_900;
+        $duaJenis['tim'][1]['bbm_tarif'] = 15_950;
+
+        // Jenis tambahan pun wajib bertarif.
+        $tanpaTarif = $duaJenis;
+        $tanpaTarif['tim'][0]['bbm_lain'][7]['tarif'] = '';
+        $this->actingAs($superadmin)->post(route('npd.pd.store'), $tanpaTarif)
+            ->assertSessionHasErrors('tim.0.bbm_lain.7.nominal');
+        $this->assertSame(0, Npd::count());
+
+        $this->actingAs($superadmin)->post(route('npd.pd.store'), $satuJenis)->assertSessionHasNoErrors();
+        $npdSatu = Npd::with('tim.paket')->latest('id')->firstOrFail();
+        $this->actingAs($superadmin)->post(route('npd.pd.store'), $duaJenis)->assertSessionHasNoErrors();
+        $npd = Npd::with('tim.paket')->latest('id')->firstOrFail();
+        $anggota = $npd->tim->firstWhere('nama', 'Anggota Pertama');
+
+        // Jenis pertama tetap di kolomnya; tambahannya di bbm_lain, tanpa baris kosong.
+        $this->assertSame(250_000.0, (float) $anggota->bbm_nominal);
+        $this->assertEquals([['nominal' => 159_500, 'tarif' => 15_950]], $anggota->bbm_lain);
+        $this->assertSame(409_500.0, (float) $anggota->hitung()['bbm']);
+        $this->assertNull($npdSatu->tim->firstWhere('nama', 'Anggota Pertama')->bbm_lain);
+        // Nominal NPD naik sebesar BBM tambahan (159.500 + 31.900).
+        $this->assertSame(191_400.0, (float) $npd->nominal - (float) $npdSatu->nominal);
+
+        // SPD Rampung: dua tarif, dua baris. Tarif 15.950 menggabungkan dua anggota.
+        $spd = $this->barisSpd($npd);
+        $this->assertSame(441_400.0, (float) $spd['t_tr'] - 250_000.0);
+        $this->assertStringContainsString('rowspan="2">BBM</td>', $spd['rows_tr']);
+        $this->assertStringContainsString(
+            '<td class="center">19,31 liter</td><td class="num">Rp12.950/liter</td><td class="num br0">'.fmt_rupiah(250_000).'</td>',
+            $spd['rows_tr']
+        );
+        $this->assertStringContainsString(
+            '<td class="center">12 liter</td><td class="num">Rp15.950/liter</td><td class="num br0">'.fmt_rupiah(191_400).'</td>',
+            $spd['rows_tr']
+        );
+        $this->actingAs($superadmin)->get(route('npd.cetak-spd', $npd))->assertOk();
+
+        // Satu tarif tetap satu baris, kini dengan tarifnya.
+        $spdSatu = $this->barisSpd($npdSatu);
+        $this->assertStringContainsString('rowspan="1">BBM</td>', $spdSatu['rows_tr']);
+        $this->assertStringContainsString('Rp12.950/liter', $spdSatu['rows_tr']);
+        $this->assertSame(1, substr_count($spdSatu['rows_tr'], '/liter'));
+
+        // Formulir: tombolnya ada, dan NPD yang disunting membawa jenis tambahannya.
+        $npd->update(['status' => 'Draft NPD - PPTK']);
+        $this->actingAs($superadmin)->get(route('npd.pd.edit', $npd))->assertOk()
+            ->assertSee('Tambah Jenis BBM')
+            ->assertSee('"bbm_nominal":250000,', false)
+            ->assertSee('"bbm_lain":[{"nominal":159500,"tarif":15950}]', false);
+    }
+
+    public function test_tarif_bbm_dicetak_tanpa_desimal_kecuali_memang_ada(): void
+    {
+        $this->assertSame('Rp15.950/liter', \App\Helpers\NpdPerjalananHitung::formatTarifBbm(15_950.0));
+        $this->assertSame('Rp12.950,50/liter', \App\Helpers\NpdPerjalananHitung::formatTarifBbm(12_950.5));
+    }
+
     public function test_liter_bbm_dicetak_dengan_seluruh_angka_di_belakang_koma(): void
     {
         $this->assertSame('10,123456', NpdTim::formatLiter(10.123456));

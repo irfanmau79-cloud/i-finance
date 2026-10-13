@@ -357,8 +357,10 @@
         'nip' => $tim->nip,
         'rekening' => $tim->rekening,
         // NPD lama (liter x tarif) dibuka dengan nominal hasil kalinya.
-        'bbm_nominal' => \App\Helpers\NpdPerjalananHitung::bbm($tim->toHitungArray()) ?: null,
+        // Hanya jenis BBM pertama - tambahannya di bbm_lain.
+        'bbm_nominal' => \App\Helpers\NpdPerjalananHitung::bbm(['bbm_lain' => []] + $tim->toHitungArray()) ?: null,
         'bbm_tarif' => $tim->bbm_tarif,
+        'bbm_lain' => \App\Helpers\NpdPerjalananHitung::bbmLain($tim->toHitungArray()),
         'tol' => $tim->tol,
         'tiket' => $tim->tiket,
         'representatif' => $tim->representatif,
@@ -658,6 +660,18 @@
             + '</div>';
     }
 
+    // "Tambah Jenis BBM": BBM dengan tarif per liter yang berbeda (mis.
+    // Pertamax dan Dexlite). Tiap jenis jadi baris sendiri di SPD Rampung.
+    function bbmLainRowHtml(timIdx, bid) {
+        return '<div data-bbm-lain-row style="position:relative;padding-right:32px;margin-top:8px;">'
+            + '<button type="button" class="del" data-bbm-lain-remove style="top:22px;right:0;width:24px;height:24px;font-size:14px;" title="Hapus jenis BBM ini">&times;</button>'
+            + '<div class="row">'
+            + '<div><label class="fl">Total Nominal BBM (Rp)</label><input type="number" step="1" min="0" data-bbm-lain-nominal name="tim[' + timIdx + '][bbm_lain][' + bid + '][nominal]" value=""></div>'
+            + '<div><label class="fl">Tarif BBM/liter (Rp)</label><input type="number" step="0.01" min="0" data-bbm-lain-tarif name="tim[' + timIdx + '][bbm_lain][' + bid + '][tarif]" value=""></div>'
+            + '</div>'
+            + '</div>';
+    }
+
     function timRowHtml(idx) {
         return '<div class="anggota" data-tim-row data-idx="' + idx + '">'
             + '<button type="button" class="del" data-tim-remove title="Hapus anggota">&times;</button>'
@@ -695,6 +709,8 @@
             + '<div><label class="fl">Total Nominal BBM (Rp)</label><input type="number" step="1" min="0" data-bbm-nominal name="tim[' + idx + '][bbm_nominal]" value=""></div>'
             + '<div><label class="fl">Tarif BBM/liter (Rp)</label><input type="number" step="0.01" min="0" data-bbm-tarif name="tim[' + idx + '][bbm_tarif]" value="' + TARIF_BBM_STANDAR + '"></div>'
             + '</div>'
+            + '<div data-bbm-lain-list></div>'
+            + '<button type="button" class="add" style="padding:7px;font-size:12px;margin-top:8px;" data-bbm-lain-add>+ Tambah Jenis BBM</button>'
             + '<div class="badge-tot" style="margin:6px 0 0;"><span>Jumlah Liter (otomatis)</span><span class="v" data-bbm-liter-teks>0 liter</span></div>'
             + '<div class="row" style="margin-top:8px;">'
             + '<div><label class="fl">Tol (Rp)</label><input type="number" step="0.01" min="0" data-tol name="tim[' + idx + '][tol]" value=""></div>'
@@ -836,6 +852,10 @@
             })),
             bbm_nominal: timRow.querySelector('[data-bbm-nominal]').value,
             bbm_tarif: timRow.querySelector('[data-bbm-tarif]').value,
+            bbm_lain: Array.from(timRow.querySelectorAll('[data-bbm-lain-row]')).map(bbmRow => ({
+                nominal: bbmRow.querySelector('[data-bbm-lain-nominal]').value,
+                tarif: bbmRow.querySelector('[data-bbm-lain-tarif]').value,
+            })),
             tol: timRow.querySelector('[data-tol]').value,
             tiket: timRow.querySelector('[data-tiket]').value,
             representatif: timRow.querySelector('[data-representatif]').value,
@@ -853,6 +873,8 @@
 
         targetRow.querySelector('[data-bbm-nominal]').value = data.bbm_nominal;
         targetRow.querySelector('[data-bbm-tarif]').value = data.bbm_tarif;
+        targetRow.querySelector('[data-bbm-lain-list]').innerHTML = '';
+        data.bbm_lain.forEach(item => addBbmLain(targetRow, item));
         targetRow.querySelector('[data-tol]').value = data.tol;
         targetRow.querySelector('[data-tiket]').value = data.tiket;
         targetRow.querySelector('[data-representatif]').value = data.representatif;
@@ -876,9 +898,16 @@
         // BBM: yang diketik Total Nominal-nya. Liter tidak diketik - ia
         // nominal dibagi tarif per liter, sama dengan yang nanti tercetak
         // di SPD Rampung.
-        const bbm = Math.round(parseFloat(timRow.querySelector('[data-bbm-nominal]').value) || 0);
+        let bbm = Math.round(parseFloat(timRow.querySelector('[data-bbm-nominal]').value) || 0);
         const tarifLiter = parseFloat(timRow.querySelector('[data-bbm-tarif]').value) || 0;
-        const liter = tarifLiter > 0 ? bbm / tarifLiter : 0;
+        let liter = tarifLiter > 0 ? bbm / tarifLiter : 0;
+        // Jenis BBM tambahan: nominal dan liternya ikut dijumlahkan.
+        timRow.querySelectorAll('[data-bbm-lain-row]').forEach(bbmRow => {
+            const nominalLain = Math.round(parseFloat(bbmRow.querySelector('[data-bbm-lain-nominal]').value) || 0);
+            const tarifLain = parseFloat(bbmRow.querySelector('[data-bbm-lain-tarif]').value) || 0;
+            bbm += nominalLain;
+            liter += tarifLain > 0 ? nominalLain / tarifLain : 0;
+        });
         timRow.querySelector('[data-bbm-liter-teks]').textContent = liter.toLocaleString('id-ID', { maximumFractionDigits: 2 }) + ' liter';
 
         const tol = parseFloat(timRow.querySelector('[data-tol]').value) || 0;
@@ -941,6 +970,26 @@
         const paketRow = wrapper.firstElementChild;
         timRow.querySelector('[data-paket-list]').appendChild(paketRow);
         attachPaketEvents(paketRow, timRow);
+        recalcTim(timRow);
+    }
+
+    function addBbmLain(timRow, data = null) {
+        paketSeq++;
+        const wrapper = document.createElement('div');
+        wrapper.innerHTML = bbmLainRowHtml(timRow.getAttribute('data-idx'), paketSeq);
+        const bbmRow = wrapper.firstElementChild;
+        timRow.querySelector('[data-bbm-lain-list]').appendChild(bbmRow);
+
+        if (data) {
+            bbmRow.querySelector('[data-bbm-lain-nominal]').value = data.nominal ?? '';
+            bbmRow.querySelector('[data-bbm-lain-tarif]').value = data.tarif ?? '';
+        }
+
+        bbmRow.querySelectorAll('input').forEach(el => el.addEventListener('input', () => recalcTim(timRow)));
+        bbmRow.querySelector('[data-bbm-lain-remove]').addEventListener('click', () => {
+            bbmRow.remove();
+            recalcTim(timRow);
+        });
         recalcTim(timRow);
     }
 
@@ -1018,6 +1067,7 @@
         });
 
         timRow.querySelector('[data-paket-add]').addEventListener('click', () => addPaket(timRow));
+        timRow.querySelector('[data-bbm-lain-add]').addEventListener('click', () => addBbmLain(timRow));
 
         timRow.querySelector('[data-tim-remove]').addEventListener('click', () => {
             if (timList.querySelectorAll('[data-tim-row]').length <= 1) return;
@@ -1060,6 +1110,9 @@
             // Tarif kosong (anggota baru dari SP) memakai tarif standar.
             row.querySelector('[data-bbm-tarif]').value = (data.bbm_tarif === '' || data.bbm_tarif === null || data.bbm_tarif === undefined)
                 ? TARIF_BBM_STANDAR : data.bbm_tarif;
+            // Object.values: isian yang kembali setelah validasi gagal
+            // berkunci nomor internal baris, jadi bisa berupa objek.
+            Object.values(data.bbm_lain || {}).forEach(item => addBbmLain(row, item));
             row.querySelector('[data-tol]').value = data.tol ?? 0;
             row.querySelector('[data-tiket]').value = data.tiket ?? 0;
             row.querySelector('[data-representatif]').value = data.representatif ?? 0;

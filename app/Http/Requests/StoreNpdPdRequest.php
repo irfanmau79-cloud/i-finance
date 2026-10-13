@@ -93,6 +93,18 @@ class StoreNpdPdRequest extends FormRequest
             // Liter hanya diterima untuk permintaan cara lama (tanpa bbm_nominal).
             'tim.*.bbm_liter' => ['nullable', 'numeric', 'min:0'],
             'tim.*.bbm_tarif' => ['nullable', 'numeric', 'min:0'],
+            // "Tambah Jenis BBM": BBM dengan tarif per liter yang berbeda.
+            // Aturannya sama dengan jenis pertama; baris yang nominalnya
+            // dikosongkan tidak disimpan (NpdPerjalananHitung::bbmLain()).
+            'tim.*.bbm_lain' => ['nullable', 'array', 'max:10'],
+            'tim.*.bbm_lain.*.nominal' => ['nullable', 'numeric', 'min:0', function (string $atribut, mixed $nilai, \Closure $gagal) {
+                $tarif = $this->input(preg_replace('/nominal$/', 'tarif', $atribut));
+
+                if ((float) $nilai > 0 && (float) $tarif <= 0) {
+                    $gagal('Tarif BBM per liter wajib diisi bila Total Nominal BBM diisi.');
+                }
+            }],
+            'tim.*.bbm_lain.*.tarif' => ['nullable', 'numeric', 'min:0'],
             'tim.*.tol' => ['nullable', 'numeric', 'min:0'],
             'tim.*.tiket' => ['nullable', 'numeric', 'min:0'],
             'tim.*.representatif' => ['nullable', 'numeric', 'min:0'],

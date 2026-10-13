@@ -309,7 +309,9 @@ class NpdPdController extends Controller
                 'bidang_snapshot' => $pegawai?->bidang,
                 'nip' => $anggota['nip'] ?? null, 'rekening' => $anggota['rekening'] ?? null,
                 'bbm_nominal' => NpdPerjalananHitung::memakaiNominalBbm($anggota) ? (float) $anggota['bbm_nominal'] : null,
-                'bbm_liter' => NpdPerjalananHitung::literBbm($anggota), 'bbm_tarif' => $anggota['bbm_tarif'] ?? 0,
+                'bbm_liter' => NpdPerjalananHitung::literBbmUtama($anggota), 'bbm_tarif' => $anggota['bbm_tarif'] ?? 0,
+                // Jenis BBM tambahan; baris yang nominalnya kosong tidak disimpan.
+                'bbm_lain' => NpdPerjalananHitung::bbmLain($anggota) ?: null,
                 'tol' => $anggota['tol'] ?? 0, 'tiket' => $anggota['tiket'] ?? 0,
                 'representatif' => $anggota['representatif'] ?? 0,
                 'is_penerima' => $modePenerima === PenerimaPd::SEMUA ? PenerimaPd::dibayar($anggota) : $i === $penerimaIndex,
