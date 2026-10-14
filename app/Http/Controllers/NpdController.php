@@ -1849,7 +1849,8 @@ class NpdController extends Controller
             $tPph += $pph21;
             $tNetto += $netto;
 
-            $body .= '<tr>'
+            // drow1: tinggi minimal 5 baris teks, lihat ns-daftar.blade.php.
+            $body .= '<tr class="drow1">'
                 .'<td class="center">'.$no.'</td>'
                 .'<td>'.e($n->nama).'</td>'
                 .'<td>'.e($n->jabatan).'</td>'

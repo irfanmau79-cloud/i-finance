@@ -22,7 +22,12 @@
   table.daftar-line td.isi { vertical-align:top; text-align:justify; font-size:7.5pt; }
 
   table.dt { width:100%; border-collapse:collapse; }
-  table.dt tr.drow1 td { height:32pt; }
+  /* Tinggi MINIMAL tiap baris narasumber = 5 baris teks (6,8pt x 1,3), supaya
+     ruang tanda tangannya cukup walau nama/jabatannya hanya satu baris. Isi
+     yang lebih panjang tetap memanjangkan barisnya. Pola selektornya sama
+     dengan Daftar Bayar Kontribusi Diklat - mPDF tidak menerapkan bentuk
+     "table.dt tr.drow1 td". */
+  tr.drow1 td { height:48pt; }
   table.dt th, table.dt td { border:1pt solid #000; padding:2pt 3pt; vertical-align:middle; }
   table.dt th { background:#f2f2f2; text-align:center; font-size:6.5pt; }
   table.dt td { font-size:6.8pt; }
