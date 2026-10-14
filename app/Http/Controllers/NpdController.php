@@ -1888,7 +1888,10 @@ class NpdController extends Controller
     {
         // Kalimatnya dirakit di KeteranganLampiranService supaya dokumen dan
         // kolom Uraian di daftar NPD berasal dari satu tempat.
-        return KeteranganLampiranService::narasumber($npd->detail_json ?? []);
+        return KeteranganLampiranService::narasumber(
+            $npd->detail_json ?? [],
+            KeteranganLampiranService::adaTransportNarasumber($npd),
+        );
     }
 
     /**

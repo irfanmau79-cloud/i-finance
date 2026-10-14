@@ -152,9 +152,14 @@ class KeteranganLampiranService
      * Narasumber. Port dari introDaftar di buatNPDNarasumber()
      * gas-lama/CodeNarasumber.gs.
      *
+     * Bila ada narasumber yang menerima Pengganti Transport, kurungnya
+     * menjadi "(Narasumber dan Pengganti Transport)" - sama seperti uraian
+     * NPD Perjalanan Dinas yang menyebut komponen biayanya (permintaan
+     * Irfan, Oktober 2026).
+     *
      * @param  array<string, mixed>  $detail
      */
-    public static function narasumber(array $detail): string
+    public static function narasumber(array $detail, bool $adaTransport = false): string
     {
         $tglMulai = $detail['tanggal_mulai'] ?? null;
         $tglSelesai = $detail['tanggal_selesai'] ?? null;
@@ -163,7 +168,8 @@ class KeteranganLampiranService
             ? 'pada tanggal '.self::tanggalIndo($tglMulai).' s.d '.self::tanggalIndo($tglSelesai)
             : '';
 
-        return 'Pembayaran Honorarium Narasumber atau Pembahas, Moderator, Pembawa Acara dan Panitia (Narasumber) dalam rangka '
+        return 'Pembayaran Honorarium Narasumber atau Pembahas, Moderator, Pembawa Acara dan Panitia ('
+            .($adaTransport ? 'Narasumber dan Pengganti Transport' : 'Narasumber').') dalam rangka '
             .($detail['uraian_kegiatan'] ?? '').($periode !== '' ? ' '.$periode : '');
     }
 
@@ -196,9 +202,15 @@ class KeteranganLampiranService
                 $npd->masterAnggaran?->kode_rekening_bersih,
             ),
             'kd' => self::kd($detail, $npd->mode_kd, self::namaPenerimaKd($npd)),
-            'ns' => self::narasumber($detail),
+            'ns' => self::narasumber($detail, self::adaTransportNarasumber($npd)),
             default => null,
         };
+    }
+
+    /** Ada narasumber dengan Pengganti Transport lebih dari 0. */
+    public static function adaTransportNarasumber(Npd $npd): bool
+    {
+        return $npd->narasumber->contains(fn ($n) => (float) $n->transport > 0);
     }
 
     /**

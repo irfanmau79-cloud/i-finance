@@ -146,6 +146,25 @@ class NpdUraianDaftarTest extends TestCase
         $this->assertSame($this->uraianLampiran($npd), $uraian);
     }
 
+    public function test_narasumber_dengan_transport_menyebut_pengganti_transport_di_uraian(): void
+    {
+        $npd = $this->npd('ns', ['uraian_kegiatan' => 'Sosialisasi Pengendalian Gratifikasi']);
+        $baris = fn (string $nama, float $transport) => [
+            'nama' => $nama, 'jumlah_jp' => 2, 'tarif_jp' => 500_000, 'transport' => $transport, 'pph21' => 0,
+        ];
+
+        $npd->narasumber()->create($baris('Narasumber Satu', 0));
+        $this->assertStringContainsString('Panitia (Narasumber) dalam rangka', $npd->fresh()->uraianRingkas());
+
+        // Cukup satu narasumber yang menerima transport.
+        $npd->narasumber()->create($baris('Narasumber Dua', 150_000));
+        $uraian = $npd->fresh()->uraianRingkas();
+
+        $this->assertStringContainsString('Panitia (Narasumber dan Pengganti Transport) dalam rangka Sosialisasi', $uraian);
+        // Lampiran, Daftar Pembayaran, dan kolom Uraian daftar NPD sekalimat.
+        $this->assertSame($this->uraianLampiran($npd), $uraian);
+    }
+
     public function test_uraian_lampiran_yang_diketik_manual_dipakai_apa_adanya(): void
     {
         $npd = $this->npdPd(['keterangan_lampiran' => 'Uraian khusus yang diketik petugas']);
