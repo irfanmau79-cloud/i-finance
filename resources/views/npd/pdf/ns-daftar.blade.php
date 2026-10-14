@@ -66,16 +66,20 @@
         <th rowspan="2" style="width:12%;">JABATAN</th>
         <th colspan="6">RINCIAN PERHITUNGAN</th>
         <th rowspan="2" style="width:11%;">JUMLAH YANG<br>DITERIMA</th>
-        <th rowspan="2" style="width:9%;">TANDA<br>TANGAN</th>
+        <th rowspan="2" style="width:13%;">TANDA<br>TANGAN</th>
       </tr>
       <tr>
-        {{-- Lebar kolom dalam diukur dari dokumen tertandatangani; tanpa
-             ini mPDF melebarkannya otomatis dan tabelnya meleset. --}}
+        {{-- Lebar kolom dalam ditetapkan; tanpa ini mPDF melebarkannya
+             otomatis dan tabelnya meleset. Nominal dicetak tanpa ",00"
+             (lihat rowsDaftarNara), jadi Honorarium, Transport, dan Jumlah
+             Kotor dipersempit dan ruangnya diberikan ke Tanda Tangan.
+             Judul dua kolom tersempit diperkecil LANGSUNG di selnya (mPDF
+             mengabaikan kelas di sini) supaya tidak terpenggal di tengah kata. --}}
         <th style="width:3.2%;">JP</th>
         <th style="width:7.2%;">SATUAN<br>(Rp)</th>
-        <th style="width:11.4%;">JUMLAH<br>HONORARIUM</th>
-        <th style="width:10.3%;">PENGGANTI<br>TRANSPORT</th>
-        <th style="width:8.9%;">JUMLAH<br>KOTOR</th>
+        <th style="width:9.5%;font-size:5.8pt;padding:2pt 1pt;">JUMLAH<br>HONORARIUM</th>
+        <th style="width:8.5%;font-size:5.8pt;padding:2pt 1pt;">PENGGANTI<br>TRANSPORT</th>
+        <th style="width:8.6%;">JUMLAH<br>KOTOR</th>
         <th style="width:8%;">PPh<br>PASAL 21</th>
       </tr>
     </thead>

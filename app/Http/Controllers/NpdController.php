@@ -1828,6 +1828,9 @@ class NpdController extends Controller
      */
     private function rowsDaftarNara(Collection $narasumber): array
     {
+        // Nominal dicetak TANPA ",00" (permintaan kantor, Oktober 2026): dengan
+        // dua desimal angkanya tidak muat dan terpotong ke baris berikutnya.
+        $rp = fn ($angka): string => number_format((float) $angka, 0, ',', '.');
         $body = '';
         $tHonor = $tTransport = $tBruto = $tPph = $tNetto = 0.0;
         $no = 0;
@@ -1851,12 +1854,12 @@ class NpdController extends Controller
                 .'<td>'.e($n->nama).'</td>'
                 .'<td>'.e($n->jabatan).'</td>'
                 .'<td class="center">'.(int) $n->jumlah_jp.'</td>'
-                .'<td class="num">'.fmt_rupiah($n->tarif_jp).'</td>'
-                .'<td class="num">'.fmt_rupiah($honor).'</td>'
-                .'<td class="num">'.($transport > 0 ? fmt_rupiah($transport) : '-').'</td>'
-                .'<td class="num">'.fmt_rupiah($bruto).'</td>'
-                .'<td class="num">'.fmt_rupiah($pph21).'</td>'
-                .'<td class="num bold">'.fmt_rupiah($netto).'</td>'
+                .'<td class="num">'.$rp($n->tarif_jp).'</td>'
+                .'<td class="num">'.$rp($honor).'</td>'
+                .'<td class="num">'.($transport > 0 ? $rp($transport) : '-').'</td>'
+                .'<td class="num">'.$rp($bruto).'</td>'
+                .'<td class="num">'.$rp($pph21).'</td>'
+                .'<td class="num bold">'.$rp($netto).'</td>'
                 .'<td></td>'
                 .'</tr>';
         }
@@ -1865,11 +1868,11 @@ class NpdController extends Controller
         // lihat selRpJumlah().
         $body .= '<tr class="bold">'
             .self::SEL_JUDUL_JUMLAH
-            .'<td class="num bold"><b>'.fmt_rupiah($tHonor).'</b></td>'
-            .'<td class="num bold"><b>'.($tTransport > 0 ? fmt_rupiah($tTransport) : '-').'</b></td>'
-            .'<td class="num bold"><b>'.fmt_rupiah($tBruto).'</b></td>'
-            .'<td class="num bold"><b>'.fmt_rupiah($tPph).'</b></td>'
-            .'<td class="num bold"><b>'.fmt_rupiah($tNetto).'</b></td>'
+            .'<td class="num bold"><b>'.$rp($tHonor).'</b></td>'
+            .'<td class="num bold"><b>'.($tTransport > 0 ? $rp($tTransport) : '-').'</b></td>'
+            .'<td class="num bold"><b>'.$rp($tBruto).'</b></td>'
+            .'<td class="num bold"><b>'.$rp($tPph).'</b></td>'
+            .'<td class="num bold"><b>'.$rp($tNetto).'</b></td>'
             .'<td></td>'
             .'</tr>';
 
