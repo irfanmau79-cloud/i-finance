@@ -122,6 +122,50 @@ class NpdNarasumberTest extends TestCase
         $showResponse->assertSee('Siti Rahayu');
     }
 
+    /**
+     * Biaya KU/RTGS per narasumber (n.biaya di _hitungNara() GAS): memotong
+     * netto/transfer, TIDAK mengubah nominal NPD yang tetap total bruto.
+     */
+    public function test_biaya_ku_rtgs_narasumber_memotong_netto_tanpa_mengubah_nominal(): void
+    {
+        $pptk = $this->buatUser('pptk', 'ns-rtgs');
+        $masterAnggaran = $this->buatMasterAnggaran();
+        $this->limpahkanSubKegiatan($pptk, $masterAnggaran);
+
+        $payload = $this->payload($masterAnggaran);
+        $payload['narasumber'][0]['biaya_ku_rtgs'] = 6_500;
+        $this->actingAs($pptk)->post(route('npd.ns.store'), $payload)->assertSessionHasNoErrors();
+
+        $npd = Npd::with('narasumber')->firstOrFail();
+        $this->assertEquals(2_850_000.0, (float) $npd->nominal);
+
+        $n1 = $npd->narasumber->firstWhere('nama', 'Dr. Ahmad Fauzi');
+        $this->assertEquals(6_500.0, (float) $n1->biaya_ku_rtgs);
+        $this->assertEquals(2_143_500.0, $n1->netto);
+        // Isian kosong tersimpan 0.
+        $this->assertEquals(0.0, (float) $npd->narasumber->firstWhere('nama', 'Siti Rahayu')->biaya_ku_rtgs);
+
+        // Lampiran: kolom Biaya KU/RTGS terisi, transfer = bruto - PPh - biaya.
+        $lampiran = (new \ReflectionMethod(\App\Http\Controllers\NpdController::class, 'bangunLampiranNara'))
+            ->invoke(app(\App\Http\Controllers\NpdController::class), $npd);
+        $this->assertEquals(6_500.0, $lampiran['rows'][0]['biaya']);
+        $this->assertEquals(2_143_500.0, $lampiran['rows'][0]['transfer']);
+        $this->assertEquals(6_500.0, $lampiran['totals']['biaya']);
+        $this->assertEquals(2_143_500.0 + 570_000.0, $lampiran['totals']['transfer']);
+
+        $this->actingAs($pptk)->get(route('npd.cetak-lampiran', $npd))->assertOk();
+        $this->actingAs($pptk)->get(route('npd.cetak-daftar-nara', $npd))->assertOk();
+
+        // Formulir Edit memuat nilainya kembali.
+        $this->actingAs($pptk)->get(route('npd.ns.edit', $npd))
+            ->assertOk()
+            ->assertSee('name="narasumber[0][biaya_ku_rtgs]" value="6500.00"', false);
+
+        $payload['narasumber'][0]['biaya_ku_rtgs'] = -1;
+        $this->actingAs($pptk)->put(route('npd.ns.update', $npd), $payload)
+            ->assertSessionHasErrors('narasumber.0.biaya_ku_rtgs');
+    }
+
     public function test_narasumber_pegawai_master_mengambil_nama_dari_master_bukan_input_manual(): void
     {
         $pptk = $this->buatUser('pptk', 'ns-master');

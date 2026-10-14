@@ -1893,8 +1893,8 @@ class NpdController extends Controller
 
     /**
      * Data Lampiran NPD Narasumber: satu baris per narasumber, kolom PPh
-     * tunggal "PPh Pasal 21". PPN dan Biaya KU/RTGS selalu nol, sama seperti
-     * _rowsLampiranNara di gas-lama/CodeNarasumber.gs.
+     * tunggal "PPh Pasal 21". PPN selalu nol; Biaya KU/RTGS per narasumber
+     * (kosong = 0), sama seperti _rowsLampiranNara di gas-lama/CodeNarasumber.gs.
      */
     private function bangunLampiranNara(Npd $npd): array
     {
@@ -1907,9 +1907,11 @@ class NpdController extends Controller
         foreach ($npd->narasumber as $n) {
             $bruto = (float) $n->bruto;
             $pph21 = (float) $n->pph21;
+            $biaya = (float) $n->biaya_ku_rtgs;
             $netto = (float) $n->netto;
 
             $totals['bruto'] += $bruto;
+            $totals['biaya'] += $biaya;
             $totals['transfer'] += $netto;
             $totalsPph['PPh Pasal 21'] += $pph21;
 
@@ -1919,7 +1921,7 @@ class NpdController extends Controller
                 'bruto' => $bruto,
                 'ppn' => 0.0,
                 'pph' => ['PPh Pasal 21' => $pph21],
-                'biaya' => 0.0,
+                'biaya' => $biaya,
                 'transfer' => $netto,
                 'keterangan' => filled($n->uraian) ? $n->uraian : $ketDefault,
             ];

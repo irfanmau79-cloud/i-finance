@@ -107,6 +107,7 @@ class NpdRevisiService
             'tarif_jp' => ['Tarif/JP', 'uang'],
             'transport' => ['Transport', 'uang'],
             'pph21' => ['PPh 21', 'uang'],
+            'biaya_ku_rtgs' => ['Biaya KU/RTGS', 'uang'],
             'uraian' => ['Uraian', 'teks'],
         ]],
         'peserta' => ['Peserta', [

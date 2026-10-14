@@ -272,6 +272,7 @@
                         <th class="num">Transport</th>
                         <th class="num">Bruto</th>
                         <th class="num">PPh 21</th>
+                        <th class="num">Biaya KU/RTGS</th>
                         <th class="num">Diterima</th>
                     </tr>
                 </thead>
@@ -286,11 +287,12 @@
                             <td class="num">Rp {{ number_format((float) $n->transport, 2, ',', '.') }}</td>
                             <td class="num">Rp {{ number_format($n->bruto, 2, ',', '.') }}</td>
                             <td class="num">Rp {{ number_format((float) $n->pph21, 2, ',', '.') }}</td>
+                            <td class="num">Rp {{ number_format((float) $n->biaya_ku_rtgs, 2, ',', '.') }}</td>
                             <td class="num">Rp {{ number_format($n->netto, 2, ',', '.') }}</td>
                         </tr>
                     @empty
                         <tr>
-                            <td colspan="9" class="kosong">Belum ada narasumber.</td>
+                            <td colspan="10" class="kosong">Belum ada narasumber.</td>
                         </tr>
                     @endforelse
                 </tbody>

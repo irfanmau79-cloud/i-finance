@@ -113,6 +113,7 @@ class NpdNarasumberController extends Controller
             'tarif_jp' => $n->tarif_jp,
             'transport' => $n->transport,
             'pph21' => $n->pph21,
+            'biaya_ku_rtgs' => $n->biaya_ku_rtgs,
             'uraian' => $n->uraian,
         ])->all();
 
@@ -229,6 +230,7 @@ class NpdNarasumberController extends Controller
                 'tarif_jp' => $tarifJp,
                 'transport' => $transport,
                 'pph21' => $pph21,
+                'biaya_ku_rtgs' => (float) ($n['biaya_ku_rtgs'] ?? 0),
                 'uraian' => $n['uraian'] ?? null,
                 'bruto' => $bruto,
             ];

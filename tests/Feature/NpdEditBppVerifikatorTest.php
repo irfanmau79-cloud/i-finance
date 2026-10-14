@@ -513,6 +513,54 @@ class NpdEditBppVerifikatorTest extends TestCase
         $this->actingAs($verifikator)->get(route('npd.cetak-npd', ['npd' => $npd, 'versi' => 'draft']))->assertOk();
     }
 
+    /**
+     * Kotak Panjar / Tanpa Panjar bukan teks biasa: centang lama yang
+     * "dicoret" tetap terlihat tercentang, sehingga draft hasil suntingan
+     * BPP dulu selalu tampak Panjar. Pilihan lama harus kosong, centang
+     * baru merah, dan catatan pengubahnya di luar kotak.
+     */
+    public function test_cetak_draft_memindahkan_centang_jenis_npd_yang_diubah_bpp(): void
+    {
+        [$npd, $anggaran, , $bpp] = $this->npdDiMejaBpp();
+        $this->assertSame('Tanpa Panjar', $npd->jenis_panjar);
+
+        $payload = $this->payloadBj($anggaran, [['Toko Asal', 1_000_000]]);
+        $payload['jenis_panjar'] = 'Panjar';
+        $this->actingAs($bpp)->put(route('npd.bj.update', $npd), $payload);
+        $this->assertSame('Panjar', $npd->fresh()->jenis_panjar);
+
+        $layanan = app(NpdRevisiService::class);
+        $bangun = fn (Npd $n): string => view('npd.pdf.npd', [
+            'npd' => $n->loadMissing('masterAnggaran.tagging'),
+            'kpa' => (object) ['nama' => 'KPA', 'pangkat' => '', 'nip' => ''],
+            'pptk' => (object) ['nama' => 'PPTK', 'pangkat' => '', 'nip' => ''],
+            'noDpa' => '',
+            'sisaAnggaran' => $n->sisaAnggaranCetak(50_000_000),
+            'logoPath' => null,
+        ])->render();
+
+        $hasil = CoretanOtomatis::gabung(
+            $bangun($layanan->draftAwal($npd)),
+            $bangun($npd->fresh()),
+            fn () => $bpp->nama,
+        );
+
+        $kotak = [];
+        preg_match_all('#<table class="kotak"><tr><td>(.*?)</td></tr></table>#su', $hasil, $kotak);
+        $this->assertCount(2, $kotak[1]);
+        // Panjar (pilihan baru): centang merah. Tanpa Panjar (pilihan lama): kosong.
+        $this->assertStringContainsString("\u{2713}", html_entity_decode($kotak[1][0]));
+        $this->assertStringContainsString('color:#c00000', $kotak[1][0]);
+        $this->assertStringNotContainsString('line-through', $kotak[1][0]);
+        $this->assertStringNotContainsString('Diubah oleh', $kotak[1][0]);
+        $this->assertSame('', trim(html_entity_decode($kotak[1][1]), " \u{00A0}"));
+        // Satu catatan saja, di belakang label pilihan baru.
+        $this->assertSame(1, substr_count($hasil, 'Diubah oleh '.$bpp->nama));
+        $this->assertMatchesRegularExpression('#<b>Panjar</b><br><span[^>]*>Diubah oleh '.preg_quote($bpp->nama, '#').'</span>#u', $hasil);
+
+        $this->actingAs($bpp)->get(route('npd.cetak-gabungan', ['npd' => $npd, 'versi' => 'draft']))->assertOk();
+    }
+
     public function test_coretan_otomatis_menyelaraskan_baris_yang_dihapus_dan_ditambah(): void
     {
         $tabel = fn (array $baris) => '<html><body><table>'.implode('', array_map(

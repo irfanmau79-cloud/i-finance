@@ -49,6 +49,7 @@ class StoreNpdNarasumberRequest extends FormRequest
             'narasumber.*.tarif_jp' => ['required', 'numeric', 'min:0'],
             'narasumber.*.transport' => ['nullable', 'numeric', 'min:0'],
             'narasumber.*.pph21' => ['nullable', 'numeric', 'min:0'],
+            'narasumber.*.biaya_ku_rtgs' => ['nullable', 'numeric', 'min:0'],
             'narasumber.*.uraian' => ['nullable', 'string'],
             // Unggah SPJ - OPSIONAL, lihat App\Services\SpjBerkasService.
             // Aturannya diambil dari service supaya kelima jenis NPD dan
@@ -72,6 +73,7 @@ class StoreNpdNarasumberRequest extends FormRequest
             'narasumber.*.nama' => 'Nama Narasumber',
             'narasumber.*.jumlah_jp' => 'Jumlah JP',
             'narasumber.*.tarif_jp' => 'Tarif per JP',
+            'narasumber.*.biaya_ku_rtgs' => 'Biaya KU/RTGS',
             ...SpjBerkasService::labelIsian(),
         ];
     }

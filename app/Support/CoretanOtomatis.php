@@ -58,6 +58,14 @@ class CoretanOtomatis
     private static ?array $rekam = null;
 
     /**
+     * Langkah yang baru boleh dijalankan setelah seluruh dokumen selesai
+     * dibandingkan - lihat bandingKotak().
+     *
+     * @var array<int, callable(): void>
+     */
+    private static array $tunda = [];
+
+    /**
      * @param  (callable(string, string): ?string)|null  $siapa  nama pengubah tiap coretan;
      *                                                           dicetak sebagai "Diubah oleh ..." di dekatnya
      */
@@ -115,7 +123,17 @@ class CoretanOtomatis
             return $htmlLama;
         }
 
-        self::banding($badanLama, $badanBaru);
+        self::$tunda = [];
+
+        try {
+            self::banding($badanLama, $badanBaru);
+
+            foreach (self::$tunda as $langkah) {
+                $langkah();
+            }
+        } finally {
+            self::$tunda = [];
+        }
 
         return str_replace('<?xml encoding="UTF-8">', '', (string) $lama->saveHTML());
     }
@@ -135,6 +153,12 @@ class CoretanOtomatis
 
     private static function banding(DOMElement $lama, DOMElement $baru): void
     {
+        if (self::kotakCentang($lama) && self::kotakCentang($baru)) {
+            self::bandingKotak($lama, $baru);
+
+            return;
+        }
+
         $anakLama = self::anakBerarti($lama);
         $anakBaru = self::anakBerarti($baru);
 
@@ -169,6 +193,85 @@ class CoretanOtomatis
 
         self::coretSemua($lama);
         self::tempelkan($lama, $baru);
+    }
+
+    /** Kotak pilihan (mis. Panjar / Tanpa Panjar di NPD): <table class="kotak">. */
+    private static function kotakCentang(DOMElement $elemen): bool
+    {
+        return strtolower($elemen->nodeName) === 'table'
+            && in_array('kotak', preg_split('/\s+/', $elemen->getAttribute('class')), true);
+    }
+
+    /**
+     * Kotak pilihan tidak bisa diperlakukan sebagai teks biasa: tanda centang
+     * yang "dicoret" tetap terlihat seperti kotak tercentang, dan catatan
+     * "Diubah oleh ..." tidak muat di kotak 11pt. Jadi pilihan lama
+     * dikosongkan, centang pilihan baru ditulis merah, dan catatannya
+     * diletakkan di belakang label pilihan baru. Pilihan lamanya tetap
+     * terbaca di Histori Perubahan Data.
+     */
+    private static function bandingKotak(DOMElement $lama, DOMElement $baru): void
+    {
+        $tercentangLama = self::rapikan($lama->textContent) !== '';
+        $tercentangBaru = self::rapikan($baru->textContent) !== '';
+
+        if ($tercentangLama === $tercentangBaru) {
+            return;
+        }
+
+        $sel = $lama->getElementsByTagName('td')->item(0);
+        $selBaru = $baru->getElementsByTagName('td')->item(0);
+
+        if (! $sel instanceof DOMElement || ! $selBaru instanceof DOMElement) {
+            return;
+        }
+
+        $dok = $lama->ownerDocument;
+
+        while ($sel->firstChild) {
+            $sel->removeChild($sel->firstChild);
+        }
+
+        if (! $tercentangLama) {
+            foreach ($selBaru->childNodes as $anak) {
+                $salinan = $dok->importNode($anak, true);
+
+                if ($salinan instanceof DOMElement) {
+                    $salinan->setAttribute('style', trim($salinan->getAttribute('style').';'.self::GAYA_BARU, ';'));
+                }
+
+                $sel->appendChild($salinan);
+            }
+
+            // Ditunda sampai seluruh dokumen selesai dibandingkan: sel label
+            // ini belum diperiksa, dan catatan yang sudah ada di dalamnya
+            // akan terbaca sebagai perubahan isi label.
+            $label = self::labelKotak($lama);
+
+            if ($label !== null && $label->lastChild) {
+                $sesudah = $label->lastChild;
+                $teks = self::rapikan($label->textContent);
+                self::$tunda[] = fn () => self::catat($sesudah, '', $teks);
+            }
+
+            return;
+        }
+
+        $sel->appendChild($dok->createTextNode("\u{00A0}"));
+    }
+
+    /** Sel label tepat di sebelah kanan sel yang memuat kotak pilihan. */
+    private static function labelKotak(DOMElement $kotak): ?DOMElement
+    {
+        $sel = $kotak->parentNode;
+
+        for ($sebelah = $sel?->nextSibling; $sebelah !== null; $sebelah = $sebelah->nextSibling) {
+            if ($sebelah instanceof DOMElement) {
+                return $sebelah;
+            }
+        }
+
+        return null;
     }
 
     /**

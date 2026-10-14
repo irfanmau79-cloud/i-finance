@@ -6,7 +6,8 @@
     $tarifVal = old("narasumber.$i.tarif_jp", $n['tarif_jp'] ?? '');
     $transportVal = old("narasumber.$i.transport", $n['transport'] ?? '');
     $pph21Val = old("narasumber.$i.pph21", $n['pph21'] ?? '');
-    $uraianVal = old("narasumber.$i.uraian", $n['uraian'] ?? '');
+    $biayaKuRtgsVal = old("narasumber.$i.biaya_ku_rtgs", $n['biaya_ku_rtgs'] ?? '');
+    $uraianVal =old("narasumber.$i.uraian", $n['uraian'] ?? '');
     $pegawaiIdVal = old("narasumber.$i.pegawai_id", $n['pegawai_id'] ?? '');
     $vendorIdVal = old("narasumber.$i.vendor_id", $n['vendor_id'] ?? '');
 @endphp
@@ -57,6 +58,10 @@
         <div class="fg">
             <label class="fl">PPh Pasal 21 (Rp)</label>
             <input type="number" step="0.01" min="0" data-pph21 name="narasumber[{{ $i }}][pph21]" value="{{ $pph21Val }}">
+        </div>
+        <div class="fg">
+            <label class="fl">Biaya KU/RTGS (Rp)</label>
+            <input type="number" step="0.01" min="0" data-biaya-ku-rtgs name="narasumber[{{ $i }}][biaya_ku_rtgs]" value="{{ $biayaKuRtgsVal }}">
         </div>
         <div class="fg">
             <label class="fl">Diterima / Netto (otomatis)</label>

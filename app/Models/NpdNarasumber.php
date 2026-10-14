@@ -18,6 +18,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
     'tarif_jp',
     'transport',
     'pph21',
+    'biaya_ku_rtgs',
     'uraian',
 ])]
 class NpdNarasumber extends Model
@@ -31,6 +32,7 @@ class NpdNarasumber extends Model
             'tarif_jp' => 'decimal:2',
             'transport' => 'decimal:2',
             'pph21' => 'decimal:2',
+            'biaya_ku_rtgs' => 'decimal:2',
         ];
     }
 
@@ -61,9 +63,13 @@ class NpdNarasumber extends Model
         return Attribute::get(fn () => $this->honor + (float) $this->transport);
     }
 
-    /** netto = bruto - pph21 — jumlah yang benar-benar diterima narasumber. */
+    /**
+     * netto = bruto - pph21 - biaya KU/RTGS — jumlah yang benar-benar
+     * diterima narasumber. Sama dengan _hitungNara() di
+     * gas-lama/CodeNarasumber.gs.
+     */
     protected function netto(): Attribute
     {
-        return Attribute::get(fn () => $this->bruto - (float) $this->pph21);
+        return Attribute::get(fn () => $this->bruto - (float) $this->pph21 - (float) $this->biaya_ku_rtgs);
     }
 }

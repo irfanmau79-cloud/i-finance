@@ -399,6 +399,7 @@
             + '<div class="fg"><label class="fl">Pengganti Transport (Rp)</label><input type="number" step="0.01" min="0" data-transport name="narasumber[' + idx + '][transport]" value=""></div>'
             + '<div class="fg"><label class="fl">Bruto (otomatis)</label><input type="text" data-bruto readonly value="Rp 0" style="background:var(--surface-2);font-weight:700;"></div>'
             + '<div class="fg"><label class="fl">PPh Pasal 21 (Rp)</label><input type="number" step="0.01" min="0" data-pph21 name="narasumber[' + idx + '][pph21]" value=""></div>'
+            + '<div class="fg"><label class="fl">Biaya KU/RTGS (Rp)</label><input type="number" step="0.01" min="0" data-biaya-ku-rtgs name="narasumber[' + idx + '][biaya_ku_rtgs]" value=""></div>'
             + '<div class="fg"><label class="fl">Diterima / Netto (otomatis)</label><input type="text" data-netto readonly value="Rp 0" style="background:var(--surface-2);font-weight:700;"></div>'
             + '<div class="fg span2"><label class="fl">Keterangan Lampiran (opsional)</label><input type="text" name="narasumber[' + idx + '][uraian]" value="" placeholder="Kosongkan untuk memakai uraian kegiatan"></div>'
             + '</div>'
@@ -418,10 +419,12 @@
         const tarif = parseFloat(row.querySelector('[data-tarif]').value) || 0;
         const transport = parseFloat(row.querySelector('[data-transport]').value) || 0;
         const pph21 = parseFloat(row.querySelector('[data-pph21]').value) || 0;
+        const biaya = parseFloat(row.querySelector('[data-biaya-ku-rtgs]').value) || 0;
 
         const honor = jp * tarif;
         const bruto = honor + transport;
-        const netto = bruto - pph21;
+        // Biaya KU/RTGS memotong transfer, bukan nominal NPD (tetap bruto).
+        const netto = bruto - pph21 - biaya;
 
         row.querySelector('[data-honor]').value = formatRupiah(honor);
         row.querySelector('[data-bruto]').value = formatRupiah(bruto);
@@ -491,7 +494,7 @@
         });
         nameInput.addEventListener('focus', () => { if (! manual.aktif()) renderNameDrop(nameInput.value); });
 
-        ['[data-jp]', '[data-tarif]', '[data-transport]', '[data-pph21]'].forEach(sel => {
+        ['[data-jp]', '[data-tarif]', '[data-transport]', '[data-pph21]', '[data-biaya-ku-rtgs]'].forEach(sel => {
             row.querySelector(sel).addEventListener('input', () => recalcRow(row));
         });
 
