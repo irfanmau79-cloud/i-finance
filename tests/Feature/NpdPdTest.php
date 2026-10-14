@@ -343,6 +343,50 @@ class NpdPdTest extends TestCase
             ->assertSee('"bbm_lain":[{"nominal":159500,"tarif":15950}]', false);
     }
 
+    /**
+     * "Input Manual": anggota yang namanya diketik sendiri tidak ditautkan ke
+     * Data Pegawai - walau payload-nya membawa pegawai_id - dan tidak dihitung
+     * di Dashboard Perjalanan Dinas. Dokumen dan nominal NPD tidak terpengaruh.
+     */
+    public function test_anggota_input_manual_tidak_ditautkan_dan_tidak_masuk_dashboard(): void
+    {
+        $superadmin = $this->buatUser('superadmin', 'pd-input-manual');
+        $pegawai = \App\Models\Pegawai::create(['nama' => 'Anggota Pertama', 'nip' => '198001012000011001', 'jabatan' => 'Auditor', 'bidang' => 'Irban I', 'aktif' => true]);
+        $payload = $this->payload($this->buatMasterAnggaran());
+        $payload['tim'][0]['pegawai_id'] = $pegawai->id;
+        $payload['tim'][0]['input_manual'] = '1';
+        $payload['tim'][0]['nama'] = 'Tenaga Ahli Luar';
+        $payload['tim'][1]['input_manual'] = '0';
+
+        $this->actingAs($superadmin)->post(route('npd.pd.store'), $payload)->assertSessionHasNoErrors();
+        $npd = Npd::with('tim.paket')->latest('id')->firstOrFail();
+        $manual = $npd->tim->firstWhere('nama', 'Tenaga Ahli Luar');
+        $biasa = $npd->tim->firstWhere('nama', 'Anggota Kedua');
+
+        $this->assertNotNull($manual, 'Nama yang diketik dipakai apa adanya, bukan nama pegawai.');
+        $this->assertTrue($manual->input_manual);
+        $this->assertNull($manual->pegawai_id);
+        $this->assertFalse($biasa->input_manual);
+        // Nominal NPD tetap memuat seluruh tim.
+        $this->assertSame((float) $npd->nominal, (float) $npd->tim->sum(fn ($t) => $t->hitung()['jumlah']));
+
+        // Dashboard hanya menghitung anggota yang bukan Input Manual.
+        $npd->update(['status' => 'Selesai']);
+        $rekap = app(\App\Services\PerjalananDinasDashboardService::class)->data(['metrik' => 'terima'], 2026)['rekap'];
+        $this->assertSame(1, $rekap['total']['pegawai']);
+        $this->assertSame((float) $biasa->hitung()['jumlah'], $rekap['total']['terima']);
+
+        // Dokumen tetap memuat anggota manual.
+        $this->actingAs($superadmin)->get(route('npd.cetak-daftar', $npd))->assertOk();
+
+        // Formulir: butir "Input Manual", dan penandanya terbawa saat disunting.
+        $npd->update(['status' => 'Draft NPD - PPTK']);
+        $this->actingAs($superadmin)->get(route('npd.pd.edit', $npd))->assertOk()
+            ->assertSee('Input Manual')
+            ->assertSee('data-input-manual name="tim[', false)
+            ->assertSee('"input_manual":1,"nama":"Tenaga Ahli Luar"', false);
+    }
+
     public function test_tarif_bbm_dicetak_tanpa_desimal_kecuali_memang_ada(): void
     {
         $this->assertSame('Rp15.950/liter', \App\Helpers\NpdPerjalananHitung::formatTarifBbm(15_950.0));

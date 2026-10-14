@@ -125,6 +125,7 @@ class NpdKontribusiDiklatController extends Controller
         $detail = $npd->detail_json ?? [];
         $pesertaAwal = $npd->peserta->map(fn ($p) => [
             'pegawai_id' => $p->pegawai_id,
+            'input_manual' => $p->input_manual,
             'nama' => $p->nama,
             'pangkat' => $p->pangkat,
             'nip' => $p->nip,
@@ -374,7 +375,9 @@ class NpdKontribusiDiklatController extends Controller
             $subKontribusi = ($volumeKontribusi * $tarifKontribusi) + ($volumeMooc * $tarifMooc);
             $subPerjalanan = ($hariUh * $tarifUh) + ($volumeAkomodasi * $tarifAkomodasi) + ($hariSaku * $tarifSaku) + $transport;
 
-            $pegawaiId = $p['pegawai_id'] ?? null;
+            // "Input Manual" melepas tautan ke Data Pegawai, apa pun yang dikirim.
+            $manual = (bool) ($p['input_manual'] ?? false);
+            $pegawaiId = $manual ? null : ($p['pegawai_id'] ?? null);
             $nama = $p['nama'];
             $pangkat = $p['pangkat'] ?? null;
             $nip = $p['nip'] ?? null;
@@ -392,6 +395,7 @@ class NpdKontribusiDiklatController extends Controller
 
             return [
                 'pegawai_id' => $pegawaiId,
+                'input_manual' => $manual,
                 'nama' => $nama,
                 'pangkat' => $pangkat,
                 'nip' => $nip,

@@ -30,6 +30,8 @@
                 <div class="ns-drop" data-name-drop></div>
             </div>
             <input type="hidden" data-pegawai-id name="peserta[{{ $i }}][pegawai_id]" value="{{ $pegawaiIdVal }}">
+            {{-- "Input Manual": lihat npd/_input-manual.blade.php --}}
+            <input type="hidden" data-input-manual name="peserta[{{ $i }}][input_manual]" value="{{ old("peserta.$i.input_manual", $p['input_manual'] ?? false) ? 1 : 0 }}">
         </div>
         <div class="fg">
             {{-- Golongan saja ("III/a"), ditarik dari Data Pegawai. Nama

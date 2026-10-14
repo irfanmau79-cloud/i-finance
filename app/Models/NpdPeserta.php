@@ -10,6 +10,7 @@ use Illuminate\Database\Eloquent\Relations\BelongsTo;
 #[Fillable([
     'npd_id',
     'pegawai_id',
+    'input_manual',
     'nama',
     'pangkat',
     'nip',
@@ -33,6 +34,7 @@ class NpdPeserta extends Model
     protected function casts(): array
     {
         return [
+            'input_manual' => 'boolean',
             'volume_kontribusi' => 'integer',
             'tarif_kontribusi' => 'decimal:2',
             'volume_mooc' => 'integer',

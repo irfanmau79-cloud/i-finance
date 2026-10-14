@@ -77,6 +77,20 @@ class RiwayatPerjalananDinasPegawaiTest extends TestCase
         $this->assertTrue($riwayat['halaman']->items()[0]['kecocokan_nama']);
     }
 
+    /** Baris "Input Manual" tidak dicocokkan ke pegawai lewat nama. */
+    public function test_baris_input_manual_tidak_muncul_walau_namanya_cocok(): void
+    {
+        $pegawai = Pegawai::create(['nama' => 'Budi Manual', 'nip' => '199001012010011009', 'jabatan' => 'Auditor', 'bidang' => 'Irban I', 'aktif' => true]);
+        $pd = $this->npd('pd', '2026-03-01');
+        $pd->tim()->create(['pegawai_id' => null, 'input_manual' => true, 'nama' => 'Budi Manual', 'tiket' => 100_000]);
+        $kd = $this->npd('kd', '2026-03-02', ['mode_kd' => 'perjalanan']);
+        $kd->peserta()->create(['pegawai_id' => null, 'input_manual' => true, 'nama' => 'Budi Manual', 'hari_uh' => 2, 'tarif_uh' => 150_000]);
+
+        $riwayat = app(\App\Services\RiwayatPerjalananDinasPegawaiService::class)->riwayat($pegawai, [], 1);
+
+        $this->assertTrue($riwayat['kosong']);
+    }
+
     public function test_nomor_sp_tampil_untuk_yang_tertaut_kosong_untuk_yang_tidak(): void
     {
         $pegawai = Pegawai::create(['nama' => 'Ani Auditor', 'nip' => '1', 'jabatan' => 'Auditor', 'bidang' => 'Irban I', 'aktif' => true]);

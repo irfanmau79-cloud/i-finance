@@ -206,9 +206,12 @@ class NotifikasiNpdService
             $daftar[] = $this->rakit(
                 nama: $nama,
                 sumber: 'Anggota tim pada NPD',
-                pegawai: $anggota->pegawai_id !== null
-                    ? Pegawai::find($anggota->pegawai_id)
-                    : Pegawai::cariByNama($nama),
+                // "Input Manual" tidak dicocokkan ke Data Pegawai lewat nama.
+                pegawai: match (true) {
+                    $anggota->pegawai_id !== null => Pegawai::find($anggota->pegawai_id),
+                    (bool) $anggota->input_manual => null,
+                    default => Pegawai::cariByNama($nama),
+                },
             ) + ['nominal' => $nominal];
         }
 

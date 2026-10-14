@@ -108,6 +108,19 @@ class DashboardPerjalananDinasTest extends TestCase
         $this->assertSame(200_000.0, $rekap['total']['terima']);
     }
 
+    /** Anggota "Input Manual" tidak dihitung, walau NIP/namanya sama dengan orang lain. */
+    public function test_anggota_input_manual_tidak_masuk_dashboard(): void
+    {
+        $npd = $this->npd('pd', '2026-05-02', 300_000);
+        $npd->tim()->create(['nama' => 'Orang Dalam', 'nip' => '', 'bidang_snapshot' => 'Sekretariat', 'tiket' => 100_000]);
+        $npd->tim()->create(['nama' => 'Orang Dalam', 'nip' => '', 'input_manual' => true, 'tiket' => 200_000]);
+
+        $rekap = $this->service()->data([], 2026)['rekap'];
+
+        $this->assertSame(1, $rekap['total']['pegawai']);
+        $this->assertSame(100_000.0, $rekap['total']['terima']);
+    }
+
     public function test_bidang_tidak_dikenali_masuk_kelompok_tanpa_bidang_bukan_dibuang(): void
     {
         $npd = $this->npd('pd', '2026-05-02', 100_000);

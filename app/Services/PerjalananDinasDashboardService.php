@@ -117,7 +117,10 @@ class PerjalananDinasDashboardService
             ->orderBy('tanggal_npd')
             ->orderBy('id')
             ->get()
-            ->flatMap(fn (Npd $npd) => $npd->tim->map(fn (NpdTim $tim) => self::baris($npd, $tim)));
+            // Anggota "Input Manual" sengaja tidak ditautkan ke Data Pegawai
+            // dan tidak dihitung di dashboard ini.
+            ->flatMap(fn (Npd $npd) => $npd->tim->where('input_manual', false)
+                ->map(fn (NpdTim $tim) => self::baris($npd, $tim)));
 
         // Rincian manual ikut dibaca di sini. Periode sebelum migrasi NPD-nya
         // sudah masuk lewat Import NPD Historis, tetapi tanpa rincian anggota

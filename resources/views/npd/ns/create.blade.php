@@ -200,6 +200,7 @@
         'rekening' => $v->rekening,
     ]));
 ?>
+@include('npd._input-manual')
 <script>
 (function () {
     const masterAnggaranData = @json($masterAnggaranJs);
@@ -450,14 +451,20 @@
         const rekeningInput = row.querySelector('[data-rekening]');
         const delBtn = row.querySelector('[data-nara-remove]');
 
+        const manual = npdInputManual(row, nameInput, nameDrop, () => {
+            pegawaiIdField.value = '';
+            vendorIdField.value = '';
+        }, 'Data Pegawai/Vendor');
+
         function renderNameDrop(query) {
             const q = query.trim().toLowerCase();
             let items = q ? namaData.filter(n => n.nama.toLowerCase().includes(q)) : namaData;
             items = items.slice(0, 30);
 
             nameDrop.innerHTML = '';
+            nameDrop.appendChild(manual.butir());
             if (q && ! items.length) {
-                nameDrop.innerHTML = '<div class="ns-empty">Tidak ditemukan di master — akan disimpan sebagai nama manual.</div>';
+                nameDrop.insertAdjacentHTML('beforeend', '<div class="ns-empty">Tidak ditemukan di master — akan disimpan sebagai nama manual.</div>');
             } else {
                 items.forEach(n => {
                     const el = document.createElement('div');
@@ -480,9 +487,9 @@
         nameInput.addEventListener('input', () => {
             pegawaiIdField.value = '';
             vendorIdField.value = '';
-            renderNameDrop(nameInput.value);
+            if (! manual.aktif()) renderNameDrop(nameInput.value);
         });
-        nameInput.addEventListener('focus', () => renderNameDrop(nameInput.value));
+        nameInput.addEventListener('focus', () => { if (! manual.aktif()) renderNameDrop(nameInput.value); });
 
         ['[data-jp]', '[data-tarif]', '[data-transport]', '[data-pph21]'].forEach(sel => {
             row.querySelector(sel).addEventListener('input', () => recalcRow(row));

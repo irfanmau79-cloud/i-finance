@@ -301,11 +301,13 @@ class NpdPdController extends Controller
     private function simpanTim(Npd $npd, array $tim, int $penerimaIndex, string $modePenerima): void
     {
         foreach ($tim as $i => $anggota) {
-            $pegawaiId = $anggota['pegawai_id'] ?? null;
+            // "Input Manual" melepas tautan ke Data Pegawai, apa pun yang dikirim.
+            $manual = (bool) ($anggota['input_manual'] ?? false);
+            $pegawaiId = $manual ? null : ($anggota['pegawai_id'] ?? null);
             $pegawai = $pegawaiId ? Pegawai::find($pegawaiId) : null;
             $nama = $pegawai ? $pegawai->nama : $anggota['nama'];
             $npdTim = $npd->tim()->create([
-                'pegawai_id' => $pegawaiId, 'nama' => $nama, 'jabatan' => $anggota['jabatan'] ?? null,
+                'pegawai_id' => $pegawaiId, 'input_manual' => $manual, 'nama' => $nama, 'jabatan' => $anggota['jabatan'] ?? null,
                 'bidang_snapshot' => $pegawai?->bidang,
                 'nip' => $anggota['nip'] ?? null, 'rekening' => $anggota['rekening'] ?? null,
                 'bbm_nominal' => NpdPerjalananHitung::memakaiNominalBbm($anggota) ? (float) $anggota['bbm_nominal'] : null,

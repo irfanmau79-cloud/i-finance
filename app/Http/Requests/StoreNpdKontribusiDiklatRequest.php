@@ -92,6 +92,8 @@ class StoreNpdKontribusiDiklatRequest extends FormRequest
 
             'peserta' => ['required', 'array', 'min:1'],
             'peserta.*.pegawai_id' => ['nullable', 'integer', 'exists:pegawai,id'],
+            // "Input Manual": nama diketik sendiri, tidak ditautkan ke Data Pegawai.
+            'peserta.*.input_manual' => ['nullable', 'boolean'],
             'peserta.*.nama' => ['required', 'string', 'max:255'],
             'peserta.*.pangkat' => ['nullable', 'string', 'max:100'],
             'peserta.*.nip' => ['nullable', 'string', 'max:50'],

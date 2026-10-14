@@ -77,6 +77,9 @@ class StoreNpdPdRequest extends FormRequest
 
             'tim' => ['required', 'array', 'min:1'],
             'tim.*.pegawai_id' => ['nullable', 'integer', 'exists:pegawai,id'],
+            // "Input Manual": nama diketik sendiri, tidak ditautkan ke Data
+            // Pegawai dan tidak masuk Dashboard Perjalanan Dinas.
+            'tim.*.input_manual' => ['nullable', 'boolean'],
             'tim.*.nama' => ['required', 'string', 'max:255'],
             'tim.*.jabatan' => ['nullable', 'string', 'max:255'],
             'tim.*.nip' => ['nullable', 'string', 'max:30'],

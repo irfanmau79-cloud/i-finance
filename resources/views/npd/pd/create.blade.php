@@ -352,6 +352,7 @@
 
     $timTersimpan = $npdEdit?->tim->map(fn ($tim) => [
         'pegawai_id' => $tim->pegawai_id,
+        'input_manual' => $tim->input_manual ? 1 : 0,
         'nama' => $tim->nama,
         'jabatan' => $tim->jabatan,
         'nip' => $tim->nip,
@@ -386,6 +387,7 @@
     ));
     $penerimaAwal = (int) old('penerima_index', $npdEdit?->tim->search(fn ($tim) => $tim->is_penerima) ?? 0);
 ?>
+@include('npd._input-manual')
 <script>
 (function () {
     const masterAnggaranData = @json($masterAnggaranJs);
@@ -696,6 +698,7 @@
             + '<div class="ns-drop" data-name-drop></div>'
             + '</div>'
             + '<input type="hidden" data-pegawai-id name="tim[' + idx + '][pegawai_id]" value="">'
+            + '<input type="hidden" data-input-manual name="tim[' + idx + '][input_manual]" value="0">'
             + '</div>'
             + '<div class="fg"><label class="fl">Jabatan</label><input type="text" data-jabatan name="tim[' + idx + '][jabatan]" value=""></div>'
             + '<div class="fg"><label class="fl">NIP</label><input type="text" data-nip name="tim[' + idx + '][nip]" value=""></div>'
@@ -1001,13 +1004,18 @@
         const nipInput = timRow.querySelector('[data-nip]');
         const rekeningInput = timRow.querySelector('[data-rekening]');
 
+        const manual = npdInputManual(timRow, nameInput, nameDrop, () => {
+            pegawaiIdField.value = '';
+        }, 'Data Pegawai');
+
         function renderNameDrop(query) {
             const q = query.trim().toLowerCase();
             let items = q ? pegawaiData.filter(n => n.nama.toLowerCase().includes(q)) : pegawaiData;
             items = items.slice(0, 30);
             nameDrop.innerHTML = '';
+            nameDrop.appendChild(manual.butir());
             if (q && ! items.length) {
-                nameDrop.innerHTML = '<div class="ns-empty">Tidak ditemukan di master — akan disimpan sebagai nama manual.</div>';
+                nameDrop.insertAdjacentHTML('beforeend', '<div class="ns-empty">Tidak ditemukan di master — akan disimpan sebagai nama manual.</div>');
             } else {
                 items.forEach(n => {
                     const el = document.createElement('div');
@@ -1032,11 +1040,11 @@
 
         nameInput.addEventListener('input', () => {
             pegawaiIdField.value = '';
-            renderNameDrop(nameInput.value);
+            if (! manual.aktif()) renderNameDrop(nameInput.value);
             refreshCopySources();
             refreshPenerima();
         });
-        nameInput.addEventListener('focus', () => renderNameDrop(nameInput.value));
+        nameInput.addEventListener('focus', () => { if (! manual.aktif()) renderNameDrop(nameInput.value); });
 
         const copySource = timRow.querySelector('[data-copy-source]');
         const copyButton = timRow.querySelector('[data-copy-apply]');
@@ -1103,6 +1111,8 @@
         if (data) {
             row.querySelector('[data-name-input]').value = data.nama || '';
             row.querySelector('[data-pegawai-id]').value = data.pegawai_id || '';
+            // Isian lama yang kembali dari server berupa teks "0"/"1".
+            if (Number(data.input_manual)) row.npdManual.set(true);
             row.querySelector('[data-jabatan]').value = data.jabatan || '';
             row.querySelector('[data-nip]').value = data.nip || '';
             row.querySelector('[data-rekening]').value = data.rekening || '';

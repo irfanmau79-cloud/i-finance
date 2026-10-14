@@ -242,6 +242,30 @@ class NpdKontribusiDiklatTest extends TestCase
         $showResponse->assertDontSee('Referensi NPD Kontribusi');
     }
 
+    /** "Input Manual": peserta tidak ditautkan ke Data Pegawai walau payload membawa pegawai_id. */
+    public function test_peserta_input_manual_tidak_ditautkan_ke_data_pegawai(): void
+    {
+        $superadmin = $this->buatUser('superadmin', 'kd-input-manual');
+        $pegawai = \App\Models\Pegawai::create(['nama' => 'Andi Saputra', 'nip' => '198501012010011001', 'jabatan' => 'Auditor', 'bidang' => 'Irban I', 'aktif' => true]);
+        $payload = $this->payloadPerjalanan($this->buatMasterAnggaran());
+        $payload['peserta'][0]['pegawai_id'] = $pegawai->id;
+        $payload['peserta'][0]['input_manual'] = '1';
+        $payload['peserta'][0]['nama'] = 'Peserta Luar';
+        $payload['penerima_transfer'][0]['nama'] = 'Peserta Luar';
+
+        $this->actingAs($superadmin)->post(route('npd.kd.store'), $payload)->assertSessionHasNoErrors();
+        $npd = Npd::with('peserta')->latest('id')->firstOrFail();
+        $peserta = $npd->peserta->first();
+
+        $this->assertSame('Peserta Luar', $peserta->nama);
+        $this->assertTrue($peserta->input_manual);
+        $this->assertNull($peserta->pegawai_id);
+
+        $this->actingAs($superadmin)->get(route('npd.kd.edit', $npd))->assertOk()
+            ->assertSee('Input Manual')
+            ->assertSee('name="peserta[0][input_manual]" value="1"', false);
+    }
+
     public function test_formulir_menawarkan_referensi_sp_beserta_anggotanya_bukan_npd_kontribusi(): void
     {
         $pptk = $this->buatUser('pptk', 'kd-form-sp');

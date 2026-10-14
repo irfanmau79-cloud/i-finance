@@ -167,6 +167,7 @@ class NpdTransportController extends Controller
 
             $anggota = [
                 'pegawai_id' => $sumber?->pegawai_id,
+                'input_manual' => (bool) $sumber?->input_manual,
                 'nama' => $sumber?->nama ?? '',
                 'jabatan' => $sumber?->jabatan,
                 'bidang_snapshot' => $sumber?->bidang_snapshot ?: $sumber?->pegawai?->bidang,

@@ -356,6 +356,7 @@
         ])->all(),
     ]);
 ?>
+@include('npd._input-manual')
 <script>
 (function () {
     const masterAnggaranData = @json($masterAnggaranJs);
@@ -587,6 +588,7 @@
             + '<div class="ns-drop" data-name-drop></div>'
             + '</div>'
             + '<input type="hidden" data-pegawai-id name="peserta[' + idx + '][pegawai_id]" value="">'
+            + '<input type="hidden" data-input-manual name="peserta[' + idx + '][input_manual]" value="0">'
             + '</div>'
             + '<div class="fg"><label class="fl">Golongan</label><input type="text" data-pangkat name="peserta[' + idx + '][pangkat]" value=""></div>'
             + '<div class="fg"><label class="fl">NIP</label><input type="text" data-nip name="peserta[' + idx + '][nip]" value=""></div>'
@@ -710,14 +712,19 @@
         const rekeningInput = row.querySelector('[data-rekening]');
         const delBtn = row.querySelector('[data-peserta-remove]');
 
+        const manual = npdInputManual(row, nameInput, nameDrop, () => {
+            pegawaiIdField.value = '';
+        }, 'Data Pegawai');
+
         function renderNameDrop(query) {
             const q = query.trim().toLowerCase();
             let items = q ? namaData.filter(n => n.nama.toLowerCase().includes(q)) : namaData;
             items = items.slice(0, 30);
 
             nameDrop.innerHTML = '';
+            nameDrop.appendChild(manual.butir());
             if (q && ! items.length) {
-                nameDrop.innerHTML = '<div class="ns-empty">Tidak ditemukan di master — akan disimpan sebagai nama manual.</div>';
+                nameDrop.insertAdjacentHTML('beforeend', '<div class="ns-empty">Tidak ditemukan di master — akan disimpan sebagai nama manual.</div>');
             } else {
                 items.forEach(n => {
                     const el = document.createElement('div');
@@ -740,9 +747,9 @@
 
         nameInput.addEventListener('input', () => {
             pegawaiIdField.value = '';
-            renderNameDrop(nameInput.value);
+            if (! manual.aktif()) renderNameDrop(nameInput.value);
         });
-        nameInput.addEventListener('focus', () => renderNameDrop(nameInput.value));
+        nameInput.addEventListener('focus', () => { if (! manual.aktif()) renderNameDrop(nameInput.value); });
 
         ['[data-vol-kontribusi]', '[data-tarif-kontribusi]', '[data-vol-mooc]', '[data-tarif-mooc]',
          '[data-hari-uh]', '[data-tarif-uh]', '[data-vol-akomodasi]', '[data-tarif-akomodasi]',

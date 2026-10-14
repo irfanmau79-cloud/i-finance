@@ -97,6 +97,7 @@ class NpdRevisiService
             'tiket' => ['Tiket', 'uang'],
             'representatif' => ['Uang Representatif', 'uang'],
             'is_penerima' => ['Penerima Dana', 'ya'],
+            'input_manual' => ['Input Manual', 'ya'],
         ]],
         'narasumber' => ['Narasumber', [
             'nama' => ['Nama', 'teks'],
@@ -114,6 +115,7 @@ class NpdRevisiService
             'pangkat' => ['Golongan', 'teks'],
             'nip' => ['NIP', 'teks'],
             'rekening' => ['Rekening', 'teks'],
+            'input_manual' => ['Input Manual', 'ya'],
             'volume_kontribusi' => ['Volume Kontribusi', 'angka'],
             'tarif_kontribusi' => ['Tarif Kontribusi', 'uang'],
             'volume_mooc' => ['Volume MOOC', 'angka'],

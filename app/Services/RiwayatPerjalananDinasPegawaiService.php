@@ -86,7 +86,9 @@ class RiwayatPerjalananDinasPegawaiService
     {
         $query->where('pegawai_id', $pegawai->id)
             ->orWhere(function ($q) use ($pegawai) {
+                // Baris "Input Manual" sengaja tidak ditautkan ke pegawai mana pun.
                 $q->whereNull('pegawai_id')
+                    ->where('input_manual', false)
                     ->whereRaw('LOWER(TRIM(nama)) = ?', [mb_strtolower(trim($pegawai->nama))]);
             });
     }

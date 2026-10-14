@@ -11,6 +11,7 @@ use Illuminate\Database\Eloquent\Relations\HasMany;
 #[Fillable([
     'npd_id',
     'pegawai_id',
+    'input_manual',
     'nama',
     'jabatan',
     'bidang_snapshot',
@@ -45,6 +46,7 @@ class NpdTim extends Model
             'tiket' => 'decimal:2',
             'representatif' => 'decimal:2',
             'is_penerima' => 'boolean',
+            'input_manual' => 'boolean',
         ];
     }
 

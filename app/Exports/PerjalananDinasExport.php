@@ -42,6 +42,8 @@ class PerjalananDinasExport extends DataManagementExport implements PunyaPetunju
     public function query(): Builder
     {
         return NpdTim::query()
+            // Sama dengan dashboard: anggota "Input Manual" tidak ikut.
+            ->where('input_manual', false)
             ->whereHas('npd', fn ($q) => $q->whereIn('jenis', ['pd', 'tr'])->where('status', 'Selesai'))
             ->with(['npd.masterAnggaran', 'pegawai', 'paket'])
             ->orderBy('npd_id');
